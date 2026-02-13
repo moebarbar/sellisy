@@ -3,11 +3,14 @@ import { useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NeonTemplate } from "@/components/storefront/neon-template";
 import { SilkTemplate } from "@/components/storefront/silk-template";
-import type { Store, Product } from "@shared/schema";
+import type { Store, Product, Bundle } from "@shared/schema";
+
+type BundleWithProducts = Bundle & { products: Product[] };
 
 type StorefrontData = {
   store: Store;
   products: Product[];
+  bundles?: BundleWithProducts[];
 };
 
 export default function StorefrontPage() {
@@ -45,8 +48,8 @@ export default function StorefrontPage() {
   }
 
   if (data.store.templateKey === "silk") {
-    return <SilkTemplate store={data.store} products={data.products} />;
+    return <SilkTemplate store={data.store} products={data.products} bundles={data.bundles || []} />;
   }
 
-  return <NeonTemplate store={data.store} products={data.products} />;
+  return <NeonTemplate store={data.store} products={data.products} bundles={data.bundles || []} />;
 }

@@ -12,6 +12,8 @@ import StoresPage from "@/pages/dashboard/stores";
 import StoreDetailPage from "@/pages/dashboard/store-detail";
 import LibraryPage from "@/pages/dashboard/library";
 import StorefrontPage from "@/pages/storefront";
+import ProductDetailPage from "@/pages/product-detail";
+import BundleDetailPage from "@/pages/bundle-detail";
 import CheckoutSuccessPage from "@/pages/checkout-success";
 
 function Router() {
@@ -30,6 +32,8 @@ function Router() {
       <Route path="/dashboard/library">
         <DashboardLayout><LibraryPage /></DashboardLayout>
       </Route>
+      <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
+      <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
       <Route path="/s/:slug" component={StorefrontPage} />
       <Route path="/checkout/success" component={CheckoutSuccessPage} />
       <Route component={NotFound} />

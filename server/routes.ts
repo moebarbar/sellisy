@@ -123,38 +123,179 @@ export async function registerRoutes(
     res.json(sp);
   });
 
+  // --- Bundle CRUD (authenticated) ---
+
+  app.get("/api/bundles/:storeId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.storeId as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const storeBundles = await storage.getBundlesByStore(store.id);
+    const result = [];
+    for (const b of storeBundles) {
+      const items = await storage.getBundleItems(b.id);
+      result.push({ ...b, products: items.map(i => i.product) });
+    }
+    res.json(result);
+  });
+
+  app.post("/api/bundles", isAuthenticated, async (req, res) => {
+    const schema = z.object({
+      storeId: z.string(),
+      name: z.string().min(1),
+      description: z.string().optional(),
+      priceCents: z.number().int().min(0),
+      thumbnailUrl: z.string().optional(),
+      productIds: z.array(z.string()).min(1),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+
+    const store = await storage.getStoreById(parsed.data.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+
+    const bundle = await storage.createBundle({
+      storeId: store.id,
+      name: parsed.data.name,
+      description: parsed.data.description || null,
+      priceCents: parsed.data.priceCents,
+      thumbnailUrl: parsed.data.thumbnailUrl || null,
+      isPublished: false,
+    });
+
+    for (const productId of parsed.data.productIds) {
+      await storage.addBundleItem({ bundleId: bundle.id, productId });
+    }
+
+    const items = await storage.getBundleItems(bundle.id);
+    res.json({ ...bundle, products: items.map(i => i.product) });
+  });
+
+  app.patch("/api/bundles/:id", isAuthenticated, async (req, res) => {
+    const schema = z.object({
+      name: z.string().min(1).optional(),
+      description: z.string().optional(),
+      priceCents: z.number().int().min(0).optional(),
+      thumbnailUrl: z.string().optional(),
+      isPublished: z.boolean().optional(),
+      productIds: z.array(z.string()).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+
+    const bundle = await storage.getBundleById(req.params.id as string);
+    if (!bundle) return res.status(404).json({ message: "Bundle not found" });
+
+    const store = await storage.getStoreById(bundle.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+
+    const { productIds, ...updateData } = parsed.data;
+    const updated = await storage.updateBundle(bundle.id, updateData as any);
+
+    if (productIds) {
+      const existingItems = await storage.getBundleItems(bundle.id);
+      for (const item of existingItems) {
+        if (!productIds.includes(item.productId)) {
+          await storage.removeBundleItem(bundle.id, item.productId);
+        }
+      }
+      const existingIds = existingItems.map(i => i.productId);
+      for (const pid of productIds) {
+        if (!existingIds.includes(pid)) {
+          await storage.addBundleItem({ bundleId: bundle.id, productId: pid });
+        }
+      }
+    }
+
+    const items = await storage.getBundleItems(bundle.id);
+    res.json({ ...updated, products: items.map(i => i.product) });
+  });
+
+  app.delete("/api/bundles/:id", isAuthenticated, async (req, res) => {
+    const bundle = await storage.getBundleById(req.params.id as string);
+    if (!bundle) return res.status(404).json({ message: "Bundle not found" });
+
+    const store = await storage.getStoreById(bundle.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+
+    await storage.deleteBundle(bundle.id);
+    res.json({ ok: true });
+  });
+
+  // --- Public storefront ---
+
   app.get("/api/storefront/:slug", async (req, res) => {
     const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
     const publishedProducts = await storage.getPublishedStoreProducts(store.id);
-    res.json({ store, products: publishedProducts });
+    const publishedBundles = await storage.getPublishedBundlesByStore(store.id);
+    const bundlesWithProducts = [];
+    for (const b of publishedBundles) {
+      const items = await storage.getBundleItems(b.id);
+      bundlesWithProducts.push({ ...b, products: items.map(i => i.product) });
+    }
+    res.json({ store, products: publishedProducts, bundles: bundlesWithProducts });
+  });
+
+  app.get("/api/storefront/:slug/product/:productId", async (req, res) => {
+    const store = await storage.getStoreBySlug(req.params.slug as string);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+
+    const product = await storage.getProductById(req.params.productId as string);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    res.json({ store, product });
+  });
+
+  app.get("/api/storefront/:slug/bundle/:bundleId", async (req, res) => {
+    const store = await storage.getStoreBySlug(req.params.slug as string);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+
+    const data = await storage.getBundleWithProducts(req.params.bundleId as string);
+    if (!data || data.bundle.storeId !== store.id) return res.status(404).json({ message: "Bundle not found" });
+
+    res.json({ store, bundle: data.bundle, products: data.products });
   });
 
   app.post("/api/checkout", async (req, res) => {
-    const schema = z.object({ storeId: z.string(), productId: z.string() });
+    const schema = z.object({
+      storeId: z.string(),
+      productId: z.string().optional(),
+      bundleId: z.string().optional(),
+    }).refine(d => d.productId || d.bundleId, { message: "productId or bundleId required" });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
 
     const store = await storage.getStoreBySlug(parsed.data.storeId) || await storage.getStoreById(parsed.data.storeId);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
-    const product = await storage.getProductById(parsed.data.productId);
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    let totalCents = 0;
+    const itemsToAdd: { productId: string; priceCents: number }[] = [];
+
+    if (parsed.data.bundleId) {
+      const bundleData = await storage.getBundleWithProducts(parsed.data.bundleId);
+      if (!bundleData || bundleData.bundle.storeId !== store.id) return res.status(404).json({ message: "Bundle not found" });
+      totalCents = bundleData.bundle.priceCents;
+      for (const p of bundleData.products) {
+        itemsToAdd.push({ productId: p.id, priceCents: p.priceCents });
+      }
+    } else if (parsed.data.productId) {
+      const product = await storage.getProductById(parsed.data.productId);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      totalCents = product.priceCents;
+      itemsToAdd.push({ productId: product.id, priceCents: product.priceCents });
+    }
 
     const order = await storage.createOrder({
       storeId: store.id,
       buyerEmail: "demo@example.com",
-      totalCents: product.priceCents,
+      totalCents,
       stripeSessionId: null,
       status: "COMPLETED",
     });
 
-    await storage.createOrderItem({
-      orderId: order.id,
-      productId: product.id,
-      priceCents: product.priceCents,
-    });
+    for (const item of itemsToAdd) {
+      await storage.createOrderItem({ orderId: order.id, ...item });
+    }
 
     const tokenHash = randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);

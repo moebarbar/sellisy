@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Sparkles } from "lucide-react";
-import type { Store, Product } from "@shared/schema";
+import type { Store, Product, Bundle } from "@shared/schema";
 
 function GoldDivider() {
   return (
@@ -12,7 +12,7 @@ function GoldDivider() {
   );
 }
 
-export function SilkTemplate({ store, products }: { store: Store; products: Product[] }) {
+export function SilkTemplate({ store, products, bundles }: { store: Store; products: Product[]; bundles: Array<{ id: string; name: string; description: string | null; priceCents: number; thumbnailUrl: string | null; products: Product[] }> }) {
   const handleBuy = async (product: Product) => {
     try {
       const res = await fetch("/api/checkout", {
@@ -104,12 +104,14 @@ export function SilkTemplate({ store, products }: { store: Store; products: Prod
                 >
                   {product.thumbnailUrl && (
                     <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden">
-                      <img
-                        src={product.thumbnailUrl}
-                        alt={product.title}
-                        className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        data-testid={`img-product-${product.id}`}
-                      />
+                      <a href={`/s/${store.slug}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
+                        <img
+                          src={product.thumbnailUrl}
+                          alt={product.title}
+                          className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                          data-testid={`img-product-${product.id}`}
+                        />
+                      </a>
                     </div>
                   )}
                   <div className="flex-1 p-8 md:p-10 flex flex-col justify-between">
@@ -126,7 +128,9 @@ export function SilkTemplate({ store, products }: { store: Store; products: Prod
                         style={{ color: "#2d2926", lineHeight: "1.3" }}
                         data-testid={`text-silk-product-${product.id}`}
                       >
-                        {product.title}
+                        <a href={`/s/${store.slug}/product/${product.id}`} className="hover:underline" data-testid={`link-product-title-${product.id}`}>
+                          {product.title}
+                        </a>
                       </h3>
                       {product.description && (
                         <p className="text-sm leading-relaxed line-clamp-3 mb-6" style={{ color: "#8a7d6b" }}>
@@ -170,6 +174,106 @@ export function SilkTemplate({ store, products }: { store: Store; products: Prod
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {bundles.length > 0 && (
+          <div className="mt-20">
+            <GoldDivider />
+            <h2 className="text-3xl md:text-4xl font-serif tracking-tight text-center mt-10 mb-12" style={{ color: "#2d2926" }}>
+              Curated Bundles
+            </h2>
+            <div className="space-y-10">
+              {bundles.map((bundle) => {
+                const totalValue = bundle.products.reduce((sum, p) => sum + p.priceCents, 0);
+                return (
+                  <div
+                    key={bundle.id}
+                    className="group flex flex-col md:flex-row rounded-md overflow-visible transition-all duration-500"
+                    style={{
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #e8e0d4",
+                      boxShadow: "0 2px 16px rgba(180, 160, 130, 0.08)",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = "0 8px 40px rgba(180, 160, 130, 0.18)";
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = "0 2px 16px rgba(180, 160, 130, 0.08)";
+                      e.currentTarget.style.transform = "translateY(0)";
+                    }}
+                    data-testid={`card-bundle-${bundle.id}`}
+                  >
+                    {bundle.thumbnailUrl && (
+                      <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden">
+                        <img
+                          src={bundle.thumbnailUrl}
+                          alt={bundle.name}
+                          className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 p-8 md:p-10 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="h-px flex-1" style={{ backgroundColor: "#e5d9c3" }} />
+                          <span className="text-[10px] tracking-[0.3em] uppercase font-medium flex items-center gap-1.5" style={{ color: "#b5a48a" }}>
+                            <Package className="h-3 w-3" />
+                            Bundle
+                          </span>
+                          <div className="h-px flex-1" style={{ backgroundColor: "#e5d9c3" }} />
+                        </div>
+                        <h3
+                          className="text-xl md:text-2xl font-serif mb-3 tracking-tight"
+                          style={{ color: "#2d2926", lineHeight: "1.3" }}
+                        >
+                          {bundle.name}
+                        </h3>
+                        {bundle.description && (
+                          <p className="text-sm leading-relaxed line-clamp-3 mb-4" style={{ color: "#8a7d6b" }}>
+                            {bundle.description}
+                          </p>
+                        )}
+                        <p className="text-xs tracking-wider uppercase mb-6" style={{ color: "#b5a48a" }}>
+                          {bundle.products.length} product{bundle.products.length !== 1 ? "s" : ""} included
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between gap-4 flex-wrap pt-4" style={{ borderTop: "1px solid #f0e9df" }}>
+                        <div className="flex items-baseline gap-3">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-xs font-medium tracking-wider uppercase" style={{ color: "#b5a48a" }}>
+                              Price
+                            </span>
+                            <span className="text-2xl font-serif" style={{ color: "#2d2926" }}>
+                              ${(bundle.priceCents / 100).toFixed(2)}
+                            </span>
+                          </div>
+                          {totalValue > bundle.priceCents && (
+                            <span className="text-sm line-through" style={{ color: "#b5a48a" }}>
+                              ${(totalValue / 100).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                        <a href={`/s/${store.slug}/bundle/${bundle.id}`} data-testid={`link-bundle-${bundle.id}`}>
+                          <Button
+                            className="rounded-full px-6 font-medium tracking-wide text-sm"
+                            style={{
+                              backgroundColor: "#8b6914",
+                              color: "#faf8f5",
+                              border: "1px solid #a07d1c",
+                            }}
+                          >
+                            <Package className="mr-2 h-4 w-4" />
+                            View Bundle
+                          </Button>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </main>

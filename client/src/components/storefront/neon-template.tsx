@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Zap, Sparkles } from "lucide-react";
-import type { Store, Product } from "@shared/schema";
+import type { Store, Product, Bundle } from "@shared/schema";
 
-export function NeonTemplate({ store, products }: { store: Store; products: Product[] }) {
+export function NeonTemplate({ store, products, bundles }: { store: Store; products: Product[]; bundles: Array<{ id: string; name: string; description: string | null; priceCents: number; thumbnailUrl: string | null; products: Product[] }> }) {
   const handleBuy = async (product: Product) => {
     try {
       const res = await fetch("/api/checkout", {
@@ -192,7 +192,7 @@ export function NeonTemplate({ store, products }: { store: Store; products: Prod
                 className="neon-card group"
               >
                 {product.thumbnailUrl && (
-                  <div className="relative overflow-hidden" style={{ borderRadius: "16px 16px 0 0" }}>
+                  <a href={"/s/" + store.slug + "/product/" + product.id} className="block relative overflow-hidden" style={{ borderRadius: "16px 16px 0 0" }}>
                     <div className="aspect-[16/10] overflow-hidden">
                       <img
                         src={product.thumbnailUrl}
@@ -206,7 +206,7 @@ export function NeonTemplate({ store, products }: { store: Store; products: Prod
                         ${(product.priceCents / 100).toFixed(2)}
                       </div>
                     </div>
-                  </div>
+                  </a>
                 )}
                 <div className="p-6">
                   {!product.thumbnailUrl && (
@@ -216,9 +216,11 @@ export function NeonTemplate({ store, products }: { store: Store; products: Prod
                       </span>
                     </div>
                   )}
-                  <h3 className="font-semibold text-lg text-white/95 mb-2 tracking-tight" data-testid={`text-neon-product-${product.id}`}>
-                    {product.title}
-                  </h3>
+                  <a href={"/s/" + store.slug + "/product/" + product.id} className="block">
+                    <h3 className="font-semibold text-lg text-white/95 mb-2 tracking-tight hover:text-cyan-300 transition-colors" data-testid={`text-neon-product-${product.id}`}>
+                      {product.title}
+                    </h3>
+                  </a>
                   <p className="text-sm text-white/40 line-clamp-2 mb-6 leading-relaxed">{product.description}</p>
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     {product.thumbnailUrl ? (
@@ -241,6 +243,64 @@ export function NeonTemplate({ store, products }: { store: Store; products: Prod
               </div>
             ))}
           </div>
+        )}
+
+        {bundles.length > 0 && (
+          <>
+            <div className="neon-separator my-16" />
+            <div className="text-center mb-12">
+              <h2 className="neon-hero-text text-3xl md:text-4xl font-extrabold tracking-tight mb-3">Bundles</h2>
+              <p className="text-white/40 text-sm">Save more with curated bundles</p>
+            </div>
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {bundles.map((bundle) => {
+                const totalValue = bundle.products.reduce((sum, p) => sum + p.priceCents, 0);
+                return (
+                  <div
+                    key={bundle.id}
+                    className="neon-card group"
+                    data-testid={`card-bundle-${bundle.id}`}
+                  >
+                    <div className="p-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg" style={{ background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.2)" }}>
+                          <Package className="h-4 w-4 text-purple-400" />
+                        </div>
+                        <span className="text-xs font-medium text-purple-300/80 tracking-wider uppercase">{bundle.products.length} products</span>
+                      </div>
+                      <h3 className="font-semibold text-lg text-white/95 mb-2 tracking-tight">
+                        {bundle.name}
+                      </h3>
+                      {bundle.description && (
+                        <p className="text-sm text-white/40 line-clamp-2 mb-6 leading-relaxed">{bundle.description}</p>
+                      )}
+                      <div className="flex items-center gap-3 mb-6 flex-wrap">
+                        <span className="neon-price text-xl font-bold text-cyan-300">
+                          ${(bundle.priceCents / 100).toFixed(2)}
+                        </span>
+                        {totalValue > bundle.priceCents && (
+                          <span className="text-sm text-white/30 line-through">
+                            ${(totalValue / 100).toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                      <a
+                        href={`/s/${store.slug}/bundle/${bundle.id}`}
+                        data-testid={`link-bundle-${bundle.id}`}
+                      >
+                        <Button
+                          className="neon-buy-btn text-white font-medium border-0 no-default-hover-elevate no-default-active-elevate w-full"
+                        >
+                          <Package className="mr-2 h-4 w-4" />
+                          View Bundle
+                        </Button>
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </main>
 

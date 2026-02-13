@@ -30,6 +30,7 @@ export const products = pgTable("products", {
   description: text("description"),
   category: text("category").notNull().default("templates"),
   priceCents: integer("price_cents").notNull().default(0),
+  originalPriceCents: integer("original_price_cents"),
   thumbnailUrl: text("thumbnail_url"),
   status: productStatusEnum("status").notNull().default("DRAFT"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -99,3 +100,28 @@ export const downloadTokens = pgTable("download_tokens", {
 export const insertDownloadTokenSchema = createInsertSchema(downloadTokens).omit({ id: true, createdAt: true });
 export type InsertDownloadToken = z.infer<typeof insertDownloadTokenSchema>;
 export type DownloadToken = typeof downloadTokens.$inferSelect;
+
+export const bundles = pgTable("bundles", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  priceCents: integer("price_cents").notNull().default(0),
+  thumbnailUrl: text("thumbnail_url"),
+  isPublished: boolean("is_published").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBundleSchema = createInsertSchema(bundles).omit({ id: true, createdAt: true });
+export type InsertBundle = z.infer<typeof insertBundleSchema>;
+export type Bundle = typeof bundles.$inferSelect;
+
+export const bundleItems = pgTable("bundle_items", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  bundleId: varchar("bundle_id", { length: 64 }).notNull(),
+  productId: varchar("product_id", { length: 64 }).notNull(),
+});
+
+export const insertBundleItemSchema = createInsertSchema(bundleItems).omit({ id: true });
+export type InsertBundleItem = z.infer<typeof insertBundleItemSchema>;
+export type BundleItem = typeof bundleItems.$inferSelect;

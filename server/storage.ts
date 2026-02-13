@@ -2,6 +2,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
+  bundles, bundleItems,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -9,6 +10,8 @@ import {
   type Order, type InsertOrder,
   type OrderItem, type InsertOrderItem,
   type DownloadToken, type InsertDownloadToken,
+  type Bundle, type InsertBundle,
+  type BundleItem, type InsertBundleItem,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -39,6 +42,17 @@ export interface IStorage {
 
   getFileAssetsByProduct(productId: string): Promise<FileAsset[]>;
   createFileAsset(asset: InsertFileAsset): Promise<FileAsset>;
+
+  createBundle(bundle: InsertBundle): Promise<Bundle>;
+  getBundleById(id: string): Promise<Bundle | undefined>;
+  getBundlesByStore(storeId: string): Promise<Bundle[]>;
+  getPublishedBundlesByStore(storeId: string): Promise<Bundle[]>;
+  updateBundle(id: string, data: Partial<InsertBundle>): Promise<Bundle | undefined>;
+  deleteBundle(id: string): Promise<void>;
+  addBundleItem(item: InsertBundleItem): Promise<BundleItem>;
+  removeBundleItem(bundleId: string, productId: string): Promise<void>;
+  getBundleItems(bundleId: string): Promise<(BundleItem & { product: Product })[]>;
+  getBundleWithProducts(bundleId: string): Promise<{ bundle: Bundle; products: Product[] } | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -164,6 +178,65 @@ export class DatabaseStorage implements IStorage {
   async createFileAsset(data: InsertFileAsset) {
     const [asset] = await db.insert(fileAssets).values(data).returning();
     return asset;
+  }
+
+  async createBundle(data: InsertBundle) {
+    const [bundle] = await db.insert(bundles).values(data).returning();
+    return bundle;
+  }
+
+  async getBundleById(id: string) {
+    const [bundle] = await db.select().from(bundles).where(eq(bundles.id, id));
+    return bundle;
+  }
+
+  async getBundlesByStore(storeId: string) {
+    return db.select().from(bundles).where(eq(bundles.storeId, storeId)).orderBy(desc(bundles.createdAt));
+  }
+
+  async getPublishedBundlesByStore(storeId: string) {
+    return db.select().from(bundles).where(and(eq(bundles.storeId, storeId), eq(bundles.isPublished, true)));
+  }
+
+  async updateBundle(id: string, data: Partial<InsertBundle>) {
+    const [bundle] = await db.update(bundles).set(data).where(eq(bundles.id, id)).returning();
+    return bundle;
+  }
+
+  async deleteBundle(id: string) {
+    await db.delete(bundleItems).where(eq(bundleItems.bundleId, id));
+    await db.delete(bundles).where(eq(bundles.id, id));
+  }
+
+  async addBundleItem(data: InsertBundleItem) {
+    const [item] = await db.insert(bundleItems).values(data).returning();
+    return item;
+  }
+
+  async removeBundleItem(bundleId: string, productId: string) {
+    await db.delete(bundleItems).where(and(eq(bundleItems.bundleId, bundleId), eq(bundleItems.productId, productId)));
+  }
+
+  async getBundleItems(bundleId: string) {
+    const items = await db.select().from(bundleItems).where(eq(bundleItems.bundleId, bundleId));
+    const result = [];
+    for (const item of items) {
+      const [product] = await db.select().from(products).where(eq(products.id, item.productId));
+      if (product) result.push({ ...item, product });
+    }
+    return result;
+  }
+
+  async getBundleWithProducts(bundleId: string) {
+    const bundle = await this.getBundleById(bundleId);
+    if (!bundle) return undefined;
+    const items = await db.select().from(bundleItems).where(eq(bundleItems.bundleId, bundleId));
+    const prods: Product[] = [];
+    for (const item of items) {
+      const [product] = await db.select().from(products).where(eq(products.id, item.productId));
+      if (product) prods.push(product);
+    }
+    return { bundle, products: prods };
   }
 }
 
