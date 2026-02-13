@@ -176,14 +176,21 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                <div className="absolute -top-4 -right-4 w-36 rounded-md border border-white/10 bg-white/5 backdrop-blur-md p-3 space-y-1">
+                <div className="absolute -top-4 -right-4 w-44 rounded-md border border-white/10 bg-white/5 backdrop-blur-md p-3 space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <Download className="w-3 h-3 text-blue-400" />
-                    <span className="text-[10px] font-medium text-white/70">Secure delivery</span>
+                    <div className="w-4 h-4 rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <ArrowRight className="w-2.5 h-2.5 text-blue-400" />
+                    </div>
+                    <span className="text-[10px] font-semibold text-white/80">One-click import</span>
                   </div>
-                  <p className="text-[9px] text-white/40">Token expires in 24h</p>
-                  <div className="font-mono text-[8px] text-blue-400/60 break-all leading-tight">
-                    dv_tk_a8f3...x9m2
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-md bg-violet-500/20 flex items-center justify-center">
+                      <Package className="w-3 h-3 text-violet-400" />
+                    </div>
+                    <span className="text-[9px] text-white/50">Icon Pack</span>
+                    <div className="ml-auto px-1.5 py-0.5 rounded-md bg-emerald-500/20">
+                      <span className="text-[8px] text-emerald-400 font-medium">Imported</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -214,33 +221,82 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card className="md:row-span-2 overflow-visible" data-testid="card-feature-templates">
-              <CardContent className="p-6 h-full flex flex-col">
+          <Card className="overflow-visible mb-6 border-primary/20" data-testid="card-feature-import">
+            <CardContent className="p-0">
+              <div className="grid md:grid-cols-2">
+                <div className="p-8 md:p-10 flex flex-col justify-center">
+                  <Badge variant="secondary" className="w-fit mb-4">Key Feature</Badge>
+                  <h3 className="text-2xl md:text-3xl font-serif font-bold tracking-tight mb-3">
+                    One-Click Product Import
+                  </h3>
+                  <p className="text-muted-foreground leading-relaxed mb-6">
+                    Browse our curated platform library of templates, graphics, ebooks, and dev tools. 
+                    Find what you want, click import, and it's instantly in your store — ready to sell. No uploads, no configuration.
+                  </p>
+                  <div className="flex items-center gap-4 flex-wrap text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <Check className="h-4 w-4 text-primary shrink-0" />
+                      Browse by category
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Check className="h-4 w-4 text-primary shrink-0" />
+                      Import in one click
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Check className="h-4 w-4 text-primary shrink-0" />
+                      Sell immediately
+                    </span>
+                  </div>
+                </div>
+                <div className="p-6 md:p-8 bg-muted/30 rounded-b-md md:rounded-b-none md:rounded-r-md flex items-center justify-center">
+                  <div className="w-full max-w-sm space-y-3" data-testid="import-demo-graphic">
+                    <div className="text-xs font-medium text-muted-foreground mb-2">Platform Library</div>
+                    {[
+                      { name: "Starter UI Kit", cat: "Templates", price: "$49", color: "bg-blue-500" },
+                      { name: "Social Media Pack", cat: "Graphics", price: "$29", color: "bg-violet-500" },
+                      { name: "React Components", cat: "Tools", price: "$39", color: "bg-emerald-500" },
+                    ].map((item, i) => (
+                      <div key={item.name} className="flex items-center gap-3 rounded-md border bg-background p-3">
+                        <div className={`w-10 h-10 rounded-md ${item.color}/15 flex items-center justify-center shrink-0`}>
+                          <Package className={`w-5 h-5 ${item.color.replace("bg-", "text-")}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.cat} &middot; {item.price}</p>
+                        </div>
+                        {i === 0 ? (
+                          <Badge variant="secondary" className="shrink-0" data-testid="badge-imported">
+                            <Check className="w-3 h-3 mr-1" />
+                            Imported
+                          </Badge>
+                        ) : (
+                          <Button size="sm" data-testid={`button-import-demo-${i}`}>
+                            <ArrowRight className="w-3 h-3 mr-1" />
+                            Import
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="overflow-visible" data-testid="card-feature-templates">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-center h-12 w-12 rounded-md bg-primary/10 text-primary mb-5">
                   <Palette className="h-6 w-6" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Beautiful Templates</h3>
-                <p className="text-muted-foreground leading-relaxed mb-4 flex-1">
-                  Choose from professionally designed storefront templates. Each one is responsive, fast, and customizable to match your brand.
+                <h3 className="text-lg font-semibold mb-2">Beautiful Templates</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+                  Professionally designed storefront templates. Responsive, fast, and customizable to your brand.
                 </p>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Badge variant="outline">Neon</Badge>
                   <Badge variant="outline">Silk</Badge>
-                  <Badge variant="outline">More coming</Badge>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="overflow-visible" data-testid="card-feature-library">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-center h-12 w-12 rounded-md bg-primary/10 text-primary mb-5">
-                  <Package className="h-6 w-6" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Product Library</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Browse our curated collection of digital products and import them to your store with one click.
-                </p>
               </CardContent>
             </Card>
 
@@ -275,7 +331,7 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Multi-Store</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Run multiple storefronts from a single account. Each with its own slug, template, and product catalog.
+                  Run multiple storefronts from a single account. Each with its own slug, template, and catalog.
                 </p>
               </CardContent>
             </Card>
