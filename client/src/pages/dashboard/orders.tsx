@@ -1,48 +1,48 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useActiveStore } from "@/lib/store-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, DollarSign, Package, TrendingUp } from "lucide-react";
-import type { Store, Order, OrderItem, Product } from "@shared/schema";
+import { ShoppingCart, DollarSign, Package, TrendingUp, Store } from "lucide-react";
+import type { Order, OrderItem, Product } from "@shared/schema";
 
 type OrderWithItems = Order & { items: (OrderItem & { product: Product })[] };
 
 export default function OrdersPage() {
-  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+  const { activeStore, activeStoreId, storesLoading } = useActiveStore();
 
-  const { data: stores, isLoading: storesLoading } = useQuery<Store[]>({
-    queryKey: ["/api/stores"],
-  });
-
-  const effectiveStoreId = selectedStoreId || stores?.[0]?.id || "";
-
-  const { data: orders, isLoading: ordersLoading } = useQuery<OrderWithItems[]>({
-    queryKey: ["/api/orders", effectiveStoreId],
-    enabled: !!effectiveStoreId,
+  const { data: orders, isLoading } = useQuery<OrderWithItems[]>({
+    queryKey: ["/api/orders", activeStoreId],
+    enabled: !!activeStoreId,
   });
 
   const totalRevenue = orders?.filter(o => o.status === "COMPLETED").reduce((sum, o) => sum + o.totalCents, 0) || 0;
   const completedOrders = orders?.filter(o => o.status === "COMPLETED").length || 0;
   const avgOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
 
+  if (!storesLoading && !activeStoreId) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-muted mb-4">
+              <Store className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-1">No store selected</h3>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              Create a store using the selector in the sidebar to view orders.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-orders-title">Orders</h1>
-        {stores && stores.length > 1 && (
-          <Select value={effectiveStoreId} onValueChange={setSelectedStoreId}>
-            <SelectTrigger className="w-48" data-testid="select-orders-store">
-              <SelectValue placeholder="Select store" />
-            </SelectTrigger>
-            <SelectContent>
-              {stores.map((store) => (
-                <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <p className="text-muted-foreground mt-1">Track orders for {activeStore?.name}.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -77,7 +77,7 @@ export default function OrdersPage() {
         </Card>
       </div>
 
-      {storesLoading || ordersLoading ? (
+      {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <Card key={i}>
@@ -88,16 +88,6 @@ export default function OrdersPage() {
             </Card>
           ))}
         </div>
-      ) : !effectiveStoreId ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-muted mb-3">
-              <ShoppingCart className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <h3 className="font-semibold mb-1">No stores yet</h3>
-            <p className="text-sm text-muted-foreground">Create a store to start receiving orders.</p>
-          </CardContent>
-        </Card>
       ) : orders && orders.length > 0 ? (
         <div className="space-y-3">
           {orders.map((order) => (

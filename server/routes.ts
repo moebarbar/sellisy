@@ -422,14 +422,24 @@ export async function registerRoutes(
 
   app.get("/api/analytics", isAuthenticated, async (req, res) => {
     const userId = getUserId(req);
+    const storeIdParam = req.query.storeId as string | undefined;
     const userStores = await storage.getStoresByOwner(userId);
+
+    const targetStores = storeIdParam
+      ? userStores.filter((s) => s.id === storeIdParam)
+      : userStores;
+
+    if (storeIdParam && targetStores.length === 0) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+
     let totalRevenue = 0;
     let totalOrders = 0;
     let totalProducts = 0;
     const topProducts: { title: string; revenue: number; count: number }[] = [];
     const revenueByDate: Record<string, number> = {};
 
-    for (const store of userStores) {
+    for (const store of targetStores) {
       const storeOrders = await storage.getOrdersByStore(store.id);
       const storeProds = await storage.getStoreProducts(store.id);
       totalProducts += storeProds.length;

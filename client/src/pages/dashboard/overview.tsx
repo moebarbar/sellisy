@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { useActiveStore } from "@/lib/store-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Store, Package, ShoppingBag, DollarSign, TrendingUp, BarChart3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Store, Package, ShoppingBag, DollarSign, TrendingUp, BarChart3, Plus, ExternalLink } from "lucide-react";
 
 interface Analytics {
   totalRevenue: number;
@@ -14,18 +16,53 @@ interface Analytics {
 }
 
 export default function OverviewPage() {
+  const { activeStore, activeStoreId, storesLoading } = useActiveStore();
+
+  const analyticsUrl = activeStoreId ? `/api/analytics?storeId=${activeStoreId}` : "/api/analytics";
   const { data: analytics, isLoading } = useQuery<Analytics>({
-    queryKey: ["/api/analytics"],
+    queryKey: ["/api/analytics", activeStoreId || "all"],
+    queryFn: () => fetch(analyticsUrl, { credentials: "include" }).then(r => { if (!r.ok) throw new Error("Failed"); return r.json(); }),
+    enabled: !!activeStoreId,
   });
 
   const revenueEntries = analytics ? Object.entries(analytics.revenueByDate).sort(([a], [b]) => a.localeCompare(b)).slice(-14) : [];
   const maxRevenue = revenueEntries.length > 0 ? Math.max(...revenueEntries.map(([, v]) => v)) : 0;
 
+  if (!storesLoading && !activeStoreId) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-muted mb-4">
+              <Store className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-1">No stores yet</h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-xs">
+              Create your first store to start selling digital products. Use the store selector above to get started.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-overview-title">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Your store performance at a glance.</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-overview-title">
+            {activeStore?.name || "Dashboard"}
+          </h1>
+          <p className="text-muted-foreground mt-1">Your store performance at a glance.</p>
+        </div>
+        {activeStore && (
+          <a href={`/s/${activeStore.slug}`} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" data-testid="button-view-storefront">
+              <ExternalLink className="mr-2 h-3.5 w-3.5" />
+              View Storefront
+            </Button>
+          </a>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -73,11 +110,13 @@ export default function OverviewPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Stores</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Template</CardTitle>
                 <Store className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold" data-testid="text-store-count">{analytics?.totalStores ?? 0}</div>
+                <div className="text-xl font-bold capitalize" data-testid="text-template">
+                  {activeStore?.templateKey || "—"}
+                </div>
               </CardContent>
             </Card>
           </>

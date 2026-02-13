@@ -8,11 +8,13 @@ import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
 import { DashboardLayout } from "@/components/dashboard/layout";
 import OverviewPage from "@/pages/dashboard/overview";
-import StoresPage from "@/pages/dashboard/stores";
-import StoreDetailPage from "@/pages/dashboard/store-detail";
-import LibraryPage from "@/pages/dashboard/library";
+import StoreProductsPage from "@/pages/dashboard/store-products";
+import BundlesPage from "@/pages/dashboard/bundles";
+import CouponsPage from "@/pages/dashboard/coupons";
 import OrdersPage from "@/pages/dashboard/orders";
+import LibraryPage from "@/pages/dashboard/library";
 import MyProductsPage from "@/pages/dashboard/my-products";
+import StoreSettingsPage from "@/pages/dashboard/store-settings";
 import StorefrontPage from "@/pages/storefront";
 import ProductDetailPage from "@/pages/product-detail";
 import BundleDetailPage from "@/pages/bundle-detail";
@@ -25,20 +27,26 @@ function Router() {
       <Route path="/dashboard">
         <DashboardLayout><OverviewPage /></DashboardLayout>
       </Route>
-      <Route path="/dashboard/stores">
-        <DashboardLayout><StoresPage /></DashboardLayout>
+      <Route path="/dashboard/products">
+        <DashboardLayout><StoreProductsPage /></DashboardLayout>
       </Route>
-      <Route path="/dashboard/stores/:id">
-        <DashboardLayout><StoreDetailPage /></DashboardLayout>
+      <Route path="/dashboard/bundles">
+        <DashboardLayout><BundlesPage /></DashboardLayout>
+      </Route>
+      <Route path="/dashboard/coupons">
+        <DashboardLayout><CouponsPage /></DashboardLayout>
       </Route>
       <Route path="/dashboard/orders">
         <DashboardLayout><OrdersPage /></DashboardLayout>
       </Route>
-      <Route path="/dashboard/products">
-        <DashboardLayout><MyProductsPage /></DashboardLayout>
-      </Route>
       <Route path="/dashboard/library">
         <DashboardLayout><LibraryPage /></DashboardLayout>
+      </Route>
+      <Route path="/dashboard/my-products">
+        <DashboardLayout><MyProductsPage /></DashboardLayout>
+      </Route>
+      <Route path="/dashboard/settings">
+        <DashboardLayout><StoreSettingsPage /></DashboardLayout>
       </Route>
       <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
       <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />

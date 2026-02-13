@@ -1,15 +1,15 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useActiveStore } from "@/lib/store-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Download, Loader2, Package, Eye, Store as StoreIcon } from "lucide-react";
-import type { Product, Store } from "@shared/schema";
+import { Check, Download, Loader2, Package, Eye, Store } from "lucide-react";
+import type { Product } from "@shared/schema";
 
 const CATEGORIES = [
   { key: "all", label: "All Products" },
@@ -20,19 +20,15 @@ const CATEGORIES = [
 ];
 
 export default function LibraryPage() {
+  const { activeStore, activeStoreId, storesLoading } = useActiveStore();
+
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products/library"],
-  });
-  const { data: stores } = useQuery<Store[]>({
-    queryKey: ["/api/stores"],
   });
 
   const [importProduct, setImportProduct] = useState<Product | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [activeCategory, setActiveCategory] = useState("all");
-  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
-
-  const activeStoreId = selectedStoreId || (stores && stores.length === 1 ? stores[0].id : "");
 
   const { data: importedProductIds } = useQuery<string[]>({
     queryKey: ["/api/imported-products", activeStoreId],
@@ -47,33 +43,32 @@ export default function LibraryPage() {
     return products.filter((p) => p.category === activeCategory);
   }, [products, activeCategory]);
 
+  if (!storesLoading && !activeStoreId) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-muted mb-4">
+              <Store className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-1">No store selected</h3>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              Create a store using the selector in the sidebar to import products.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-library-title">Product Library</h1>
-        <p className="text-muted-foreground mt-1">Browse platform products and import them to your store.</p>
+        <p className="text-muted-foreground mt-1">
+          Browse platform products and import them to {activeStore?.name}.
+        </p>
       </div>
-
-      {stores && stores.length > 1 && (
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <StoreIcon className="h-4 w-4" />
-            <span>Importing to:</span>
-          </div>
-          <Select value={activeStoreId} onValueChange={setSelectedStoreId}>
-            <SelectTrigger className="w-[220px]" data-testid="select-library-store">
-              <SelectValue placeholder="Select a store" />
-            </SelectTrigger>
-            <SelectContent>
-              {stores.map((store) => (
-                <SelectItem key={store.id} value={store.id} data-testid={`option-store-${store.id}`}>
-                  {store.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
 
       <div className="flex items-center gap-2 flex-wrap">
         {CATEGORIES.map((cat) => (
@@ -198,7 +193,6 @@ export default function LibraryPage() {
 
       <ProductDetailDialog
         product={detailProduct}
-        stores={stores || []}
         isImported={detailProduct && activeStoreId ? importedSet.has(detailProduct.id) : false}
         onClose={() => setDetailProduct(null)}
         onImport={(product) => {
@@ -209,17 +203,9 @@ export default function LibraryPage() {
 
       <ImportDialog
         product={importProduct}
-        stores={stores || []}
-        defaultStoreId={activeStoreId}
+        storeId={activeStoreId}
+        storeName={activeStore?.name || ""}
         onClose={() => setImportProduct(null)}
-        onImported={() => {
-          if (activeStoreId) {
-            queryClient.invalidateQueries({ queryKey: ["/api/imported-products", activeStoreId] });
-          }
-          stores?.forEach((s) => {
-            queryClient.invalidateQueries({ queryKey: ["/api/imported-products", s.id] });
-          });
-        }}
       />
     </div>
   );
@@ -227,13 +213,11 @@ export default function LibraryPage() {
 
 function ProductDetailDialog({
   product,
-  stores,
   isImported,
   onClose,
   onImport,
 }: {
   product: Product | null;
-  stores: Store[];
   isImported: boolean;
   onClose: () => void;
   onImport: (product: Product) => void;
@@ -304,39 +288,32 @@ function ProductDetailDialog({
 
 function ImportDialog({
   product,
-  stores,
-  defaultStoreId,
+  storeId,
+  storeName,
   onClose,
-  onImported,
 }: {
   product: Product | null;
-  stores: Store[];
-  defaultStoreId: string;
+  storeId: string;
+  storeName: string;
   onClose: () => void;
-  onImported: () => void;
 }) {
-  const [storeId, setStoreId] = useState("");
   const { toast } = useToast();
-
-  const effectiveStoreId = storeId || defaultStoreId;
 
   const mutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/store-products", {
-        storeId: effectiveStoreId,
+        storeId,
         productId: product!.id,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/store-products", effectiveStoreId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/imported-products", effectiveStoreId] });
-      onImported();
+      queryClient.invalidateQueries({ queryKey: ["/api/store-products", storeId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/imported-products", storeId] });
       toast({
         title: "Product imported",
-        description: `"${product?.title}" has been added to your store.`,
+        description: `"${product?.title}" has been added to ${storeName}.`,
       });
       onClose();
-      setStoreId("");
     },
     onError: (err: any) => {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
@@ -349,46 +326,23 @@ function ImportDialog({
         <DialogHeader>
           <DialogTitle>Import Product</DialogTitle>
           <DialogDescription>
-            Choose which store to import "{product?.title}" into.
+            Import "{product?.title}" into {storeName}?
           </DialogDescription>
         </DialogHeader>
-        {stores.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            You need to create a store first before importing products.
-          </p>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              mutation.mutate();
-            }}
-            className="space-y-4"
+        <div className="flex gap-3">
+          <Button variant="outline" className="flex-1" onClick={onClose} data-testid="button-cancel-import">
+            Cancel
+          </Button>
+          <Button
+            className="flex-1"
+            disabled={mutation.isPending || !storeId}
+            onClick={() => mutation.mutate()}
+            data-testid="button-confirm-import"
           >
-            <div className="space-y-2">
-              <Select value={effectiveStoreId} onValueChange={setStoreId}>
-                <SelectTrigger data-testid="select-import-store">
-                  <SelectValue placeholder="Select a store" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stores.map((store) => (
-                    <SelectItem key={store.id} value={store.id}>
-                      {store.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={mutation.isPending || !effectiveStoreId}
-              data-testid="button-confirm-import"
-            >
-              {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Import Product
-            </Button>
-          </form>
-        )}
+            {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Import
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
