@@ -49,55 +49,144 @@ export default function LandingPage() {
       <section className="relative overflow-hidden">
         <HeroBackground />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40" />
-        <div className="relative mx-auto max-w-6xl px-6 py-28 md:py-40 lg:py-48">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm px-4 py-1.5 text-sm text-white/80 mb-8">
-              <Sparkles className="h-3.5 w-3.5" />
-              The easiest way to sell digital products
-            </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold tracking-tight leading-[1.1] text-white mb-6">
-              Your Storefront,<br />
-              <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">
-                Built in Minutes
-              </span>
-            </h1>
-            <p className="max-w-lg text-lg text-white/70 mb-10 leading-relaxed">
-              Create a beautiful storefront, import products from our curated library,
-              and start accepting payments. No code, no complexity.
-            </p>
-            <div className="flex items-center gap-3 flex-wrap mb-8">
-              <Button
-                size="lg"
-                data-testid="button-hero-cta"
-                onClick={() => { window.location.href = "/api/login"; }}
-              >
-                Start Selling Free
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <Link href="/s/demo">
+        <div className="relative mx-auto max-w-6xl px-6 py-24 md:py-32 lg:py-40">
+          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm px-4 py-1.5 text-sm text-white/80 mb-8">
+                <Sparkles className="h-3.5 w-3.5" />
+                The easiest way to sell digital products
+              </div>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold tracking-tight leading-[1.1] text-white mb-6">
+                Your Storefront,<br />
+                <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">
+                  Built in Minutes
+                </span>
+              </h1>
+              <p className="max-w-lg text-lg text-white/70 mb-10 leading-relaxed">
+                Create a beautiful storefront, import products from our curated library,
+                and start accepting payments. No code, no complexity.
+              </p>
+              <div className="flex items-center gap-3 flex-wrap mb-8">
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="backdrop-blur-sm bg-white/10 text-white"
-                  data-testid="button-hero-demo"
+                  data-testid="button-hero-cta"
+                  onClick={() => { window.location.href = "/api/login"; }}
                 >
-                  View Demo Store
+                  Start Selling Free
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-              </Link>
+                <Link href="/s/demo">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="backdrop-blur-sm bg-white/10 text-white"
+                    data-testid="button-hero-demo"
+                  >
+                    View Demo Store
+                  </Button>
+                </Link>
+              </div>
+              <div className="flex items-center gap-5 flex-wrap text-sm text-white/50">
+                <span className="flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  Free forever plan
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  No credit card required
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  Set up in under 5 min
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-5 flex-wrap text-sm text-white/50">
-              <span className="flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
-                Free forever plan
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
-                No credit card required
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
-                Set up in under 5 min
-              </span>
+
+            <div className="hidden md:block" data-testid="hero-graphic">
+              <div className="relative" style={{ perspective: "1200px" }}>
+                <div style={{ transform: "rotateY(-8deg) rotateX(4deg)" }}>
+                  <div className="rounded-md border border-white/10 bg-white/5 backdrop-blur-md p-4 space-y-4">
+                    <div className="flex items-center gap-3 pb-3 border-b border-white/10">
+                      <div className="flex gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-400/60" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/60" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-green-400/60" />
+                      </div>
+                      <div className="flex-1 h-5 rounded-md bg-white/5 flex items-center justify-center">
+                        <span className="text-[10px] text-white/30 tracking-wider">mystore.digitalvault.app</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center">
+                        <ShoppingBag className="w-3 h-3 text-white" />
+                      </div>
+                      <span className="text-xs font-semibold text-white/80">My Creative Store</span>
+                      <div className="ml-auto flex gap-1">
+                        <div className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 text-[9px] font-medium">Live</div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { name: "UI Kit Pro", price: "$49", color: "from-blue-500/30 to-cyan-500/30", icon: Layers },
+                        { name: "Icon Pack", price: "$29", color: "from-violet-500/30 to-pink-500/30", icon: Palette },
+                        { name: "Dev Toolkit", price: "$39", color: "from-emerald-500/30 to-teal-500/30", icon: Zap },
+                        { name: "Template Kit", price: "$59", color: "from-orange-500/30 to-amber-500/30", icon: Package },
+                      ].map((product) => (
+                        <div key={product.name} className="rounded-md border border-white/10 bg-white/[0.03] p-3 space-y-2">
+                          <div className={`aspect-[4/3] rounded-md bg-gradient-to-br ${product.color} flex items-center justify-center`}>
+                            <product.icon className="w-6 h-6 text-white/40" />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-medium text-white/70">{product.name}</p>
+                            <p className="text-[11px] text-blue-400 font-semibold">{product.price}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2 border-t border-white/10">
+                      <div className="flex-1">
+                        <p className="text-[10px] text-white/40 mb-1">Revenue this month</p>
+                        <p className="text-sm font-bold text-white/80">$2,847</p>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[10px] text-white/40 mb-1">Orders</p>
+                        <p className="text-sm font-bold text-white/80">64</p>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[10px] text-white/40 mb-1">Downloads</p>
+                        <p className="text-sm font-bold text-white/80">128</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="absolute -bottom-6 -left-6 w-40 rounded-md border border-white/10 bg-white/5 backdrop-blur-md p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                      <Check className="w-3 h-3 text-emerald-400" />
+                    </div>
+                    <span className="text-[10px] font-medium text-white/70">New sale!</span>
+                  </div>
+                  <p className="text-[9px] text-white/40">UI Kit Pro - $49.00</p>
+                  <div className="w-full h-1 rounded-full bg-white/10">
+                    <div className="w-3/4 h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-400" />
+                  </div>
+                </div>
+
+                <div className="absolute -top-4 -right-4 w-36 rounded-md border border-white/10 bg-white/5 backdrop-blur-md p-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Download className="w-3 h-3 text-blue-400" />
+                    <span className="text-[10px] font-medium text-white/70">Secure delivery</span>
+                  </div>
+                  <p className="text-[9px] text-white/40">Token expires in 24h</p>
+                  <div className="font-mono text-[8px] text-blue-400/60 break-all leading-tight">
+                    dv_tk_a8f3...x9m2
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
