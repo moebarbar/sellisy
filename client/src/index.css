@@ -286,3 +286,65 @@
     inset: -1px;
   }
 }
+
+@keyframes dv-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dv-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes dv-bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes dv-pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes dv-slide-in-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes dv-confetti-fall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+.dv-fade-in {
+  animation: dv-fade-in 0.5s ease-out both;
+}
+
+.dv-float {
+  animation: dv-float 3s ease-in-out infinite;
+}
+
+.dv-bar-grow {
+  transform-origin: bottom;
+  animation: dv-bar-grow 0.6s ease-out both;
+}
+
+.dv-pulse-glow {
+  animation: dv-pulse-glow 2s ease-in-out infinite;
+}
+
+.dv-slide-in-right {
+  animation: dv-slide-in-right 0.4s ease-out both;
+}
+
+.dv-confetti-piece {
+  position: fixed;
+  top: -10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 9999;
+  animation: dv-confetti-fall 2.5s ease-in forwards;
+}

@@ -132,13 +132,18 @@ export default function OrdersPage() {
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-muted mb-3">
-              <ShoppingCart className="h-5 w-5 text-muted-foreground" />
+        <Card className="dv-fade-in">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="relative mb-5">
+              <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10">
+                <ShoppingCart className="h-7 w-7 text-primary dv-float" />
+              </div>
             </div>
-            <h3 className="font-semibold mb-1">No orders yet</h3>
-            <p className="text-sm text-muted-foreground">Orders will appear here when customers make purchases.</p>
+            <h3 className="text-lg font-bold mb-2">The calm before the storm</h3>
+            <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
+              Your first order is just around the corner. Share your storefront link 
+              and this page will light up with sales notifications.
+            </p>
           </CardContent>
         </Card>
       )}

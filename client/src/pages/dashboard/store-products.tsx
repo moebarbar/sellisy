@@ -100,22 +100,21 @@ export default function StoreProductsPage() {
           </div>
         </>
       ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-muted mb-3">
-              <Package className="h-5 w-5 text-muted-foreground" />
+        <Card className="dv-fade-in">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="relative mb-5">
+              <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10">
+                <Package className="h-7 w-7 text-primary dv-float" />
+              </div>
             </div>
-            <h3 className="font-semibold mb-1">No products in this store</h3>
-            <p className="text-sm text-muted-foreground mb-2 max-w-sm">
-              Import products from the Library or create your own, then publish them to make them visible on your storefront.
+            <h3 className="text-lg font-bold mb-2">Your shelves are empty</h3>
+            <p className="text-sm text-muted-foreground mb-5 max-w-sm leading-relaxed">
+              Time to stock up! Import ready-made products from our library or create your own masterpieces. 
+              Then flip the publish switch to go live.
             </p>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-              <ToggleRight className="h-3.5 w-3.5" />
-              <span>Use the publish toggle to control what visitors see</span>
-            </div>
             <div className="flex gap-2 flex-wrap justify-center">
               <Link href="/dashboard/library">
-                <Button variant="outline" size="sm" data-testid="button-empty-library">
+                <Button size="sm" data-testid="button-empty-library">
                   <Package className="mr-2 h-4 w-4" />
                   Browse Library
                 </Button>

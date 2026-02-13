@@ -5,6 +5,7 @@ import { useActiveStore } from "@/lib/store-context";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { fireConfetti } from "@/lib/confetti";
 import {
   Sidebar,
   SidebarContent,
@@ -131,7 +132,8 @@ export function CreateStoreDialog({ open, onClose }: { open: boolean; onClose: (
     },
     onSuccess: (store: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
-      toast({ title: "Store created", description: `"${name}" is ready to go.` });
+      fireConfetti();
+      toast({ title: "Your store is live!", description: `"${name}" is ready to conquer the world.` });
       if (store?.id) {
         setActiveStoreId(store.id);
       }

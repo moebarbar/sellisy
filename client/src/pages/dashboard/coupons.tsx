@@ -158,15 +158,22 @@ export default function CouponsPage() {
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-muted mb-3">
-              <Ticket className="h-5 w-5 text-muted-foreground" />
+        <Card className="dv-fade-in">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="relative mb-5">
+              <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10">
+                <Ticket className="h-7 w-7 text-primary dv-float" />
+              </div>
             </div>
-            <h3 className="font-semibold mb-1">No coupons yet</h3>
-            <p className="text-sm text-muted-foreground">
-              Create discount codes to attract more customers.
+            <h3 className="text-lg font-bold mb-2">Deals that seal the deal</h3>
+            <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-5">
+              Everyone loves a good discount code. Create one and share it with your audience 
+              to drive conversions and reward your loyal customers.
             </p>
+            <Button onClick={() => setDialogOpen(true)} data-testid="button-empty-create-coupon">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Your First Coupon
+            </Button>
           </CardContent>
         </Card>
       )}
