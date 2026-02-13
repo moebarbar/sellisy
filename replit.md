@@ -4,6 +4,9 @@
 Multi-tenant digital product storefront builder. Users sign up, create stores from templates, import products from a platform library, publish them, and accept payments with secure download delivery.
 
 ## Recent Changes
+- 2026-02-13: Major template upgrade — Neon gets animated grid, scanlines, holographic cards, particle effects; Silk gets animated gold shimmer, refined cards
+- 2026-02-13: Added visitor light/dark mode toggle to Neon template, Silk template, product detail, and bundle detail pages (localStorage persisted)
+- 2026-02-13: Dashboard already has light/dark toggle via ThemeProvider
 - 2026-02-13: Added beautiful standalone product detail pages at /s/:slug/product/:productId
 - 2026-02-13: Added bundle system — bundles table, bundleItems, CRUD API, bundle detail page at /s/:slug/bundle/:bundleId
 - 2026-02-13: Added originalPriceCents to products for discount display (strikethrough pricing)
