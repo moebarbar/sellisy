@@ -8,6 +8,7 @@ import {
   Package, ShoppingBag, Download, Zap, ArrowRight, Moon, Sun,
   Shield, Globe, Layers, Palette, CreditCard, Lock, Sparkles, Check,
 } from "lucide-react";
+import { HeroBackground } from "@/components/hero-background";
 
 export default function LandingPage() {
   const { user } = useAuth();
@@ -46,14 +47,8 @@ export default function LandingPage() {
       </header>
 
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0">
-          <img
-            src="/images/hero-landing.png"
-            alt=""
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/80" />
-        </div>
+        <HeroBackground />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40" />
         <div className="relative mx-auto max-w-6xl px-6 py-28 md:py-40 lg:py-48">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm px-4 py-1.5 text-sm text-white/80 mb-8">
