@@ -30,7 +30,7 @@ export default function OrdersPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1">No store selected</h3>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Create a store using the selector in the sidebar to view orders.
+              Use the store switcher at the top to select or create a store.
             </p>
           </CardContent>
         </Card>
@@ -42,7 +42,7 @@ export default function OrdersPage() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-orders-title">Orders</h1>
-        <p className="text-muted-foreground mt-1">Track orders for {activeStore?.name}.</p>
+        <p className="text-muted-foreground mt-1">Customer orders for {activeStore?.name}.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">

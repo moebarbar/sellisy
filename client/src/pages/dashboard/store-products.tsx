@@ -33,7 +33,7 @@ export default function StoreProductsPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1">No store selected</h3>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Create a store using the selector in the sidebar to manage products.
+              Use the store switcher at the top to select or create a store.
             </p>
           </CardContent>
         </Card>
@@ -46,7 +46,7 @@ export default function StoreProductsPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-products-title">Products</h1>
-          <p className="text-muted-foreground mt-1">Manage products in {activeStore?.name}.</p>
+          <p className="text-muted-foreground mt-1">Products published in {activeStore?.name}.</p>
         </div>
         <Link href="/dashboard/library">
           <Button variant="outline" data-testid="button-go-library">

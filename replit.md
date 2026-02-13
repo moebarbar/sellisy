@@ -4,9 +4,9 @@
 Multi-tenant digital product storefront builder. Users sign up, create stores from templates, import products from a platform library, publish them, and accept payments with secure download delivery.
 
 ## Recent Changes
-- 2026-02-13: **Dashboard restructured to store-scoped model** — StoreContext with activeStore, sidebar store selector dropdown, all pages scoped to selected store
+- 2026-02-13: **Dashboard fully store-dedicated** — store switcher in header bar, unified nav (no Store/Global split), all pages reference active store, real analytics from DB
 - 2026-02-13: Added dedicated Store Settings page with general/branding config and store deletion
-- 2026-02-13: Removed old stores list and store-detail pages; nav now uses sidebar store selector
+- 2026-02-13: Removed old stores list and store-detail pages; store switcher moved to top header bar
 - 2026-02-13: Added custom product creation — My Products page with file upload (Object Storage), thumbnail upload, external URL support, CRUD API, nav integration
 - 2026-02-13: Integrated Replit Object Storage for file uploads (presigned URL flow via GCS)
 - 2026-02-13: Built coupon system — CRUD API, validation, checkout integration with percent/fixed discounts, max uses, expiration
@@ -29,9 +29,9 @@ Multi-tenant digital product storefront builder. Users sign up, create stores fr
 - **Templates**: Neon (dark, bold) and Silk (elegant, minimal) for public storefronts — now use store.tagline and store.logoUrl
 - **Standalone Pages**: Product detail (/s/:slug/product/:id) and bundle detail (/s/:slug/bundle/:id) — premium dark landing pages for social sharing
 - **Coupons**: PERCENT or FIXED discount codes per store, with max uses, expiration, active toggle
-- **Dashboard**: Store-scoped — StoreContext manages active store, sidebar has store selector dropdown, all pages filter by activeStoreId
-- **Analytics**: /api/analytics supports optional storeId query param for per-store filtering
-- **Navigation**: Store group (Overview, Products, Bundles, Coupons, Orders, Library, Settings) + Global group (My Products)
+- **Dashboard**: Store-dedicated — StoreContext manages active store, header bar has store switcher dropdown, all pages filter by activeStoreId
+- **Analytics**: /api/analytics supports optional storeId query param for per-store filtering; pulls real order/product data from DB
+- **Navigation**: Unified sidebar (Overview, Products, My Products, Library, Bundles, Coupons, Orders, Settings) — no Store/Global split
 
 ## Key Files
 - `shared/schema.ts` — All Drizzle models and Zod schemas (re-exports from models/auth)

@@ -93,7 +93,7 @@ export default function StoreSettingsPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1">No store selected</h3>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Create a store using the selector in the sidebar.
+              Use the store switcher at the top to select or create a store.
             </p>
           </CardContent>
         </Card>

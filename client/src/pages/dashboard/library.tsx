@@ -53,7 +53,7 @@ export default function LibraryPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1">No store selected</h3>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Create a store using the selector in the sidebar to import products.
+              Use the store switcher at the top to select or create a store.
             </p>
           </CardContent>
         </Card>
@@ -66,7 +66,7 @@ export default function LibraryPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-library-title">Product Library</h1>
         <p className="text-muted-foreground mt-1">
-          Browse platform products and import them to {activeStore?.name}.
+          Browse and import platform products into {activeStore?.name}.
         </p>
       </div>
 

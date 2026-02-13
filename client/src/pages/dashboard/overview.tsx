@@ -3,8 +3,7 @@ import { useActiveStore } from "@/lib/store-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Store, Package, ShoppingBag, DollarSign, TrendingUp, BarChart3, Plus, ExternalLink } from "lucide-react";
+import { Store, Package, ShoppingBag, DollarSign, TrendingUp, BarChart3, Users } from "lucide-react";
 
 interface Analytics {
   totalRevenue: number;
@@ -38,7 +37,7 @@ export default function OverviewPage() {
             </div>
             <h3 className="text-lg font-semibold mb-1">No stores yet</h3>
             <p className="text-sm text-muted-foreground mb-4 max-w-xs">
-              Create your first store to start selling digital products. Use the store selector above to get started.
+              Create your first store to start selling digital products. Use the store switcher at the top to get started.
             </p>
           </CardContent>
         </Card>
@@ -48,21 +47,13 @@ export default function OverviewPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-overview-title">
-            {activeStore?.name || "Dashboard"}
-          </h1>
-          <p className="text-muted-foreground mt-1">Your store performance at a glance.</p>
-        </div>
-        {activeStore && (
-          <a href={`/s/${activeStore.slug}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm" data-testid="button-view-storefront">
-              <ExternalLink className="mr-2 h-3.5 w-3.5" />
-              View Storefront
-            </Button>
-          </a>
-        )}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-overview-title">
+          Overview
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Performance and analytics for {activeStore?.name}.
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -110,12 +101,12 @@ export default function OverviewPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Template</CardTitle>
-                <Store className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Order</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-xl font-bold capitalize" data-testid="text-template">
-                  {activeStore?.templateKey || "—"}
+                <div className="text-3xl font-bold" data-testid="text-avg-order">
+                  ${analytics && analytics.totalOrders > 0 ? ((analytics.totalRevenue / analytics.totalOrders) / 100).toFixed(2) : "0.00"}
                 </div>
               </CardContent>
             </Card>
