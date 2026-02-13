@@ -272,7 +272,7 @@ export default function BundleDetailPage() {
         {bundle.thumbnailUrl && (
           <div className="bdp-image-container mb-8 bdp-fade-in">
             <div className="aspect-[16/9] w-full">
-              <img src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-full object-cover" />
+              <img src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-full object-cover" loading="lazy" />
             </div>
           </div>
         )}
@@ -329,7 +329,7 @@ export default function BundleDetailPage() {
                     {product.thumbnailUrl && (
                       <div className="relative overflow-hidden" style={{ borderRadius: "16px 16px 0 0" }}>
                         <div className="aspect-[16/10] overflow-hidden">
-                          <img src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" />
+                          <img src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
                         </div>
                         <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />
                       </div>

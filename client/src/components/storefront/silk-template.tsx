@@ -170,7 +170,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
           <div className="flex items-center gap-3">
             {store.logoUrl ? (
               <>
-                <img src={store.logoUrl} alt={store.name} className="h-8 w-8 rounded-full object-cover" style={{ border: `1px solid ${c.goldBorder}` }} data-testid="img-silk-logo" />
+                <img src={store.logoUrl} alt={store.name} className="h-8 w-8 rounded-full object-cover" loading="lazy" style={{ border: `1px solid ${c.goldBorder}` }} data-testid="img-silk-logo" />
                 <span className="text-sm font-serif tracking-[0.3em] uppercase" style={{ color: c.goldMuted }} data-testid="text-silk-store-name">
                   {store.name}
                 </span>
@@ -199,7 +199,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
       <section className="relative mx-auto max-w-5xl px-6 pt-20 pb-16 text-center">
         {store.heroBannerUrl && (
           <div className="absolute inset-0 z-0 overflow-hidden" style={{ borderRadius: "0 0 12px 12px", margin: "0 24px" }}>
-            <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover" style={{ opacity: isDark ? 0.2 : 0.15 }} data-testid="img-silk-hero-banner" />
+            <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover" loading="lazy" style={{ opacity: isDark ? 0.2 : 0.15 }} data-testid="img-silk-hero-banner" />
             <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${c.bg}cc 0%, ${c.bg}dd 60%, ${c.bg} 100%)` }} />
           </div>
         )}
@@ -244,7 +244,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                     {product.thumbnailUrl && (
                       <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden" style={{ borderRadius: "6px 0 0 6px" }}>
                         <a href={`/s/${store.slug}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
-                          <img src={product.thumbnailUrl} alt={product.title} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" data-testid={`img-product-${product.id}`} />
+                          <img src={product.thumbnailUrl} alt={product.title} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
                         </a>
                       </div>
                     )}
@@ -316,7 +316,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                   <div key={bundle.id} className="silk-card group flex flex-col md:flex-row overflow-visible" data-testid={`card-bundle-${bundle.id}`}>
                     {bundle.thumbnailUrl && (
                       <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden" style={{ borderRadius: "6px 0 0 6px" }}>
-                        <img src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                        <img src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
                       </div>
                     )}
                     <div className="flex-1 p-8 md:p-10 flex flex-col justify-between">

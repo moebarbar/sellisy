@@ -89,17 +89,25 @@ export function useUpload(options: UseUploadOptions = {}) {
    */
   const uploadToPresignedUrl = useCallback(
     async (file: File, uploadURL: string): Promise<void> => {
-      const response = await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-        },
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadURL);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setProgress(10 + Math.round((e.loaded / e.total) * 85));
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error("Failed to upload file to storage"));
+          }
+        };
+        xhr.onerror = () => reject(new Error("Failed to upload file to storage"));
+        xhr.send(file);
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to upload file to storage");
-      }
     },
     []
   );
@@ -121,8 +129,6 @@ export function useUpload(options: UseUploadOptions = {}) {
         setProgress(10);
         const uploadResponse = await requestUploadUrl(file);
 
-        // Step 2: Upload file directly to presigned URL
-        setProgress(30);
         await uploadToPresignedUrl(file, uploadResponse.uploadURL);
 
         setProgress(100);

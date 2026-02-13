@@ -749,7 +749,7 @@ function ProductFormDialog({
                     className={`relative aspect-square rounded-md overflow-hidden bg-muted border-2 group ${img.isPrimary ? "border-primary" : "border-transparent"}`}
                     data-testid={`image-preview-${index}`}
                   >
-                    <img src={img.url} alt={`Product ${index + 1}`} className="w-full h-full object-cover" />
+                    <img src={img.url} alt={`Product ${index + 1}`} className="w-full h-full object-cover" loading="lazy" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                       <Button
                         type="button"

@@ -233,7 +233,7 @@ export default function ProductDetailPage() {
             <div className="mb-8 pdp-fade-in">
               <div className="pdp-image-container relative">
                 <div className="aspect-square w-full">
-                  <img src={currentImage} alt={product.title} className="w-full h-full object-cover" data-testid="img-product-main" />
+                  <img src={currentImage} alt={product.title} className="w-full h-full object-cover" loading="lazy" data-testid="img-product-main" />
                 </div>
                 {hasDiscount && (
                   <div className="absolute top-4 right-4 z-10">
@@ -287,7 +287,7 @@ export default function ProductDetailPage() {
                       }}
                       data-testid={`button-thumbnail-${idx}`}
                     >
-                      <img src={url} alt={`${product.title} ${idx + 1}`} className="w-full h-full object-cover" />
+                      <img src={url} alt={`${product.title} ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
                     </button>
                   ))}
                 </div>

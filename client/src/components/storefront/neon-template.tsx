@@ -252,7 +252,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
         <div className="mx-auto max-w-6xl flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             {store.logoUrl ? (
-              <img src={store.logoUrl} alt={store.name} className="h-9 w-9 rounded-lg object-cover" style={{ boxShadow: `0 0 12px ${c.accent}30` }} data-testid="img-neon-logo" />
+              <img src={store.logoUrl} alt={store.name} className="h-9 w-9 rounded-lg object-cover" loading="lazy" style={{ boxShadow: `0 0 12px ${c.accent}30` }} data-testid="img-neon-logo" />
             ) : (
               <div className="neon-glow-icon relative flex items-center justify-center w-9 h-9 rounded-lg" style={{ background: `linear-gradient(135deg, ${c.accent}20, ${c.accentAlt}20)`, border: `1px solid ${c.accent}25` }}>
                 <Zap className="h-4 w-4" style={{ color: c.accent }} />
@@ -285,7 +285,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
       <section className="relative z-10 mx-auto max-w-6xl px-6 pt-20 pb-24 text-center">
         {store.heroBannerUrl && (
           <div className="absolute inset-0 z-0 overflow-hidden rounded-b-2xl" style={{ margin: "0 24px" }}>
-            <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover" style={{ opacity: isDark ? 0.25 : 0.18 }} data-testid="img-neon-hero-banner" />
+            <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover" loading="lazy" style={{ opacity: isDark ? 0.25 : 0.18 }} data-testid="img-neon-hero-banner" />
             <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${c.bg}99 0%, ${c.bg}bb 50%, ${c.bg} 100%)` }} />
           </div>
         )}
@@ -338,7 +338,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                   {product.thumbnailUrl && (
                     <a href={"/s/" + store.slug + "/product/" + product.id} className="block relative overflow-hidden" style={{ borderRadius: "16px 16px 0 0" }}>
                       <div className="aspect-square overflow-hidden">
-                        <img src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" />
+                        <img src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
                       </div>
                       <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />
                       <div className="absolute top-3 right-3 flex items-center gap-2">
