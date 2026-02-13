@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
@@ -156,28 +156,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStoreProducts(storeId: string) {
-    const sps = await db.select().from(storeProducts).where(eq(storeProducts.storeId, storeId));
-    const result = [];
-    for (const sp of sps) {
-      const [product] = await db.select().from(products).where(eq(products.id, sp.productId));
-      if (product) {
-        result.push({ ...sp, product });
-      }
-    }
-    return result;
+    const rows = await db
+      .select({ sp: storeProducts, product: products })
+      .from(storeProducts)
+      .innerJoin(products, eq(storeProducts.productId, products.id))
+      .where(eq(storeProducts.storeId, storeId));
+    return rows.map((r) => ({ ...r.sp, product: r.product }));
   }
 
   async getPublishedStoreProducts(storeId: string) {
-    const sps = await db
-      .select()
+    const rows = await db
+      .select({ product: products })
       .from(storeProducts)
+      .innerJoin(products, eq(storeProducts.productId, products.id))
       .where(and(eq(storeProducts.storeId, storeId), eq(storeProducts.isPublished, true)));
-    const result: Product[] = [];
-    for (const sp of sps) {
-      const [product] = await db.select().from(products).where(eq(products.id, sp.productId));
-      if (product) result.push(product);
-    }
-    return result;
+    return rows.map((r) => r.product);
   }
 
   async getStoreProductById(id: string) {
@@ -284,25 +277,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBundleItems(bundleId: string) {
-    const items = await db.select().from(bundleItems).where(eq(bundleItems.bundleId, bundleId));
-    const result = [];
-    for (const item of items) {
-      const [product] = await db.select().from(products).where(eq(products.id, item.productId));
-      if (product) result.push({ ...item, product });
-    }
-    return result;
+    const rows = await db
+      .select({ bi: bundleItems, product: products })
+      .from(bundleItems)
+      .innerJoin(products, eq(bundleItems.productId, products.id))
+      .where(eq(bundleItems.bundleId, bundleId));
+    return rows.map((r) => ({ ...r.bi, product: r.product }));
   }
 
   async getBundleWithProducts(bundleId: string) {
     const bundle = await this.getBundleById(bundleId);
     if (!bundle) return undefined;
-    const items = await db.select().from(bundleItems).where(eq(bundleItems.bundleId, bundleId));
-    const prods: Product[] = [];
-    for (const item of items) {
-      const [product] = await db.select().from(products).where(eq(products.id, item.productId));
-      if (product) prods.push(product);
-    }
-    return { bundle, products: prods };
+    const items = await this.getBundleItems(bundleId);
+    return { bundle, products: items.map((i) => i.product) };
   }
 
   async createCoupon(data: InsertCoupon) {
@@ -344,13 +331,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrderItemsByOrder(orderId: string) {
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
-    const result = [];
-    for (const item of items) {
-      const [product] = await db.select().from(products).where(eq(products.id, item.productId));
-      if (product) result.push({ ...item, product });
-    }
-    return result;
+    const rows = await db
+      .select({ oi: orderItems, product: products })
+      .from(orderItems)
+      .innerJoin(products, eq(orderItems.productId, products.id))
+      .where(eq(orderItems.orderId, orderId));
+    return rows.map((r) => ({ ...r.oi, product: r.product }));
   }
 
   async getProductImages(productId: string) {

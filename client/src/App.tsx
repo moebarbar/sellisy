@@ -1,59 +1,78 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
-import NotFound from "@/pages/not-found";
-import LandingPage from "@/pages/landing";
-import { DashboardLayout } from "@/components/dashboard/layout";
-import OverviewPage from "@/pages/dashboard/overview";
-import StoreProductsPage from "@/pages/dashboard/store-products";
-import BundlesPage from "@/pages/dashboard/bundles";
-import CouponsPage from "@/pages/dashboard/coupons";
-import OrdersPage from "@/pages/dashboard/orders";
-import LibraryPage from "@/pages/dashboard/library";
-import MyProductsPage from "@/pages/dashboard/my-products";
-import StoreSettingsPage from "@/pages/dashboard/store-settings";
-import StorefrontPage from "@/pages/storefront";
-import ProductDetailPage from "@/pages/product-detail";
-import BundleDetailPage from "@/pages/bundle-detail";
-import CheckoutSuccessPage from "@/pages/checkout-success";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const LandingPage = lazy(() => import("@/pages/landing"));
+const NotFound = lazy(() => import("@/pages/not-found"));
+const StorefrontPage = lazy(() => import("@/pages/storefront"));
+const ProductDetailPage = lazy(() => import("@/pages/product-detail"));
+const BundleDetailPage = lazy(() => import("@/pages/bundle-detail"));
+const CheckoutSuccessPage = lazy(() => import("@/pages/checkout-success"));
+
+const DashboardLayout = lazy(() =>
+  import("@/components/dashboard/layout").then((m) => ({ default: m.DashboardLayout }))
+);
+const OverviewPage = lazy(() => import("@/pages/dashboard/overview"));
+const StoreProductsPage = lazy(() => import("@/pages/dashboard/store-products"));
+const BundlesPage = lazy(() => import("@/pages/dashboard/bundles"));
+const CouponsPage = lazy(() => import("@/pages/dashboard/coupons"));
+const OrdersPage = lazy(() => import("@/pages/dashboard/orders"));
+const LibraryPage = lazy(() => import("@/pages/dashboard/library"));
+const MyProductsPage = lazy(() => import("@/pages/dashboard/my-products"));
+const StoreSettingsPage = lazy(() => import("@/pages/dashboard/store-settings"));
+
+function PageFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="space-y-3 text-center">
+        <Skeleton className="h-6 w-32 mx-auto" />
+        <Skeleton className="h-4 w-24 mx-auto" />
+      </div>
+    </div>
+  );
+}
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={LandingPage} />
-      <Route path="/dashboard">
-        <DashboardLayout><OverviewPage /></DashboardLayout>
-      </Route>
-      <Route path="/dashboard/products">
-        <DashboardLayout><StoreProductsPage /></DashboardLayout>
-      </Route>
-      <Route path="/dashboard/bundles">
-        <DashboardLayout><BundlesPage /></DashboardLayout>
-      </Route>
-      <Route path="/dashboard/coupons">
-        <DashboardLayout><CouponsPage /></DashboardLayout>
-      </Route>
-      <Route path="/dashboard/orders">
-        <DashboardLayout><OrdersPage /></DashboardLayout>
-      </Route>
-      <Route path="/dashboard/library">
-        <DashboardLayout><LibraryPage /></DashboardLayout>
-      </Route>
-      <Route path="/dashboard/my-products">
-        <DashboardLayout><MyProductsPage /></DashboardLayout>
-      </Route>
-      <Route path="/dashboard/settings">
-        <DashboardLayout><StoreSettingsPage /></DashboardLayout>
-      </Route>
-      <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
-      <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
-      <Route path="/s/:slug" component={StorefrontPage} />
-      <Route path="/checkout/success" component={CheckoutSuccessPage} />
-      <Route component={NotFound} />
-    </Switch>
+    <Suspense fallback={<PageFallback />}>
+      <Switch>
+        <Route path="/" component={LandingPage} />
+        <Route path="/dashboard">
+          <DashboardLayout><OverviewPage /></DashboardLayout>
+        </Route>
+        <Route path="/dashboard/products">
+          <DashboardLayout><StoreProductsPage /></DashboardLayout>
+        </Route>
+        <Route path="/dashboard/bundles">
+          <DashboardLayout><BundlesPage /></DashboardLayout>
+        </Route>
+        <Route path="/dashboard/coupons">
+          <DashboardLayout><CouponsPage /></DashboardLayout>
+        </Route>
+        <Route path="/dashboard/orders">
+          <DashboardLayout><OrdersPage /></DashboardLayout>
+        </Route>
+        <Route path="/dashboard/library">
+          <DashboardLayout><LibraryPage /></DashboardLayout>
+        </Route>
+        <Route path="/dashboard/my-products">
+          <DashboardLayout><MyProductsPage /></DashboardLayout>
+        </Route>
+        <Route path="/dashboard/settings">
+          <DashboardLayout><StoreSettingsPage /></DashboardLayout>
+        </Route>
+        <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
+        <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
+        <Route path="/s/:slug" component={StorefrontPage} />
+        <Route path="/checkout/success" component={CheckoutSuccessPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

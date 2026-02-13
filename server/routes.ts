@@ -353,11 +353,10 @@ export async function registerRoutes(
     const store = await storage.getStoreById(req.params.storeId as string);
     if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
     const storeBundles = await storage.getBundlesByStore(store.id);
-    const result = [];
-    for (const b of storeBundles) {
-      const items = await storage.getBundleItems(b.id);
-      result.push({ ...b, products: items.map(i => i.product) });
-    }
+    const allItems = await Promise.all(
+      storeBundles.map((b) => storage.getBundleItems(b.id))
+    );
+    const result = storeBundles.map((b, i) => ({ ...b, products: allItems[i].map(item => item.product) }));
     res.json(result);
   });
 
@@ -530,11 +529,10 @@ export async function registerRoutes(
     const store = await storage.getStoreById(req.params.storeId as string);
     if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
     const storeOrders = await storage.getOrdersByStore(store.id);
-    const result = [];
-    for (const order of storeOrders) {
-      const items = await storage.getOrderItemsByOrder(order.id);
-      result.push({ ...order, items });
-    }
+    const itemsPerOrder = await Promise.all(
+      storeOrders.map((order) => storage.getOrderItemsByOrder(order.id))
+    );
+    const result = storeOrders.map((order, i) => ({ ...order, items: itemsPerOrder[i] }));
     res.json(result);
   });
 
@@ -559,27 +557,33 @@ export async function registerRoutes(
     const topProducts: { title: string; revenue: number; count: number }[] = [];
     const revenueByDate: Record<string, number> = {};
 
-    for (const store of targetStores) {
-      const storeOrders = await storage.getOrdersByStore(store.id);
-      const storeProds = await storage.getStoreProducts(store.id);
+    const storeDataPromises = targetStores.map(async (store) => {
+      const [storeOrders, storeProds] = await Promise.all([
+        storage.getOrdersByStore(store.id),
+        storage.getStoreProducts(store.id),
+      ]);
+      const completedOrders = storeOrders.filter((o) => o.status === "COMPLETED");
+      const orderItemsPromises = completedOrders.map((o) => storage.getOrderItemsByOrder(o.id));
+      const allOrderItems = await Promise.all(orderItemsPromises);
+      return { storeProds, completedOrders, allOrderItems };
+    });
+    const storeDataResults = await Promise.all(storeDataPromises);
+
+    for (const { storeProds, completedOrders, allOrderItems } of storeDataResults) {
       totalProducts += storeProds.length;
-
-      for (const order of storeOrders) {
-        if (order.status === "COMPLETED") {
-          totalRevenue += order.totalCents;
-          totalOrders++;
-          const dateKey = new Date(order.createdAt).toISOString().split("T")[0];
-          revenueByDate[dateKey] = (revenueByDate[dateKey] || 0) + order.totalCents;
-
-          const items = await storage.getOrderItemsByOrder(order.id);
-          for (const item of items) {
-            const existing = topProducts.find(p => p.title === item.product.title);
-            if (existing) {
-              existing.revenue += item.priceCents;
-              existing.count++;
-            } else {
-              topProducts.push({ title: item.product.title, revenue: item.priceCents, count: 1 });
-            }
+      for (let i = 0; i < completedOrders.length; i++) {
+        const order = completedOrders[i];
+        totalRevenue += order.totalCents;
+        totalOrders++;
+        const dateKey = new Date(order.createdAt).toISOString().split("T")[0];
+        revenueByDate[dateKey] = (revenueByDate[dateKey] || 0) + order.totalCents;
+        for (const item of allOrderItems[i]) {
+          const existing = topProducts.find(p => p.title === item.product.title);
+          if (existing) {
+            existing.revenue += item.priceCents;
+            existing.count++;
+          } else {
+            topProducts.push({ title: item.product.title, revenue: item.priceCents, count: 1 });
           }
         }
       }
@@ -603,13 +607,17 @@ export async function registerRoutes(
     const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
-    const publishedProducts = await storage.getPublishedStoreProducts(store.id);
-    const publishedBundles = await storage.getPublishedBundlesByStore(store.id);
-    const bundlesWithProducts = [];
-    for (const b of publishedBundles) {
-      const items = await storage.getBundleItems(b.id);
-      bundlesWithProducts.push({ ...b, products: items.map(i => i.product) });
-    }
+    const [publishedProducts, publishedBundles] = await Promise.all([
+      storage.getPublishedStoreProducts(store.id),
+      storage.getPublishedBundlesByStore(store.id),
+    ]);
+    const allBundleItems = await Promise.all(
+      publishedBundles.map((b) => storage.getBundleItems(b.id))
+    );
+    const bundlesWithProducts = publishedBundles.map((b, i) => ({
+      ...b,
+      products: allBundleItems[i].map((item) => item.product),
+    }));
     res.json({ store, products: publishedProducts, bundles: bundlesWithProducts });
   });
 
