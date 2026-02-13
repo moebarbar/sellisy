@@ -198,7 +198,11 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
-  app.get("/api/products/:id/images", async (req, res) => {
+  app.get("/api/products/:id/images", isAuthenticated, async (req, res) => {
+    const product = await storage.getProductById(req.params.id as string);
+    if (!product || product.ownerId !== getUserId(req)) {
+      return res.status(404).json({ message: "Product not found" });
+    }
     const images = await storage.getProductImages(req.params.id as string);
     res.json(images);
   });
@@ -560,7 +564,8 @@ export async function registerRoutes(
     const product = await storage.getProductById(req.params.productId as string);
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    res.json({ store, product });
+    const images = await storage.getProductImages(product.id);
+    res.json({ store, product, images });
   });
 
   app.get("/api/storefront/:slug/bundle/:bundleId", async (req, res) => {

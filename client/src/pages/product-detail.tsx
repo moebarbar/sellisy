@@ -9,6 +9,7 @@ import type { Store, Product, ProductImage } from "@shared/schema";
 type ProductDetailData = {
   store: Store;
   product: Product;
+  images?: ProductImage[];
 };
 
 type PDPMode = "dark" | "light";
@@ -35,11 +36,6 @@ export default function ProductDetailPage() {
 
   const { data, isLoading, error } = useQuery<ProductDetailData>({
     queryKey: ["/api/storefront", slug, "product", productId],
-  });
-
-  const { data: productImages } = useQuery<ProductImage[]>({
-    queryKey: ["/api/products", productId, "images"],
-    enabled: !!productId,
   });
 
   const handleBuy = async () => {
@@ -228,8 +224,8 @@ export default function ProductDetailPage() {
 
       <main className="relative z-10 mx-auto max-w-3xl px-6 pt-8 pb-20">
         {(() => {
-          const allImages = productImages && productImages.length > 0
-            ? productImages.map((img) => img.url)
+          const allImages = data.images && data.images.length > 0
+            ? data.images.map((img) => img.url)
             : product.thumbnailUrl ? [product.thumbnailUrl] : [];
           if (allImages.length === 0) return null;
           const currentImage = allImages[activeImageIndex] || allImages[0];
