@@ -16,6 +16,9 @@ import {
 import { Moon, Sun, Store, ChevronsUpDown, Check, Plus, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { CreateStoreDialog } from "@/components/dashboard/sidebar";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -63,6 +66,44 @@ function DashboardHeader() {
   const { theme, toggleTheme } = useTheme();
   const { stores, activeStore, activeStoreId, setActiveStoreId } = useActiveStore();
   const [createOpen, setCreateOpen] = useState(false);
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+
+  const { data: storeProducts, isLoading: productsLoading } = useQuery<any[]>({
+    queryKey: ["/api/store-products", activeStoreId],
+    enabled: !!activeStoreId,
+  });
+
+  const productsReady = !productsLoading && storeProducts !== undefined;
+  const hasPublishedProducts = storeProducts?.some((sp: any) => sp.isPublished) ?? false;
+  const hasAnyProducts = (storeProducts?.length ?? 0) > 0;
+
+  const handleStorefrontClick = (e: React.MouseEvent) => {
+    if (!productsReady) return;
+    if (!hasAnyProducts) {
+      e.preventDefault();
+      toast({
+        title: "No products imported yet",
+        description: "Import products from the Library first, then publish them to make your storefront visible.",
+        action: (
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/library")} data-testid="button-toast-go-library">
+            Go to Library
+          </Button>
+        ),
+      });
+    } else if (!hasPublishedProducts) {
+      e.preventDefault();
+      toast({
+        title: "No products published yet",
+        description: "Toggle the publish switch next to your products to make them appear on the storefront.",
+        action: (
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/products")} data-testid="button-toast-go-products">
+            Go to Products
+          </Button>
+        ),
+      });
+    }
+  };
 
   return (
     <>
@@ -125,7 +166,7 @@ function DashboardHeader() {
 
         <div className="flex items-center gap-1">
           {activeStore && (
-            <a href={`/s/${activeStore.slug}`} target="_blank" rel="noopener noreferrer">
+            <a href={`/s/${activeStore.slug}`} target="_blank" rel="noopener noreferrer" onClick={handleStorefrontClick}>
               <Button variant="ghost" size="sm" data-testid="button-header-storefront">
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Storefront</span>
