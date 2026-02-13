@@ -9,7 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Package, Store } from "lucide-react";
+import { AlertCircle, Eye, Package, Store, ToggleRight } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { StoreProduct, Product } from "@shared/schema";
 
 type StoreProductWithProduct = StoreProduct & { product: Product };
@@ -72,26 +73,59 @@ export default function StoreProductsPage() {
           ))}
         </div>
       ) : storeProducts && storeProducts.length > 0 ? (
-        <div className="space-y-3">
-          {storeProducts.map((sp) => (
-            <StoreProductRow key={sp.id} storeProduct={sp} storeId={activeStoreId} />
-          ))}
-        </div>
+        <>
+          {storeProducts.every((sp) => !sp.isPublished) && (
+            <Alert data-testid="alert-none-published">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>No products are published yet</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>
+                  Your storefront won't show any products until you publish them. Use the toggle next to each product below to make it visible to visitors.
+                </p>
+                {activeStore?.slug && (
+                  <Link href={`/s/${activeStore.slug}`}>
+                    <Button variant="outline" size="sm" className="mt-1" data-testid="button-view-storefront">
+                      <Eye className="mr-2 h-4 w-4" />
+                      View Storefront
+                    </Button>
+                  </Link>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+          <div className="space-y-3">
+            {storeProducts.map((sp) => (
+              <StoreProductRow key={sp.id} storeProduct={sp} storeId={activeStoreId} />
+            ))}
+          </div>
+        </>
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="flex items-center justify-center h-12 w-12 rounded-full bg-muted mb-3">
               <Package className="h-5 w-5 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold mb-1">No products imported</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Head to the Library to import products into this store.
+            <h3 className="font-semibold mb-1">No products in this store</h3>
+            <p className="text-sm text-muted-foreground mb-2 max-w-sm">
+              Import products from the Library or create your own, then publish them to make them visible on your storefront.
             </p>
-            <Link href="/dashboard/library">
-              <Button variant="outline" size="sm" data-testid="button-empty-library">
-                Browse Library
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
+              <ToggleRight className="h-3.5 w-3.5" />
+              <span>Use the publish toggle to control what visitors see</span>
+            </div>
+            <div className="flex gap-2 flex-wrap justify-center">
+              <Link href="/dashboard/library">
+                <Button variant="outline" size="sm" data-testid="button-empty-library">
+                  <Package className="mr-2 h-4 w-4" />
+                  Browse Library
+                </Button>
+              </Link>
+              <Link href="/dashboard/my-products">
+                <Button variant="outline" size="sm" data-testid="button-empty-my-products">
+                  Create Your Own
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       )}
