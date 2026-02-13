@@ -3,6 +3,9 @@ import { createServer, type Server } from "http";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
+import { db } from "./db";
+import { orders, orderItems, downloadTokens, coupons } from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
 import { seedDatabase } from "./seed";
 import { randomBytes } from "crypto";
 import { z } from "zod";
@@ -615,8 +618,9 @@ export async function registerRoutes(
     }
 
     let couponId: string | null = null;
+    let coupon: Awaited<ReturnType<typeof storage.getCouponByCode>> = undefined;
     if (parsed.data.couponCode) {
-      const coupon = await storage.getCouponByCode(store.id, parsed.data.couponCode);
+      coupon = await storage.getCouponByCode(store.id, parsed.data.couponCode);
       if (!coupon || !coupon.isActive) return res.status(400).json({ message: "Invalid coupon code" });
       if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) return res.status(400).json({ message: "Coupon usage limit reached" });
       if (coupon.expiresAt && new Date() > coupon.expiresAt) return res.status(400).json({ message: "Coupon expired" });
@@ -627,36 +631,45 @@ export async function registerRoutes(
         totalCents = Math.max(0, totalCents - coupon.discountValue);
       }
       couponId = coupon.id;
-      await storage.incrementCouponUses(coupon.id);
-    }
-
-    const order = await storage.createOrder({
-      storeId: store.id,
-      buyerEmail: parsed.data.buyerEmail || "demo@example.com",
-      totalCents,
-      stripeSessionId: null,
-      couponId,
-      status: "COMPLETED",
-    });
-
-    for (const item of itemsToAdd) {
-      await storage.createOrderItem({ orderId: order.id, ...item });
     }
 
     const tokenHash = randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await storage.createDownloadToken({
-      orderId: order.id,
-      tokenHash,
-      expiresAt,
+    const finalTotalCents = totalCents;
+
+    const result = await db.transaction(async (tx) => {
+      const [order] = await tx.insert(orders).values({
+        storeId: store.id,
+        buyerEmail: parsed.data.buyerEmail || "demo@example.com",
+        totalCents: finalTotalCents,
+        stripeSessionId: null,
+        couponId,
+        status: "COMPLETED",
+      }).returning();
+
+      for (const item of itemsToAdd) {
+        await tx.insert(orderItems).values({ orderId: order.id, ...item });
+      }
+
+      await tx.insert(downloadTokens).values({
+        orderId: order.id,
+        tokenHash,
+        expiresAt,
+      });
+
+      if (couponId) {
+        await tx.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, couponId));
+      }
+
+      return order;
     });
 
     const appUrl = `https://${req.headers.host}`;
     res.json({
-      mockUrl: `${appUrl}/checkout/success?order_id=${order.id}`,
+      mockUrl: `${appUrl}/checkout/success?order_id=${result.id}`,
       message: "Stripe not configured — demo order created",
-      orderId: order.id,
-      totalCents,
+      orderId: result.id,
+      totalCents: finalTotalCents,
     });
   });
 
