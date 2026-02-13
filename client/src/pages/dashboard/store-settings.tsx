@@ -221,6 +221,8 @@ export default function StoreSettingsPage() {
         <p className="text-muted-foreground mt-1">Customize your store appearance and settings.</p>
       </div>
 
+      <PaymentsCard />
+
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -324,8 +326,6 @@ export default function StoreSettingsPage() {
           </Card>
         </div>
       </div>
-
-      <PaymentsCard />
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <Button
