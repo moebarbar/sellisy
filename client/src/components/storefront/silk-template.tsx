@@ -223,12 +223,14 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
 
       <main className="mx-auto max-w-5xl px-6 pb-24">
         {products.length === 0 ? (
-          <div className="text-center py-24">
-            <div className="silk-float flex items-center justify-center h-20 w-20 rounded-full mx-auto mb-6" style={{ backgroundColor: c.badgeBg, border: `1px solid ${c.badgeBorder}` }}>
-              <Package className="h-8 w-8" style={{ color: c.goldMuted }} />
+          <div className="text-center py-20" data-testid="silk-empty-products">
+            <div className="silk-float flex items-center justify-center h-24 w-24 rounded-full mx-auto mb-8" style={{ backgroundColor: c.badgeBg, border: `1px solid ${c.badgeBorder}` }}>
+              <Package className="h-10 w-10" style={{ color: c.gold }} />
             </div>
-            <h2 className="text-2xl font-serif mb-3" style={{ color: c.text }}>No products yet</h2>
-            <p className="text-sm" style={{ color: c.textSecondary }}>This collection is currently being curated. Please check back soon.</p>
+            <h2 className="text-3xl font-serif font-bold mb-4" style={{ color: c.text }}>Coming Soon</h2>
+            <p className="text-base max-w-md mx-auto leading-relaxed" style={{ color: c.textSecondary }}>
+              This store is being set up. Products will appear here once they are published. Check back soon!
+            </p>
           </div>
         ) : (
           <div className="space-y-10">

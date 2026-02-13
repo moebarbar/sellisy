@@ -316,12 +316,14 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
 
       <main className="relative z-10 mx-auto max-w-6xl px-6 pb-20">
         {products.length === 0 ? (
-          <div className="text-center py-24">
-            <div className="neon-float inline-flex items-center justify-center h-20 w-20 rounded-2xl mx-auto mb-6" style={{ background: `${c.accent}08`, border: `1px solid ${c.accent}12` }}>
-              <Package className="h-8 w-8" style={{ color: c.textTertiary }} />
+          <div className="text-center py-20" data-testid="neon-empty-products">
+            <div className="neon-float inline-flex items-center justify-center h-24 w-24 rounded-2xl mx-auto mb-8" style={{ background: `${c.accent}12`, border: `1px solid ${c.accent}25` }}>
+              <Package className="h-10 w-10" style={{ color: c.accent }} />
             </div>
-            <h2 className="text-2xl font-semibold mb-3" style={{ color: c.textSecondary }}>No products yet</h2>
-            <p style={{ color: c.textTertiary }} className="max-w-sm mx-auto">This store is getting ready. Check back soon for amazing digital products.</p>
+            <h2 className="text-3xl font-bold mb-4" style={{ color: isDark ? "rgba(255,255,255,0.85)" : c.text }}>Coming Soon</h2>
+            <p className="text-base max-w-md mx-auto leading-relaxed" style={{ color: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,23,42,0.55)" }}>
+              This store is being set up. Products will appear here once they are published. Check back soon!
+            </p>
           </div>
         ) : (
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
