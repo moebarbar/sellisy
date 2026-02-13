@@ -561,6 +561,9 @@ export async function registerRoutes(
     const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
+    const sp = await storage.getStoreProductByStoreAndProduct(store.id, req.params.productId as string);
+    if (!sp || !sp.isPublished) return res.status(404).json({ message: "Product not found" });
+
     const product = await storage.getProductById(req.params.productId as string);
     if (!product) return res.status(404).json({ message: "Product not found" });
 
@@ -573,7 +576,7 @@ export async function registerRoutes(
     if (!store) return res.status(404).json({ message: "Store not found" });
 
     const data = await storage.getBundleWithProducts(req.params.bundleId as string);
-    if (!data || data.bundle.storeId !== store.id) return res.status(404).json({ message: "Bundle not found" });
+    if (!data || data.bundle.storeId !== store.id || !data.bundle.isPublished) return res.status(404).json({ message: "Bundle not found" });
 
     res.json({ store, bundle: data.bundle, products: data.products });
   });
@@ -597,7 +600,7 @@ export async function registerRoutes(
 
     if (parsed.data.bundleId) {
       const bundleData = await storage.getBundleWithProducts(parsed.data.bundleId);
-      if (!bundleData || bundleData.bundle.storeId !== store.id) return res.status(404).json({ message: "Bundle not found" });
+      if (!bundleData || bundleData.bundle.storeId !== store.id || !bundleData.bundle.isPublished) return res.status(404).json({ message: "Bundle not found" });
       totalCents = bundleData.bundle.priceCents;
       for (const p of bundleData.products) {
         itemsToAdd.push({ productId: p.id, priceCents: p.priceCents });
@@ -605,6 +608,8 @@ export async function registerRoutes(
     } else if (parsed.data.productId) {
       const product = await storage.getProductById(parsed.data.productId);
       if (!product) return res.status(404).json({ message: "Product not found" });
+      const sp = await storage.getStoreProductByStoreAndProduct(store.id, product.id);
+      if (!sp || !sp.isPublished) return res.status(404).json({ message: "Product not available in this store" });
       totalCents = product.priceCents;
       itemsToAdd.push({ productId: product.id, priceCents: product.priceCents });
     }

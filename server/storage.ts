@@ -113,6 +113,7 @@ export class DatabaseStorage implements IStorage {
       await db.delete(bundleItems).where(eq(bundleItems.bundleId, b.id));
     }
     await db.delete(bundles).where(eq(bundles.storeId, id));
+    await db.delete(coupons).where(eq(coupons.storeId, id));
     await db.delete(storeProducts).where(eq(storeProducts.storeId, id));
     await db.delete(stores).where(eq(stores.id, id));
   }
