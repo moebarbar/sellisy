@@ -45,6 +45,18 @@ export const insertProductSchema = createInsertSchema(products).omit({ id: true,
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 
+export const productImages = pgTable("product_images", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id", { length: 64 }).notNull(),
+  url: text("url").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isPrimary: boolean("is_primary").notNull().default(false),
+});
+
+export const insertProductImageSchema = createInsertSchema(productImages).omit({ id: true });
+export type InsertProductImage = z.infer<typeof insertProductImageSchema>;
+export type ProductImage = typeof productImages.$inferSelect;
+
 export const fileAssets = pgTable("file_assets", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
   productId: varchar("product_id", { length: 64 }).notNull(),

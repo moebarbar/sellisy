@@ -105,18 +105,28 @@ export async function registerRoutes(
   });
 
   app.post("/api/products", isAuthenticated, async (req, res) => {
+    const imageSchema = z.object({
+      url: z.string().min(1),
+      sortOrder: z.number().int().min(0),
+      isPrimary: z.boolean(),
+    });
     const schema = z.object({
       title: z.string().min(1),
-      description: z.string().optional(),
-      category: z.string().optional(),
+      description: z.string().optional().nullable(),
+      category: z.string().optional().nullable(),
       priceCents: z.number().int().min(0),
       originalPriceCents: z.number().int().min(0).optional().nullable(),
       thumbnailUrl: z.string().optional().nullable(),
       fileUrl: z.string().optional().nullable(),
       status: z.enum(["DRAFT", "ACTIVE"]).optional(),
+      images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid product data" });
+
+    const imgs = parsed.data.images || [];
+    const primaryImg = imgs.find((i) => i.isPrimary) || imgs[0];
+    const thumbUrl = primaryImg?.url ?? parsed.data.thumbnailUrl ?? null;
 
     const product = await storage.createProduct({
       ownerId: getUserId(req),
@@ -126,10 +136,15 @@ export async function registerRoutes(
       category: parsed.data.category || "templates",
       priceCents: parsed.data.priceCents,
       originalPriceCents: parsed.data.originalPriceCents ?? null,
-      thumbnailUrl: parsed.data.thumbnailUrl ?? null,
+      thumbnailUrl: thumbUrl,
       fileUrl: parsed.data.fileUrl ?? null,
       status: parsed.data.status || "ACTIVE",
     });
+
+    if (imgs.length > 0) {
+      await storage.setProductImages(product.id, imgs);
+    }
+
     res.json(product);
   });
 
@@ -139,20 +154,37 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Product not found" });
     }
 
+    const imageSchema = z.object({
+      url: z.string().min(1),
+      sortOrder: z.number().int().min(0),
+      isPrimary: z.boolean(),
+    });
     const schema = z.object({
       title: z.string().min(1).optional(),
       description: z.string().optional().nullable(),
-      category: z.string().optional(),
+      category: z.string().optional().nullable(),
       priceCents: z.number().int().min(0).optional(),
       originalPriceCents: z.number().int().min(0).optional().nullable(),
       thumbnailUrl: z.string().optional().nullable(),
       fileUrl: z.string().optional().nullable(),
       status: z.enum(["DRAFT", "ACTIVE"]).optional(),
+      images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
 
-    const updated = await storage.updateProduct(product.id, parsed.data);
+    const { images: imgs, ...productData } = parsed.data;
+    if (imgs !== undefined) {
+      await storage.setProductImages(product.id, imgs);
+      const primaryImg = imgs.find((i) => i.isPrimary) || imgs[0];
+      if (primaryImg) {
+        productData.thumbnailUrl = primaryImg.url;
+      } else {
+        productData.thumbnailUrl = null;
+      }
+    }
+
+    const updated = await storage.updateProduct(product.id, productData);
     res.json(updated);
   });
 
@@ -164,6 +196,34 @@ export async function registerRoutes(
 
     await storage.deleteProduct(product.id);
     res.json({ ok: true });
+  });
+
+  app.get("/api/products/:id/images", async (req, res) => {
+    const images = await storage.getProductImages(req.params.id as string);
+    res.json(images);
+  });
+
+  app.put("/api/products/:id/images", isAuthenticated, async (req, res) => {
+    const product = await storage.getProductById(req.params.id as string);
+    if (!product || product.ownerId !== getUserId(req)) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+    const schema = z.array(z.object({
+      url: z.string().min(1),
+      sortOrder: z.number().int().min(0),
+      isPrimary: z.boolean(),
+    }));
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid images data" });
+
+    const images = await storage.setProductImages(product.id, parsed.data);
+    const primary = parsed.data.find((img) => img.isPrimary);
+    if (primary) {
+      await storage.updateProduct(product.id, { thumbnailUrl: primary.url });
+    } else if (parsed.data.length > 0) {
+      await storage.updateProduct(product.id, { thumbnailUrl: parsed.data[0].url });
+    }
+    res.json(images);
   });
 
   app.get("/api/store-products/:storeId", isAuthenticated, async (req, res) => {

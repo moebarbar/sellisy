@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useUpload } from "@/hooks/use-upload";
-import { Plus, Package, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download } from "lucide-react";
-import type { Product, Store } from "@shared/schema";
+import { Plus, Package, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download, Star, X } from "lucide-react";
+import type { Product, Store, ProductImage } from "@shared/schema";
 
 const CATEGORIES = [
   { key: "all", label: "All" },
@@ -106,25 +106,7 @@ export default function MyProductsPage() {
           {filteredProducts.map((product) => (
             <Card key={product.id} data-testid={`card-product-${product.id}`}>
               <CardContent className="p-0">
-                <div className="relative aspect-square bg-muted overflow-hidden rounded-t-md">
-                  {product.thumbnailUrl ? (
-                    <img
-                      src={product.thumbnailUrl}
-                      alt={product.title}
-                      className="w-full h-full object-cover"
-                      data-testid={`img-my-product-${product.id}`}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Package className="h-12 w-12 text-muted-foreground/40" />
-                    </div>
-                  )}
-                  <div className="absolute top-2 right-2">
-                    <Badge variant={product.status === "ACTIVE" ? "default" : "secondary"} data-testid={`badge-status-${product.id}`}>
-                      {product.status}
-                    </Badge>
-                  </div>
-                </div>
+                <ProductCardImage product={product} />
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <h3 className="font-semibold leading-tight" data-testid={`text-my-product-title-${product.id}`}>
@@ -328,6 +310,48 @@ function ImportToStoreDialog({
   );
 }
 
+function ProductCardImage({ product }: { product: Product }) {
+  const { data: productImages } = useQuery<ProductImage[]>({
+    queryKey: ["/api/products", product.id, "images"],
+  });
+
+  const imageCount = productImages?.length || 0;
+  const displayUrl = product.thumbnailUrl;
+
+  return (
+    <div className="relative aspect-square bg-muted overflow-hidden rounded-t-md">
+      {displayUrl ? (
+        <img
+          src={displayUrl}
+          alt={product.title}
+          className="w-full h-full object-cover"
+          data-testid={`img-my-product-${product.id}`}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <Package className="h-12 w-12 text-muted-foreground/40" />
+        </div>
+      )}
+      <div className="absolute top-2 right-2 flex items-center gap-1.5">
+        {imageCount > 1 && (
+          <Badge variant="secondary" className="text-[10px]" data-testid={`badge-image-count-${product.id}`}>
+            <ImageIcon className="h-3 w-3 mr-1" />
+            {imageCount}
+          </Badge>
+        )}
+        <Badge variant={product.status === "ACTIVE" ? "default" : "secondary"} data-testid={`badge-status-${product.id}`}>
+          {product.status}
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
+interface ImageEntry {
+  url: string;
+  isPrimary: boolean;
+}
+
 function ProductFormDialog({
   open,
   onClose,
@@ -345,14 +369,20 @@ function ProductFormDialog({
   const [category, setCategory] = useState("templates");
   const [price, setPrice] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
-  const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [images, setImages] = useState<ImageEntry[]>([]);
   const [fileUrl, setFileUrl] = useState("");
   const [fileDelivery, setFileDelivery] = useState<"upload" | "url">("upload");
   const [status, setStatus] = useState<"DRAFT" | "ACTIVE">("ACTIVE");
-  const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const { uploadFile } = useUpload();
+
+  const { data: existingImages } = useQuery<ProductImage[]>({
+    queryKey: ["/api/products", product?.id, "images"],
+    enabled: mode === "edit" && !!product?.id && open,
+  });
 
   const resetForm = () => {
     if (mode === "edit" && product) {
@@ -361,7 +391,6 @@ function ProductFormDialog({
       setCategory(product.category);
       setPrice((product.priceCents / 100).toFixed(2));
       setOriginalPrice(product.originalPriceCents ? (product.originalPriceCents / 100).toFixed(2) : "");
-      setThumbnailUrl(product.thumbnailUrl || "");
       setFileUrl(product.fileUrl || "");
       setFileDelivery(product.fileUrl?.startsWith("/objects/") ? "upload" : product.fileUrl ? "url" : "upload");
       setStatus(product.status);
@@ -371,7 +400,7 @@ function ProductFormDialog({
       setCategory("templates");
       setPrice("");
       setOriginalPrice("");
-      setThumbnailUrl("");
+      setImages([]);
       setFileUrl("");
       setFileDelivery("upload");
       setStatus("ACTIVE");
@@ -384,6 +413,14 @@ function ProductFormDialog({
     }
   }, [open, product]);
 
+  useEffect(() => {
+    if (mode === "edit" && existingImages && existingImages.length > 0) {
+      setImages(existingImages.map((img) => ({ url: img.url, isPrimary: img.isPrimary })));
+    } else if (mode === "edit" && product && existingImages && existingImages.length === 0 && product.thumbnailUrl) {
+      setImages([{ url: product.thumbnailUrl, isPrimary: true }]);
+    }
+  }, [existingImages, mode, product]);
+
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen) {
       resetForm();
@@ -392,20 +429,42 @@ function ProductFormDialog({
     }
   };
 
-  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setThumbnailUploading(true);
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setImageUploading(true);
     try {
-      const result = await uploadFile(file);
-      if (result) {
-        setThumbnailUrl(result.objectPath);
+      for (let i = 0; i < files.length; i++) {
+        const result = await uploadFile(files[i]);
+        if (result) {
+          setImages((prev) => {
+            const isFirst = prev.length === 0;
+            return [...prev, { url: result.objectPath, isPrimary: isFirst }];
+          });
+        }
       }
     } catch {
-      toast({ title: "Thumbnail upload failed", variant: "destructive" });
+      toast({ title: "Image upload failed", variant: "destructive" });
     } finally {
-      setThumbnailUploading(false);
+      setImageUploading(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
     }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length > 0 && !next.some((img) => img.isPrimary)) {
+        next[0].isPrimary = true;
+      }
+      return next;
+    });
+  };
+
+  const setPrimaryImage = (index: number) => {
+    setImages((prev) =>
+      prev.map((img, i) => ({ ...img, isPrimary: i === index }))
+    );
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -424,6 +483,14 @@ function ProductFormDialog({
     }
   };
 
+  const buildImagesPayload = () => {
+    return images.map((img, i) => ({
+      url: img.url,
+      sortOrder: i,
+      isPrimary: img.isPrimary,
+    }));
+  };
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const priceCents = Math.round(parseFloat(price) * 100);
@@ -434,9 +501,9 @@ function ProductFormDialog({
         category,
         priceCents,
         originalPriceCents: origPriceCents,
-        thumbnailUrl: thumbnailUrl || null,
         fileUrl: fileUrl || null,
         status,
+        images: buildImagesPayload(),
       };
       await apiRequest("POST", "/api/products", body);
     },
@@ -460,14 +527,15 @@ function ProductFormDialog({
         category,
         priceCents,
         originalPriceCents: origPriceCents,
-        thumbnailUrl: thumbnailUrl || null,
         fileUrl: fileUrl || null,
         status,
+        images: buildImagesPayload(),
       };
       await apiRequest("PATCH", `/api/products/${product!.id}`, body);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products/mine"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products", product!.id, "images"] });
       toast({ title: "Product updated" });
       onClose();
     },
@@ -586,33 +654,76 @@ function ProductFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Thumbnail Image</Label>
-            <div className="flex items-center gap-3">
-              {thumbnailUrl ? (
-                <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted shrink-0">
-                  <img src={thumbnailUrl} alt="Thumbnail" className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-16 w-16 rounded-md bg-muted shrink-0">
-                  <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
-                </div>
-              )}
-              <div className="flex-1 space-y-1">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleThumbnailUpload}
-                  disabled={thumbnailUploading}
-                  data-testid="input-thumbnail-upload"
-                />
-                {thumbnailUploading && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Uploading...</span>
+            <Label>Product Images <span className="text-xs text-muted-foreground">(Square, 512px or 1024px recommended)</span></Label>
+            {images.length > 0 && (
+              <div className="grid grid-cols-4 gap-2" data-testid="grid-product-images">
+                {images.map((img, index) => (
+                  <div
+                    key={`${img.url}-${index}`}
+                    className={`relative aspect-square rounded-md overflow-hidden bg-muted border-2 group ${img.isPrimary ? "border-primary" : "border-transparent"}`}
+                    data-testid={`image-preview-${index}`}
+                  >
+                    <img src={img.url} alt={`Product ${index + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-white"
+                        onClick={() => setPrimaryImage(index)}
+                        data-testid={`button-set-primary-${index}`}
+                      >
+                        <Star className={`h-4 w-4 ${img.isPrimary ? "fill-yellow-400 text-yellow-400" : ""}`} />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-white"
+                        onClick={() => removeImage(index)}
+                        data-testid={`button-remove-image-${index}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {img.isPrimary && (
+                      <div className="absolute top-1 left-1">
+                        <Badge variant="default" className="text-[10px] px-1 py-0">Cover</Badge>
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
+            )}
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => imageInputRef.current?.click()}
+                disabled={imageUploading}
+                data-testid="button-add-images"
+              >
+                {imageUploading ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                )}
+                {imageUploading ? "Uploading..." : "Add Images"}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {images.length} image{images.length !== 1 ? "s" : ""} added
+              </span>
             </div>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageUpload}
+              className="hidden"
+              data-testid="input-image-upload"
+            />
           </div>
 
           <div className="space-y-3">

@@ -4,6 +4,7 @@
 Multi-tenant digital product storefront builder. Users sign up, create stores from templates, import products from a platform library, publish them, and accept payments with secure download delivery.
 
 ## Recent Changes
+- 2026-02-13: Added multi-image support for products — productImages table, multi-upload form, image gallery on detail pages, square format (512/1024px)
 - 2026-02-13: **Dashboard fully store-dedicated** — store switcher in header bar, unified nav (no Store/Global split), all pages reference active store, real analytics from DB
 - 2026-02-13: Added dedicated Store Settings page with general/branding config and store deletion
 - 2026-02-13: Removed old stores list and store-detail pages; store switcher moved to top header bar
@@ -25,7 +26,8 @@ Multi-tenant digital product storefront builder. Users sign up, create stores fr
 - **Auth**: Replit Auth (OIDC via passport.js, sessions in PostgreSQL). Login at /api/login, logout at /api/logout, user at /api/auth/user. User ID from req.user.claims.sub.
 - **Frontend**: React with shadcn/ui, Tailwind CSS, TanStack Query
 - **Routing**: wouter (client), Express routes (server)
-- **Database**: PostgreSQL via Drizzle ORM (models: users, sessions, stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens, bundles, bundleItems, coupons)
+- **Database**: PostgreSQL via Drizzle ORM (models: users, sessions, stores, products, productImages, fileAssets, storeProducts, orders, orderItems, downloadTokens, bundles, bundleItems, coupons)
+- **Product Images**: Multiple images per product via productImages table (square, 512px/1024px). Product.thumbnailUrl auto-synced to primary image. Gallery on product detail page with carousel + thumbnail strip
 - **Templates**: Neon (dark, bold) and Silk (elegant, minimal) for public storefronts — now use store.tagline and store.logoUrl
 - **Standalone Pages**: Product detail (/s/:slug/product/:id) and bundle detail (/s/:slug/bundle/:id) — premium dark landing pages for social sharing
 - **Coupons**: PERCENT or FIXED discount codes per store, with max uses, expiration, active toggle

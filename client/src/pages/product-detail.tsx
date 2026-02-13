@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, ArrowLeft, Tag, Sparkles, Zap, Sun, Moon } from "lucide-react";
-import type { Store, Product } from "@shared/schema";
+import { ShoppingBag, ArrowLeft, Tag, Sparkles, Zap, Sun, Moon, ChevronLeft, ChevronRight } from "lucide-react";
+import type { Store, Product, ProductImage } from "@shared/schema";
 
 type ProductDetailData = {
   store: Store;
@@ -31,8 +31,15 @@ export default function ProductDetailPage() {
 
   const isDark = mode === "dark";
 
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+
   const { data, isLoading, error } = useQuery<ProductDetailData>({
     queryKey: ["/api/storefront", slug, "product", productId],
+  });
+
+  const { data: productImages } = useQuery<ProductImage[]>({
+    queryKey: ["/api/products", productId, "images"],
+    enabled: !!productId,
   });
 
   const handleBuy = async () => {
@@ -220,20 +227,78 @@ export default function ProductDetailPage() {
       </header>
 
       <main className="relative z-10 mx-auto max-w-3xl px-6 pt-8 pb-20">
-        {product.thumbnailUrl && (
-          <div className="pdp-image-container mb-8 pdp-fade-in">
-            <div className="aspect-[16/9] w-full">
-              <img src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover" />
-            </div>
-            {hasDiscount && (
-              <div className="absolute top-4 right-4 z-10">
-                <div className="pdp-discount px-3 py-1.5 rounded-full text-sm font-bold backdrop-blur-md" data-testid="badge-discount">
-                  -{getDiscountPercent(product.originalPriceCents!, product.priceCents)}%
+        {(() => {
+          const allImages = productImages && productImages.length > 0
+            ? productImages.map((img) => img.url)
+            : product.thumbnailUrl ? [product.thumbnailUrl] : [];
+          if (allImages.length === 0) return null;
+          const currentImage = allImages[activeImageIndex] || allImages[0];
+          return (
+            <div className="mb-8 pdp-fade-in">
+              <div className="pdp-image-container relative">
+                <div className="aspect-square w-full">
+                  <img src={currentImage} alt={product.title} className="w-full h-full object-cover" data-testid="img-product-main" />
                 </div>
+                {hasDiscount && (
+                  <div className="absolute top-4 right-4 z-10">
+                    <div className="pdp-discount px-3 py-1.5 rounded-full text-sm font-bold backdrop-blur-md" data-testid="badge-discount">
+                      -{getDiscountPercent(product.originalPriceCents!, product.priceCents)}%
+                    </div>
+                  </div>
+                )}
+                {allImages.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setActiveImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md transition-colors"
+                      style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}
+                      data-testid="button-prev-image"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => setActiveImageIndex((prev) => (prev + 1) % allImages.length)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md transition-colors"
+                      style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}
+                      data-testid="button-next-image"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5">
+                      {allImages.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setActiveImageIndex(idx)}
+                          className="w-2 h-2 rounded-full transition-all"
+                          style={{ background: idx === activeImageIndex ? c.accent : "rgba(255,255,255,0.4)" }}
+                          data-testid={`button-image-dot-${idx}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-            )}
-          </div>
-        )}
+              {allImages.length > 1 && (
+                <div className="flex gap-2 mt-3 overflow-x-auto pb-1" data-testid="image-thumbnails">
+                  {allImages.map((url, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImageIndex(idx)}
+                      className="shrink-0 w-16 h-16 rounded-md overflow-hidden transition-all"
+                      style={{
+                        border: idx === activeImageIndex ? `2px solid ${c.accent}` : "2px solid transparent",
+                        opacity: idx === activeImageIndex ? 1 : 0.6,
+                      }}
+                      data-testid={`button-thumbnail-${idx}`}
+                    >
+                      <img src={url} alt={`${product.title} ${idx + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <div className="space-y-8">
           <div className="pdp-fade-in pdp-fade-in-d1">

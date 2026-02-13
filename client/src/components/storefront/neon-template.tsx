@@ -335,7 +335,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                   <div className="neon-card-line-scan" />
                   {product.thumbnailUrl && (
                     <a href={"/s/" + store.slug + "/product/" + product.id} className="block relative overflow-hidden" style={{ borderRadius: "16px 16px 0 0" }}>
-                      <div className="aspect-[16/10] overflow-hidden">
+                      <div className="aspect-square overflow-hidden">
                         <img src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" />
                       </div>
                       <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />

@@ -2,7 +2,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
-  bundles, bundleItems, coupons,
+  bundles, bundleItems, coupons, productImages,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -13,6 +13,7 @@ import {
   type Bundle, type InsertBundle,
   type BundleItem, type InsertBundleItem,
   type Coupon, type InsertCoupon,
+  type ProductImage, type InsertProductImage,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -70,6 +71,9 @@ export interface IStorage {
 
   getOrdersByStore(storeId: string): Promise<Order[]>;
   getOrderItemsByOrder(orderId: string): Promise<(OrderItem & { product: Product })[]>;
+
+  getProductImages(productId: string): Promise<ProductImage[]>;
+  setProductImages(productId: string, images: { url: string; sortOrder: number; isPrimary: boolean }[]): Promise<ProductImage[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -139,6 +143,7 @@ export class DatabaseStorage implements IStorage {
   async deleteProduct(id: string) {
     await db.delete(storeProducts).where(eq(storeProducts.productId, id));
     await db.delete(fileAssets).where(eq(fileAssets.productId, id));
+    await db.delete(productImages).where(eq(productImages.productId, id));
     await db.delete(products).where(eq(products.id, id));
   }
 
@@ -338,6 +343,22 @@ export class DatabaseStorage implements IStorage {
       if (product) result.push({ ...item, product });
     }
     return result;
+  }
+
+  async getProductImages(productId: string) {
+    return db.select().from(productImages).where(eq(productImages.productId, productId)).orderBy(productImages.sortOrder);
+  }
+
+  async setProductImages(productId: string, images: { url: string; sortOrder: number; isPrimary: boolean }[]) {
+    await db.delete(productImages).where(eq(productImages.productId, productId));
+    if (images.length === 0) return [];
+    const rows = images.map((img) => ({
+      productId,
+      url: img.url,
+      sortOrder: img.sortOrder,
+      isPrimary: img.isPrimary,
+    }));
+    return db.insert(productImages).values(rows).returning();
   }
 }
 
