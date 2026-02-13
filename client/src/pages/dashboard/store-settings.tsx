@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
+import { useUpload } from "@/hooks/use-upload";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,112 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Store, Loader2, AlertTriangle, Trash2 } from "lucide-react";
+import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon } from "lucide-react";
+
+function ImageUploadField({
+  label,
+  value,
+  onChange,
+  aspectHint,
+  previewClass,
+  testIdPrefix,
+}: {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  aspectHint: string;
+  previewClass: string;
+  testIdPrefix: string;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (res) => {
+      onChange(res.objectPath);
+    },
+    onError: () => {},
+  });
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return;
+    await uploadFile(file);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  return (
+    <div className="space-y-3">
+      <Label>{label}</Label>
+      <p className="text-xs text-muted-foreground">{aspectHint}</p>
+
+      {value ? (
+        <div className="relative group">
+          <div className={`overflow-hidden rounded-md border border-border ${previewClass}`}>
+            <img
+              src={value}
+              alt={label}
+              className="w-full h-full object-cover"
+              data-testid={`img-${testIdPrefix}-preview`}
+            />
+          </div>
+          <div className="absolute top-2 right-2 flex gap-1">
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={() => fileRef.current?.click()}
+              disabled={isUploading}
+              data-testid={`button-${testIdPrefix}-replace`}
+            >
+              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={() => onChange("")}
+              data-testid={`button-${testIdPrefix}-remove`}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => !isUploading && fileRef.current?.click()}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileRef.current?.click(); } }}
+          className={`flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-muted-foreground/25 cursor-pointer hover-elevate ${previewClass}`}
+          data-testid={`button-${testIdPrefix}-upload`}
+        >
+          {isUploading ? (
+            <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+          ) : (
+            <>
+              <ImageIcon className="h-6 w-6 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Click to upload</span>
+            </>
+          )}
+        </div>
+      )}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFile}
+        data-testid={`input-${testIdPrefix}-file`}
+      />
+
+      <Input
+        placeholder="Or paste an image URL"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        data-testid={`input-${testIdPrefix}-url`}
+      />
+    </div>
+  );
+}
 
 export default function StoreSettingsPage() {
   const { activeStore, activeStoreId, storesLoading, setActiveStoreId } = useActiveStore();
@@ -161,24 +267,6 @@ export default function StoreSettingsPage() {
                 data-testid="input-settings-tagline"
               />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Branding</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="settings-logo">Logo URL</Label>
-              <Input
-                id="settings-logo"
-                placeholder="https://example.com/logo.png"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                data-testid="input-settings-logo"
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="settings-accent">Accent Color</Label>
               <div className="flex gap-2">
@@ -198,18 +286,42 @@ export default function StoreSettingsPage() {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="settings-banner">Hero Banner URL</Label>
-              <Input
-                id="settings-banner"
-                placeholder="https://example.com/banner.jpg"
-                value={heroBannerUrl}
-                onChange={(e) => setHeroBannerUrl(e.target.value)}
-                data-testid="input-settings-banner"
-              />
-            </div>
           </CardContent>
         </Card>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Store Logo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ImageUploadField
+                label="Logo"
+                value={logoUrl}
+                onChange={setLogoUrl}
+                aspectHint="Square image recommended (e.g. 256x256px). Shown in storefront header."
+                previewClass="w-24 h-24"
+                testIdPrefix="logo"
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Hero Banner</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ImageUploadField
+                label="Hero Banner"
+                value={heroBannerUrl}
+                onChange={setHeroBannerUrl}
+                aspectHint="Wide landscape image recommended (e.g. 1600x600px). Appears behind your store title."
+                previewClass="w-full aspect-[16/6]"
+                testIdPrefix="hero-banner"
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-4 flex-wrap">

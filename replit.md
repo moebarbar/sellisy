@@ -4,6 +4,8 @@
 Multi-tenant digital product storefront builder. Users sign up, create stores from templates, import products from a platform library, publish them, and accept payments with secure download delivery.
 
 ## Recent Changes
+- 2026-02-13: **Logo & Hero Banner upload** — Store Settings branding section supports file upload (Object Storage) and URL paste for logo and hero banner, with preview/replace/remove; both Neon and Silk templates render them cleanly
+- 2026-02-13: **Checkout transaction safety** — all checkout writes (order, items, download token, coupon increment) wrapped in db.transaction with tx client for atomicity
 - 2026-02-13: Added multi-image support for products — productImages table, multi-upload form, image gallery on detail pages, square format (512/1024px)
 - 2026-02-13: **Dashboard fully store-dedicated** — store switcher in header bar, unified nav (no Store/Global split), all pages reference active store, real analytics from DB
 - 2026-02-13: Added dedicated Store Settings page with general/branding config and store deletion

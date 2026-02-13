@@ -169,14 +169,21 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
         <div className="mx-auto max-w-5xl px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {store.logoUrl ? (
-              <img src={store.logoUrl} alt={store.name} className="h-8 w-8 rounded-full object-cover" />
+              <>
+                <img src={store.logoUrl} alt={store.name} className="h-8 w-8 rounded-full object-cover" style={{ border: `1px solid ${c.goldBorder}` }} data-testid="img-silk-logo" />
+                <span className="text-sm font-serif tracking-[0.3em] uppercase" style={{ color: c.goldMuted }} data-testid="text-silk-store-name">
+                  {store.name}
+                </span>
+              </>
             ) : (
-              <div className="h-px w-10" style={{ backgroundColor: c.gold }} />
+              <>
+                <div className="h-px w-10" style={{ backgroundColor: c.gold }} />
+                <span className="text-sm font-serif tracking-[0.3em] uppercase" style={{ color: c.goldMuted }} data-testid="text-silk-store-name">
+                  {store.name}
+                </span>
+                <div className="h-px w-10" style={{ backgroundColor: c.gold }} />
+              </>
             )}
-            <span className="text-sm font-serif tracking-[0.3em] uppercase" style={{ color: c.goldMuted }} data-testid="text-silk-store-name">
-              {store.name}
-            </span>
-            {!store.logoUrl && <div className="h-px w-10" style={{ backgroundColor: c.gold }} />}
           </div>
           <button
             onClick={() => setMode(m => m === "light" ? "dark" : "light")}
@@ -191,9 +198,9 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
 
       <section className="relative mx-auto max-w-5xl px-6 pt-20 pb-16 text-center">
         {store.heroBannerUrl && (
-          <div className="absolute inset-0 z-0 overflow-hidden">
-            <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover opacity-15" />
-            <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${c.bg}dd, ${c.bg})` }} />
+          <div className="absolute inset-0 z-0 overflow-hidden" style={{ borderRadius: "0 0 12px 12px", margin: "0 24px" }}>
+            <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover" style={{ opacity: isDark ? 0.2 : 0.15 }} data-testid="img-silk-hero-banner" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${c.bg}cc 0%, ${c.bg}dd 60%, ${c.bg} 100%)` }} />
           </div>
         )}
         <div className="relative z-10">

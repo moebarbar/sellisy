@@ -252,7 +252,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
         <div className="mx-auto max-w-6xl flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             {store.logoUrl ? (
-              <img src={store.logoUrl} alt={store.name} className="h-9 w-9 rounded-lg object-cover" />
+              <img src={store.logoUrl} alt={store.name} className="h-9 w-9 rounded-lg object-cover" style={{ boxShadow: `0 0 12px ${c.accent}30` }} data-testid="img-neon-logo" />
             ) : (
               <div className="neon-glow-icon relative flex items-center justify-center w-9 h-9 rounded-lg" style={{ background: `linear-gradient(135deg, ${c.accent}20, ${c.accentAlt}20)`, border: `1px solid ${c.accent}25` }}>
                 <Zap className="h-4 w-4" style={{ color: c.accent }} />
@@ -284,9 +284,9 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
 
       <section className="relative z-10 mx-auto max-w-6xl px-6 pt-20 pb-24 text-center">
         {store.heroBannerUrl && (
-          <div className="absolute inset-0 z-0 overflow-hidden">
-            <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover opacity-20" />
-            <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${c.bg}cc, ${c.bg})` }} />
+          <div className="absolute inset-0 z-0 overflow-hidden rounded-b-2xl" style={{ margin: "0 24px" }}>
+            <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover" style={{ opacity: isDark ? 0.25 : 0.18 }} data-testid="img-neon-hero-banner" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${c.bg}99 0%, ${c.bg}bb 50%, ${c.bg} 100%)` }} />
           </div>
         )}
         <div className="relative z-10">
