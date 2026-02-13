@@ -29,6 +29,7 @@ export interface IStorage {
   getStoreProducts(storeId: string): Promise<(StoreProduct & { product: Product })[]>;
   getPublishedStoreProducts(storeId: string): Promise<Product[]>;
   getStoreProductById(id: string): Promise<StoreProduct | undefined>;
+  getStoreProductByStoreAndProduct(storeId: string, productId: string): Promise<StoreProduct | undefined>;
   createStoreProduct(sp: InsertStoreProduct): Promise<StoreProduct>;
   updateStoreProductPublish(id: string, isPublished: boolean): Promise<StoreProduct | undefined>;
 
@@ -121,6 +122,13 @@ export class DatabaseStorage implements IStorage {
 
   async getStoreProductById(id: string) {
     const [sp] = await db.select().from(storeProducts).where(eq(storeProducts.id, id));
+    return sp;
+  }
+
+  async getStoreProductByStoreAndProduct(storeId: string, productId: string) {
+    const [sp] = await db.select().from(storeProducts).where(
+      and(eq(storeProducts.storeId, storeId), eq(storeProducts.productId, productId))
+    );
     return sp;
   }
 

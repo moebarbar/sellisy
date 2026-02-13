@@ -153,6 +153,11 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Store not found" });
     }
 
+    const existing = await storage.getStoreProductByStoreAndProduct(parsed.data.storeId, parsed.data.productId);
+    if (existing) {
+      return res.status(409).json({ message: "Product already imported to this store" });
+    }
+
     const sp = await storage.createStoreProduct({
       storeId: parsed.data.storeId,
       productId: parsed.data.productId,

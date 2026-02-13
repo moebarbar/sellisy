@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Loader2, Package } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Package, Eye } from "lucide-react";
 import type { Product, Store } from "@shared/schema";
 
 export default function LibraryPage() {
@@ -20,6 +20,7 @@ export default function LibraryPage() {
   });
 
   const [importProduct, setImportProduct] = useState<Product | null>(null);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
 
   return (
     <div className="p-6 space-y-6">
@@ -46,7 +47,7 @@ export default function LibraryPage() {
       ) : products && products.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((product) => (
-            <Card key={product.id} className="overflow-hidden hover-elevate">
+            <Card key={product.id} className="overflow-hidden hover-elevate cursor-pointer" onClick={() => setDetailProduct(product)}>
               <CardContent className="p-0">
                 {product.thumbnailUrl && (
                   <div className="relative h-40 bg-muted overflow-hidden">
@@ -70,16 +71,28 @@ export default function LibraryPage() {
                   <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                     {product.description}
                   </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setImportProduct(product)}
-                    data-testid={`button-import-${product.id}`}
-                  >
-                    <Download className="mr-2 h-3.5 w-3.5" />
-                    Import to Store
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={(e) => { e.stopPropagation(); setDetailProduct(product); }}
+                      data-testid={`button-view-${product.id}`}
+                    >
+                      <Eye className="mr-2 h-3.5 w-3.5" />
+                      Details
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="flex-1"
+                      onClick={(e) => { e.stopPropagation(); setImportProduct(product); }}
+                      data-testid={`button-import-${product.id}`}
+                    >
+                      <Download className="mr-2 h-3.5 w-3.5" />
+                      Import
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -99,12 +112,94 @@ export default function LibraryPage() {
         </Card>
       )}
 
+      <ProductDetailDialog
+        product={detailProduct}
+        stores={stores || []}
+        onClose={() => setDetailProduct(null)}
+        onImport={(product) => {
+          setDetailProduct(null);
+          setImportProduct(product);
+        }}
+      />
+
       <ImportDialog
         product={importProduct}
         stores={stores || []}
         onClose={() => setImportProduct(null)}
       />
     </div>
+  );
+}
+
+function ProductDetailDialog({
+  product,
+  stores,
+  onClose,
+  onImport,
+}: {
+  product: Product | null;
+  stores: Store[];
+  onClose: () => void;
+  onImport: (product: Product) => void;
+}) {
+  return (
+    <Dialog open={!!product} onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle data-testid="text-detail-title">{product?.title}</DialogTitle>
+          <DialogDescription>Product details and information</DialogDescription>
+        </DialogHeader>
+        {product && (
+          <div className="space-y-4">
+            {product.thumbnailUrl && (
+              <div className="relative rounded-md overflow-hidden bg-muted aspect-video">
+                <img
+                  src={product.thumbnailUrl}
+                  alt={product.title}
+                  className="w-full h-full object-cover"
+                  data-testid="img-detail-product"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <Badge variant="secondary" data-testid="text-detail-source">
+                {product.source === "PLATFORM" ? "Platform Product" : "User Product"}
+              </Badge>
+              <span className="text-xl font-bold" data-testid="text-detail-price">
+                ${(product.priceCents / 100).toFixed(2)}
+              </span>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-1">Description</h4>
+              <p className="text-sm leading-relaxed" data-testid="text-detail-description">
+                {product.description || "No description available."}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Status: {product.status}</span>
+              {product.createdAt && (
+                <>
+                  <span>|</span>
+                  <span>Added: {new Date(product.createdAt).toLocaleDateString()}</span>
+                </>
+              )}
+            </div>
+
+            <Button
+              className="w-full"
+              onClick={() => onImport(product)}
+              data-testid="button-detail-import"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Import to Store
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -128,7 +223,7 @@ function ImportDialog({
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/store-products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/store-products", storeId] });
       toast({
         title: "Product imported",
         description: `"${product?.title}" has been added to your store.`,
