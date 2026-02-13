@@ -3,7 +3,7 @@ import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, Download, AlertCircle } from "lucide-react";
+import { CheckCircle, Download, AlertCircle, ArrowLeft, Package, Clock } from "lucide-react";
 import { Link } from "wouter";
 
 type SuccessData = {
@@ -14,6 +14,8 @@ type SuccessData = {
     status: string;
   };
   downloadToken: string;
+  store?: { name: string; slug: string } | null;
+  items?: { title: string; priceCents: number }[];
 };
 
 export default function CheckoutSuccessPage() {
@@ -22,12 +24,19 @@ export default function CheckoutSuccessPage() {
   const sessionId = params.get("session_id");
   const orderId = params.get("order_id");
 
+  const identifier = sessionId || orderId;
+
   const { data, isLoading, error } = useQuery<SuccessData>({
-    queryKey: ["/api/checkout/success", orderId || sessionId],
-    enabled: !!(orderId || sessionId),
+    queryKey: ["/api/checkout/success", identifier],
+    enabled: !!identifier,
+    refetchInterval: (query) => {
+      const d = query.state.data as SuccessData | undefined;
+      if (d && d.order.status === "PENDING") return 3000;
+      return false;
+    },
   });
 
-  if (!orderId && !sessionId) {
+  if (!identifier) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <Card className="max-w-md w-full">
@@ -77,33 +86,80 @@ export default function CheckoutSuccessPage() {
     );
   }
 
+  const isPending = data.order.status === "PENDING";
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="max-w-md w-full">
+      <Card className="max-w-lg w-full">
         <CardContent className="flex flex-col items-center py-12 text-center">
-          <div className="flex items-center justify-center h-16 w-16 rounded-full bg-green-500/10 mb-5">
-            <CheckCircle className="h-8 w-8 text-green-500" />
-          </div>
-          <h1 className="text-2xl font-bold mb-2" data-testid="text-success-title">Payment Successful</h1>
-          <p className="text-muted-foreground mb-1">
-            Thank you for your purchase!
-          </p>
-          <p className="text-sm text-muted-foreground mb-6">
-            Order total: ${(data.order.totalCents / 100).toFixed(2)}
-          </p>
-          {data.downloadToken && (
-            <a href={`/api/download/${data.downloadToken}`}>
-              <Button data-testid="button-download">
-                <Download className="mr-2 h-4 w-4" />
-                Download Files
-              </Button>
-            </a>
+          {isPending ? (
+            <>
+              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-amber-500/10 mb-5">
+                <Clock className="h-8 w-8 text-amber-500 animate-pulse" />
+              </div>
+              <h1 className="text-2xl font-bold mb-2" data-testid="text-pending-title">Processing Payment</h1>
+              <p className="text-muted-foreground mb-1">
+                Your payment is being confirmed. This usually takes a few seconds.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                This page will update automatically.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-green-500/10 mb-5">
+                <CheckCircle className="h-8 w-8 text-green-500" />
+              </div>
+              <h1 className="text-2xl font-bold mb-2" data-testid="text-success-title">Payment Successful</h1>
+              <p className="text-muted-foreground mb-1">
+                Thank you for your purchase!
+              </p>
+              <p className="text-sm text-muted-foreground mb-6">
+                Order total: ${(data.order.totalCents / 100).toFixed(2)}
+              </p>
+
+              {data.items && data.items.length > 0 && (
+                <div className="w-full mb-6 text-left">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Items purchased</span>
+                  </div>
+                  <div className="space-y-2">
+                    {data.items.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm px-3 py-2 rounded-md bg-muted/50" data-testid={`text-item-${i}`}>
+                        <span>{item.title}</span>
+                        <span className="text-muted-foreground">${(item.priceCents / 100).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {data.downloadToken && (
+                <a href={`/api/download/${data.downloadToken}`}>
+                  <Button data-testid="button-download">
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Files
+                  </Button>
+                </a>
+              )}
+
+              {data.store && (
+                <Link href={`/s/${data.store.slug}`}>
+                  <Button variant="ghost" className="mt-3" data-testid="button-back-store">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to {data.store.name}
+                  </Button>
+                </Link>
+              )}
+
+              <Link href="/">
+                <Button variant="ghost" className="mt-1" data-testid="button-back-home">
+                  Back to Home
+                </Button>
+              </Link>
+            </>
           )}
-          <Link href="/">
-            <Button variant="ghost" className="mt-3" data-testid="button-back-home">
-              Back to Home
-            </Button>
-          </Link>
         </CardContent>
       </Card>
     </div>

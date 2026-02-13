@@ -4,6 +4,7 @@
 Multi-tenant digital product storefront builder. Users sign up, create stores from templates, import products from a platform library, publish them, and accept payments with secure download delivery.
 
 ## Recent Changes
+- 2026-02-13: **Stripe Checkout integration** — real payment processing via Stripe Checkout Sessions. `/api/checkout` creates Stripe sessions with `price_data` for dynamic marketplace products. Webhook at `/api/stripe/webhook` handles `checkout.session.completed` events. Free orders (100% coupon) bypass Stripe. Success page polls for pending orders. Payments card in Store Settings shows Stripe connection status (sandbox/live).
 - 2026-02-13: **Logo & Hero Banner upload** — Store Settings branding section supports file upload (Object Storage) and URL paste for logo and hero banner, with preview/replace/remove; both Neon and Silk templates render them cleanly
 - 2026-02-13: **Checkout transaction safety** — all checkout writes (order, items, download token, coupon increment) wrapped in db.transaction with tx client for atomicity
 - 2026-02-13: Added multi-image support for products — productImages table, multi-upload form, image gallery on detail pages, square format (512/1024px)

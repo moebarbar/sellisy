@@ -9,6 +9,7 @@ import { eq, sql } from "drizzle-orm";
 import { seedDatabase } from "./seed";
 import { randomBytes } from "crypto";
 import { z } from "zod";
+import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 
 function getUserId(req: Request): string {
   return (req.user as any)?.claims?.sub;
@@ -645,6 +646,15 @@ export async function registerRoutes(
     res.json({ store, bundle: data.bundle, products: data.products });
   });
 
+  app.get("/api/stripe/publishable-key", async (_req, res) => {
+    try {
+      const key = await getStripePublishableKey();
+      res.json({ publishableKey: key });
+    } catch {
+      res.json({ publishableKey: null });
+    }
+  });
+
   app.post("/api/checkout", async (req, res) => {
     const schema = z.object({
       storeId: z.string(),
@@ -660,12 +670,18 @@ export async function registerRoutes(
     if (!store) return res.status(404).json({ message: "Store not found" });
 
     let totalCents = 0;
+    let itemName = "";
+    let itemDescription = "";
+    let itemImage: string | null = null;
     const itemsToAdd: { productId: string; priceCents: number }[] = [];
 
     if (parsed.data.bundleId) {
       const bundleData = await storage.getBundleWithProducts(parsed.data.bundleId);
       if (!bundleData || bundleData.bundle.storeId !== store.id || !bundleData.bundle.isPublished) return res.status(404).json({ message: "Bundle not found" });
       totalCents = bundleData.bundle.priceCents;
+      itemName = bundleData.bundle.name;
+      itemDescription = `Bundle from ${store.name} — ${bundleData.products.length} items`;
+      itemImage = bundleData.bundle.thumbnailUrl;
       for (const p of bundleData.products) {
         itemsToAdd.push({ productId: p.id, priceCents: p.priceCents });
       }
@@ -675,13 +691,15 @@ export async function registerRoutes(
       const sp = await storage.getStoreProductByStoreAndProduct(store.id, product.id);
       if (!sp || !sp.isPublished) return res.status(404).json({ message: "Product not available in this store" });
       totalCents = product.priceCents;
+      itemName = product.title;
+      itemDescription = product.description || `Digital product from ${store.name}`;
+      itemImage = product.thumbnailUrl;
       itemsToAdd.push({ productId: product.id, priceCents: product.priceCents });
     }
 
     let couponId: string | null = null;
-    let coupon: Awaited<ReturnType<typeof storage.getCouponByCode>> = undefined;
     if (parsed.data.couponCode) {
-      coupon = await storage.getCouponByCode(store.id, parsed.data.couponCode);
+      const coupon = await storage.getCouponByCode(store.id, parsed.data.couponCode);
       if (!coupon || !coupon.isActive) return res.status(400).json({ message: "Invalid coupon code" });
       if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) return res.status(400).json({ message: "Coupon usage limit reached" });
       if (coupon.expiresAt && new Date() > coupon.expiresAt) return res.status(400).json({ message: "Coupon expired" });
@@ -694,53 +712,138 @@ export async function registerRoutes(
       couponId = coupon.id;
     }
 
-    const tokenHash = randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const finalTotalCents = totalCents;
+    const appUrl = `https://${req.headers.host}`;
 
-    const result = await db.transaction(async (tx) => {
-      const [order] = await tx.insert(orders).values({
+    if (finalTotalCents === 0) {
+      const tokenHash = randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      const result = await db.transaction(async (tx) => {
+        const [order] = await tx.insert(orders).values({
+          storeId: store.id,
+          buyerEmail: parsed.data.buyerEmail || "customer@example.com",
+          totalCents: 0,
+          stripeSessionId: null,
+          couponId,
+          status: "COMPLETED",
+        }).returning();
+
+        for (const item of itemsToAdd) {
+          await tx.insert(orderItems).values({ orderId: order.id, ...item });
+        }
+
+        await tx.insert(downloadTokens).values({
+          orderId: order.id,
+          tokenHash,
+          expiresAt,
+        });
+
+        if (couponId) {
+          await tx.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, couponId));
+        }
+
+        return order;
+      });
+
+      return res.json({
+        url: `${appUrl}/checkout/success?order_id=${result.id}`,
+        orderId: result.id,
+        totalCents: 0,
+      });
+    }
+
+    try {
+      const stripe = await getUncachableStripeClient();
+
+      const [order] = await db.insert(orders).values({
         storeId: store.id,
-        buyerEmail: parsed.data.buyerEmail || "demo@example.com",
+        buyerEmail: parsed.data.buyerEmail || "pending@checkout.com",
         totalCents: finalTotalCents,
         stripeSessionId: null,
         couponId,
-        status: "COMPLETED",
+        status: "PENDING",
       }).returning();
 
       for (const item of itemsToAdd) {
-        await tx.insert(orderItems).values({ orderId: order.id, ...item });
+        await db.insert(orderItems).values({ orderId: order.id, ...item });
       }
 
-      await tx.insert(downloadTokens).values({
-        orderId: order.id,
-        tokenHash,
-        expiresAt,
+      const productData: any = { name: itemName };
+      if (itemDescription) productData.description = itemDescription.substring(0, 500);
+      const images: string[] = [];
+      if (itemImage && itemImage.startsWith("http")) images.push(itemImage);
+      if (images.length > 0) productData.images = images;
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: productData,
+            unit_amount: finalTotalCents,
+          },
+          quantity: 1,
+        }],
+        metadata: {
+          orderId: order.id,
+          storeId: store.id,
+          couponId: couponId || '',
+        },
+        success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/s/${store.slug}`,
       });
 
-      if (couponId) {
-        await tx.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, couponId));
-      }
+      await db.update(orders).set({ stripeSessionId: session.id }).where(eq(orders.id, order.id));
 
-      return order;
-    });
-
-    const appUrl = `https://${req.headers.host}`;
-    res.json({
-      mockUrl: `${appUrl}/checkout/success?order_id=${result.id}`,
-      message: "Stripe not configured — demo order created",
-      orderId: result.id,
-      totalCents: finalTotalCents,
-    });
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Stripe checkout error:", error.message);
+      res.status(500).json({ message: "Payment processing unavailable. Please try again later." });
+    }
   });
 
-  app.get("/api/checkout/success/:orderId", async (req, res) => {
-    const order = await storage.getOrderById(req.params.orderId as string);
+  app.get("/api/checkout/success/:identifier", async (req, res) => {
+    const id = req.params.identifier as string;
+    let order = await storage.getOrderById(id);
+
+    if (!order) {
+      order = await storage.getOrderByStripeSession(id);
+    }
+
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    const hash = randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const token = await storage.createDownloadToken({ orderId: order.id, tokenHash: hash, expiresAt });
+    if (order.status === "PENDING" && order.stripeSessionId) {
+      try {
+        const stripe = await getUncachableStripeClient();
+        const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId);
+        if (session.payment_status === "paid") {
+          await storage.updateOrderStatus(order.id, "COMPLETED");
+          order = (await storage.getOrderById(order.id))!;
+
+          if (order.couponId) {
+            await storage.incrementCouponUses(order.couponId);
+          }
+        }
+      } catch (e: any) {
+        console.error("Error checking Stripe session:", e.message);
+      }
+    }
+
+    const existingTokens = await db.select().from(downloadTokens).where(eq(downloadTokens.orderId, order.id));
+    let tokenHash: string;
+
+    if (existingTokens.length > 0 && new Date() < existingTokens[0].expiresAt) {
+      tokenHash = existingTokens[0].tokenHash;
+    } else {
+      const hash = randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const token = await storage.createDownloadToken({ orderId: order.id, tokenHash: hash, expiresAt });
+      tokenHash = token.tokenHash;
+    }
+
+    const store = await storage.getStoreById(order.storeId);
+    const items = await storage.getOrderItemsByOrder(order.id);
 
     res.json({
       order: {
@@ -749,7 +852,9 @@ export async function registerRoutes(
         totalCents: order.totalCents,
         status: order.status,
       },
-      downloadToken: token.tokenHash,
+      downloadToken: tokenHash,
+      store: store ? { name: store.name, slug: store.slug } : null,
+      items: items.map(i => ({ title: i.product.title, priceCents: i.priceCents })),
     });
   });
 

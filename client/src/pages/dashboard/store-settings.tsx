@@ -1,17 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
 import { useUpload } from "@/hooks/use-upload";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon } from "lucide-react";
+import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon, CreditCard, CheckCircle2, XCircle } from "lucide-react";
 
 function ImageUploadField({
   label,
@@ -324,6 +325,8 @@ export default function StoreSettingsPage() {
         </div>
       </div>
 
+      <PaymentsCard />
+
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <Button
           disabled={!hasChanges || !name.trim() || !slug.trim() || updateMutation.isPending}
@@ -353,6 +356,62 @@ export default function StoreSettingsPage() {
         isPending={deleteMutation.isPending}
       />
     </div>
+  );
+}
+
+function PaymentsCard() {
+  const { data, isLoading } = useQuery<{ publishableKey: string | null }>({
+    queryKey: ["/api/stripe/publishable-key"],
+  });
+
+  const isConnected = !!data?.publishableKey;
+  const isSandbox = data?.publishableKey?.startsWith("pk_test_");
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <CreditCard className="h-4 w-4" />
+          Payments
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Checking payment status...</span>
+          </div>
+        ) : isConnected ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+              <div>
+                <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Connected</p>
+                <p className="text-xs text-muted-foreground">
+                  {isSandbox ? "Running in sandbox/test mode" : "Ready to accept live payments"}
+                </p>
+              </div>
+              <Badge variant="secondary" className="ml-auto" data-testid="badge-stripe-mode">
+                {isSandbox ? "Sandbox" : "Live"}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Customers will be redirected to Stripe's secure checkout page when purchasing products from your store.
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <XCircle className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Not Connected</p>
+              <p className="text-xs text-muted-foreground">
+                Connect Stripe in your project's Integrations tab to accept payments.
+              </p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
