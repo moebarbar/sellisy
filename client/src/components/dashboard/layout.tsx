@@ -1,6 +1,5 @@
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/lib/theme";
-import { useLocation, Redirect } from "wouter";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/sidebar";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Redirect to="/login" />;
+    window.location.href = "/api/login";
+    return null;
   }
 
   const style = {

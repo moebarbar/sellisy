@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +13,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Store, Library, LayoutDashboard, LogOut } from "lucide-react";
 
 const navItems = [
@@ -23,7 +24,15 @@ const navItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+
+  const displayName = user?.firstName
+    ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ""}`
+    : user?.email || "User";
+
+  const initials = user?.firstName
+    ? `${user.firstName[0]}${user.lastName?.[0] || ""}`.toUpperCase()
+    : "U";
 
   return (
     <Sidebar>
@@ -61,14 +70,18 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium truncate" data-testid="text-username">
-            {user?.username}
+        <div className="flex items-center gap-2">
+          <Avatar className="h-8 w-8">
+            {user?.profileImageUrl && <AvatarImage src={user.profileImageUrl} alt={displayName} />}
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-medium truncate flex-1 min-w-0" data-testid="text-username">
+            {displayName}
           </span>
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => logout()}
+            onClick={() => { window.location.href = "/api/logout"; }}
             data-testid="button-logout"
           >
             <LogOut className="h-4 w-4" />

@@ -28,12 +28,8 @@ export default function LandingPage() {
               </Link>
             ) : (
               <>
-                <Link href="/login">
-                  <Button variant="ghost" data-testid="link-login">Sign In</Button>
-                </Link>
-                <Link href="/register">
-                  <Button data-testid="link-register">Get Started</Button>
-                </Link>
+                <Button variant="ghost" data-testid="link-login" onClick={() => { window.location.href = "/api/login"; }}>Sign In</Button>
+                <Button data-testid="link-register" onClick={() => { window.location.href = "/api/login"; }}>Get Started</Button>
               </>
             )}
           </div>
@@ -56,12 +52,10 @@ export default function LandingPage() {
             and start accepting payments — all in one platform.
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
-            <Link href="/register">
-              <Button size="lg" data-testid="button-hero-cta">
-                Start Selling Free
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+            <Button size="lg" data-testid="button-hero-cta" onClick={() => { window.location.href = "/api/login"; }}>
+              Start Selling Free
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
             <Link href="/s/demo">
               <Button size="lg" variant="outline" data-testid="button-hero-demo">
                 View Demo Store

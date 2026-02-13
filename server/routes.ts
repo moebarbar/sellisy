@@ -1,52 +1,21 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import session from "express-session";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { storage } from "./storage";
 import { seedDatabase } from "./seed";
-import { randomBytes, createHash } from "crypto";
+import { randomBytes } from "crypto";
 import { z } from "zod";
 
-declare module "express-session" {
-  interface SessionData {
-    userId?: string;
-  }
-}
-
-function requireAuth(req: Request, res: Response, next: Function) {
-  if (!req.session.userId) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-  next();
-}
-
-async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString("hex");
-  const hash = createHash("sha256").update(password + salt).digest("hex");
-  return `${salt}:${hash}`;
-}
-
-async function verifyPassword(password: string, stored: string): Promise<boolean> {
-  const [salt, hash] = stored.split(":");
-  const computed = createHash("sha256").update(password + salt).digest("hex");
-  return hash === computed;
+function getUserId(req: Request): string {
+  return (req.user as any)?.claims?.sub;
 }
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET || "digitalvault-dev-secret",
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        sameSite: "lax",
-      },
-    })
-  );
+  await setupAuth(app);
+  registerAuthRoutes(app);
 
   await seedDatabase();
 
@@ -54,61 +23,20 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
-  app.get("/api/auth/me", async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
-    const user = await storage.getUser(req.session.userId);
-    if (!user) return res.status(401).json({ message: "User not found" });
-    res.json({ id: user.id, username: user.username });
-  });
-
-  app.post("/api/auth/register", async (req, res) => {
-    const schema = z.object({ username: z.string().min(3), password: z.string().min(6) });
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: "Username (3+ chars) and password (6+ chars) required" });
-
-    const existing = await storage.getUserByUsername(parsed.data.username);
-    if (existing) return res.status(409).json({ message: "Username already taken" });
-
-    const hashed = await hashPassword(parsed.data.password);
-    const user = await storage.createUser({ username: parsed.data.username, password: hashed });
-    req.session.userId = user.id;
-    res.json({ id: user.id, username: user.username });
-  });
-
-  app.post("/api/auth/login", async (req, res) => {
-    const schema = z.object({ username: z.string(), password: z.string() });
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: "Username and password required" });
-
-    const user = await storage.getUserByUsername(parsed.data.username);
-    if (!user) return res.status(401).json({ message: "Invalid credentials" });
-
-    const valid = await verifyPassword(parsed.data.password, user.password);
-    if (!valid) return res.status(401).json({ message: "Invalid credentials" });
-
-    req.session.userId = user.id;
-    res.json({ id: user.id, username: user.username });
-  });
-
-  app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy(() => {});
-    res.json({ ok: true });
-  });
-
-  app.get("/api/stores", requireAuth, async (req, res) => {
-    const stores = await storage.getStoresByOwner(req.session.userId!);
+  app.get("/api/stores", isAuthenticated, async (req, res) => {
+    const stores = await storage.getStoresByOwner(getUserId(req));
     res.json(stores);
   });
 
-  app.get("/api/stores/:id", requireAuth, async (req, res) => {
-    const store = await storage.getStoreById(req.params.id);
-    if (!store || store.ownerId !== req.session.userId) {
+  app.get("/api/stores/:id", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) {
       return res.status(404).json({ message: "Store not found" });
     }
     res.json(store);
   });
 
-  app.post("/api/stores", requireAuth, async (req, res) => {
+  app.post("/api/stores", isAuthenticated, async (req, res) => {
     const schema = z.object({
       name: z.string().min(1),
       slug: z.string().min(1).regex(/^[a-z0-9-]+$/),
@@ -121,7 +49,7 @@ export async function registerRoutes(
     if (existing) return res.status(409).json({ message: "Slug already taken" });
 
     const store = await storage.createStore({
-      ownerId: req.session.userId!,
+      ownerId: getUserId(req),
       name: parsed.data.name,
       slug: parsed.data.slug,
       templateKey: parsed.data.templateKey,
@@ -129,27 +57,37 @@ export async function registerRoutes(
     res.json(store);
   });
 
-  app.get("/api/products/library", requireAuth, async (_req, res) => {
+  app.get("/api/products/library", isAuthenticated, async (_req, res) => {
     const library = await storage.getLibraryProducts();
     res.json(library);
   });
 
-  app.get("/api/store-products/:storeId", requireAuth, async (req, res) => {
-    const store = await storage.getStoreById(req.params.storeId);
-    if (!store || store.ownerId !== req.session.userId) {
+  app.get("/api/store-products/:storeId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.storeId as string);
+    if (!store || store.ownerId !== getUserId(req)) {
       return res.status(404).json({ message: "Store not found" });
     }
-    const sps = await storage.getStoreProducts(req.params.storeId);
+    const sps = await storage.getStoreProducts(req.params.storeId as string);
     res.json(sps);
   });
 
-  app.post("/api/store-products", requireAuth, async (req, res) => {
+  app.get("/api/imported-products/:storeId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.storeId as string);
+    if (!store || store.ownerId !== getUserId(req)) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+    const sps = await storage.getStoreProducts(req.params.storeId as string);
+    const productIds = sps.map((sp) => sp.productId);
+    res.json(productIds);
+  });
+
+  app.post("/api/store-products", isAuthenticated, async (req, res) => {
     const schema = z.object({ storeId: z.string(), productId: z.string() });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
 
     const store = await storage.getStoreById(parsed.data.storeId);
-    if (!store || store.ownerId !== req.session.userId) {
+    if (!store || store.ownerId !== getUserId(req)) {
       return res.status(404).json({ message: "Store not found" });
     }
 
@@ -167,26 +105,26 @@ export async function registerRoutes(
     res.json(sp);
   });
 
-  app.patch("/api/store-products/:id", requireAuth, async (req, res) => {
+  app.patch("/api/store-products/:id", isAuthenticated, async (req, res) => {
     const schema = z.object({ isPublished: z.boolean() });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
 
-    const spData = await storage.getStoreProductById(req.params.id);
+    const spData = await storage.getStoreProductById(req.params.id as string);
     if (!spData) return res.status(404).json({ message: "Not found" });
 
     const store = await storage.getStoreById(spData.storeId);
-    if (!store || store.ownerId !== req.session.userId) {
+    if (!store || store.ownerId !== getUserId(req)) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    const sp = await storage.updateStoreProductPublish(req.params.id, parsed.data.isPublished);
+    const sp = await storage.updateStoreProductPublish(req.params.id as string, parsed.data.isPublished);
     if (!sp) return res.status(404).json({ message: "Not found" });
     res.json(sp);
   });
 
   app.get("/api/storefront/:slug", async (req, res) => {
-    const store = await storage.getStoreBySlug(req.params.slug);
+    const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
     const publishedProducts = await storage.getPublishedStoreProducts(store.id);
@@ -226,7 +164,7 @@ export async function registerRoutes(
       expiresAt,
     });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${req.headers.host}`;
+    const appUrl = `https://${req.headers.host}`;
     res.json({
       mockUrl: `${appUrl}/checkout/success?order_id=${order.id}`,
       message: "Stripe not configured — demo order created",
@@ -234,7 +172,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/checkout/success/:orderId", async (req, res) => {
-    const order = await storage.getOrderById(req.params.orderId);
+    const order = await storage.getOrderById(req.params.orderId as string);
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     const hash = randomBytes(32).toString("hex");
@@ -253,7 +191,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/download/:token", async (req, res) => {
-    const downloadToken = await storage.getDownloadTokenByHash(req.params.token);
+    const downloadToken = await storage.getDownloadTokenByHash(req.params.token as string);
     if (!downloadToken) return res.status(404).json({ message: "Invalid download token" });
 
     if (new Date() > downloadToken.expiresAt) {

@@ -1,8 +1,7 @@
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
-  type User, type InsertUser,
+  stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -13,10 +12,6 @@ import {
 } from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-
   getStoresByOwner(ownerId: string): Promise<Store[]>;
   getStoreById(id: string): Promise<Store | undefined>;
   getStoreBySlug(slug: string): Promise<Store | undefined>;
@@ -47,21 +42,6 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  async getUser(id: string) {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
-  }
-
-  async getUserByUsername(username: string) {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
-  }
-
-  async createUser(data: InsertUser) {
-    const [user] = await db.insert(users).values(data).returning();
-    return user;
-  }
-
   async getStoresByOwner(ownerId: string) {
     return db.select().from(stores).where(eq(stores.ownerId, ownerId)).orderBy(desc(stores.createdAt));
   }

@@ -3,18 +3,7 @@ import { pgTable, text, varchar, integer, boolean, timestamp, pgEnum } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-});
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export * from "./models/auth";
 
 export const productSourceEnum = pgEnum("product_source", ["PLATFORM", "USER"]);
 export const productStatusEnum = pgEnum("product_status", ["DRAFT", "ACTIVE"]);
@@ -39,6 +28,7 @@ export const products = pgTable("products", {
   source: productSourceEnum("source").notNull().default("USER"),
   title: text("title").notNull(),
   description: text("description"),
+  category: text("category").notNull().default("templates"),
   priceCents: integer("price_cents").notNull().default(0),
   thumbnailUrl: text("thumbnail_url"),
   status: productStatusEnum("status").notNull().default("DRAFT"),
