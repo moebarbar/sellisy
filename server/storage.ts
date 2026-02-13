@@ -2,7 +2,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
-  bundles, bundleItems, coupons, productImages,
+  bundles, bundleItems, coupons, productImages, categories,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -14,6 +14,7 @@ import {
   type BundleItem, type InsertBundleItem,
   type Coupon, type InsertCoupon,
   type ProductImage, type InsertProductImage,
+  type Category, type InsertCategory,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -74,6 +75,12 @@ export interface IStorage {
 
   getProductImages(productId: string): Promise<ProductImage[]>;
   setProductImages(productId: string, images: { url: string; sortOrder: number; isPrimary: boolean }[]): Promise<ProductImage[]>;
+
+  getCategoriesByOwner(ownerId: string): Promise<Category[]>;
+  createCategory(cat: InsertCategory): Promise<Category>;
+  updateCategory(id: string, data: Partial<Pick<Category, "name" | "slug" | "sortOrder">>): Promise<Category | undefined>;
+  deleteCategory(id: string): Promise<void>;
+  ensureDefaultCategories(ownerId: string): Promise<Category[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -360,6 +367,37 @@ export class DatabaseStorage implements IStorage {
       isPrimary: img.isPrimary,
     }));
     return db.insert(productImages).values(rows).returning();
+  }
+
+  async getCategoriesByOwner(ownerId: string) {
+    return db.select().from(categories).where(eq(categories.ownerId, ownerId)).orderBy(categories.sortOrder);
+  }
+
+  async createCategory(cat: InsertCategory) {
+    const [created] = await db.insert(categories).values(cat).returning();
+    return created;
+  }
+
+  async updateCategory(id: string, data: Partial<Pick<Category, "name" | "slug" | "sortOrder">>) {
+    const [updated] = await db.update(categories).set(data).where(eq(categories.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCategory(id: string) {
+    await db.delete(categories).where(eq(categories.id, id));
+  }
+
+  async ensureDefaultCategories(ownerId: string) {
+    const existing = await this.getCategoriesByOwner(ownerId);
+    if (existing.length > 0) return existing;
+    const defaults = [
+      { name: "Templates", slug: "templates", sortOrder: 0 },
+      { name: "Graphics", slug: "graphics", sortOrder: 1 },
+      { name: "Ebooks", slug: "ebooks", sortOrder: 2 },
+      { name: "Tools", slug: "tools", sortOrder: 3 },
+    ];
+    const rows = defaults.map((d) => ({ ...d, ownerId }));
+    return db.insert(categories).values(rows).returning();
   }
 }
 

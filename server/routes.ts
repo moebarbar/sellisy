@@ -97,6 +97,59 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  app.get("/api/categories", isAuthenticated, async (req, res) => {
+    const cats = await storage.ensureDefaultCategories(getUserId(req));
+    res.json(cats);
+  });
+
+  app.post("/api/categories", isAuthenticated, async (req, res) => {
+    const schema = z.object({
+      name: z.string().min(1).max(50),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid category" });
+    const slug = parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const existing = await storage.getCategoriesByOwner(getUserId(req));
+    if (existing.some((c) => c.slug === slug)) {
+      return res.status(409).json({ message: "Category already exists" });
+    }
+    const cat = await storage.createCategory({
+      ownerId: getUserId(req),
+      name: parsed.data.name,
+      slug,
+      sortOrder: existing.length,
+    });
+    res.json(cat);
+  });
+
+  app.patch("/api/categories/:id", isAuthenticated, async (req, res) => {
+    const cats = await storage.getCategoriesByOwner(getUserId(req));
+    const cat = cats.find((c) => c.id === req.params.id);
+    if (!cat) return res.status(404).json({ message: "Category not found" });
+    const schema = z.object({
+      name: z.string().min(1).max(50).optional(),
+      sortOrder: z.number().int().min(0).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const data: any = {};
+    if (parsed.data.name) {
+      data.name = parsed.data.name;
+      data.slug = parsed.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    }
+    if (parsed.data.sortOrder !== undefined) data.sortOrder = parsed.data.sortOrder;
+    const updated = await storage.updateCategory(cat.id, data);
+    res.json(updated);
+  });
+
+  app.delete("/api/categories/:id", isAuthenticated, async (req, res) => {
+    const cats = await storage.getCategoriesByOwner(getUserId(req));
+    const cat = cats.find((c) => c.id === req.params.id);
+    if (!cat) return res.status(404).json({ message: "Category not found" });
+    await storage.deleteCategory(cat.id);
+    res.json({ success: true });
+  });
+
   app.get("/api/products/library", isAuthenticated, async (_req, res) => {
     const library = await storage.getLibraryProducts();
     res.json(library);

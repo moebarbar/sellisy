@@ -13,19 +13,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useUpload } from "@/hooks/use-upload";
 import { Plus, Package, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download, Star, X } from "lucide-react";
-import type { Product, Store, ProductImage } from "@shared/schema";
-
-const CATEGORIES = [
-  { key: "all", label: "All" },
-  { key: "templates", label: "Templates" },
-  { key: "graphics", label: "Graphics" },
-  { key: "ebooks", label: "Ebooks" },
-  { key: "tools", label: "Tools" },
-];
+import type { Product, Store, ProductImage, Category } from "@shared/schema";
 
 export default function MyProductsPage() {
   const { toast } = useToast();
   const [activeCategory, setActiveCategory] = useState("all");
+
+  const { data: userCategories } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+  });
   const [createOpen, setCreateOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
@@ -73,15 +69,23 @@ export default function MyProductsPage() {
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        {CATEGORIES.map((cat) => (
+        <Button
+          variant={activeCategory === "all" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setActiveCategory("all")}
+          data-testid="button-my-category-all"
+        >
+          All
+        </Button>
+        {(userCategories || []).map((cat) => (
           <Button
-            key={cat.key}
-            variant={activeCategory === cat.key ? "default" : "outline"}
+            key={cat.slug}
+            variant={activeCategory === cat.slug ? "default" : "outline"}
             size="sm"
-            onClick={() => setActiveCategory(cat.key)}
-            data-testid={`button-my-category-${cat.key}`}
+            onClick={() => setActiveCategory(cat.slug)}
+            data-testid={`button-my-category-${cat.slug}`}
           >
-            {cat.label}
+            {cat.name}
           </Button>
         ))}
       </div>
@@ -183,6 +187,7 @@ export default function MyProductsPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         mode="create"
+        categories={userCategories || []}
       />
 
       <ProductFormDialog
@@ -190,6 +195,7 @@ export default function MyProductsPage() {
         onClose={() => setEditProduct(null)}
         mode="edit"
         product={editProduct || undefined}
+        categories={userCategories || []}
       />
 
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
@@ -347,6 +353,90 @@ function ProductCardImage({ product }: { product: Product }) {
   );
 }
 
+function CategorySelector({
+  value,
+  onChange,
+  categories,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  categories: Category[];
+}) {
+  const { toast } = useToast();
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  const addMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest("POST", "/api/categories", { name });
+      return res.json();
+    },
+    onSuccess: (cat: Category) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      onChange(cat.slug);
+      setAdding(false);
+      setNewName("");
+      toast({ title: "Category created" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to create category", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (adding) {
+    return (
+      <div className="flex gap-2">
+        <Input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Category name"
+          className="flex-1"
+          autoFocus
+          data-testid="input-new-category"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && newName.trim()) {
+              e.preventDefault();
+              addMutation.mutate(newName.trim());
+            }
+            if (e.key === "Escape") setAdding(false);
+          }}
+        />
+        <Button
+          size="sm"
+          onClick={() => newName.trim() && addMutation.mutate(newName.trim())}
+          disabled={!newName.trim() || addMutation.isPending}
+          data-testid="button-save-category"
+        >
+          {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setNewName(""); }}>
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-2">
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="flex-1" data-testid="select-product-category">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {categories.map((cat) => (
+            <SelectItem key={cat.slug} value={cat.slug} data-testid={`option-category-${cat.slug}`}>
+              {cat.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button size="icon" variant="outline" onClick={() => setAdding(true)} data-testid="button-add-category">
+        <Plus className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
 interface ImageEntry {
   url: string;
   isPrimary: boolean;
@@ -357,11 +447,13 @@ function ProductFormDialog({
   onClose,
   mode,
   product,
+  categories: userCategories,
 }: {
   open: boolean;
   onClose: () => void;
   mode: "create" | "edit";
   product?: Product;
+  categories: Category[];
 }) {
   const { toast } = useToast();
   const [title, setTitle] = useState("");
@@ -397,7 +489,7 @@ function ProductFormDialog({
     } else {
       setTitle("");
       setDescription("");
-      setCategory("templates");
+      setCategory(userCategories[0]?.slug || "templates");
       setPrice("");
       setOriginalPrice("");
       setImages([]);
@@ -597,17 +689,11 @@ function ProductFormDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger data-testid="select-product-category">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="templates">Templates</SelectItem>
-                  <SelectItem value="graphics">Graphics</SelectItem>
-                  <SelectItem value="ebooks">Ebooks</SelectItem>
-                  <SelectItem value="tools">Tools</SelectItem>
-                </SelectContent>
-              </Select>
+              <CategorySelector
+                value={category}
+                onChange={setCategory}
+                categories={userCategories}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
