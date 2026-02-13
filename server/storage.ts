@@ -19,6 +19,8 @@ export interface IStorage {
   getStoreById(id: string): Promise<Store | undefined>;
   getStoreBySlug(slug: string): Promise<Store | undefined>;
   createStore(store: InsertStore): Promise<Store>;
+  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey">>): Promise<Store | undefined>;
+  deleteStore(id: string): Promise<void>;
 
   getLibraryProducts(): Promise<Product[]>;
   getProductById(id: string): Promise<Product | undefined>;
@@ -73,6 +75,27 @@ export class DatabaseStorage implements IStorage {
   async createStore(data: InsertStore) {
     const [store] = await db.insert(stores).values(data).returning();
     return store;
+  }
+
+  async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey">>) {
+    const [store] = await db.update(stores).set(data).where(eq(stores.id, id)).returning();
+    return store;
+  }
+
+  async deleteStore(id: string) {
+    const storeOrders = await db.select({ id: orders.id }).from(orders).where(eq(orders.storeId, id));
+    for (const o of storeOrders) {
+      await db.delete(downloadTokens).where(eq(downloadTokens.orderId, o.id));
+      await db.delete(orderItems).where(eq(orderItems.orderId, o.id));
+    }
+    await db.delete(orders).where(eq(orders.storeId, id));
+    const storeBundles = await db.select({ id: bundles.id }).from(bundles).where(eq(bundles.storeId, id));
+    for (const b of storeBundles) {
+      await db.delete(bundleItems).where(eq(bundleItems.bundleId, b.id));
+    }
+    await db.delete(bundles).where(eq(bundles.storeId, id));
+    await db.delete(storeProducts).where(eq(storeProducts.storeId, id));
+    await db.delete(stores).where(eq(stores.id, id));
   }
 
   async getLibraryProducts() {

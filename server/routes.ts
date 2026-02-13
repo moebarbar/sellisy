@@ -57,6 +57,37 @@ export async function registerRoutes(
     res.json(store);
   });
 
+  app.patch("/api/stores/:id", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+    const schema = z.object({
+      name: z.string().min(1).optional(),
+      slug: z.string().min(1).regex(/^[a-z0-9-]+$/).optional(),
+      templateKey: z.enum(["neon", "silk"]).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+
+    if (parsed.data.slug && parsed.data.slug !== store.slug) {
+      const existing = await storage.getStoreBySlug(parsed.data.slug);
+      if (existing) return res.status(409).json({ message: "Slug already taken" });
+    }
+
+    const updated = await storage.updateStore(store.id, parsed.data);
+    res.json(updated);
+  });
+
+  app.delete("/api/stores/:id", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+    await storage.deleteStore(store.id);
+    res.json({ success: true });
+  });
+
   app.get("/api/products/library", isAuthenticated, async (_req, res) => {
     const library = await storage.getLibraryProducts();
     res.json(library);

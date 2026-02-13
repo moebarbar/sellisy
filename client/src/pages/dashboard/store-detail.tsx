@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ExternalLink, Package, Plus, Trash2, Layers } from "lucide-react";
+import { ArrowLeft, ExternalLink, Package, Plus, Trash2, Layers, Settings, AlertTriangle } from "lucide-react";
 import type { Store, StoreProduct, Product } from "@shared/schema";
 
 type StoreProductWithProduct = StoreProduct & { product: Product };
@@ -22,11 +23,14 @@ export default function StoreDetailPage() {
   const params = useParams<{ id: string }>();
   const storeId = params.id;
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [bundleDialogOpen, setBundleDialogOpen] = useState(false);
   const [bundleName, setBundleName] = useState("");
   const [bundleDescription, setBundleDescription] = useState("");
   const [bundlePrice, setBundlePrice] = useState("");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const { data: store, isLoading: storeLoading } = useQuery<Store>({
     queryKey: ["/api/stores", storeId],
@@ -91,6 +95,21 @@ export default function StoreDetailPage() {
     },
   });
 
+  const deleteStoreMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/stores/${storeId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
+      toast({ title: "Store deleted" });
+      setDeleteConfirmOpen(false);
+      setLocation("/dashboard/stores");
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to delete store", description: err.message, variant: "destructive" });
+    },
+  });
+
   const toggleProductSelection = (productId: string) => {
     setSelectedProductIds((prev) =>
       prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
@@ -128,14 +147,21 @@ export default function StoreDetailPage() {
             </>
           )}
         </div>
-        {store && (
-          <Link href={`/s/${store.slug}`}>
-            <Button variant="outline" size="sm" data-testid="button-view-storefront">
-              <ExternalLink className="mr-2 h-3.5 w-3.5" />
-              View Storefront
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {store && (
+            <>
+              <Button variant="outline" size="icon" onClick={() => setSettingsOpen(true)} data-testid="button-store-settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+              <Link href={`/s/${store.slug}`}>
+                <Button variant="outline" size="sm" data-testid="button-view-storefront">
+                  <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                  View Storefront
+                </Button>
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
       <div>
@@ -194,6 +220,7 @@ export default function StoreDetailPage() {
             <DialogContent className="max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create Bundle</DialogTitle>
+                <DialogDescription>Group products together at a discounted price.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 pt-2">
                 <div className="space-y-2">
@@ -359,6 +386,24 @@ export default function StoreDetailPage() {
           </Card>
         )}
       </div>
+
+      {store && (
+        <>
+          <StoreSettingsDialog
+            store={store}
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            onDeleteRequest={() => { setSettingsOpen(false); setDeleteConfirmOpen(true); }}
+          />
+          <DeleteStoreDialog
+            store={store}
+            open={deleteConfirmOpen}
+            onClose={() => setDeleteConfirmOpen(false)}
+            onConfirm={() => deleteStoreMutation.mutate()}
+            isPending={deleteStoreMutation.isPending}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -416,5 +461,164 @@ function StoreProductRow({ storeProduct, storeId }: { storeProduct: StoreProduct
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function StoreSettingsDialog({
+  store,
+  open,
+  onClose,
+  onDeleteRequest,
+}: {
+  store: Store;
+  open: boolean;
+  onClose: () => void;
+  onDeleteRequest: () => void;
+}) {
+  const { toast } = useToast();
+  const [name, setName] = useState(store.name);
+  const [slug, setSlug] = useState(store.slug);
+  const [templateKey, setTemplateKey] = useState(store.templateKey);
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const updates: Record<string, string> = {};
+      if (name !== store.name) updates.name = name;
+      if (slug !== store.slug) updates.slug = slug;
+      if (templateKey !== store.templateKey) updates.templateKey = templateKey;
+      if (Object.keys(updates).length === 0) return;
+      await apiRequest("PATCH", `/api/stores/${store.id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/stores", store.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
+      toast({ title: "Store updated" });
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to update store", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const hasChanges = name !== store.name || slug !== store.slug || templateKey !== store.templateKey;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Store Settings</DialogTitle>
+          <DialogDescription>Update your store name, URL slug, or template.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div className="space-y-2">
+            <Label htmlFor="settings-name">Store Name</Label>
+            <Input
+              id="settings-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              data-testid="input-settings-name"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="settings-slug">URL Slug</Label>
+            <Input
+              id="settings-slug"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+              data-testid="input-settings-slug"
+            />
+            <p className="text-xs text-muted-foreground">/s/{slug}</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Template</Label>
+            <Select value={templateKey} onValueChange={setTemplateKey}>
+              <SelectTrigger data-testid="select-settings-template">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="neon">Neon (Dark, Bold)</SelectItem>
+                <SelectItem value="silk">Silk (Elegant, Minimal)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            className="w-full"
+            disabled={!hasChanges || !name.trim() || !slug.trim() || updateMutation.isPending}
+            onClick={() => updateMutation.mutate()}
+            data-testid="button-save-settings"
+          >
+            {updateMutation.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+          <div className="pt-4 border-t">
+            <Button
+              variant="outline"
+              className="w-full text-destructive"
+              onClick={onDeleteRequest}
+              data-testid="button-request-delete-store"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Store
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteStoreDialog({
+  store,
+  open,
+  onClose,
+  onConfirm,
+  isPending,
+}: {
+  store: Store;
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isPending: boolean;
+}) {
+  const [confirmText, setConfirmText] = useState("");
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            Delete Store
+          </DialogTitle>
+          <DialogDescription>
+            This will permanently delete "{store.name}" and all its imported products and bundles. This cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div className="space-y-2">
+            <Label>Type <span className="font-mono font-bold">{store.slug}</span> to confirm</Label>
+            <Input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={store.slug}
+              data-testid="input-confirm-delete"
+            />
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={onClose} data-testid="button-cancel-delete">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={confirmText !== store.slug || isPending}
+              onClick={onConfirm}
+              data-testid="button-confirm-delete-store"
+            >
+              {isPending ? "Deleting..." : "Delete Forever"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
