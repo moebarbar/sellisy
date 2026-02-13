@@ -36,6 +36,7 @@ export const products = pgTable("products", {
   priceCents: integer("price_cents").notNull().default(0),
   originalPriceCents: integer("original_price_cents"),
   thumbnailUrl: text("thumbnail_url"),
+  fileUrl: text("file_url"),
   status: productStatusEnum("status").notNull().default("DRAFT"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

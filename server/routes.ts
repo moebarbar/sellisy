@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { seedDatabase } from "./seed";
 import { randomBytes } from "crypto";
@@ -16,6 +17,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   await setupAuth(app);
   registerAuthRoutes(app);
+  registerObjectStorageRoutes(app);
 
   await seedDatabase();
 
@@ -95,6 +97,73 @@ export async function registerRoutes(
   app.get("/api/products/library", isAuthenticated, async (_req, res) => {
     const library = await storage.getLibraryProducts();
     res.json(library);
+  });
+
+  app.get("/api/products/mine", isAuthenticated, async (req, res) => {
+    const prods = await storage.getProductsByOwner(getUserId(req));
+    res.json(prods);
+  });
+
+  app.post("/api/products", isAuthenticated, async (req, res) => {
+    const schema = z.object({
+      title: z.string().min(1),
+      description: z.string().optional(),
+      category: z.string().optional(),
+      priceCents: z.number().int().min(0),
+      originalPriceCents: z.number().int().min(0).optional().nullable(),
+      thumbnailUrl: z.string().optional().nullable(),
+      fileUrl: z.string().optional().nullable(),
+      status: z.enum(["DRAFT", "ACTIVE"]).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid product data" });
+
+    const product = await storage.createProduct({
+      ownerId: getUserId(req),
+      source: "USER",
+      title: parsed.data.title,
+      description: parsed.data.description || null,
+      category: parsed.data.category || "templates",
+      priceCents: parsed.data.priceCents,
+      originalPriceCents: parsed.data.originalPriceCents ?? null,
+      thumbnailUrl: parsed.data.thumbnailUrl ?? null,
+      fileUrl: parsed.data.fileUrl ?? null,
+      status: parsed.data.status || "ACTIVE",
+    });
+    res.json(product);
+  });
+
+  app.patch("/api/products/:id", isAuthenticated, async (req, res) => {
+    const product = await storage.getProductById(req.params.id as string);
+    if (!product || product.ownerId !== getUserId(req) || product.source !== "USER") {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    const schema = z.object({
+      title: z.string().min(1).optional(),
+      description: z.string().optional().nullable(),
+      category: z.string().optional(),
+      priceCents: z.number().int().min(0).optional(),
+      originalPriceCents: z.number().int().min(0).optional().nullable(),
+      thumbnailUrl: z.string().optional().nullable(),
+      fileUrl: z.string().optional().nullable(),
+      status: z.enum(["DRAFT", "ACTIVE"]).optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+
+    const updated = await storage.updateProduct(product.id, parsed.data);
+    res.json(updated);
+  });
+
+  app.delete("/api/products/:id", isAuthenticated, async (req, res) => {
+    const product = await storage.getProductById(req.params.id as string);
+    if (!product || product.ownerId !== getUserId(req) || product.source !== "USER") {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    await storage.deleteProduct(product.id);
+    res.json({ ok: true });
   });
 
   app.get("/api/store-products/:storeId", isAuthenticated, async (req, res) => {

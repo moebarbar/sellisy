@@ -4,6 +4,9 @@
 Multi-tenant digital product storefront builder. Users sign up, create stores from templates, import products from a platform library, publish them, and accept payments with secure download delivery.
 
 ## Recent Changes
+- 2026-02-13: Added custom product creation — My Products page with file upload (Object Storage), thumbnail upload, external URL support, CRUD API, nav integration
+- 2026-02-13: Integrated Replit Object Storage for file uploads (presigned URL flow via GCS)
+- 2026-02-13: Added fileUrl field to products schema for downloadable files
 - 2026-02-13: Added store customization (tagline, logoUrl, accentColor, heroBannerUrl) — settings dialog & template integration
 - 2026-02-13: Built coupon system — CRUD API, validation, checkout integration with percent/fixed discounts, max uses, expiration
 - 2026-02-13: Created orders management dashboard with revenue metrics and detailed order list
@@ -46,7 +49,10 @@ Multi-tenant digital product storefront builder. Users sign up, create stores fr
 - `client/src/lib/auth.tsx` — Re-export of useAuth for backward compatibility
 - `client/src/App.tsx` — Root with routing
 - `client/src/components/dashboard/layout.tsx` — Dashboard layout with auth guard
-- `client/src/components/dashboard/sidebar.tsx` — Sidebar with user avatar/name, Orders nav item
+- `client/src/components/dashboard/sidebar.tsx` — Sidebar with user avatar/name, My Products nav item
+- `server/replit_integrations/object_storage/` — Object Storage integration (DO NOT MODIFY core files)
+- `client/src/hooks/use-upload.ts` — React upload hook (presigned URL flow)
+- `client/src/pages/dashboard/my-products.tsx` — My Products CRUD page with file upload
 - `client/src/pages/dashboard/overview.tsx` — Analytics dashboard
 - `client/src/pages/dashboard/orders.tsx` — Order management page
 - `client/src/pages/dashboard/store-detail.tsx` — Store management with products/bundles/coupons tabs

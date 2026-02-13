@@ -12,6 +12,7 @@ import StoresPage from "@/pages/dashboard/stores";
 import StoreDetailPage from "@/pages/dashboard/store-detail";
 import LibraryPage from "@/pages/dashboard/library";
 import OrdersPage from "@/pages/dashboard/orders";
+import MyProductsPage from "@/pages/dashboard/my-products";
 import StorefrontPage from "@/pages/storefront";
 import ProductDetailPage from "@/pages/product-detail";
 import BundleDetailPage from "@/pages/bundle-detail";
@@ -32,6 +33,9 @@ function Router() {
       </Route>
       <Route path="/dashboard/orders">
         <DashboardLayout><OrdersPage /></DashboardLayout>
+      </Route>
+      <Route path="/dashboard/products">
+        <DashboardLayout><MyProductsPage /></DashboardLayout>
       </Route>
       <Route path="/dashboard/library">
         <DashboardLayout><LibraryPage /></DashboardLayout>
