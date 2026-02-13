@@ -14,11 +14,12 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Store, Library, LayoutDashboard, LogOut } from "lucide-react";
+import { Store, Library, LayoutDashboard, LogOut, ShoppingCart } from "lucide-react";
 
 const navItems = [
   { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
   { title: "Stores", url: "/dashboard/stores", icon: Store },
+  { title: "Orders", url: "/dashboard/orders", icon: ShoppingCart },
   { title: "Library", url: "/dashboard/library", icon: Library },
 ];
 

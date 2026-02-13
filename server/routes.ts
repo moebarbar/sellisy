@@ -66,6 +66,10 @@ export async function registerRoutes(
       name: z.string().min(1).optional(),
       slug: z.string().min(1).regex(/^[a-z0-9-]+$/).optional(),
       templateKey: z.enum(["neon", "silk"]).optional(),
+      tagline: z.string().optional().nullable(),
+      logoUrl: z.string().optional().nullable(),
+      accentColor: z.string().optional().nullable(),
+      heroBannerUrl: z.string().optional().nullable(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -251,6 +255,149 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
+  // --- Coupons CRUD ---
+
+  app.get("/api/coupons/:storeId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.storeId as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const storeCoupons = await storage.getCouponsByStore(store.id);
+    res.json(storeCoupons);
+  });
+
+  app.post("/api/coupons", isAuthenticated, async (req, res) => {
+    const schema = z.object({
+      storeId: z.string(),
+      code: z.string().min(1).max(32),
+      discountType: z.enum(["PERCENT", "FIXED"]),
+      discountValue: z.number().int().min(1),
+      maxUses: z.number().int().min(1).optional().nullable(),
+      expiresAt: z.string().optional().nullable(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+
+    const store = await storage.getStoreById(parsed.data.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+
+    const existing = await storage.getCouponByCode(store.id, parsed.data.code.toUpperCase());
+    if (existing) return res.status(409).json({ message: "Coupon code already exists" });
+
+    const coupon = await storage.createCoupon({
+      storeId: store.id,
+      code: parsed.data.code.toUpperCase(),
+      discountType: parsed.data.discountType,
+      discountValue: parsed.data.discountValue,
+      maxUses: parsed.data.maxUses || null,
+      expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+      isActive: true,
+    });
+    res.json(coupon);
+  });
+
+  app.patch("/api/coupons/:id", isAuthenticated, async (req, res) => {
+    const coupon = await storage.getCouponById(req.params.id as string);
+    if (!coupon) return res.status(404).json({ message: "Coupon not found" });
+    const store = await storage.getStoreById(coupon.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+
+    const schema = z.object({ isActive: z.boolean().optional() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+
+    const updated = await storage.updateCoupon(coupon.id, parsed.data);
+    res.json(updated);
+  });
+
+  app.delete("/api/coupons/:id", isAuthenticated, async (req, res) => {
+    const coupon = await storage.getCouponById(req.params.id as string);
+    if (!coupon) return res.status(404).json({ message: "Coupon not found" });
+    const store = await storage.getStoreById(coupon.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+
+    await storage.deleteCoupon(coupon.id);
+    res.json({ ok: true });
+  });
+
+  app.post("/api/coupons/validate", async (req, res) => {
+    const schema = z.object({ storeId: z.string(), code: z.string() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+
+    const store = await storage.getStoreById(parsed.data.storeId) || await storage.getStoreBySlug(parsed.data.storeId);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+
+    const coupon = await storage.getCouponByCode(store.id, parsed.data.code);
+    if (!coupon) return res.status(404).json({ message: "Invalid coupon code" });
+    if (!coupon.isActive) return res.status(400).json({ message: "Coupon is no longer active" });
+    if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) return res.status(400).json({ message: "Coupon has reached its usage limit" });
+    if (coupon.expiresAt && new Date() > coupon.expiresAt) return res.status(400).json({ message: "Coupon has expired" });
+
+    res.json({ valid: true, discountType: coupon.discountType, discountValue: coupon.discountValue, couponId: coupon.id });
+  });
+
+  // --- Orders Management ---
+
+  app.get("/api/orders/:storeId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.storeId as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const storeOrders = await storage.getOrdersByStore(store.id);
+    const result = [];
+    for (const order of storeOrders) {
+      const items = await storage.getOrderItemsByOrder(order.id);
+      result.push({ ...order, items });
+    }
+    res.json(result);
+  });
+
+  // --- Analytics ---
+
+  app.get("/api/analytics", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const userStores = await storage.getStoresByOwner(userId);
+    let totalRevenue = 0;
+    let totalOrders = 0;
+    let totalProducts = 0;
+    const topProducts: { title: string; revenue: number; count: number }[] = [];
+    const revenueByDate: Record<string, number> = {};
+
+    for (const store of userStores) {
+      const storeOrders = await storage.getOrdersByStore(store.id);
+      const storeProds = await storage.getStoreProducts(store.id);
+      totalProducts += storeProds.length;
+
+      for (const order of storeOrders) {
+        if (order.status === "COMPLETED") {
+          totalRevenue += order.totalCents;
+          totalOrders++;
+          const dateKey = new Date(order.createdAt).toISOString().split("T")[0];
+          revenueByDate[dateKey] = (revenueByDate[dateKey] || 0) + order.totalCents;
+
+          const items = await storage.getOrderItemsByOrder(order.id);
+          for (const item of items) {
+            const existing = topProducts.find(p => p.title === item.product.title);
+            if (existing) {
+              existing.revenue += item.priceCents;
+              existing.count++;
+            } else {
+              topProducts.push({ title: item.product.title, revenue: item.priceCents, count: 1 });
+            }
+          }
+        }
+      }
+    }
+
+    topProducts.sort((a, b) => b.revenue - a.revenue);
+
+    res.json({
+      totalRevenue,
+      totalOrders,
+      totalProducts,
+      totalStores: userStores.length,
+      topProducts: topProducts.slice(0, 5),
+      revenueByDate,
+    });
+  });
+
   // --- Public storefront ---
 
   app.get("/api/storefront/:slug", async (req, res) => {
@@ -292,6 +439,8 @@ export async function registerRoutes(
       storeId: z.string(),
       productId: z.string().optional(),
       bundleId: z.string().optional(),
+      buyerEmail: z.string().email().optional(),
+      couponCode: z.string().optional(),
     }).refine(d => d.productId || d.bundleId, { message: "productId or bundleId required" });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -316,11 +465,28 @@ export async function registerRoutes(
       itemsToAdd.push({ productId: product.id, priceCents: product.priceCents });
     }
 
+    let couponId: string | null = null;
+    if (parsed.data.couponCode) {
+      const coupon = await storage.getCouponByCode(store.id, parsed.data.couponCode);
+      if (!coupon || !coupon.isActive) return res.status(400).json({ message: "Invalid coupon code" });
+      if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) return res.status(400).json({ message: "Coupon usage limit reached" });
+      if (coupon.expiresAt && new Date() > coupon.expiresAt) return res.status(400).json({ message: "Coupon expired" });
+
+      if (coupon.discountType === "PERCENT") {
+        totalCents = Math.max(0, Math.round(totalCents * (1 - coupon.discountValue / 100)));
+      } else {
+        totalCents = Math.max(0, totalCents - coupon.discountValue);
+      }
+      couponId = coupon.id;
+      await storage.incrementCouponUses(coupon.id);
+    }
+
     const order = await storage.createOrder({
       storeId: store.id,
-      buyerEmail: "demo@example.com",
+      buyerEmail: parsed.data.buyerEmail || "demo@example.com",
       totalCents,
       stripeSessionId: null,
+      couponId,
       status: "COMPLETED",
     });
 
@@ -340,6 +506,8 @@ export async function registerRoutes(
     res.json({
       mockUrl: `${appUrl}/checkout/success?order_id=${order.id}`,
       message: "Stripe not configured — demo order created",
+      orderId: order.id,
+      totalCents,
     });
   });
 

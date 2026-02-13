@@ -48,29 +48,31 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
     }
   };
 
+  const customAccent = store.accentColor || null;
+
   const c = isDark ? {
     bg: "#0c0a09",
     bgAlt: "#141210",
     card: "#181614",
-    cardBorder: "rgba(212,168,83,0.12)",
-    cardBorderHover: "rgba(212,168,83,0.25)",
+    cardBorder: `${customAccent || "#d4a853"}1f`,
+    cardBorderHover: `${customAccent || "#d4a853"}40`,
     cardShadow: "0 2px 20px rgba(0,0,0,0.3)",
-    cardShadowHover: "0 12px 50px rgba(212,168,83,0.08), 0 4px 20px rgba(0,0,0,0.4)",
-    headerBorder: "rgba(212,168,83,0.1)",
-    gold: "#d4a853",
-    goldMuted: "rgba(212,168,83,0.5)",
-    goldSubtle: "rgba(212,168,83,0.08)",
-    goldBorder: "rgba(212,168,83,0.15)",
+    cardShadowHover: `0 12px 50px ${customAccent || "#d4a853"}14, 0 4px 20px rgba(0,0,0,0.4)`,
+    headerBorder: `${customAccent || "#d4a853"}1a`,
+    gold: customAccent || "#d4a853",
+    goldMuted: `${customAccent || "#d4a853"}80`,
+    goldSubtle: `${customAccent || "#d4a853"}14`,
+    goldBorder: `${customAccent || "#d4a853"}26`,
     text: "#f5f0e8",
     textSecondary: "rgba(245,240,232,0.55)",
     textTertiary: "rgba(245,240,232,0.3)",
-    divider: "rgba(212,168,83,0.1)",
-    badgeBg: "rgba(212,168,83,0.1)",
-    badgeBorder: "rgba(212,168,83,0.2)",
-    btnBg: "#b8860b",
-    btnBorder: "#c9971c",
+    divider: `${customAccent || "#d4a853"}1a`,
+    badgeBg: `${customAccent || "#d4a853"}1a`,
+    badgeBorder: `${customAccent || "#d4a853"}33`,
+    btnBg: customAccent || "#b8860b",
+    btnBorder: customAccent || "#c9971c",
     btnText: "#faf8f5",
-    priceLabelColor: "rgba(212,168,83,0.6)",
+    priceLabelColor: `${customAccent || "#d4a853"}99`,
   } : {
     bg: "#faf8f5",
     bgAlt: "#f5f0e8",
@@ -80,9 +82,9 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
     cardShadow: "0 2px 16px rgba(180,160,130,0.08)",
     cardShadowHover: "0 12px 50px rgba(180,160,130,0.18), 0 4px 16px rgba(180,160,130,0.08)",
     headerBorder: "#e8e0d4",
-    gold: "#c9a96e",
-    goldMuted: "#b5a48a",
-    goldSubtle: "rgba(201,169,110,0.08)",
+    gold: customAccent || "#c9a96e",
+    goldMuted: customAccent ? `${customAccent}99` : "#b5a48a",
+    goldSubtle: `${customAccent || "#c9a96e"}14`,
     goldBorder: "#e5d9c3",
     text: "#2d2926",
     textSecondary: "#8a7d6b",
@@ -90,8 +92,8 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
     divider: "#f0e9df",
     badgeBg: "#f3ece1",
     badgeBorder: "#e5d9c3",
-    btnBg: "#8b6914",
-    btnBorder: "#a07d1c",
+    btnBg: customAccent || "#8b6914",
+    btnBorder: customAccent || "#a07d1c",
     btnText: "#faf8f5",
     priceLabelColor: "#b5a48a",
   };
@@ -166,11 +168,15 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
       <header className="relative py-6" style={{ borderBottom: `1px solid ${c.headerBorder}` }}>
         <div className="mx-auto max-w-5xl px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-px w-10" style={{ backgroundColor: c.gold }} />
+            {store.logoUrl ? (
+              <img src={store.logoUrl} alt={store.name} className="h-8 w-8 rounded-full object-cover" />
+            ) : (
+              <div className="h-px w-10" style={{ backgroundColor: c.gold }} />
+            )}
             <span className="text-sm font-serif tracking-[0.3em] uppercase" style={{ color: c.goldMuted }} data-testid="text-silk-store-name">
               {store.name}
             </span>
-            <div className="h-px w-10" style={{ backgroundColor: c.gold }} />
+            {!store.logoUrl && <div className="h-px w-10" style={{ backgroundColor: c.gold }} />}
           </div>
           <button
             onClick={() => setMode(m => m === "light" ? "dark" : "light")}
@@ -183,20 +189,28 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
         </div>
       </header>
 
-      <section className="mx-auto max-w-5xl px-6 pt-20 pb-16 text-center">
-        <div className="silk-fade-in mb-6">
-          <div className="silk-float inline-block px-5 py-1.5 rounded-full text-xs tracking-[0.25em] uppercase font-medium" style={{ backgroundColor: c.badgeBg, color: c.goldMuted, border: `1px solid ${c.badgeBorder}` }}>
-            Curated Collection
+      <section className="relative mx-auto max-w-5xl px-6 pt-20 pb-16 text-center">
+        {store.heroBannerUrl && (
+          <div className="absolute inset-0 z-0 overflow-hidden">
+            <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover opacity-15" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${c.bg}dd, ${c.bg})` }} />
           </div>
-        </div>
-        <h1 className="silk-title silk-fade-in silk-fade-in-d1 text-4xl md:text-5xl lg:text-6xl font-serif tracking-tight mb-5" style={{ lineHeight: "1.15" }}>
-          {store.name}
-        </h1>
-        <p className="silk-fade-in silk-fade-in-d2 text-base md:text-lg max-w-lg mx-auto leading-relaxed" style={{ color: c.textSecondary }}>
-          A thoughtfully curated selection of premium digital goods, crafted with care and attention to detail.
-        </p>
-        <div className="mt-10 silk-fade-in silk-fade-in-d3">
-          <GoldDivider isDark={isDark} />
+        )}
+        <div className="relative z-10">
+          <div className="silk-fade-in mb-6">
+            <div className="silk-float inline-block px-5 py-1.5 rounded-full text-xs tracking-[0.25em] uppercase font-medium" style={{ backgroundColor: c.badgeBg, color: c.goldMuted, border: `1px solid ${c.badgeBorder}` }}>
+              Curated Collection
+            </div>
+          </div>
+          <h1 className="silk-title silk-fade-in silk-fade-in-d1 text-4xl md:text-5xl lg:text-6xl font-serif tracking-tight mb-5" style={{ lineHeight: "1.15" }}>
+            {store.name}
+          </h1>
+          <p className="silk-fade-in silk-fade-in-d2 text-base md:text-lg max-w-lg mx-auto leading-relaxed" style={{ color: c.textSecondary }} data-testid="text-silk-tagline">
+            {store.tagline || "A thoughtfully curated selection of premium digital goods, crafted with care and attention to detail."}
+          </p>
+          <div className="mt-10 silk-fade-in silk-fade-in-d3">
+            <GoldDivider isDark={isDark} />
+          </div>
         </div>
       </section>
 

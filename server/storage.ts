@@ -1,8 +1,8 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
-  bundles, bundleItems,
+  bundles, bundleItems, coupons,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -12,6 +12,7 @@ import {
   type DownloadToken, type InsertDownloadToken,
   type Bundle, type InsertBundle,
   type BundleItem, type InsertBundleItem,
+  type Coupon, type InsertCoupon,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -19,7 +20,7 @@ export interface IStorage {
   getStoreById(id: string): Promise<Store | undefined>;
   getStoreBySlug(slug: string): Promise<Store | undefined>;
   createStore(store: InsertStore): Promise<Store>;
-  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey">>): Promise<Store | undefined>;
+  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl">>): Promise<Store | undefined>;
   deleteStore(id: string): Promise<void>;
 
   getLibraryProducts(): Promise<Product[]>;
@@ -55,6 +56,17 @@ export interface IStorage {
   removeBundleItem(bundleId: string, productId: string): Promise<void>;
   getBundleItems(bundleId: string): Promise<(BundleItem & { product: Product })[]>;
   getBundleWithProducts(bundleId: string): Promise<{ bundle: Bundle; products: Product[] } | undefined>;
+
+  createCoupon(coupon: InsertCoupon): Promise<Coupon>;
+  getCouponsByStore(storeId: string): Promise<Coupon[]>;
+  getCouponByCode(storeId: string, code: string): Promise<Coupon | undefined>;
+  getCouponById(id: string): Promise<Coupon | undefined>;
+  updateCoupon(id: string, data: Partial<InsertCoupon>): Promise<Coupon | undefined>;
+  incrementCouponUses(id: string): Promise<void>;
+  deleteCoupon(id: string): Promise<void>;
+
+  getOrdersByStore(storeId: string): Promise<Order[]>;
+  getOrderItemsByOrder(orderId: string): Promise<(OrderItem & { product: Product })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -77,7 +89,7 @@ export class DatabaseStorage implements IStorage {
     return store;
   }
 
-  async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey">>) {
+  async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl">>) {
     const [store] = await db.update(stores).set(data).where(eq(stores.id, id)).returning();
     return store;
   }
@@ -260,6 +272,54 @@ export class DatabaseStorage implements IStorage {
       if (product) prods.push(product);
     }
     return { bundle, products: prods };
+  }
+
+  async createCoupon(data: InsertCoupon) {
+    const [coupon] = await db.insert(coupons).values(data).returning();
+    return coupon;
+  }
+
+  async getCouponsByStore(storeId: string) {
+    return db.select().from(coupons).where(eq(coupons.storeId, storeId)).orderBy(desc(coupons.createdAt));
+  }
+
+  async getCouponByCode(storeId: string, code: string) {
+    const [coupon] = await db.select().from(coupons).where(
+      and(eq(coupons.storeId, storeId), eq(coupons.code, code.toUpperCase()))
+    );
+    return coupon;
+  }
+
+  async getCouponById(id: string) {
+    const [coupon] = await db.select().from(coupons).where(eq(coupons.id, id));
+    return coupon;
+  }
+
+  async updateCoupon(id: string, data: Partial<InsertCoupon>) {
+    const [coupon] = await db.update(coupons).set(data).where(eq(coupons.id, id)).returning();
+    return coupon;
+  }
+
+  async incrementCouponUses(id: string) {
+    await db.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, id));
+  }
+
+  async deleteCoupon(id: string) {
+    await db.delete(coupons).where(eq(coupons.id, id));
+  }
+
+  async getOrdersByStore(storeId: string) {
+    return db.select().from(orders).where(eq(orders.storeId, storeId)).orderBy(desc(orders.createdAt));
+  }
+
+  async getOrderItemsByOrder(orderId: string) {
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+    const result = [];
+    for (const item of items) {
+      const [product] = await db.select().from(products).where(eq(products.id, item.productId));
+      if (product) result.push({ ...item, product });
+    }
+    return result;
   }
 }
 

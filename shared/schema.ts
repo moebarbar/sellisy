@@ -15,6 +15,10 @@ export const stores = pgTable("stores", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   templateKey: text("template_key").notNull().default("neon"),
+  tagline: text("tagline"),
+  logoUrl: text("logo_url"),
+  accentColor: text("accent_color"),
+  heroBannerUrl: text("hero_banner_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -70,6 +74,7 @@ export const orders = pgTable("orders", {
   buyerEmail: text("buyer_email").notNull(),
   totalCents: integer("total_cents").notNull().default(0),
   stripeSessionId: text("stripe_session_id"),
+  couponId: varchar("coupon_id", { length: 64 }),
   status: orderStatusEnum("status").notNull().default("PENDING"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -125,3 +130,22 @@ export const bundleItems = pgTable("bundle_items", {
 export const insertBundleItemSchema = createInsertSchema(bundleItems).omit({ id: true });
 export type InsertBundleItem = z.infer<typeof insertBundleItemSchema>;
 export type BundleItem = typeof bundleItems.$inferSelect;
+
+export const discountTypeEnum = pgEnum("discount_type", ["PERCENT", "FIXED"]);
+
+export const coupons = pgTable("coupons", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  code: text("code").notNull(),
+  discountType: discountTypeEnum("discount_type").notNull().default("PERCENT"),
+  discountValue: integer("discount_value").notNull().default(0),
+  maxUses: integer("max_uses"),
+  currentUses: integer("current_uses").notNull().default(0),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, currentUses: true, createdAt: true });
+export type InsertCoupon = z.infer<typeof insertCouponSchema>;
+export type Coupon = typeof coupons.$inferSelect;

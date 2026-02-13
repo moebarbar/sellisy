@@ -37,48 +37,50 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
     }
   };
 
+  const customAccent = store.accentColor || null;
+
   const c = isDark ? {
     bg: "#030308",
     bgAlt: "rgba(255,255,255,0.02)",
     card: "rgba(255,255,255,0.03)",
     cardHover: "rgba(255,255,255,0.06)",
-    border: "rgba(96,165,250,0.12)",
-    borderHover: "rgba(96,165,250,0.35)",
+    border: `${customAccent || "#60a5fa"}1f`,
+    borderHover: `${customAccent || "#60a5fa"}59`,
     text: "#ffffff",
     textSecondary: "rgba(255,255,255,0.5)",
     textTertiary: "rgba(255,255,255,0.25)",
-    accent: "#60a5fa",
+    accent: customAccent || "#60a5fa",
     accentAlt: "#a78bfa",
     cyan: "#06b6d4",
     price: "#67e8f9",
-    gridLine: "rgba(96,165,250,0.04)",
-    gridDot: "rgba(96,165,250,0.15)",
-    scanline: "rgba(96,165,250,0.02)",
-    orbA: "rgba(59,130,246,0.10)",
+    gridLine: `${customAccent || "#60a5fa"}0a`,
+    gridDot: `${customAccent || "#60a5fa"}26`,
+    scanline: `${customAccent || "#60a5fa"}05`,
+    orbA: `${customAccent || "#3b82f6"}1a`,
     orbB: "rgba(124,58,237,0.06)",
     orbC: "rgba(6,182,212,0.07)",
     shadow: "rgba(0,0,0,0.5)",
   } : {
     bg: "#f0f4ff",
-    bgAlt: "rgba(96,165,250,0.04)",
+    bgAlt: `${customAccent || "#60a5fa"}0a`,
     card: "rgba(255,255,255,0.85)",
     cardHover: "rgba(255,255,255,0.95)",
-    border: "rgba(96,165,250,0.18)",
-    borderHover: "rgba(96,165,250,0.4)",
+    border: `${customAccent || "#60a5fa"}2e`,
+    borderHover: `${customAccent || "#60a5fa"}66`,
     text: "#0f172a",
     textSecondary: "rgba(15,23,42,0.55)",
     textTertiary: "rgba(15,23,42,0.3)",
-    accent: "#3b82f6",
+    accent: customAccent || "#3b82f6",
     accentAlt: "#7c3aed",
     cyan: "#0891b2",
     price: "#0e7490",
-    gridLine: "rgba(96,165,250,0.06)",
-    gridDot: "rgba(96,165,250,0.12)",
-    scanline: "rgba(96,165,250,0.015)",
-    orbA: "rgba(59,130,246,0.08)",
+    gridLine: `${customAccent || "#60a5fa"}0f`,
+    gridDot: `${customAccent || "#60a5fa"}1f`,
+    scanline: `${customAccent || "#60a5fa"}04`,
+    orbA: `${customAccent || "#3b82f6"}14`,
     orbB: "rgba(124,58,237,0.05)",
     orbC: "rgba(6,182,212,0.06)",
-    shadow: "rgba(96,165,250,0.12)",
+    shadow: `${customAccent || "#60a5fa"}1f`,
   };
 
   return (
@@ -249,9 +251,13 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
         <div className="neon-separator absolute bottom-0 left-0 right-0" />
         <div className="mx-auto max-w-6xl flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="neon-glow-icon relative flex items-center justify-center w-9 h-9 rounded-lg" style={{ background: `linear-gradient(135deg, ${c.accent}20, ${c.accentAlt}20)`, border: `1px solid ${c.accent}25` }}>
-              <Zap className="h-4 w-4" style={{ color: c.accent }} />
-            </div>
+            {store.logoUrl ? (
+              <img src={store.logoUrl} alt={store.name} className="h-9 w-9 rounded-lg object-cover" />
+            ) : (
+              <div className="neon-glow-icon relative flex items-center justify-center w-9 h-9 rounded-lg" style={{ background: `linear-gradient(135deg, ${c.accent}20, ${c.accentAlt}20)`, border: `1px solid ${c.accent}25` }}>
+                <Zap className="h-4 w-4" style={{ color: c.accent }} />
+              </div>
+            )}
             <span className="text-lg font-bold tracking-tight" style={{ color: isDark ? "rgba(255,255,255,0.9)" : c.text }} data-testid="text-neon-store-name">
               {store.name}
             </span>
@@ -277,26 +283,34 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
       </header>
 
       <section className="relative z-10 mx-auto max-w-6xl px-6 pt-20 pb-24 text-center">
-        <div className="neon-float inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8" style={{ background: `${c.accent}0a`, border: `1px solid ${c.accent}18` }}>
-          <Sparkles className="h-3.5 w-3.5" style={{ color: c.cyan }} />
-          <span className="text-xs font-medium tracking-wider uppercase" style={{ color: `${c.accent}cc` }}>Premium Digital Products</span>
-        </div>
+        {store.heroBannerUrl && (
+          <div className="absolute inset-0 z-0 overflow-hidden">
+            <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover opacity-20" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${c.bg}cc, ${c.bg})` }} />
+          </div>
+        )}
+        <div className="relative z-10">
+          <div className="neon-float inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8" style={{ background: `${c.accent}0a`, border: `1px solid ${c.accent}18` }}>
+            <Sparkles className="h-3.5 w-3.5" style={{ color: c.cyan }} />
+            <span className="text-xs font-medium tracking-wider uppercase" style={{ color: `${c.accent}cc` }}>Premium Digital Products</span>
+          </div>
 
-        <h1 className="neon-hero-text text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-6 leading-tight">
-          {store.name}
-        </h1>
+          <h1 className="neon-hero-text text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-6 leading-tight">
+            {store.name}
+          </h1>
 
-        <p className="neon-sub-text text-lg md:text-xl max-w-lg mx-auto font-light leading-relaxed">
-          Curated digital assets crafted for creators who demand excellence.
-        </p>
+          <p className="neon-sub-text text-lg md:text-xl max-w-lg mx-auto font-light leading-relaxed" data-testid="text-neon-tagline">
+            {store.tagline || "Curated digital assets crafted for creators who demand excellence."}
+          </p>
 
-        <div className="mt-10 flex items-center justify-center gap-8 flex-wrap">
-          {["Instant Delivery", "Secure Checkout", "Premium Quality"].map((label, i) => (
-            <div key={label} className="flex items-center gap-2 text-sm" style={{ color: c.textTertiary }}>
-              <div className="w-1.5 h-1.5 rounded-full" style={{ background: [c.cyan, c.accentAlt, c.accent][i], boxShadow: isDark ? `0 0 6px ${[c.cyan, c.accentAlt, c.accent][i]}60` : "none" }} />
-              {label}
-            </div>
-          ))}
+          <div className="mt-10 flex items-center justify-center gap-8 flex-wrap">
+            {["Instant Delivery", "Secure Checkout", "Premium Quality"].map((label, i) => (
+              <div key={label} className="flex items-center gap-2 text-sm" style={{ color: c.textTertiary }}>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: [c.cyan, c.accentAlt, c.accent][i], boxShadow: isDark ? `0 0 6px ${[c.cyan, c.accentAlt, c.accent][i]}60` : "none" }} />
+                {label}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
