@@ -2,14 +2,16 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
+import { useUserProfile } from "@/hooks/use-user-profile";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Download, Loader2, Package, Eye, Store } from "lucide-react";
-import type { Product } from "@shared/schema";
+import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles } from "lucide-react";
+import type { Product, PlanTier } from "@shared/schema";
+import { canAccessTier } from "@shared/schema";
 
 const CATEGORIES = [
   { key: "all", label: "All Products" },
@@ -19,8 +21,21 @@ const CATEGORIES = [
   { key: "tools", label: "Tools" },
 ];
 
+const TIER_COLORS: Record<string, string> = {
+  basic: "bg-muted text-muted-foreground",
+  pro: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  max: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+};
+
+const TIER_LABELS: Record<string, string> = {
+  basic: "Free",
+  pro: "Pro",
+  max: "Max",
+};
+
 export default function LibraryPage() {
   const { activeStore, activeStoreId, storesLoading } = useActiveStore();
+  const { tier: userTier, canAccess } = useUserProfile();
 
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products/library"],
@@ -103,23 +118,43 @@ export default function LibraryPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredProducts.map((product) => {
             const isImported = activeStoreId ? importedSet.has(product.id) : false;
+            const requiredTier = (product.requiredTier || "basic") as PlanTier;
+            const isLocked = !canAccess(requiredTier);
+            const isSoftware = product.productType === "software";
+
             return (
-              <Card key={product.id} className="overflow-hidden hover-elevate cursor-pointer" onClick={() => setDetailProduct(product)}>
+              <Card key={product.id} className={`overflow-hidden cursor-pointer ${isLocked ? "opacity-75" : "hover-elevate"}`} onClick={() => setDetailProduct(product)}>
                 <CardContent className="p-0">
                   {product.thumbnailUrl && (
                     <div className="relative aspect-square bg-muted overflow-hidden">
                       <img
                         src={product.thumbnailUrl}
                         alt={product.title}
-                        className="w-full h-full object-cover"
+                        className={`w-full h-full object-cover ${isLocked ? "grayscale" : ""}`}
                         data-testid={`img-product-${product.id}`}
                       />
-                      {isImported && (
-                        <div className="absolute top-2 right-2">
+                      <div className="absolute top-2 right-2 flex gap-1.5">
+                        {isImported && (
                           <Badge variant="default" className="gap-1" data-testid={`badge-imported-${product.id}`}>
                             <Check className="h-3 w-3" />
                             Imported
                           </Badge>
+                        )}
+                        {requiredTier !== "basic" && (
+                          <Badge className={`gap-1 border-0 ${TIER_COLORS[requiredTier]}`} data-testid={`badge-tier-${product.id}`}>
+                            {requiredTier === "max" ? <Crown className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+                            {TIER_LABELS[requiredTier]}
+                          </Badge>
+                        )}
+                      </div>
+                      {isLocked && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <div className="flex flex-col items-center gap-1">
+                            <Lock className="h-8 w-8 text-white drop-shadow-md" />
+                            <span className="text-xs font-medium text-white drop-shadow-md">
+                              {TIER_LABELS[requiredTier]} Plan Required
+                            </span>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -133,7 +168,12 @@ export default function LibraryPage() {
                         ${(product.priceCents / 100).toFixed(2)}
                       </Badge>
                     </div>
-                    <Badge variant="outline" className="text-xs mb-2 capitalize">{product.category}</Badge>
+                    <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                      <Badge variant="outline" className="text-xs capitalize">{product.category}</Badge>
+                      {isSoftware && (
+                        <Badge variant="outline" className="text-xs">Software</Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                       {product.description}
                     </p>
@@ -148,26 +188,39 @@ export default function LibraryPage() {
                         <Eye className="mr-2 h-3.5 w-3.5" />
                         Details
                       </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="flex-1"
-                        disabled={isImported}
-                        onClick={(e) => { e.stopPropagation(); if (!isImported) setImportProduct(product); }}
-                        data-testid={`button-import-${product.id}`}
-                      >
-                        {isImported ? (
-                          <>
-                            <Check className="mr-2 h-3.5 w-3.5" />
-                            Imported
-                          </>
-                        ) : (
-                          <>
-                            <Download className="mr-2 h-3.5 w-3.5" />
-                            Import
-                          </>
-                        )}
-                      </Button>
+                      {isLocked ? (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex-1"
+                          onClick={(e) => { e.stopPropagation(); setDetailProduct(product); }}
+                          data-testid={`button-upgrade-${product.id}`}
+                        >
+                          <Lock className="mr-2 h-3.5 w-3.5" />
+                          Upgrade
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex-1"
+                          disabled={isImported}
+                          onClick={(e) => { e.stopPropagation(); if (!isImported) setImportProduct(product); }}
+                          data-testid={`button-import-${product.id}`}
+                        >
+                          {isImported ? (
+                            <>
+                              <Check className="mr-2 h-3.5 w-3.5" />
+                              Imported
+                            </>
+                          ) : (
+                            <>
+                              <Download className="mr-2 h-3.5 w-3.5" />
+                              Import
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -194,6 +247,8 @@ export default function LibraryPage() {
       <ProductDetailDialog
         product={detailProduct}
         isImported={detailProduct && activeStoreId ? importedSet.has(detailProduct.id) : false}
+        isLocked={detailProduct ? !canAccess((detailProduct.requiredTier || "basic") as PlanTier) : false}
+        userTier={userTier}
         onClose={() => setDetailProduct(null)}
         onImport={(product) => {
           setDetailProduct(null);
@@ -214,14 +269,20 @@ export default function LibraryPage() {
 function ProductDetailDialog({
   product,
   isImported,
+  isLocked,
+  userTier,
   onClose,
   onImport,
 }: {
   product: Product | null;
   isImported: boolean;
+  isLocked: boolean;
+  userTier: PlanTier;
   onClose: () => void;
   onImport: (product: Product) => void;
 }) {
+  const requiredTier = (product?.requiredTier || "basic") as PlanTier;
+
   return (
     <Dialog open={!!product} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-lg">
@@ -236,9 +297,19 @@ function ProductDetailDialog({
                 <img
                   src={product.thumbnailUrl}
                   alt={product.title}
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full object-cover ${isLocked ? "grayscale" : ""}`}
                   data-testid="img-detail-product"
                 />
+                {isLocked && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="flex flex-col items-center gap-2">
+                      <Lock className="h-10 w-10 text-white drop-shadow-md" />
+                      <span className="text-sm font-medium text-white drop-shadow-md">
+                        {TIER_LABELS[requiredTier]} Plan Required
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -248,6 +319,15 @@ function ProductDetailDialog({
                   {product.source === "PLATFORM" ? "Platform Product" : "User Product"}
                 </Badge>
                 <Badge variant="outline" className="capitalize">{product.category}</Badge>
+                {requiredTier !== "basic" && (
+                  <Badge className={`gap-1 border-0 ${TIER_COLORS[requiredTier]}`}>
+                    {requiredTier === "max" ? <Crown className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+                    {TIER_LABELS[requiredTier]}
+                  </Badge>
+                )}
+                {product.productType === "software" && (
+                  <Badge variant="outline">Software</Badge>
+                )}
               </div>
               <span className="text-xl font-bold" data-testid="text-detail-price">
                 ${(product.priceCents / 100).toFixed(2)}
@@ -261,24 +341,36 @@ function ProductDetailDialog({
               </p>
             </div>
 
-            <Button
-              className="w-full"
-              disabled={isImported}
-              onClick={() => onImport(product)}
-              data-testid="button-detail-import"
-            >
-              {isImported ? (
-                <>
-                  <Check className="mr-2 h-4 w-4" />
-                  Already Imported
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Import to Store
-                </>
-              )}
-            </Button>
+            {isLocked ? (
+              <div className="rounded-lg border border-dashed p-4 text-center">
+                <Lock className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm font-medium mb-1">
+                  Upgrade to {TIER_LABELS[requiredTier]} to access this product
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Your current plan: {TIER_LABELS[userTier]}
+                </p>
+              </div>
+            ) : (
+              <Button
+                className="w-full"
+                disabled={isImported}
+                onClick={() => onImport(product)}
+                data-testid="button-detail-import"
+              >
+                {isImported ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Already Imported
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Import to Store
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         )}
       </DialogContent>

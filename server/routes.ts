@@ -4,7 +4,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { orders, orderItems, downloadTokens, coupons } from "@shared/schema";
+import { orders, orderItems, downloadTokens, coupons, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { seedDatabase } from "./seed";
 import { randomBytes } from "crypto";
@@ -13,6 +13,16 @@ import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClie
 
 function getUserId(req: Request): string {
   return (req.user as any)?.claims?.sub;
+}
+
+async function getUserPlanTier(userId: string): Promise<PlanTier> {
+  const profile = await storage.getUserProfile(userId);
+  return (profile?.planTier as PlanTier) || "basic";
+}
+
+async function isUserAdmin(userId: string): Promise<boolean> {
+  const profile = await storage.getUserProfile(userId);
+  return profile?.isAdmin ?? false;
 }
 
 export async function registerRoutes(
@@ -27,6 +37,48 @@ export async function registerRoutes(
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
+  });
+
+  app.get("/api/user/profile", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    let profile = await storage.getUserProfile(userId);
+    if (!profile) {
+      profile = await storage.upsertUserProfile({ userId, planTier: "basic", isAdmin: false });
+    }
+    const tier = profile.planTier as PlanTier;
+    res.json({
+      ...profile,
+      features: PLAN_FEATURES[tier],
+    });
+  });
+
+  app.patch("/api/user/plan", isAuthenticated, async (req, res) => {
+    const schema = z.object({ planTier: z.enum(["basic", "pro", "max"]) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid plan tier" });
+    const profile = await storage.updateUserPlan(getUserId(req), parsed.data.planTier);
+    const tier = profile?.planTier as PlanTier;
+    res.json({ ...profile, features: PLAN_FEATURES[tier] });
+  });
+
+  app.patch("/api/admin/user/:userId/plan", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const schema = z.object({ planTier: z.enum(["basic", "pro", "max"]) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid plan tier" });
+    const profile = await storage.updateUserPlan(req.params.userId as string, parsed.data.planTier);
+    res.json(profile);
+  });
+
+  app.patch("/api/admin/user/:userId/admin", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const schema = z.object({ isAdmin: z.boolean() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const profile = await storage.setUserAdmin(req.params.userId as string, parsed.data.isAdmin);
+    res.json(profile);
   });
 
   app.get("/api/stores", isAuthenticated, async (req, res) => {
@@ -51,11 +103,19 @@ export async function registerRoutes(
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid store data" });
 
+    const userId = getUserId(req);
+    const tier = await getUserPlanTier(userId);
+    const features = PLAN_FEATURES[tier];
+    const currentStores = await storage.getStoresByOwner(userId);
+    if (currentStores.length >= features.maxStores) {
+      return res.status(403).json({ message: `Your ${tier} plan allows up to ${features.maxStores} store(s). Upgrade to create more.` });
+    }
+
     const existing = await storage.getStoreBySlug(parsed.data.slug);
     if (existing) return res.status(409).json({ message: "Slug already taken" });
 
     const store = await storage.createStore({
-      ownerId: getUserId(req),
+      ownerId: userId,
       name: parsed.data.name,
       slug: parsed.data.slug,
       templateKey: parsed.data.templateKey,
@@ -311,9 +371,28 @@ export async function registerRoutes(
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
 
+    const userId = getUserId(req);
     const store = await storage.getStoreById(parsed.data.storeId);
-    if (!store || store.ownerId !== getUserId(req)) {
+    if (!store || store.ownerId !== userId) {
       return res.status(404).json({ message: "Store not found" });
+    }
+
+    const product = await storage.getProductById(parsed.data.productId);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    if (product.requiredTier && product.requiredTier !== "basic") {
+      const tier = await getUserPlanTier(userId);
+      if (!canAccessTier(tier, product.requiredTier as PlanTier)) {
+        return res.status(403).json({ message: `This product requires a ${product.requiredTier} plan or higher. Upgrade to access it.` });
+      }
+    }
+
+    if (product.productType === "software") {
+      const tier = await getUserPlanTier(userId);
+      const features = PLAN_FEATURES[tier];
+      if (!features.sellSoftware) {
+        return res.status(403).json({ message: "Software products require a max plan. Upgrade to sell software." });
+      }
     }
 
     const existing = await storage.getStoreProductByStoreAndProduct(parsed.data.storeId, parsed.data.productId);

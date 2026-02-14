@@ -2,7 +2,7 @@ import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
-  bundles, bundleItems, coupons, productImages, categories,
+  bundles, bundleItems, coupons, productImages, categories, userProfiles,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -15,6 +15,8 @@ import {
   type Coupon, type InsertCoupon,
   type ProductImage, type InsertProductImage,
   type Category, type InsertCategory,
+  type UserProfile, type InsertUserProfile,
+  type PlanTier,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -82,6 +84,11 @@ export interface IStorage {
   updateCategory(id: string, data: Partial<Pick<Category, "name" | "slug" | "sortOrder">>): Promise<Category | undefined>;
   deleteCategory(id: string): Promise<void>;
   ensureDefaultCategories(ownerId: string): Promise<Category[]>;
+
+  getUserProfile(userId: string): Promise<UserProfile | undefined>;
+  upsertUserProfile(data: InsertUserProfile): Promise<UserProfile>;
+  updateUserPlan(userId: string, planTier: PlanTier): Promise<UserProfile | undefined>;
+  setUserAdmin(userId: string, isAdmin: boolean): Promise<UserProfile | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -389,6 +396,41 @@ export class DatabaseStorage implements IStorage {
     ];
     const rows = defaults.map((d) => ({ ...d, ownerId }));
     return db.insert(categories).values(rows).returning();
+  }
+
+  async getUserProfile(userId: string) {
+    const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
+    return profile;
+  }
+
+  async upsertUserProfile(data: InsertUserProfile) {
+    const existing = await this.getUserProfile(data.userId);
+    if (existing) {
+      const [updated] = await db.update(userProfiles).set(data).where(eq(userProfiles.userId, data.userId)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(userProfiles).values(data).returning();
+    return created;
+  }
+
+  async updateUserPlan(userId: string, planTier: PlanTier) {
+    const existing = await this.getUserProfile(userId);
+    if (!existing) {
+      const [created] = await db.insert(userProfiles).values({ userId, planTier }).returning();
+      return created;
+    }
+    const [updated] = await db.update(userProfiles).set({ planTier }).where(eq(userProfiles.userId, userId)).returning();
+    return updated;
+  }
+
+  async setUserAdmin(userId: string, isAdmin: boolean) {
+    const existing = await this.getUserProfile(userId);
+    if (!existing) {
+      const [created] = await db.insert(userProfiles).values({ userId, isAdmin }).returning();
+      return created;
+    }
+    const [updated] = await db.update(userProfiles).set({ isAdmin }).where(eq(userProfiles.userId, userId)).returning();
+    return updated;
   }
 }
 

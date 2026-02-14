@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveStore } from "@/lib/store-context";
+import { useUserProfile } from "@/hooks/use-user-profile";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +19,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +36,7 @@ import {
   Loader2,
   Settings,
   Sparkles,
+  Crown,
 } from "lucide-react";
 
 const navItems = [
@@ -47,9 +50,16 @@ const navItems = [
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
 
+const TIER_BADGE_STYLES: Record<string, string> = {
+  basic: "bg-muted text-muted-foreground",
+  pro: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  max: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+};
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
+  const { tier } = useUserProfile();
 
   const displayName = user?.firstName
     ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ""}`
@@ -95,15 +105,21 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 space-y-2">
         <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8">
             {user?.profileImageUrl && <AvatarImage src={user.profileImageUrl} alt={displayName} />}
             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
-          <span className="text-sm font-medium truncate flex-1 min-w-0" data-testid="text-username">
-            {displayName}
-          </span>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium truncate block" data-testid="text-username">
+              {displayName}
+            </span>
+            <Badge className={`text-[10px] border-0 gap-0.5 ${TIER_BADGE_STYLES[tier]}`} data-testid="badge-plan-tier">
+              {tier === "max" ? <Crown className="h-2.5 w-2.5" /> : tier === "pro" ? <Sparkles className="h-2.5 w-2.5" /> : null}
+              {tier.toUpperCase()} plan
+            </Badge>
+          </div>
           <Button
             size="icon"
             variant="ghost"

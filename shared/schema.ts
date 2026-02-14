@@ -8,6 +8,59 @@ export * from "./models/auth";
 export const productSourceEnum = pgEnum("product_source", ["PLATFORM", "USER"]);
 export const productStatusEnum = pgEnum("product_status", ["DRAFT", "ACTIVE"]);
 export const orderStatusEnum = pgEnum("order_status", ["PENDING", "COMPLETED", "FAILED"]);
+export const planTierEnum = pgEnum("plan_tier", ["basic", "pro", "max"]);
+export const productTypeEnum = pgEnum("product_type", ["digital", "software"]);
+
+export const userProfiles = pgTable("user_profiles", {
+  userId: varchar("user_id", { length: 64 }).primaryKey(),
+  planTier: planTierEnum("plan_tier").notNull().default("basic"),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ createdAt: true });
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
+export type UserProfile = typeof userProfiles.$inferSelect;
+
+export const PLAN_TIERS = ["basic", "pro", "max"] as const;
+export type PlanTier = typeof PLAN_TIERS[number];
+
+export const PLAN_FEATURES = {
+  basic: {
+    importProducts: true,
+    editImportedProducts: true,
+    customBranding: false,
+    rawFileDownload: false,
+    sellSoftware: false,
+    accessPremiumProducts: false,
+    maxStores: 1,
+  },
+  pro: {
+    importProducts: true,
+    editImportedProducts: true,
+    customBranding: true,
+    rawFileDownload: false,
+    sellSoftware: false,
+    accessPremiumProducts: true,
+    maxStores: 3,
+  },
+  max: {
+    importProducts: true,
+    editImportedProducts: true,
+    customBranding: true,
+    rawFileDownload: true,
+    sellSoftware: true,
+    accessPremiumProducts: true,
+    maxStores: 10,
+  },
+} as const;
+
+export type PlanFeatures = typeof PLAN_FEATURES[PlanTier];
+
+export function canAccessTier(userTier: PlanTier, requiredTier: PlanTier): boolean {
+  const tierOrder = { basic: 0, pro: 1, max: 2 };
+  return tierOrder[userTier] >= tierOrder[requiredTier];
+}
 
 export const stores = pgTable("stores", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
@@ -38,6 +91,8 @@ export const products = pgTable("products", {
   thumbnailUrl: text("thumbnail_url"),
   fileUrl: text("file_url"),
   status: productStatusEnum("status").notNull().default("DRAFT"),
+  requiredTier: planTierEnum("required_tier").notNull().default("basic"),
+  productType: productTypeEnum("product_type").notNull().default("digital"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
