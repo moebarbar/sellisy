@@ -19,6 +19,7 @@ import {
 
 export interface IStorage {
   getStoresByOwner(ownerId: string): Promise<Store[]>;
+  getAllPublicStores(): Promise<Store[]>;
   getStoreById(id: string): Promise<Store | undefined>;
   getStoreBySlug(slug: string): Promise<Store | undefined>;
   createStore(store: InsertStore): Promise<Store>;
@@ -86,6 +87,10 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   async getStoresByOwner(ownerId: string) {
     return db.select().from(stores).where(eq(stores.ownerId, ownerId)).orderBy(desc(stores.createdAt));
+  }
+
+  async getAllPublicStores() {
+    return db.select().from(stores).orderBy(desc(stores.createdAt));
   }
 
   async getStoreById(id: string) {

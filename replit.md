@@ -4,6 +4,10 @@
 Multi-tenant digital product storefront builder. Users sign up, create stores from templates, import products from a platform library, publish them, and accept payments with secure download delivery.
 
 ## Recent Changes
+- 2026-02-14: **Real file downloads** — `/api/download/:token` serves files from Object Storage; single-file orders redirect, multi-file orders return JSON list with URLs
+- 2026-02-14: **Public store discovery** — `/api/discover/stores` endpoint and landing page section showcasing live stores with product counts
+- 2026-02-14: **SEO meta tags** — `usePageMeta` hook for dynamic per-page title, description, and Open Graph tags on storefront, product, and bundle pages
+- 2026-02-14: **Coupon code input** — product and bundle detail pages have coupon code field with validation errors and checkout integration
 - 2026-02-13: **Stripe Checkout integration** — real payment processing via Stripe Checkout Sessions. `/api/checkout` creates Stripe sessions with `price_data` for dynamic marketplace products. Webhook at `/api/stripe/webhook` handles `checkout.session.completed` events. Free orders (100% coupon) bypass Stripe. Success page polls for pending orders. Payments card in Store Settings shows Stripe connection status (sandbox/live).
 - 2026-02-13: **Logo & Hero Banner upload** — Store Settings branding section supports file upload (Object Storage) and URL paste for logo and hero banner, with preview/replace/remove; both Neon and Silk templates render them cleanly
 - 2026-02-13: **Checkout transaction safety** — all checkout writes (order, items, download token, coupon increment) wrapped in db.transaction with tx client for atomicity

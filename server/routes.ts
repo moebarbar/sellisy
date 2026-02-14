@@ -219,7 +219,7 @@ export async function registerRoutes(
     const schema = z.object({
       title: z.string().min(1).optional(),
       description: z.string().optional().nullable(),
-      category: z.string().optional().nullable(),
+      category: z.string().optional(),
       priceCents: z.number().int().min(0).optional(),
       originalPriceCents: z.number().int().min(0).optional().nullable(),
       thumbnailUrl: z.string().optional().nullable(),
@@ -602,6 +602,27 @@ export async function registerRoutes(
     });
   });
 
+  // --- Public discover ---
+
+  app.get("/api/discover/stores", async (_req, res) => {
+    const allStores = await storage.getAllPublicStores();
+    const storesWithCounts = await Promise.all(
+      allStores.map(async (store) => {
+        const publishedProducts = await storage.getPublishedStoreProducts(store.id);
+        return {
+          id: store.id,
+          name: store.name,
+          slug: store.slug,
+          templateKey: store.templateKey,
+          tagline: store.tagline,
+          logoUrl: store.logoUrl,
+          productCount: publishedProducts.length,
+        };
+      })
+    );
+    res.json(storesWithCounts.filter(s => s.productCount > 0));
+  });
+
   // --- Public storefront ---
 
   app.get("/api/storefront/:slug", async (req, res) => {
@@ -845,6 +866,16 @@ export async function registerRoutes(
     const store = await storage.getStoreById(order.storeId);
     const items = await storage.getOrderItemsByOrder(order.id);
 
+    let fileCount = 0;
+    for (const item of items) {
+      const assets = await storage.getFileAssetsByProduct(item.productId);
+      if (assets.length > 0) {
+        fileCount += assets.length;
+      } else if (item.product.fileUrl) {
+        fileCount += 1;
+      }
+    }
+
     res.json({
       order: {
         id: order.id,
@@ -855,6 +886,7 @@ export async function registerRoutes(
       downloadToken: tokenHash,
       store: store ? { name: store.name, slug: store.slug } : null,
       items: items.map(i => ({ title: i.product.title, priceCents: i.priceCents })),
+      fileCount,
     });
   });
 
@@ -866,10 +898,32 @@ export async function registerRoutes(
       return res.status(410).json({ message: "Download link expired" });
     }
 
-    res.json({
-      message: "R2/S3 not configured. In production, this would redirect to a signed URL.",
-      mockDownloadUrl: "https://example.com/mock-file.zip",
-    });
+    const items = await storage.getOrderItemsByOrder(downloadToken.orderId);
+    const files: { name: string; url: string }[] = [];
+
+    for (const item of items) {
+      const assets = await storage.getFileAssetsByProduct(item.productId);
+      if (assets.length > 0) {
+        for (const asset of assets) {
+          files.push({ name: asset.originalName, url: asset.storageKey });
+        }
+      } else if (item.product.fileUrl) {
+        files.push({
+          name: `${item.product.title.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+          url: item.product.fileUrl,
+        });
+      }
+    }
+
+    if (files.length === 0) {
+      return res.json({ files: [], message: "No downloadable files for this order." });
+    }
+
+    if (files.length === 1) {
+      return res.redirect(files[0].url);
+    }
+
+    res.json({ files });
   });
 
   return httpServer;

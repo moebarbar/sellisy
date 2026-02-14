@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, ArrowLeft, Package, Sparkles, Tag, Zap, Sun, Moon } from "lucide-react";
+import { ShoppingBag, ArrowLeft, Package, Sparkles, Tag, Zap, Sun, Moon, Ticket } from "lucide-react";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import type { Store, Product, Bundle } from "@shared/schema";
 
 type BundleDetailData = {
@@ -32,26 +33,45 @@ export default function BundleDetailPage() {
 
   const isDark = mode === "dark";
 
+  const [couponCode, setCouponCode] = useState("");
+  const [couponError, setCouponError] = useState("");
+  const [buying, setBuying] = useState(false);
+
   const { data, isLoading, error } = useQuery<BundleDetailData>({
     queryKey: ["/api/storefront", slug, "bundle", bundleId],
   });
 
+  usePageMeta({
+    title: data?.bundle ? `${data.bundle.name} - ${data.store.name} | DigitalVault` : undefined,
+    description: data?.bundle ? `${data.bundle.name} bundle from ${data.store.name} — ${data.products?.length || 0} products` : undefined,
+    ogImage: data?.bundle?.thumbnailUrl || undefined,
+    ogType: "product",
+  });
+
   const handleBuy = async () => {
     if (!data) return;
+    setBuying(true);
+    setCouponError("");
     try {
+      const body: any = { storeId: data.store.id, bundleId: data.bundle.id };
+      if (couponCode.trim()) body.couponCode = couponCode.trim();
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storeId: data.store.id, bundleId: data.bundle.id }),
+        body: JSON.stringify(body),
       });
       const result = await res.json();
+      if (!res.ok) {
+        setCouponError(result.message || "Something went wrong");
+        setBuying(false);
+        return;
+      }
       if (result.url) {
         window.location.href = result.url;
-      } else if (result.mockUrl) {
-        window.location.href = result.mockUrl;
       }
     } catch {
-      alert("Checkout is not configured yet.");
+      setCouponError("Checkout is not available right now.");
+      setBuying(false);
     }
   };
 
@@ -383,10 +403,32 @@ export default function BundleDetailPage() {
                 )}
               </div>
 
-              <div className="mt-6">
-                <Button className="bdp-buy-btn w-full sm:w-auto font-semibold text-base border-0 no-default-hover-elevate no-default-active-elevate px-10 py-6 rounded-xl" size="lg" onClick={handleBuy} data-testid="button-buy-bundle">
+              <div className="mt-5 flex items-center gap-2">
+                <div className="relative flex-1 max-w-[200px]">
+                  <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: c.textTer }} />
+                  <input
+                    type="text"
+                    placeholder="Coupon code"
+                    value={couponCode}
+                    onChange={(e) => { setCouponCode(e.target.value); setCouponError(""); }}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-lg text-sm border-0 outline-none"
+                    style={{
+                      background: c.cardBg,
+                      color: c.text,
+                      border: `1px solid ${c.cardBorder}`,
+                    }}
+                    data-testid="input-coupon-code"
+                  />
+                </div>
+              </div>
+              {couponError && (
+                <p className="mt-2 text-sm" style={{ color: "#ef4444" }} data-testid="text-coupon-error">{couponError}</p>
+              )}
+
+              <div className="mt-4">
+                <Button className="bdp-buy-btn w-full sm:w-auto font-semibold text-base border-0 no-default-hover-elevate no-default-active-elevate px-10 py-6 rounded-xl" size="lg" onClick={handleBuy} disabled={buying} data-testid="button-buy-bundle">
                   <ShoppingBag className="mr-2 h-5 w-5" />
-                  Buy Bundle
+                  {buying ? "Processing..." : "Buy Bundle"}
                 </Button>
               </div>
 

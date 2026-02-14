@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,13 +7,26 @@ import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import {
   Package, ShoppingBag, Download, Zap, ArrowRight, Moon, Sun,
-  Shield, Globe, Layers, Palette, CreditCard, Lock, Sparkles, Check,
+  Shield, Globe, Layers, Palette, CreditCard, Lock, Sparkles, Check, Store,
 } from "lucide-react";
 import { HeroBackground } from "@/components/hero-background";
+
+type DiscoverStore = {
+  id: string;
+  name: string;
+  slug: string;
+  templateKey: string;
+  tagline: string | null;
+  logoUrl: string | null;
+  productCount: number;
+};
 
 export default function LandingPage() {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { data: discoverStores } = useQuery<DiscoverStore[]>({
+    queryKey: ["/api/discover/stores"],
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -208,6 +222,56 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {discoverStores && discoverStores.length > 0 && (
+        <section className="py-24 border-b">
+          <div className="mx-auto max-w-6xl px-6">
+            <div className="text-center mb-12">
+              <Badge variant="secondary" className="mb-4">Explore</Badge>
+              <h2 className="text-3xl md:text-4xl font-serif font-bold tracking-tight mb-4">
+                Browse Live Stores
+              </h2>
+              <p className="text-muted-foreground max-w-lg mx-auto text-lg">
+                Discover stores built by creators on DigitalVault.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {discoverStores.slice(0, 6).map((store) => (
+                <Link key={store.id} href={`/s/${store.slug}`}>
+                  <Card className="overflow-visible hover-elevate h-full" data-testid={`card-discover-store-${store.id}`}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        {store.logoUrl ? (
+                          <img
+                            src={store.logoUrl}
+                            alt={store.name}
+                            className="w-10 h-10 rounded-md object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
+                            <Store className="w-5 h-5 text-primary" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold truncate">{store.name}</h3>
+                          <p className="text-xs text-muted-foreground">
+                            {store.productCount} {store.productCount === 1 ? "product" : "products"}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="shrink-0">{store.templateKey}</Badge>
+                      </div>
+                      {store.tagline && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">{store.tagline}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section id="features" className="py-24">
         <div className="mx-auto max-w-6xl px-6">

@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, Download, AlertCircle, ArrowLeft, Package, Clock } from "lucide-react";
+import { CheckCircle, Download, AlertCircle, ArrowLeft, Package, Clock, FileDown } from "lucide-react";
 import { Link } from "wouter";
 
 type SuccessData = {
@@ -16,6 +17,12 @@ type SuccessData = {
   downloadToken: string;
   store?: { name: string; slug: string } | null;
   items?: { title: string; priceCents: number }[];
+  fileCount?: number;
+};
+
+type DownloadData = {
+  files?: { name: string; url: string }[];
+  message?: string;
 };
 
 export default function CheckoutSuccessPage() {
@@ -136,12 +143,7 @@ export default function CheckoutSuccessPage() {
               )}
 
               {data.downloadToken && (
-                <a href={`/api/download/${data.downloadToken}`}>
-                  <Button data-testid="button-download">
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Files
-                  </Button>
-                </a>
+                <DownloadSection token={data.downloadToken} fileCount={data.fileCount || 0} />
               )}
 
               {data.store && (
@@ -163,5 +165,74 @@ export default function CheckoutSuccessPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function DownloadSection({ token, fileCount }: { token: string; fileCount: number }) {
+  const [files, setFiles] = useState<{ name: string; url: string }[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [noFiles, setNoFiles] = useState(false);
+
+  const handleDownload = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/download/${token}`, { redirect: "manual" });
+      if (res.type === "opaqueredirect" || res.status === 301 || res.status === 302) {
+        window.location.href = `/api/download/${token}`;
+        return;
+      }
+      const data = await res.json();
+      if (data.files && data.files.length > 0) {
+        setFiles(data.files);
+      } else {
+        setNoFiles(true);
+      }
+    } catch {
+      window.location.href = `/api/download/${token}`;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (noFiles) {
+    return (
+      <p className="text-sm text-muted-foreground" data-testid="text-no-files">
+        No downloadable files available for this order.
+      </p>
+    );
+  }
+
+  if (files) {
+    return (
+      <div className="w-full space-y-2" data-testid="download-files-list">
+        <p className="text-sm font-medium flex items-center gap-2">
+          <FileDown className="h-4 w-4 text-muted-foreground" />
+          Your files ({files.length})
+        </p>
+        {files.map((file, i) => (
+          <a
+            key={i}
+            href={file.url}
+            download={file.name}
+            className="flex items-center justify-between px-3 py-2 rounded-md bg-muted/50 text-sm hover-elevate"
+            data-testid={`link-download-file-${i}`}
+          >
+            <span className="truncate mr-2">{file.name}</span>
+            <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <Button onClick={handleDownload} disabled={loading} data-testid="button-download">
+      {loading ? (
+        <Clock className="mr-2 h-4 w-4 animate-spin" />
+      ) : (
+        <Download className="mr-2 h-4 w-4" />
+      )}
+      {fileCount > 1 ? `Download Files (${fileCount})` : "Download File"}
+    </Button>
   );
 }

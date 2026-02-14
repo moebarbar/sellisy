@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NeonTemplate } from "@/components/storefront/neon-template";
 import { SilkTemplate } from "@/components/storefront/silk-template";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import type { Store, Product, Bundle } from "@shared/schema";
 
 type BundleWithProducts = Bundle & { products: Product[] };
@@ -18,6 +19,13 @@ export default function StorefrontPage() {
 
   const { data, isLoading, error } = useQuery<StorefrontData>({
     queryKey: ["/api/storefront", params.slug],
+  });
+
+  usePageMeta({
+    title: data?.store ? `${data.store.name} | DigitalVault` : undefined,
+    description: data?.store ? (data.store.tagline || `Shop digital products from ${data.store.name}`) : undefined,
+    ogImage: data?.store?.logoUrl || undefined,
+    ogType: "website",
   });
 
   if (isLoading) {
