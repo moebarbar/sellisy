@@ -140,6 +140,7 @@ export const orders = pgTable("orders", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
   storeId: varchar("store_id", { length: 64 }).notNull(),
   buyerEmail: text("buyer_email").notNull(),
+  customerId: varchar("customer_id", { length: 64 }),
   totalCents: integer("total_cents").notNull().default(0),
   stripeSessionId: text("stripe_session_id"),
   couponId: varchar("coupon_id", { length: 64 }),
@@ -217,6 +218,28 @@ export const coupons = pgTable("coupons", {
 export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, currentUses: true, createdAt: true });
 export type InsertCoupon = z.infer<typeof insertCouponSchema>;
 export type Coupon = typeof coupons.$inferSelect;
+
+export const customers = pgTable("customers", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type Customer = typeof customers.$inferSelect;
+
+export const customerSessions = pgTable("customer_sessions", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id", { length: 64 }).notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCustomerSessionSchema = createInsertSchema(customerSessions).omit({ id: true, createdAt: true });
+export type InsertCustomerSession = z.infer<typeof insertCustomerSessionSchema>;
+export type CustomerSession = typeof customerSessions.$inferSelect;
 
 export const categories = pgTable("categories", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),

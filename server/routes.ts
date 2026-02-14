@@ -1,15 +1,16 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { orders, orderItems, downloadTokens, coupons, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
+import { orders, orderItems, downloadTokens, coupons, customers, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { seedDatabase } from "./seed";
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
+import cookieParser from "cookie-parser";
 
 function getUserId(req: Request): string {
   return (req.user as any)?.claims?.sub;
@@ -32,6 +33,7 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
   registerObjectStorageRoutes(app);
+  app.use(cookieParser());
 
   await seedDatabase();
 
@@ -819,10 +821,18 @@ export async function registerRoutes(
       const tokenHash = randomBytes(32).toString("hex");
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+      const buyerEmail = parsed.data.buyerEmail || "customer@example.com";
+      let customerId: string | null = null;
+      if (buyerEmail && buyerEmail !== "customer@example.com") {
+        const customer = await storage.findOrCreateCustomer(buyerEmail);
+        customerId = customer.id;
+      }
+
       const result = await db.transaction(async (tx) => {
         const [order] = await tx.insert(orders).values({
           storeId: store.id,
-          buyerEmail: parsed.data.buyerEmail || "customer@example.com",
+          buyerEmail,
+          customerId,
           totalCents: 0,
           stripeSessionId: null,
           couponId,
@@ -856,9 +866,17 @@ export async function registerRoutes(
     try {
       const stripe = await getUncachableStripeClient();
 
+      const stripeBuyerEmail = parsed.data.buyerEmail || "pending@checkout.com";
+      let stripeCustomerId: string | null = null;
+      if (stripeBuyerEmail && stripeBuyerEmail !== "pending@checkout.com") {
+        const customer = await storage.findOrCreateCustomer(stripeBuyerEmail);
+        stripeCustomerId = customer.id;
+      }
+
       const [order] = await db.insert(orders).values({
         storeId: store.id,
-        buyerEmail: parsed.data.buyerEmail || "pending@checkout.com",
+        buyerEmail: stripeBuyerEmail,
+        customerId: stripeCustomerId,
         totalCents: finalTotalCents,
         stripeSessionId: null,
         couponId,
@@ -924,6 +942,13 @@ export async function registerRoutes(
           if (order.couponId) {
             await storage.incrementCouponUses(order.couponId);
           }
+
+          if (!order.customerId && order.buyerEmail && order.buyerEmail !== "pending@checkout.com") {
+            const emailFromSession = (session as any).customer_details?.email || order.buyerEmail;
+            const customer = await storage.findOrCreateCustomer(emailFromSession);
+            await storage.setOrderCustomerId(order.id, customer.id);
+            await storage.linkOrdersByEmail(emailFromSession, customer.id);
+          }
         }
       } catch (e: any) {
         console.error("Error checking Stripe session:", e.message);
@@ -967,6 +992,244 @@ export async function registerRoutes(
       items: items.map(i => ({ title: i.product.title, priceCents: i.priceCents })),
       fileCount,
     });
+  });
+
+  // ========== CUSTOMER PORTAL AUTH ==========
+
+  const magicLinkRateLimit = new Map<string, number>();
+
+  function hashToken(token: string): string {
+    return createHash("sha256").update(token).digest("hex");
+  }
+
+  async function getCustomerFromCookie(req: Request): Promise<{ customerId: string } | null> {
+    const sessionToken = req.cookies?.customer_session;
+    if (!sessionToken) return null;
+    const tokenHash = hashToken(sessionToken);
+    const session = await storage.getCustomerSessionByToken(tokenHash);
+    if (!session || new Date() > session.expiresAt) {
+      if (session) await storage.deleteCustomerSession(session.id);
+      return null;
+    }
+    return { customerId: session.customerId };
+  }
+
+  async function isCustomerAuthenticated(req: Request, res: Response, next: NextFunction) {
+    const customerAuth = await getCustomerFromCookie(req);
+    if (!customerAuth) return res.status(401).json({ message: "Not logged in" });
+    (req as any).customerId = customerAuth.customerId;
+    next();
+  }
+
+  app.post("/api/customer/login", async (req, res) => {
+    const schema = z.object({ email: z.string().email() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Please enter a valid email address." });
+
+    const email = parsed.data.email.toLowerCase();
+
+    const now = Date.now();
+    const lastRequest = magicLinkRateLimit.get(email);
+    if (lastRequest && now - lastRequest < 60_000) {
+      return res.status(429).json({ message: "Please wait a minute before requesting another login link." });
+    }
+    magicLinkRateLimit.set(email, now);
+
+    const customer = await storage.findOrCreateCustomer(email);
+    await storage.linkOrdersByEmail(email, customer.id);
+
+    const rawToken = randomBytes(32).toString("hex");
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await storage.createCustomerSession({
+      customerId: customer.id,
+      tokenHash,
+      expiresAt,
+    });
+
+    const appUrl = `https://${req.headers.host}`;
+    const magicLink = `${appUrl}/account/verify?token=${rawToken}`;
+
+    console.log(`[DEV MODE] Magic link for ${email}: ${magicLink}`);
+
+    res.json({
+      message: "Login link generated",
+      devModeLink: magicLink,
+    });
+  });
+
+  app.get("/api/customer/verify", async (req, res) => {
+    const token = req.query.token as string;
+    if (!token) return res.status(400).json({ message: "Missing token" });
+
+    const tokenHash = hashToken(token);
+    const session = await storage.getCustomerSessionByToken(tokenHash);
+
+    if (!session) return res.status(400).json({ message: "Invalid or expired login link" });
+    if (new Date() > session.expiresAt) {
+      await storage.deleteCustomerSession(session.id);
+      return res.status(400).json({ message: "Login link has expired. Please request a new one." });
+    }
+
+    const newSessionToken = randomBytes(32).toString("hex");
+    const newTokenHash = hashToken(newSessionToken);
+    const newExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    await storage.deleteCustomerSession(session.id);
+    await storage.createCustomerSession({
+      customerId: session.customerId,
+      tokenHash: newTokenHash,
+      expiresAt: newExpires,
+    });
+
+    res.cookie("customer_session", newSessionToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
+
+    res.json({ success: true });
+  });
+
+  app.get("/api/customer/me", async (req, res) => {
+    const customerAuth = await getCustomerFromCookie(req);
+    if (!customerAuth) return res.status(401).json({ message: "Not logged in" });
+    const customer = await storage.getCustomerById(customerAuth.customerId);
+    if (!customer) return res.status(401).json({ message: "Customer not found" });
+    res.json({ id: customer.id, email: customer.email });
+  });
+
+  app.post("/api/customer/logout", async (req, res) => {
+    const sessionToken = req.cookies?.customer_session;
+    if (sessionToken) {
+      const tokenHash = hashToken(sessionToken);
+      const session = await storage.getCustomerSessionByToken(tokenHash);
+      if (session) await storage.deleteCustomerSession(session.id);
+    }
+    res.clearCookie("customer_session", { path: "/" });
+    res.json({ success: true });
+  });
+
+  app.get("/api/customer/purchases", isCustomerAuthenticated, async (req, res) => {
+    const customerId = (req as any).customerId;
+    const customerOrders = await storage.getOrdersByCustomer(customerId);
+
+    const purchasesWithItems = await Promise.all(
+      customerOrders.map(async (order) => {
+        const items = await storage.getOrderItemsByOrder(order.id);
+        return {
+          id: order.id,
+          totalCents: order.totalCents,
+          status: order.status,
+          createdAt: order.createdAt,
+          store: {
+            id: order.store.id,
+            name: order.store.name,
+            slug: order.store.slug,
+          },
+          items: items.map((i) => ({
+            id: i.id,
+            productId: i.productId,
+            title: i.product.title,
+            priceCents: i.priceCents,
+            thumbnailUrl: i.product.thumbnailUrl,
+          })),
+        };
+      })
+    );
+
+    res.json(purchasesWithItems);
+  });
+
+  app.get("/api/customer/purchase/:orderId", isCustomerAuthenticated, async (req, res) => {
+    const customerId = (req as any).customerId;
+    const order = await storage.getOrderById(req.params.orderId as string);
+    if (!order || order.customerId !== customerId) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const store = await storage.getStoreById(order.storeId);
+    const items = await storage.getOrderItemsByOrder(order.id);
+
+    const itemsWithFiles = await Promise.all(
+      items.map(async (item) => {
+        const assets = await storage.getFileAssetsByProduct(item.productId);
+        const hasFiles = assets.length > 0 || !!item.product.fileUrl;
+        return {
+          id: item.id,
+          productId: item.productId,
+          title: item.product.title,
+          priceCents: item.priceCents,
+          thumbnailUrl: item.product.thumbnailUrl,
+          hasFiles,
+        };
+      })
+    );
+
+    const moreProducts = store ? await storage.getPublishedStoreProducts(store.id) : [];
+    const purchasedProductIds = new Set(items.map((i) => i.productId));
+    const upsellProducts = moreProducts
+      .filter((p) => !purchasedProductIds.has(p.id))
+      .slice(0, 4)
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        priceCents: p.priceCents,
+        thumbnailUrl: p.thumbnailUrl,
+      }));
+
+    res.json({
+      order: {
+        id: order.id,
+        totalCents: order.totalCents,
+        status: order.status,
+        createdAt: order.createdAt,
+      },
+      store: store ? { id: store.id, name: store.name, slug: store.slug } : null,
+      items: itemsWithFiles,
+      upsellProducts,
+    });
+  });
+
+  app.post("/api/customer/download", isCustomerAuthenticated, async (req, res) => {
+    const schema = z.object({ orderItemId: z.string() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid request" });
+
+    const customerId = (req as any).customerId;
+
+    const allOrders = await storage.getOrdersByCustomer(customerId);
+    let foundItem = null;
+    let foundOrder = null;
+
+    for (const order of allOrders) {
+      const items = await storage.getOrderItemsByOrder(order.id);
+      const match = items.find((i) => i.id === parsed.data.orderItemId);
+      if (match) {
+        foundItem = match;
+        foundOrder = order;
+        break;
+      }
+    }
+
+    if (!foundItem || !foundOrder) {
+      return res.status(404).json({ message: "Item not found in your purchases" });
+    }
+
+    const tokenRaw = randomBytes(32).toString("hex");
+    const hash = hashToken(tokenRaw);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await storage.createDownloadToken({
+      orderId: foundOrder.id,
+      tokenHash: hash,
+      expiresAt,
+    });
+
+    res.json({ downloadToken: hash });
   });
 
   app.get("/api/download/:token", async (req, res) => {

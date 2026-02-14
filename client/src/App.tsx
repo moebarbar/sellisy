@@ -26,6 +26,11 @@ const LibraryPage = lazy(() => import("@/pages/dashboard/library"));
 const MyProductsPage = lazy(() => import("@/pages/dashboard/my-products"));
 const StoreSettingsPage = lazy(() => import("@/pages/dashboard/store-settings"));
 
+const AccountLoginPage = lazy(() => import("@/pages/account/login"));
+const AccountVerifyPage = lazy(() => import("@/pages/account/verify"));
+const AccountPurchasesPage = lazy(() => import("@/pages/account/purchases"));
+const AccountPurchaseDetailPage = lazy(() => import("@/pages/account/purchase-detail"));
+
 function PageFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -66,6 +71,10 @@ function Router() {
         <Route path="/dashboard/settings">
           <DashboardLayout><StoreSettingsPage /></DashboardLayout>
         </Route>
+        <Route path="/account" component={AccountLoginPage} />
+        <Route path="/account/verify" component={AccountVerifyPage} />
+        <Route path="/account/purchases" component={AccountPurchasesPage} />
+        <Route path="/account/purchase/:orderId" component={AccountPurchaseDetailPage} />
         <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
         <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
         <Route path="/s/:slug" component={StorefrontPage} />

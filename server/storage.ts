@@ -3,6 +3,7 @@ import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
   bundles, bundleItems, coupons, productImages, categories, userProfiles,
+  customers, customerSessions,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -16,6 +17,8 @@ import {
   type ProductImage, type InsertProductImage,
   type Category, type InsertCategory,
   type UserProfile, type InsertUserProfile,
+  type Customer, type InsertCustomer,
+  type CustomerSession, type InsertCustomerSession,
   type PlanTier,
 } from "@shared/schema";
 
@@ -89,6 +92,16 @@ export interface IStorage {
   upsertUserProfile(data: InsertUserProfile): Promise<UserProfile>;
   updateUserPlan(userId: string, planTier: PlanTier): Promise<UserProfile | undefined>;
   setUserAdmin(userId: string, isAdmin: boolean): Promise<UserProfile | undefined>;
+
+  getCustomerByEmail(email: string): Promise<Customer | undefined>;
+  getCustomerById(id: string): Promise<Customer | undefined>;
+  findOrCreateCustomer(email: string): Promise<Customer>;
+  createCustomerSession(data: InsertCustomerSession): Promise<CustomerSession>;
+  getCustomerSessionByToken(tokenHash: string): Promise<CustomerSession | undefined>;
+  deleteCustomerSession(id: string): Promise<void>;
+  getOrdersByCustomer(customerId: string): Promise<(Order & { store: Store })[]>;
+  setOrderCustomerId(orderId: string, customerId: string): Promise<void>;
+  linkOrdersByEmail(email: string, customerId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -431,6 +444,58 @@ export class DatabaseStorage implements IStorage {
     }
     const [updated] = await db.update(userProfiles).set({ isAdmin }).where(eq(userProfiles.userId, userId)).returning();
     return updated;
+  }
+
+  async getCustomerByEmail(email: string) {
+    const [customer] = await db.select().from(customers).where(eq(customers.email, email.toLowerCase()));
+    return customer;
+  }
+
+  async getCustomerById(id: string) {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    return customer;
+  }
+
+  async findOrCreateCustomer(email: string) {
+    const normalized = email.toLowerCase();
+    const existing = await this.getCustomerByEmail(normalized);
+    if (existing) return existing;
+    const [created] = await db.insert(customers).values({ email: normalized }).returning();
+    return created;
+  }
+
+  async createCustomerSession(data: InsertCustomerSession) {
+    const [session] = await db.insert(customerSessions).values(data).returning();
+    return session;
+  }
+
+  async getCustomerSessionByToken(tokenHash: string) {
+    const [session] = await db.select().from(customerSessions).where(eq(customerSessions.tokenHash, tokenHash));
+    return session;
+  }
+
+  async deleteCustomerSession(id: string) {
+    await db.delete(customerSessions).where(eq(customerSessions.id, id));
+  }
+
+  async getOrdersByCustomer(customerId: string) {
+    const rows = await db
+      .select({ order: orders, store: stores })
+      .from(orders)
+      .innerJoin(stores, eq(orders.storeId, stores.id))
+      .where(and(eq(orders.customerId, customerId), eq(orders.status, "COMPLETED")))
+      .orderBy(desc(orders.createdAt));
+    return rows.map((r) => ({ ...r.order, store: r.store }));
+  }
+
+  async setOrderCustomerId(orderId: string, customerId: string) {
+    await db.update(orders).set({ customerId }).where(eq(orders.id, orderId));
+  }
+
+  async linkOrdersByEmail(email: string, customerId: string) {
+    await db.update(orders).set({ customerId }).where(
+      and(eq(orders.buyerEmail, email.toLowerCase()), sql`${orders.customerId} IS NULL`)
+    );
   }
 }
 
