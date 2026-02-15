@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
-import { AlertCircle, Eye, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign } from "lucide-react";
+import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { StoreProduct, Product, Bundle } from "@shared/schema";
 
@@ -87,18 +87,8 @@ export default function StoreProductsPage() {
             <Alert data-testid="alert-none-published">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>No products are published yet</AlertTitle>
-              <AlertDescription className="space-y-2">
-                <p>
-                  Your storefront won't show any products until you publish them. Use the toggle next to each product below to make it visible to visitors.
-                </p>
-                {activeStore?.slug && (
-                  <Link href={`/s/${activeStore.slug}`}>
-                    <Button variant="outline" size="sm" className="mt-1" data-testid="button-view-storefront">
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Storefront
-                    </Button>
-                  </Link>
-                )}
+              <AlertDescription>
+                Your storefront won't show any products until you publish them. Use the toggle next to each product below to make it visible to visitors.
               </AlertDescription>
             </Alert>
           )}

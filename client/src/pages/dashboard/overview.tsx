@@ -10,7 +10,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Store, Package, ShoppingBag, DollarSign, TrendingUp, BarChart3,
   Users, Rocket, Zap, Star, ArrowRight, Sparkles, Target,
-  Coffee, Flame, Moon as MoonIcon, Sun as SunIcon, AlertCircle, Eye,
+  Coffee, Flame, Moon as MoonIcon, Sun as SunIcon, AlertCircle,
 } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
@@ -194,18 +194,45 @@ export default function OverviewPage() {
       {storeProducts && !hasPublishedProducts && (
         <Alert data-testid="alert-none-published">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>No products are published yet</AlertTitle>
-          <AlertDescription className="space-y-2">
-            <p>
-              Your storefront won't show any products until you publish them. Use the toggle next to each product below to make it visible to visitors.
-            </p>
-            <Link href={`/s/${activeStore?.slug}`}>
-              <Button variant="outline" size="sm" className="mt-1" data-testid="button-alert-view-storefront">
-                <Eye className="mr-2 h-4 w-4" />
-                View Storefront
-              </Button>
-            </Link>
-          </AlertDescription>
+          {hasAnyProducts ? (
+            <>
+              <AlertTitle>No products are published yet</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>
+                  Your storefront won't show any products until you publish them. Use the toggle next to each product below to make it visible to visitors.
+                </p>
+                <Link href="/dashboard/products">
+                  <Button variant="outline" size="sm" className="mt-1" data-testid="button-alert-go-products">
+                    <Package className="mr-2 h-4 w-4" />
+                    Go to Products
+                  </Button>
+                </Link>
+              </AlertDescription>
+            </>
+          ) : (
+            <>
+              <AlertTitle>No products imported yet</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>
+                  Your storefront is empty. Import products from the platform library or create your own to get started.
+                </p>
+                <div className="flex items-center gap-2 flex-wrap mt-1">
+                  <Link href="/dashboard/library">
+                    <Button variant="outline" size="sm" data-testid="button-alert-go-library">
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                      Browse Library
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/my-products">
+                    <Button variant="outline" size="sm" data-testid="button-alert-go-create">
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Create Product
+                    </Button>
+                  </Link>
+                </div>
+              </AlertDescription>
+            </>
+          )}
         </Alert>
       )}
 
