@@ -44,6 +44,7 @@ export interface IStorage {
   getStoreProductByStoreAndProduct(storeId: string, productId: string): Promise<StoreProduct | undefined>;
   createStoreProduct(sp: InsertStoreProduct): Promise<StoreProduct>;
   updateStoreProductPublish(id: string, isPublished: boolean): Promise<StoreProduct | undefined>;
+  updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "isPublished" | "isLeadMagnet" | "upsellProductId" | "upsellBundleId">>): Promise<StoreProduct | undefined>;
 
   createOrder(order: InsertOrder): Promise<Order>;
   getOrderById(id: string): Promise<Order | undefined>;
@@ -217,6 +218,11 @@ export class DatabaseStorage implements IStorage {
 
   async updateStoreProductPublish(id: string, isPublished: boolean) {
     const [sp] = await db.update(storeProducts).set({ isPublished }).where(eq(storeProducts.id, id)).returning();
+    return sp;
+  }
+
+  async updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "isPublished" | "isLeadMagnet" | "upsellProductId" | "upsellBundleId">>) {
+    const [sp] = await db.update(storeProducts).set(data).where(eq(storeProducts.id, id)).returning();
     return sp;
   }
 

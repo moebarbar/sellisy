@@ -1,11 +1,18 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon } from "lucide-react";
+import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift } from "lucide-react";
+import { LeadMagnetModal } from "./lead-magnet-modal";
 import type { Store, Product, Bundle } from "@shared/schema";
+
+type StorefrontProduct = Product & {
+  isLeadMagnet?: boolean;
+  upsellProductId?: string | null;
+  upsellBundleId?: string | null;
+};
 
 type NeonMode = "dark" | "light";
 
-export function NeonTemplate({ store, products, bundles }: { store: Store; products: Product[]; bundles: Array<{ id: string; name: string; description: string | null; priceCents: number; thumbnailUrl: string | null; products: Product[] }> }) {
+export function NeonTemplate({ store, products, bundles }: { store: Store; products: StorefrontProduct[]; bundles: Array<{ id: string; name: string; description: string | null; priceCents: number; thumbnailUrl: string | null; products: Product[] }> }) {
   const [mode, setMode] = useState<NeonMode>(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("neon-mode") as NeonMode) || "dark";
@@ -18,8 +25,9 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
   }, [mode]);
 
   const isDark = mode === "dark";
+  const [leadModalProduct, setLeadModalProduct] = useState<StorefrontProduct | null>(null);
 
-  const handleBuy = async (product: Product) => {
+  const handleBuy = async (product: StorefrontProduct) => {
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
@@ -348,7 +356,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                           </div>
                         )}
                         <div className="neon-price px-3 py-1 rounded-full text-sm font-bold backdrop-blur-md" style={{ background: `${c.bg}b3`, border: `1px solid ${c.cyan}25` }}>
-                          ${(product.priceCents / 100).toFixed(2)}
+                          {product.isLeadMagnet ? "Free" : `$${(product.priceCents / 100).toFixed(2)}`}
                         </div>
                       </div>
                     </a>
@@ -356,8 +364,10 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                   <div className="p-6 relative z-10">
                     {!product.thumbnailUrl && (
                       <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
-                        <span className="neon-price text-2xl font-bold">${(product.priceCents / 100).toFixed(2)}</span>
-                        {hasDiscount && (
+                        <span className="neon-price text-2xl font-bold">
+                          {product.isLeadMagnet ? "Free" : `$${(product.priceCents / 100).toFixed(2)}`}
+                        </span>
+                        {!product.isLeadMagnet && hasDiscount && (
                           <span className="text-sm line-through" style={{ color: c.textTertiary }}>${(product.originalPriceCents! / 100).toFixed(2)}</span>
                         )}
                       </div>
@@ -376,16 +386,29 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       {product.thumbnailUrl ? (
                         <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="neon-price text-xl font-bold">${(product.priceCents / 100).toFixed(2)}</span>
-                          {hasDiscount && (
-                            <span className="text-sm line-through" style={{ color: c.textTertiary }}>${(product.originalPriceCents! / 100).toFixed(2)}</span>
+                          {product.isLeadMagnet ? (
+                            <span className="neon-price text-xl font-bold">Free</span>
+                          ) : (
+                            <>
+                              <span className="neon-price text-xl font-bold">${(product.priceCents / 100).toFixed(2)}</span>
+                              {hasDiscount && (
+                                <span className="text-sm line-through" style={{ color: c.textTertiary }}>${(product.originalPriceCents! / 100).toFixed(2)}</span>
+                              )}
+                            </>
                           )}
                         </div>
                       ) : <span />}
-                      <Button className="neon-buy-btn font-medium border-0 no-default-hover-elevate no-default-active-elevate" onClick={() => handleBuy(product)} data-testid={`button-neon-buy-${product.id}`}>
-                        <ShoppingBag className="mr-2 h-4 w-4" />
-                        Buy Now
-                      </Button>
+                      {product.isLeadMagnet ? (
+                        <Button className="neon-buy-btn font-medium border-0 no-default-hover-elevate no-default-active-elevate" onClick={() => setLeadModalProduct(product)} data-testid={`button-neon-lead-${product.id}`}>
+                          <Gift className="mr-2 h-4 w-4" />
+                          Get it Free
+                        </Button>
+                      ) : (
+                        <Button className="neon-buy-btn font-medium border-0 no-default-hover-elevate no-default-active-elevate" onClick={() => handleBuy(product)} data-testid={`button-neon-buy-${product.id}`}>
+                          <ShoppingBag className="mr-2 h-4 w-4" />
+                          Buy Now
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -459,6 +482,25 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
           <span className="text-sm tracking-wide" style={{ color: c.textTertiary }}>Powered by DigitalVault</span>
         </div>
       </footer>
+
+      {leadModalProduct && (
+        <LeadMagnetModal
+          isOpen={!!leadModalProduct}
+          onClose={() => setLeadModalProduct(null)}
+          productTitle={leadModalProduct.title}
+          productId={leadModalProduct.id}
+          storeId={store.id}
+          storeSlug={store.slug}
+          colors={{
+            bg: c.bg,
+            card: c.card,
+            text: isDark ? "rgba(255,255,255,0.95)" : c.text,
+            textSecondary: c.textSecondary,
+            accent: c.accent,
+            border: c.border,
+          }}
+        />
+      )}
     </div>
   );
 }

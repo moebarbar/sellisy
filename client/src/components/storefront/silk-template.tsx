@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Package, Sparkles, Sun, Moon } from "lucide-react";
+import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift } from "lucide-react";
+import { LeadMagnetModal } from "./lead-magnet-modal";
 import type { Store, Product, Bundle } from "@shared/schema";
+
+type StorefrontProduct = Product & {
+  isLeadMagnet?: boolean;
+  upsellProductId?: string | null;
+  upsellBundleId?: string | null;
+};
 
 type SilkMode = "light" | "dark";
 
@@ -16,13 +23,14 @@ function GoldDivider({ isDark }: { isDark: boolean }) {
   );
 }
 
-export function SilkTemplate({ store, products, bundles }: { store: Store; products: Product[]; bundles: Array<{ id: string; name: string; description: string | null; priceCents: number; thumbnailUrl: string | null; products: Product[] }> }) {
+export function SilkTemplate({ store, products, bundles }: { store: Store; products: StorefrontProduct[]; bundles: Array<{ id: string; name: string; description: string | null; priceCents: number; thumbnailUrl: string | null; products: Product[] }> }) {
   const [mode, setMode] = useState<SilkMode>(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("silk-mode") as SilkMode) || "light";
     }
     return "light";
   });
+  const [leadModalProduct, setLeadModalProduct] = useState<StorefrontProduct | null>(null);
 
   useEffect(() => {
     localStorage.setItem("silk-mode", mode);
@@ -30,7 +38,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
 
   const isDark = mode === "dark";
 
-  const handleBuy = async (product: Product) => {
+  const handleBuy = async (product: StorefrontProduct) => {
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
@@ -270,21 +278,39 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                       </div>
                       <div className="flex items-center justify-between gap-4 flex-wrap pt-4" style={{ borderTop: `1px solid ${c.divider}` }}>
                         <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="text-xs font-medium tracking-wider uppercase" style={{ color: c.priceLabelColor }}>Price</span>
-                          {hasDiscount && (
-                            <span className="text-sm line-through" style={{ color: c.textTertiary }}>${(product.originalPriceCents! / 100).toFixed(2)}</span>
-                          )}
-                          <span className="text-2xl font-serif" style={{ color: c.text }} data-testid={`text-price-${product.id}`}>
-                            ${(product.priceCents / 100).toFixed(2)}
-                          </span>
-                          {hasDiscount && (
-                            <span className="silk-discount text-xs font-bold px-2 py-0.5 rounded-full">-{discountPct}%</span>
+                          {product.isLeadMagnet ? (
+                            <>
+                              <span className="text-xs font-medium tracking-wider uppercase" style={{ color: c.priceLabelColor }}>Price</span>
+                              <span className="text-2xl font-serif" style={{ color: c.text }} data-testid={`text-price-${product.id}`}>
+                                Free
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xs font-medium tracking-wider uppercase" style={{ color: c.priceLabelColor }}>Price</span>
+                              {hasDiscount && (
+                                <span className="text-sm line-through" style={{ color: c.textTertiary }}>${(product.originalPriceCents! / 100).toFixed(2)}</span>
+                              )}
+                              <span className="text-2xl font-serif" style={{ color: c.text }} data-testid={`text-price-${product.id}`}>
+                                ${(product.priceCents / 100).toFixed(2)}
+                              </span>
+                              {hasDiscount && (
+                                <span className="silk-discount text-xs font-bold px-2 py-0.5 rounded-full">-{discountPct}%</span>
+                              )}
+                            </>
                           )}
                         </div>
-                        <Button onClick={() => handleBuy(product)} data-testid={`button-silk-buy-${product.id}`} className="silk-btn rounded-full px-6 font-medium tracking-wide text-sm no-default-hover-elevate no-default-active-elevate">
-                          <ShoppingBag className="mr-2 h-4 w-4" />
-                          Purchase
-                        </Button>
+                        {product.isLeadMagnet ? (
+                          <Button onClick={() => setLeadModalProduct(product)} data-testid={`button-silk-lead-${product.id}`} className="silk-btn rounded-full px-6 font-medium tracking-wide text-sm no-default-hover-elevate no-default-active-elevate">
+                            <Gift className="mr-2 h-4 w-4" />
+                            Get it Free
+                          </Button>
+                        ) : (
+                          <Button onClick={() => handleBuy(product)} data-testid={`button-silk-buy-${product.id}`} className="silk-btn rounded-full px-6 font-medium tracking-wide text-sm no-default-hover-elevate no-default-active-elevate">
+                            <ShoppingBag className="mr-2 h-4 w-4" />
+                            Purchase
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -378,6 +404,25 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
           </p>
         </div>
       </footer>
+
+      {leadModalProduct && (
+        <LeadMagnetModal
+          isOpen={!!leadModalProduct}
+          onClose={() => setLeadModalProduct(null)}
+          productTitle={leadModalProduct.title}
+          productId={leadModalProduct.id}
+          storeId={store.id}
+          storeSlug={store.slug}
+          colors={{
+            bg: c.bg,
+            card: c.card,
+            text: c.text,
+            textSecondary: c.textSecondary,
+            accent: c.gold,
+            border: c.cardBorder,
+          }}
+        />
+      )}
     </div>
   );
 }

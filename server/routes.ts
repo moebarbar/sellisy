@@ -412,7 +412,12 @@ export async function registerRoutes(
   });
 
   app.patch("/api/store-products/:id", isAuthenticated, async (req, res) => {
-    const schema = z.object({ isPublished: z.boolean() });
+    const schema = z.object({
+      isPublished: z.boolean().optional(),
+      isLeadMagnet: z.boolean().optional(),
+      upsellProductId: z.string().nullable().optional(),
+      upsellBundleId: z.string().nullable().optional(),
+    });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
 
@@ -424,7 +429,14 @@ export async function registerRoutes(
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    const sp = await storage.updateStoreProductPublish(req.params.id as string, parsed.data.isPublished);
+    if (parsed.data.isLeadMagnet) {
+      const product = await storage.getProductById(spData.productId);
+      if (product && product.priceCents > 0) {
+        return res.status(400).json({ message: "Lead magnets must be free (price $0). Set the product price to $0 first." });
+      }
+    }
+
+    const sp = await storage.updateStoreProduct(req.params.id as string, parsed.data);
     if (!sp) return res.status(404).json({ message: "Not found" });
     res.json(sp);
   });
@@ -710,10 +722,18 @@ export async function registerRoutes(
     const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
-    const [publishedProducts, publishedBundles] = await Promise.all([
-      storage.getPublishedStoreProducts(store.id),
+    const [storeProductRows, publishedBundles] = await Promise.all([
+      storage.getStoreProducts(store.id),
       storage.getPublishedBundlesByStore(store.id),
     ]);
+    const publishedRows = storeProductRows.filter((sp) => sp.isPublished);
+    const productsWithMeta = publishedRows.map((sp) => ({
+      ...sp.product,
+      isLeadMagnet: sp.isLeadMagnet,
+      upsellProductId: sp.upsellProductId,
+      upsellBundleId: sp.upsellBundleId,
+    }));
+
     const allBundleItems = await Promise.all(
       publishedBundles.map((b) => storage.getBundleItems(b.id))
     );
@@ -721,7 +741,7 @@ export async function registerRoutes(
       ...b,
       products: allBundleItems[i].map((item) => item.product),
     }));
-    res.json({ store, products: publishedProducts, bundles: bundlesWithProducts });
+    res.json({ store, products: productsWithMeta, bundles: bundlesWithProducts });
   });
 
   app.get("/api/storefront/:slug/product/:productId", async (req, res) => {
@@ -994,13 +1014,132 @@ export async function registerRoutes(
     });
   });
 
-  // ========== CUSTOMER PORTAL AUTH ==========
-
-  const magicLinkRateLimit = new Map<string, number>();
-
   function hashToken(token: string): string {
     return createHash("sha256").update(token).digest("hex");
   }
+
+  // ========== FREE PRODUCT CLAIM (Lead Magnet) ==========
+
+  app.post("/api/claim-free", async (req, res) => {
+    const schema = z.object({
+      email: z.string().email(),
+      productId: z.string(),
+      storeId: z.string(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+
+    const { email, productId, storeId } = parsed.data;
+
+    const store = await storage.getStoreById(storeId);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+
+    const sp = await storage.getStoreProductByStoreAndProduct(storeId, productId);
+    if (!sp || !sp.isPublished || !sp.isLeadMagnet) {
+      return res.status(400).json({ message: "This product is not available as a free download" });
+    }
+
+    const product = await storage.getProductById(productId);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    if (product.priceCents > 0) {
+      return res.status(400).json({ message: "This product is not free" });
+    }
+
+    const customer = await storage.findOrCreateCustomer(email);
+
+    const result = await db.transaction(async (tx) => {
+      const [order] = await tx.insert(orders).values({
+        storeId: store.id,
+        buyerEmail: email.toLowerCase(),
+        customerId: customer.id,
+        totalCents: 0,
+        stripeSessionId: null,
+        status: "COMPLETED",
+      }).returning();
+
+      await tx.insert(orderItems).values({
+        orderId: order.id,
+        productId: product.id,
+        priceCents: 0,
+      });
+
+      const tokenRaw = randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await tx.insert(downloadTokens).values({
+        orderId: order.id,
+        tokenHash: tokenRaw,
+        expiresAt,
+      });
+
+      return { order, downloadToken: tokenRaw };
+    });
+
+    await storage.linkOrdersByEmail(email.toLowerCase(), customer.id);
+
+    const sessionToken = randomBytes(32).toString("hex");
+    const sessionHash = hashToken(sessionToken);
+    const sessionExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await storage.createCustomerSession({
+      customerId: customer.id,
+      tokenHash: sessionHash,
+      expiresAt: sessionExpiry,
+    });
+
+    res.cookie("customer_session", sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
+
+    res.json({
+      orderId: result.order.id,
+      downloadToken: result.downloadToken,
+      upsellProductId: sp.upsellProductId,
+      upsellBundleId: sp.upsellBundleId,
+    });
+  });
+
+  app.get("/api/claim-free/success/:orderId", async (req, res) => {
+    const order = await storage.getOrderById(req.params.orderId as string);
+    if (!order || order.totalCents > 0) return res.status(404).json({ message: "Not found" });
+
+    const store = await storage.getStoreById(order.storeId);
+    const items = await storage.getOrderItemsByOrder(order.id);
+    const product = items[0]?.product;
+
+    const existingTokens = await db.select().from(downloadTokens).where(eq(downloadTokens.orderId, order.id));
+    const tokenHash = existingTokens.length > 0 ? existingTokens[0].tokenHash : null;
+
+    const sp = product ? await storage.getStoreProductByStoreAndProduct(order.storeId, product.id) : null;
+
+    let upsellProduct = null;
+    let upsellBundle = null;
+
+    if (sp?.upsellProductId) {
+      const p = await storage.getProductById(sp.upsellProductId);
+      if (p) upsellProduct = { id: p.id, title: p.title, description: p.description, priceCents: p.priceCents, thumbnailUrl: p.thumbnailUrl };
+    }
+    if (sp?.upsellBundleId) {
+      const b = await storage.getBundleWithProducts(sp.upsellBundleId);
+      if (b) upsellBundle = { id: b.bundle.id, name: b.bundle.name, description: b.bundle.description, priceCents: b.bundle.priceCents, thumbnailUrl: b.bundle.thumbnailUrl, productCount: b.products.length };
+    }
+
+    res.json({
+      order: { id: order.id, buyerEmail: order.buyerEmail, totalCents: order.totalCents },
+      product: product ? { id: product.id, title: product.title, thumbnailUrl: product.thumbnailUrl } : null,
+      store: store ? { id: store.id, name: store.name, slug: store.slug } : null,
+      downloadToken: tokenHash,
+      upsellProduct,
+      upsellBundle,
+    });
+  });
+
+  // ========== CUSTOMER PORTAL AUTH ==========
+
+  const magicLinkRateLimit = new Map<string, number>();
 
   async function getCustomerFromCookie(req: Request): Promise<{ customerId: string } | null> {
     const sessionToken = req.cookies?.customer_session;

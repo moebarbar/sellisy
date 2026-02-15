@@ -4,6 +4,8 @@
 Multi-tenant digital product storefront builder. Users sign up, create stores from templates, import products from a platform library, publish them, and accept payments with secure download delivery.
 
 ## Recent Changes
+- 2026-02-15: **Lead magnet system** — Store owners mark free products as lead magnets (isLeadMagnet on storeProducts), visitors enter email to claim, creates customer account + $0 order + download token + session cookie. Upsell product/bundle shown on claim success page. "Get it Free" button on storefront templates with email capture modal. Dashboard settings panel for lead magnet config.
+- 2026-02-15: **Portal links** — "My Purchases" link in landing page nav, "View Your Purchases" button on checkout success page
 - 2026-02-14: **Real file downloads** — `/api/download/:token` serves files from Object Storage; single-file orders redirect, multi-file orders return JSON list with URLs
 - 2026-02-14: **Public store discovery** — `/api/discover/stores` endpoint and landing page section showcasing live stores with product counts
 - 2026-02-14: **SEO meta tags** — `usePageMeta` hook for dynamic per-page title, description, and Open Graph tags on storefront, product, and bundle pages
@@ -66,6 +68,8 @@ Multi-tenant digital product storefront builder. Users sign up, create stores fr
 - `client/src/pages/dashboard/store-settings.tsx` — Store settings (general, branding, delete)
 - `client/src/pages/dashboard/my-products.tsx` — My Products CRUD page with file upload
 - `client/src/components/storefront/` — Neon and Silk templates
+- `client/src/components/storefront/lead-magnet-modal.tsx` — Shared email capture modal for lead magnets
+- `client/src/pages/claim-success.tsx` — Post-claim success page with download and upsell
 
 ## User Preferences
 - Clean, minimal code

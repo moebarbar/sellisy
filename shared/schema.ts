@@ -130,6 +130,9 @@ export const storeProducts = pgTable("store_products", {
   productId: varchar("product_id", { length: 64 }).notNull(),
   isPublished: boolean("is_published").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
+  isLeadMagnet: boolean("is_lead_magnet").notNull().default(false),
+  upsellProductId: varchar("upsell_product_id", { length: 64 }),
+  upsellBundleId: varchar("upsell_bundle_id", { length: 64 }),
 });
 
 export const insertStoreProductSchema = createInsertSchema(storeProducts).omit({ id: true });

@@ -8,12 +8,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, Eye, Package, Store, ToggleRight } from "lucide-react";
+import { AlertCircle, Eye, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import type { StoreProduct, Product } from "@shared/schema";
+import type { StoreProduct, Product, Bundle } from "@shared/schema";
 
 type StoreProductWithProduct = StoreProduct & { product: Product };
+type BundleWithProducts = Bundle & { products: Product[] };
 
 export default function StoreProductsPage() {
   const { activeStore, activeStoreId, storesLoading } = useActiveStore();
@@ -21,6 +24,11 @@ export default function StoreProductsPage() {
 
   const { data: storeProducts, isLoading } = useQuery<StoreProductWithProduct[]>({
     queryKey: ["/api/store-products", activeStoreId],
+    enabled: !!activeStoreId,
+  });
+
+  const { data: bundles } = useQuery<BundleWithProducts[]>({
+    queryKey: ["/api/bundles", activeStoreId],
     enabled: !!activeStoreId,
   });
 
@@ -95,7 +103,13 @@ export default function StoreProductsPage() {
           )}
           <div className="space-y-3">
             {storeProducts.map((sp) => (
-              <StoreProductRow key={sp.id} storeProduct={sp} storeId={activeStoreId} />
+              <StoreProductRow
+                key={sp.id}
+                storeProduct={sp}
+                storeId={activeStoreId}
+                allProducts={storeProducts}
+                bundles={bundles || []}
+              />
             ))}
           </div>
         </>
@@ -132,15 +146,24 @@ export default function StoreProductsPage() {
   );
 }
 
-function StoreProductRow({ storeProduct, storeId }: { storeProduct: StoreProductWithProduct; storeId: string }) {
+function StoreProductRow({
+  storeProduct,
+  storeId,
+  allProducts,
+  bundles,
+}: {
+  storeProduct: StoreProductWithProduct;
+  storeId: string;
+  allProducts: StoreProductWithProduct[];
+  bundles: BundleWithProducts[];
+}) {
   const { toast } = useToast();
   const product = storeProduct.product;
+  const [expanded, setExpanded] = useState(false);
 
   const toggleMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("PATCH", `/api/store-products/${storeProduct.id}`, {
-        isPublished: !storeProduct.isPublished,
-      });
+    mutationFn: async (data: Record<string, unknown>) => {
+      await apiRequest("PATCH", `/api/store-products/${storeProduct.id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/store-products", storeId] });
@@ -150,39 +173,136 @@ function StoreProductRow({ storeProduct, storeId }: { storeProduct: StoreProduct
     },
   });
 
+  const isFree = product.priceCents === 0;
+  const otherProducts = allProducts.filter((sp) => sp.productId !== storeProduct.productId && sp.product.priceCents > 0);
+
   return (
     <Card>
-      <CardContent className="flex items-center gap-4 p-4">
-        {product.thumbnailUrl ? (
-          <img
-            src={product.thumbnailUrl}
-            alt={product.title}
-            className="h-14 w-14 rounded-md object-cover"
-          />
-        ) : (
-          <div className="h-14 w-14 rounded-md bg-muted flex items-center justify-center">
-            <Package className="h-5 w-5 text-muted-foreground" />
+      <CardContent className="p-4 space-y-0">
+        <div className="flex items-center gap-4">
+          {product.thumbnailUrl ? (
+            <img
+              src={product.thumbnailUrl}
+              alt={product.title}
+              className="h-14 w-14 rounded-md object-cover"
+            />
+          ) : (
+            <div className="h-14 w-14 rounded-md bg-muted flex items-center justify-center">
+              <Package className="h-5 w-5 text-muted-foreground" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-medium truncate" data-testid={`text-sp-title-${storeProduct.id}`}>
+                {product.title}
+              </h3>
+              {storeProduct.isLeadMagnet && (
+                <Badge variant="secondary" className="text-xs">
+                  <Gift className="mr-1 h-3 w-3" />
+                  Lead Magnet
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {isFree ? "Free" : `$${(product.priceCents / 100).toFixed(2)}`}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant={storeProduct.isPublished ? "default" : "secondary"}>
+              {storeProduct.isPublished ? "Published" : "Draft"}
+            </Badge>
+            <Switch
+              checked={storeProduct.isPublished}
+              onCheckedChange={() => toggleMutation.mutate({ isPublished: !storeProduct.isPublished })}
+              disabled={toggleMutation.isPending}
+              data-testid={`switch-publish-${storeProduct.id}`}
+            />
+            {isFree && (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setExpanded(!expanded)}
+                data-testid={`button-expand-${storeProduct.id}`}
+              >
+                {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {expanded && isFree && (
+          <div className="mt-4 pt-4 border-t space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
+                <Gift className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <Label className="text-sm font-medium">Lead Magnet</Label>
+                <p className="text-xs text-muted-foreground">
+                  Visitors enter their email to get this free product, creating a customer account for upselling
+                </p>
+              </div>
+              <Switch
+                checked={storeProduct.isLeadMagnet}
+                onCheckedChange={(checked) => toggleMutation.mutate({ isLeadMagnet: checked })}
+                disabled={toggleMutation.isPending}
+                data-testid={`switch-lead-magnet-${storeProduct.id}`}
+              />
+            </div>
+
+            {storeProduct.isLeadMagnet && (
+              <div className="space-y-3 pl-11">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    Upsell Product (shown after signup)
+                  </Label>
+                  <Select
+                    value={storeProduct.upsellProductId || "none"}
+                    onValueChange={(val) => toggleMutation.mutate({ upsellProductId: val === "none" ? null : val })}
+                  >
+                    <SelectTrigger data-testid={`select-upsell-product-${storeProduct.id}`}>
+                      <SelectValue placeholder="No upsell product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No upsell product</SelectItem>
+                      {otherProducts.map((sp) => (
+                        <SelectItem key={sp.productId} value={sp.productId}>
+                          {sp.product.title} — ${(sp.product.priceCents / 100).toFixed(2)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {bundles.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium flex items-center gap-1">
+                      <Package className="h-3 w-3" />
+                      Upsell Bundle (shown after signup)
+                    </Label>
+                    <Select
+                      value={storeProduct.upsellBundleId || "none"}
+                      onValueChange={(val) => toggleMutation.mutate({ upsellBundleId: val === "none" ? null : val })}
+                    >
+                      <SelectTrigger data-testid={`select-upsell-bundle-${storeProduct.id}`}>
+                        <SelectValue placeholder="No upsell bundle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No upsell bundle</SelectItem>
+                        {bundles.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.name} — ${(b.priceCents / 100).toFixed(2)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium truncate" data-testid={`text-sp-title-${storeProduct.id}`}>
-            {product.title}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            ${(product.priceCents / 100).toFixed(2)}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant={storeProduct.isPublished ? "default" : "secondary"}>
-            {storeProduct.isPublished ? "Published" : "Draft"}
-          </Badge>
-          <Switch
-            checked={storeProduct.isPublished}
-            onCheckedChange={() => toggleMutation.mutate()}
-            disabled={toggleMutation.isPending}
-            data-testid={`switch-publish-${storeProduct.id}`}
-          />
-        </div>
       </CardContent>
     </Card>
   );

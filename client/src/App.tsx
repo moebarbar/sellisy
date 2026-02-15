@@ -13,6 +13,7 @@ const StorefrontPage = lazy(() => import("@/pages/storefront"));
 const ProductDetailPage = lazy(() => import("@/pages/product-detail"));
 const BundleDetailPage = lazy(() => import("@/pages/bundle-detail"));
 const CheckoutSuccessPage = lazy(() => import("@/pages/checkout-success"));
+const ClaimSuccessPage = lazy(() => import("@/pages/claim-success"));
 
 const DashboardLayout = lazy(() =>
   import("@/components/dashboard/layout").then((m) => ({ default: m.DashboardLayout }))
@@ -79,6 +80,7 @@ function Router() {
         <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
         <Route path="/s/:slug" component={StorefrontPage} />
         <Route path="/checkout/success" component={CheckoutSuccessPage} />
+        <Route path="/claim/success" component={ClaimSuccessPage} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
