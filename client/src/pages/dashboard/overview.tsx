@@ -10,8 +10,9 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Store, Package, ShoppingBag, DollarSign, TrendingUp, BarChart3,
   Users, Rocket, Zap, Star, ArrowRight, Sparkles, Target,
-  Coffee, Flame, Moon as MoonIcon, Sun as SunIcon,
+  Coffee, Flame, Moon as MoonIcon, Sun as SunIcon, AlertCircle, Eye,
 } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface Analytics {
   totalRevenue: number;
@@ -114,6 +115,13 @@ export default function OverviewPage() {
     enabled: !!activeStoreId,
   });
 
+  const { data: storeProducts } = useQuery<any[]>({
+    queryKey: ["/api/store-products", activeStoreId],
+    enabled: !!activeStoreId,
+  });
+  const hasPublishedProducts = storeProducts?.some((sp: any) => sp.isPublished) ?? false;
+  const hasAnyProducts = (storeProducts?.length ?? 0) > 0;
+
   const revenueEntries = analytics ? Object.entries(analytics.revenueByDate).sort(([a], [b]) => a.localeCompare(b)).slice(-14) : [];
   const maxRevenue = revenueEntries.length > 0 ? Math.max(...revenueEntries.map(([, v]) => v)) : 0;
 
@@ -182,6 +190,24 @@ export default function OverviewPage() {
           </Link>
         </div>
       </div>
+
+      {storeProducts && !hasPublishedProducts && (
+        <Alert data-testid="alert-none-published">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No products are published yet</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>
+              Your storefront won't show any products until you publish them. Use the toggle next to each product below to make it visible to visitors.
+            </p>
+            <Link href={`/s/${activeStore?.slug}`}>
+              <Button variant="outline" size="sm" className="mt-1" data-testid="button-alert-view-storefront">
+                <Eye className="mr-2 h-4 w-4" />
+                View Storefront
+              </Button>
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
