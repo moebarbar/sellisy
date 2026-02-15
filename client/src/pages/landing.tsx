@@ -41,7 +41,6 @@ export default function LandingPage() {
             <a href="#features" className="transition-colors" data-testid="link-nav-features">Features</a>
             <a href="#how-it-works" className="transition-colors" data-testid="link-nav-how">How It Works</a>
             <a href="#pricing" className="transition-colors" data-testid="link-nav-pricing">Pricing</a>
-            <Link href="/account" className="transition-colors" data-testid="link-nav-purchases">My Purchases</Link>
           </nav>
           <div className="flex items-center gap-2">
             <Button size="icon" variant="ghost" onClick={toggleTheme} aria-label="Toggle theme" data-testid="button-theme-toggle">

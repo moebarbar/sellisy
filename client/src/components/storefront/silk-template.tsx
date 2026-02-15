@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift } from "lucide-react";
+import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import type { Store, Product, Bundle } from "@shared/schema";
 
@@ -194,14 +194,25 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
               </>
             )}
           </div>
-          <button
-            onClick={() => setMode(m => m === "light" ? "dark" : "light")}
-            className="silk-mode-btn flex items-center justify-center w-9 h-9"
-            data-testid="button-silk-theme-toggle"
-            aria-label="Toggle theme"
-          >
-            {isDark ? <Sun className="h-4 w-4" style={{ color: c.goldMuted }} /> : <Moon className="h-4 w-4" style={{ color: c.goldMuted }} />}
-          </button>
+          <div className="flex items-center gap-1">
+            <a
+              href={`/s/${store.slug}/portal`}
+              className="silk-mode-btn flex items-center justify-center w-9 h-9"
+              data-testid="link-silk-portal"
+              aria-label="My Purchases"
+              title="My Purchases"
+            >
+              <User className="h-4 w-4" style={{ color: c.goldMuted }} />
+            </a>
+            <button
+              onClick={() => setMode(m => m === "light" ? "dark" : "light")}
+              className="silk-mode-btn flex items-center justify-center w-9 h-9"
+              data-testid="button-silk-theme-toggle"
+              aria-label="Toggle theme"
+            >
+              {isDark ? <Sun className="h-4 w-4" style={{ color: c.goldMuted }} /> : <Moon className="h-4 w-4" style={{ color: c.goldMuted }} />}
+            </button>
+          </div>
         </div>
       </header>
 

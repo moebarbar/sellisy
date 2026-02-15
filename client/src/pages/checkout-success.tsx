@@ -146,12 +146,14 @@ export default function CheckoutSuccessPage() {
                 <DownloadSection token={data.downloadToken} fileCount={data.fileCount || 0} />
               )}
 
-              <Link href="/account">
-                <Button variant="outline" className="mt-4" data-testid="button-view-purchases">
-                  <Package className="mr-2 h-4 w-4" />
-                  View Your Purchases
-                </Button>
-              </Link>
+              {data.store && (
+                <Link href={`/s/${data.store.slug}/portal`}>
+                  <Button variant="outline" className="mt-4" data-testid="button-view-purchases">
+                    <Package className="mr-2 h-4 w-4" />
+                    View Your Purchases
+                  </Button>
+                </Link>
+              )}
 
               {data.store && (
                 <Link href={`/s/${data.store.slug}`}>

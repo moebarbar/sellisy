@@ -5,7 +5,7 @@ Multi-tenant digital product storefront builder. Users sign up, create stores fr
 
 ## Recent Changes
 - 2026-02-15: **Lead magnet system** — Store owners mark free products as lead magnets (isLeadMagnet on storeProducts), visitors enter email to claim, creates customer account + $0 order + download token + session cookie. Upsell product/bundle shown on claim success page. "Get it Free" button on storefront templates with email capture modal. Dashboard settings panel for lead magnet config.
-- 2026-02-15: **Portal links** — "My Purchases" link in landing page nav, "View Your Purchases" button on checkout success page
+- 2026-02-15: **Store-branded customer portals** — Each store gets its own branded portal at `/s/:slug/portal` matching the store's template (Neon/Silk). Customers log in via magic link, see only that store's purchases, download files. Portal link (User icon) added to storefront headers. Checkout success points to store portal. Global "My Purchases" removed from landing page. Old `/account/*` routes kept as fallback.
 - 2026-02-14: **Real file downloads** — `/api/download/:token` serves files from Object Storage; single-file orders redirect, multi-file orders return JSON list with URLs
 - 2026-02-14: **Public store discovery** — `/api/discover/stores` endpoint and landing page section showcasing live stores with product counts
 - 2026-02-14: **SEO meta tags** — `usePageMeta` hook for dynamic per-page title, description, and Open Graph tags on storefront, product, and bundle pages

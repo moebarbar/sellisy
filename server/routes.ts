@@ -1202,7 +1202,9 @@ export async function registerRoutes(
     });
 
     const appUrl = `https://${req.headers.host}`;
-    const magicLink = `${appUrl}/account/verify?token=${rawToken}`;
+    const storeSlug = req.body.storeSlug || "";
+    const redirectParam = storeSlug ? `&redirect=${encodeURIComponent(`/s/${storeSlug}/portal`)}` : "";
+    const magicLink = `${appUrl}/account/verify?token=${rawToken}${redirectParam}`;
 
     console.log(`[DEV MODE] Magic link for ${email}: ${magicLink}`);
 
@@ -1268,10 +1270,15 @@ export async function registerRoutes(
 
   app.get("/api/customer/purchases", isCustomerAuthenticated, async (req, res) => {
     const customerId = (req as any).customerId;
+    const storeSlug = req.query.store as string | undefined;
     const customerOrders = await storage.getOrdersByCustomer(customerId);
 
+    const filteredOrders = storeSlug
+      ? customerOrders.filter((o) => o.store.slug.toLowerCase() === storeSlug.toLowerCase())
+      : customerOrders;
+
     const purchasesWithItems = await Promise.all(
-      customerOrders.map(async (order) => {
+      filteredOrders.map(async (order) => {
         const items = await storage.getOrderItemsByOrder(order.id);
         return {
           id: order.id,

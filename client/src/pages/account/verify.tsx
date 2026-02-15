@@ -14,6 +14,8 @@ export default function AccountVerifyPage() {
   useEffect(() => {
     const params = new URLSearchParams(search);
     const token = params.get("token");
+    const rawRedirect = params.get("redirect");
+    const redirect = rawRedirect && rawRedirect.startsWith("/s/") && rawRedirect.includes("/portal") ? rawRedirect : null;
     if (!token) {
       setStatus("error");
       setErrorMsg("Missing token");
@@ -25,7 +27,8 @@ export default function AccountVerifyPage() {
         if (res.ok) {
           setStatus("success");
           queryClient.invalidateQueries({ queryKey: ["/api/customer/me"] });
-          setTimeout(() => navigate("/account/purchases"), 1500);
+          const destination = redirect || "/account/purchases";
+          setTimeout(() => navigate(destination), 1500);
         } else {
           const data = await res.json();
           setStatus("error");

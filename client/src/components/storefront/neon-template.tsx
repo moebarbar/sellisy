@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift } from "lucide-react";
+import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift, User } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import type { Store, Product, Bundle } from "@shared/schema";
 
@@ -279,6 +279,15 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
               </span>
               <span className="text-xs font-medium text-emerald-400 tracking-wide uppercase">Live</span>
             </div>
+            <a
+              href={`/s/${store.slug}/portal`}
+              className="neon-mode-btn flex items-center justify-center w-9 h-9 rounded-lg"
+              data-testid="link-neon-portal"
+              aria-label="My Purchases"
+              title="My Purchases"
+            >
+              <User className="h-4 w-4" style={{ color: c.textSecondary }} />
+            </a>
             <button
               onClick={() => setMode(m => m === "dark" ? "light" : "dark")}
               className="neon-mode-btn flex items-center justify-center w-9 h-9 rounded-lg"
