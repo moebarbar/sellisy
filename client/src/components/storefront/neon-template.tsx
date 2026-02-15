@@ -8,6 +8,7 @@ type StorefrontProduct = Product & {
   isLeadMagnet?: boolean;
   upsellProductId?: string | null;
   upsellBundleId?: string | null;
+  storeProductId?: string;
 };
 
 type NeonMode = "dark" | "light";

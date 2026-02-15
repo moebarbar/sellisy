@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, Eye, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { AlertCircle, Eye, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { StoreProduct, Product, Bundle } from "@shared/schema";
 
@@ -173,8 +174,14 @@ function StoreProductRow({
     },
   });
 
-  const isFree = product.priceCents === 0;
-  const otherProducts = allProducts.filter((sp) => sp.productId !== storeProduct.productId && sp.product.priceCents > 0);
+  const effectivePrice = storeProduct.customPriceCents ?? product.priceCents;
+  const isFree = effectivePrice === 0;
+  const hasCustomPrice = storeProduct.customPriceCents != null;
+  const otherProducts = allProducts.filter((sp) => {
+    const ep = sp.customPriceCents ?? sp.product.priceCents;
+    return sp.productId !== storeProduct.productId && ep > 0;
+  });
+  const [priceInput, setPriceInput] = useState(hasCustomPrice ? (storeProduct.customPriceCents! / 100).toFixed(2) : "");
 
   return (
     <Card>
@@ -202,9 +209,17 @@ function StoreProductRow({
                   Lead Magnet
                 </Badge>
               )}
+              {hasCustomPrice && !isFree && (
+                <Badge variant="outline" className="text-xs">
+                  Custom Price
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
-              {isFree ? "Free" : `$${(product.priceCents / 100).toFixed(2)}`}
+              {isFree ? "Free" : `$${(effectivePrice / 100).toFixed(2)}`}
+              {hasCustomPrice && !isFree && (
+                <span className="ml-1 line-through text-xs">${(product.priceCents / 100).toFixed(2)}</span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -217,38 +232,77 @@ function StoreProductRow({
               disabled={toggleMutation.isPending}
               data-testid={`switch-publish-${storeProduct.id}`}
             />
-            {isFree && (
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setExpanded(!expanded)}
-                data-testid={`button-expand-${storeProduct.id}`}
-              >
-                {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </Button>
-            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setExpanded(!expanded)}
+              data-testid={`button-expand-${storeProduct.id}`}
+            >
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
           </div>
         </div>
 
-        {expanded && isFree && (
+        {expanded && (
           <div className="mt-4 pt-4 border-t space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
-                <Gift className="h-4 w-4 text-primary" />
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1">
+                <DollarSign className="h-3.5 w-3.5" />
+                Custom Price
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Override the default price (${(product.priceCents / 100).toFixed(2)}). Set to $0 to make it free for lead magnets.
+              </p>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder={`Default: $${(product.priceCents / 100).toFixed(2)}`}
+                  value={priceInput}
+                  onChange={(e) => setPriceInput(e.target.value)}
+                  className="max-w-[200px]"
+                  data-testid={`input-custom-price-${storeProduct.id}`}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={toggleMutation.isPending}
+                  onClick={() => {
+                    const cents = priceInput === "" ? null : Math.round(parseFloat(priceInput) * 100);
+                    if (priceInput !== "" && (isNaN(cents!) || cents! < 0)) {
+                      toast({ title: "Invalid price", variant: "destructive" });
+                      return;
+                    }
+                    toggleMutation.mutate({ customPriceCents: cents });
+                    if (cents === null) setPriceInput("");
+                  }}
+                  data-testid={`button-save-price-${storeProduct.id}`}
+                >
+                  {priceInput === "" ? "Reset to Default" : "Save Price"}
+                </Button>
               </div>
-              <div className="flex-1">
-                <Label className="text-sm font-medium">Lead Magnet</Label>
-                <p className="text-xs text-muted-foreground">
-                  Visitors enter their email to get this free product, creating a customer account for upselling
-                </p>
-              </div>
-              <Switch
-                checked={storeProduct.isLeadMagnet}
-                onCheckedChange={(checked) => toggleMutation.mutate({ isLeadMagnet: checked })}
-                disabled={toggleMutation.isPending}
-                data-testid={`switch-lead-magnet-${storeProduct.id}`}
-              />
             </div>
+
+            {isFree && (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
+                  <Gift className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <Label className="text-sm font-medium">Lead Magnet</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Visitors enter their email to get this free product, creating a customer account for upselling
+                  </p>
+                </div>
+                <Switch
+                  checked={storeProduct.isLeadMagnet}
+                  onCheckedChange={(checked) => toggleMutation.mutate({ isLeadMagnet: checked })}
+                  disabled={toggleMutation.isPending}
+                  data-testid={`switch-lead-magnet-${storeProduct.id}`}
+                />
+              </div>
+            )}
 
             {storeProduct.isLeadMagnet && (
               <div className="space-y-3 pl-11">

@@ -413,6 +413,7 @@ export async function registerRoutes(
 
   app.patch("/api/store-products/:id", isAuthenticated, async (req, res) => {
     const schema = z.object({
+      customPriceCents: z.number().int().min(0).nullable().optional(),
       isPublished: z.boolean().optional(),
       isLeadMagnet: z.boolean().optional(),
       upsellProductId: z.string().nullable().optional(),
@@ -431,8 +432,9 @@ export async function registerRoutes(
 
     if (parsed.data.isLeadMagnet) {
       const product = await storage.getProductById(spData.productId);
-      if (product && product.priceCents > 0) {
-        return res.status(400).json({ message: "Lead magnets must be free (price $0). Set the product price to $0 first." });
+      const effectivePrice = parsed.data.customPriceCents ?? spData.customPriceCents ?? product?.priceCents ?? 0;
+      if (effectivePrice > 0) {
+        return res.status(400).json({ message: "Lead magnets must be free. Set a custom price of $0 first." });
       }
     }
 
@@ -729,9 +731,12 @@ export async function registerRoutes(
     const publishedRows = storeProductRows.filter((sp) => sp.isPublished);
     const productsWithMeta = publishedRows.map((sp) => ({
       ...sp.product,
+      priceCents: sp.customPriceCents ?? sp.product.priceCents,
+      originalPriceCents: sp.customPriceCents != null && sp.customPriceCents !== sp.product.priceCents ? sp.product.priceCents : sp.product.originalPriceCents,
       isLeadMagnet: sp.isLeadMagnet,
       upsellProductId: sp.upsellProductId,
       upsellBundleId: sp.upsellBundleId,
+      storeProductId: sp.id,
     }));
 
     const allBundleItems = await Promise.all(
@@ -755,7 +760,14 @@ export async function registerRoutes(
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     const images = await storage.getProductImages(product.id);
-    res.json({ store, product, images });
+    const effectiveProduct = {
+      ...product,
+      priceCents: sp.customPriceCents ?? product.priceCents,
+      originalPriceCents: sp.customPriceCents != null && sp.customPriceCents !== product.priceCents ? product.priceCents : product.originalPriceCents,
+      isLeadMagnet: sp.isLeadMagnet,
+      storeProductId: sp.id,
+    };
+    res.json({ store, product: effectiveProduct, images });
   });
 
   app.get("/api/storefront/:slug/bundle/:bundleId", async (req, res) => {
@@ -812,11 +824,12 @@ export async function registerRoutes(
       if (!product) return res.status(404).json({ message: "Product not found" });
       const sp = await storage.getStoreProductByStoreAndProduct(store.id, product.id);
       if (!sp || !sp.isPublished) return res.status(404).json({ message: "Product not available in this store" });
-      totalCents = product.priceCents;
+      const effectivePrice = sp.customPriceCents ?? product.priceCents;
+      totalCents = effectivePrice;
       itemName = product.title;
       itemDescription = product.description || `Digital product from ${store.name}`;
       itemImage = product.thumbnailUrl;
-      itemsToAdd.push({ productId: product.id, priceCents: product.priceCents });
+      itemsToAdd.push({ productId: product.id, priceCents: effectivePrice });
     }
 
     let couponId: string | null = null;
@@ -1042,7 +1055,8 @@ export async function registerRoutes(
     const product = await storage.getProductById(productId);
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    if (product.priceCents > 0) {
+    const effectivePrice = sp.customPriceCents ?? product.priceCents;
+    if (effectivePrice > 0) {
       return res.status(400).json({ message: "This product is not free" });
     }
 

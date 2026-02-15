@@ -128,6 +128,7 @@ export const storeProducts = pgTable("store_products", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
   storeId: varchar("store_id", { length: 64 }).notNull(),
   productId: varchar("product_id", { length: 64 }).notNull(),
+  customPriceCents: integer("custom_price_cents"),
   isPublished: boolean("is_published").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   isLeadMagnet: boolean("is_lead_magnet").notNull().default(false),

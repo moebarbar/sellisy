@@ -44,7 +44,7 @@ export interface IStorage {
   getStoreProductByStoreAndProduct(storeId: string, productId: string): Promise<StoreProduct | undefined>;
   createStoreProduct(sp: InsertStoreProduct): Promise<StoreProduct>;
   updateStoreProductPublish(id: string, isPublished: boolean): Promise<StoreProduct | undefined>;
-  updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "isPublished" | "isLeadMagnet" | "upsellProductId" | "upsellBundleId">>): Promise<StoreProduct | undefined>;
+  updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "customPriceCents" | "isPublished" | "isLeadMagnet" | "upsellProductId" | "upsellBundleId">>): Promise<StoreProduct | undefined>;
 
   createOrder(order: InsertOrder): Promise<Order>;
   getOrderById(id: string): Promise<Order | undefined>;
@@ -120,7 +120,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStoreBySlug(slug: string) {
-    const [store] = await db.select().from(stores).where(eq(stores.slug, slug));
+    const [store] = await db.select().from(stores).where(eq(stores.slug, slug.toLowerCase()));
     return store;
   }
 
@@ -221,7 +221,7 @@ export class DatabaseStorage implements IStorage {
     return sp;
   }
 
-  async updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "isPublished" | "isLeadMagnet" | "upsellProductId" | "upsellBundleId">>) {
+  async updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "customPriceCents" | "isPublished" | "isLeadMagnet" | "upsellProductId" | "upsellBundleId">>) {
     const [sp] = await db.update(storeProducts).set(data).where(eq(storeProducts.id, id)).returning();
     return sp;
   }
