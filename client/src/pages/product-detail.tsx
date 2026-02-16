@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, ArrowLeft, Tag, Sparkles, Zap, Sun, Moon, ChevronLeft, ChevronRight, Ticket } from "lucide-react";
+import { ShoppingBag, ArrowLeft, Tag, Sparkles, Zap, Sun, Moon, ChevronLeft, ChevronRight, Ticket, Key, Check, ExternalLink, Shield, Clock, Download, Star } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import type { Store, Product, ProductImage } from "@shared/schema";
 
@@ -14,6 +14,45 @@ type ProductDetailData = {
 };
 
 type PDPMode = "dark" | "light";
+
+function parseSections(desc: string): { intro: string; features: string[]; highlights: string[]; perfectFor: string[]; pricing: string } {
+  const lines = desc.split("\n").map((l) => l.trim()).filter(Boolean);
+  let currentSection = "intro";
+  const result: { intro: string; features: string[]; highlights: string[]; perfectFor: string[]; pricing: string } = {
+    intro: "", features: [], highlights: [], perfectFor: [], pricing: "",
+  };
+  const introLines: string[] = [];
+
+  const headingPatterns: [RegExp, string][] = [
+    [/^#{0,3}\s*(WHAT YOU GET|WHAT'S INCLUDED|FEATURES|INCLUDED|KEY FEATURES)/i, "features"],
+    [/^#{0,3}\s*(WHY |HIGHLIGHTS|BENEFITS|ADVANTAGES)/i, "highlights"],
+    [/^#{0,3}\s*(PERFECT FOR|IDEAL FOR|WHO IS THIS FOR|GREAT FOR|BEST FOR)/i, "perfectFor"],
+    [/^#{0,3}\s*(REGULAR PRICING|PRICING|DEAL DETAILS|PRICE COMPARISON)/i, "pricing"],
+  ];
+
+  for (const line of lines) {
+    let matched = false;
+    for (const [pattern, section] of headingPatterns) {
+      if (pattern.test(line)) {
+        currentSection = section;
+        matched = true;
+        break;
+      }
+    }
+    if (matched) continue;
+
+    const cleaned = line.replace(/^[\u2022\-\*]\s*/, "").replace(/^#+\s*/, "").trim();
+    if (!cleaned) continue;
+
+    if (currentSection === "intro") introLines.push(cleaned);
+    else if (currentSection === "features") result.features.push(cleaned);
+    else if (currentSection === "highlights") result.highlights.push(cleaned);
+    else if (currentSection === "perfectFor") result.perfectFor.push(cleaned);
+    else if (currentSection === "pricing") result.pricing += (result.pricing ? " " : "") + cleaned;
+  }
+  result.intro = introLines.join(" ");
+  return result;
+}
 
 export default function ProductDetailPage() {
   const params = useParams<{ slug: string; productId: string }>();
@@ -315,102 +354,256 @@ export default function ProductDetailPage() {
           );
         })()}
 
-        <div className="space-y-8">
-          <div className="pdp-fade-in pdp-fade-in-d1">
-            <div className="flex items-center gap-3 mb-4 flex-wrap">
-              <div className="pdp-category-badge flex items-center gap-1.5 px-3 py-1.5 rounded-full" data-testid="badge-category">
-                <Tag className="h-3 w-3" style={{ color: c.accent }} />
-                <span className="text-xs font-medium tracking-wider uppercase" style={{ color: `${c.accent}cc` }}>{product.category}</span>
-              </div>
-              {hasDiscount && !product.thumbnailUrl && (
-                <div className="pdp-discount px-3 py-1.5 rounded-full text-xs font-bold" data-testid="badge-discount">
-                  -{getDiscountPercent(product.originalPriceCents!, product.priceCents)}% OFF
-                </div>
-              )}
-            </div>
+        {(() => {
+          const isSoftware = product.productType === "software";
+          const sections = parseSections(product.description || "");
 
-            <h1 className="pdp-title-gradient text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-3" data-testid="text-product-title">
-              {product.title}
-            </h1>
-
-            <a href={`/s/${slug}`} className="inline-flex items-center gap-2 transition-colors text-sm" style={{ color: c.textTer }} data-testid="link-store-name">
-              <Sparkles className="h-3 w-3" />
-              <span>by {store.name}</span>
-            </a>
-          </div>
-
-          <div className="pdp-separator" />
-
-          {product.description && (
-            <div className="pdp-fade-in pdp-fade-in-d2">
-              <p className="text-base sm:text-lg leading-relaxed whitespace-pre-wrap" style={{ color: c.textSec, lineHeight: "1.8" }} data-testid="text-product-description">
-                {product.description}
-              </p>
-            </div>
-          )}
-
-          <div className="pdp-separator" />
-
-          <div className="pdp-fade-in pdp-fade-in-d3">
-            <div className="pdp-card p-6 sm:p-8">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                <div className="flex items-baseline gap-3 flex-wrap">
-                  {hasDiscount && (
-                    <span className="text-lg line-through" style={{ color: c.textTer }} data-testid="text-product-original-price">
-                      {formatPrice(product.originalPriceCents!)}
+          return (
+            <div className="space-y-8">
+              <div className="pdp-fade-in pdp-fade-in-d1">
+                <div className="flex items-center gap-3 mb-4 flex-wrap">
+                  <div className="pdp-category-badge flex items-center gap-1.5 px-3 py-1.5 rounded-full" data-testid="badge-category">
+                    {isSoftware ? <Key className="h-3 w-3" style={{ color: c.accent }} /> : <Tag className="h-3 w-3" style={{ color: c.accent }} />}
+                    <span className="text-xs font-medium tracking-wider uppercase" style={{ color: `${c.accent}cc` }}>
+                      {isSoftware ? "Software Deal" : product.category}
                     </span>
-                  )}
-                  <span className="pdp-price-glow text-4xl sm:text-5xl font-extrabold" data-testid="text-product-price">
-                    {formatPrice(product.priceCents)}
-                  </span>
-                  {hasDiscount && (
-                    <span className="pdp-discount text-xs font-bold px-2 py-1 rounded-full" data-testid="badge-discount">
-                      SAVE {getDiscountPercent(product.originalPriceCents!, product.priceCents)}%
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-5 flex items-center gap-2">
-                <div className="relative flex-1 max-w-[200px]">
-                  <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: c.textTer }} />
-                  <input
-                    type="text"
-                    placeholder="Coupon code"
-                    value={couponCode}
-                    onChange={(e) => { setCouponCode(e.target.value); setCouponError(""); }}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-lg text-sm border-0 outline-none"
-                    style={{
-                      background: c.cardBg,
-                      color: c.text,
-                      border: `1px solid ${c.cardBorder}`,
-                    }}
-                    data-testid="input-coupon-code"
-                  />
-                </div>
-              </div>
-              {couponError && (
-                <p className="mt-2 text-sm" style={{ color: "#ef4444" }} data-testid="text-coupon-error">{couponError}</p>
-              )}
-
-              <div className="mt-4">
-                <Button className="pdp-buy-btn w-full sm:w-auto font-semibold text-base border-0 no-default-hover-elevate no-default-active-elevate px-10 py-6 rounded-xl" size="lg" onClick={handleBuy} disabled={buying} data-testid="button-buy-product">
-                  <ShoppingBag className="mr-2 h-5 w-5" />
-                  {buying ? "Processing..." : "Buy Now"}
-                </Button>
-              </div>
-
-              <div className="mt-5 flex items-center gap-6 flex-wrap">
-                {["Instant Delivery", "Secure Checkout", "Lifetime Access"].map((label, i) => (
-                  <div key={label} className="flex items-center gap-2 text-xs" style={{ color: c.textTer }}>
-                    <div className="w-1 h-1 rounded-full" style={{ background: [c.cyan, c.accentAlt, c.accent][i] }} />
-                    {label}
                   </div>
-                ))}
+                  {hasDiscount && (
+                    <div className="pdp-discount px-3 py-1.5 rounded-full text-xs font-bold" data-testid="badge-discount-top">
+                      -{getDiscountPercent(product.originalPriceCents!, product.priceCents)}% OFF
+                    </div>
+                  )}
+                  {isSoftware && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: `${c.cyan}15`, border: `1px solid ${c.cyan}25`, color: c.cyan }} data-testid="badge-lifetime">
+                      <Star className="h-3 w-3" />
+                      Lifetime Deal
+                    </div>
+                  )}
+                </div>
+
+                <h1 className="pdp-title-gradient text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-3" data-testid="text-product-title">
+                  {product.title}
+                </h1>
+
+                <a href={`/s/${slug}`} className="inline-flex items-center gap-2 transition-colors text-sm" style={{ color: c.textTer }} data-testid="link-store-name">
+                  <Sparkles className="h-3 w-3" />
+                  <span>by {store.name}</span>
+                </a>
+              </div>
+
+              <div className="pdp-separator" />
+
+              {isSoftware && sections.intro && (
+                <div className="pdp-fade-in pdp-fade-in-d2">
+                  <p className="text-lg sm:text-xl leading-relaxed" style={{ color: c.textSec, lineHeight: "1.8" }} data-testid="text-product-intro">
+                    {sections.intro}
+                  </p>
+                </div>
+              )}
+
+              {isSoftware && hasDiscount && (
+                <div className="pdp-fade-in pdp-fade-in-d2">
+                  <div className="pdp-card p-6" data-testid="card-deal-pricing">
+                    <div className="flex items-center gap-3 mb-4 flex-wrap">
+                      <Zap className="h-5 w-5" style={{ color: c.cyan }} />
+                      <h3 className="text-lg font-bold" style={{ color: c.text }}>Deal Pricing</h3>
+                    </div>
+                    {(() => {
+                      const msrpLabel = sections.pricing.toLowerCase().includes("/month") || sections.pricing.toLowerCase().includes("per month") || sections.pricing.toLowerCase().includes("/mo")
+                        ? "/mo" : "/year";
+                      return (
+                        <>
+                          <div className="grid sm:grid-cols-2 gap-4">
+                            <div className="rounded-xl p-4" style={{ background: isDark ? "rgba(239,68,68,0.06)" : "rgba(239,68,68,0.04)", border: `1px solid ${isDark ? "rgba(239,68,68,0.15)" : "rgba(239,68,68,0.12)"}` }}>
+                              <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: isDark ? "rgba(252,165,165,0.7)" : "rgba(220,38,38,0.6)" }}>Regular Price</p>
+                              <p className="text-2xl font-extrabold line-through" style={{ color: isDark ? "rgba(252,165,165,0.5)" : "rgba(220,38,38,0.4)" }} data-testid="text-regular-price">
+                                {formatPrice(product.originalPriceCents!)}<span className="text-sm font-normal">{msrpLabel}</span>
+                              </p>
+                            </div>
+                            <div className="rounded-xl p-4" style={{ background: isDark ? "rgba(16,185,129,0.08)" : "rgba(16,185,129,0.06)", border: `1px solid ${isDark ? "rgba(16,185,129,0.2)" : "rgba(16,185,129,0.15)"}` }}>
+                              <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: isDark ? "#6ee7b7" : "#059669" }}>Lifetime Deal</p>
+                              <p className="text-2xl font-extrabold" style={{ color: isDark ? "#6ee7b7" : "#059669" }} data-testid="text-deal-price">
+                                {formatPrice(product.priceCents)}<span className="text-sm font-normal"> one-time</span>
+                              </p>
+                            </div>
+                          </div>
+                          <p className="mt-3 text-sm" style={{ color: c.textSec }}>
+                            Pay once, access forever. You save {formatPrice(product.originalPriceCents! - product.priceCents)} compared to just {msrpLabel === "/mo" ? "one year" : "the regular price"}.
+                          </p>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {isSoftware && sections.features.length > 0 && (
+                <div className="pdp-fade-in pdp-fade-in-d2">
+                  <div className="pdp-card p-6" data-testid="card-whats-included">
+                    <div className="flex items-center gap-3 mb-5 flex-wrap">
+                      <Check className="h-5 w-5" style={{ color: c.accent }} />
+                      <h3 className="text-lg font-bold" style={{ color: c.text }}>What's Included</h3>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-2.5">
+                      {sections.features.map((feat, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)" }} data-testid={`text-feature-${i}`}>
+                          <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: `${c.accent}20` }}>
+                            <Check className="h-3 w-3" style={{ color: c.accent }} />
+                          </div>
+                          <span className="text-sm leading-relaxed" style={{ color: c.textSec }}>{feat}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {isSoftware && sections.highlights.length > 0 && (
+                <div className="pdp-fade-in pdp-fade-in-d2">
+                  <div className="pdp-card p-6" data-testid="card-highlights">
+                    <div className="flex items-center gap-3 mb-5 flex-wrap">
+                      <Shield className="h-5 w-5" style={{ color: c.accentAlt }} />
+                      <h3 className="text-lg font-bold" style={{ color: c.text }}>Why This Deal</h3>
+                    </div>
+                    <div className="space-y-2.5">
+                      {sections.highlights.map((hl, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)" }} data-testid={`text-highlight-${i}`}>
+                          <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: `${c.accentAlt}20` }}>
+                            <Star className="h-3 w-3" style={{ color: c.accentAlt }} />
+                          </div>
+                          <span className="text-sm leading-relaxed" style={{ color: c.textSec }}>{hl}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {isSoftware && sections.perfectFor.length > 0 && (
+                <div className="pdp-fade-in pdp-fade-in-d2">
+                  <div className="pdp-card p-6" data-testid="card-perfect-for">
+                    <div className="flex items-center gap-3 mb-5 flex-wrap">
+                      <Sparkles className="h-5 w-5" style={{ color: c.cyan }} />
+                      <h3 className="text-lg font-bold" style={{ color: c.text }}>Perfect For</h3>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-2.5">
+                      {sections.perfectFor.map((pf, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)" }} data-testid={`text-perfect-for-${i}`}>
+                          <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: `${c.cyan}20` }}>
+                            <Check className="h-3 w-3" style={{ color: c.cyan }} />
+                          </div>
+                          <span className="text-sm leading-relaxed" style={{ color: c.textSec }}>{pf}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {isSoftware && product.accessUrl && (
+                <div className="pdp-fade-in pdp-fade-in-d2">
+                  <div className="pdp-card p-6" data-testid="card-how-to-redeem">
+                    <div className="flex items-center gap-3 mb-5 flex-wrap">
+                      <Key className="h-5 w-5" style={{ color: isDark ? "#fbbf24" : "#d97706" }} />
+                      <h3 className="text-lg font-bold" style={{ color: c.text }}>How to Redeem</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {[
+                        { step: "1", text: "Purchase this deal and receive your redemption code instantly" },
+                        { step: "2", text: `Create your account at ${product.accessUrl.replace(/^https?:\/\//, "")}` },
+                        { step: "3", text: "Go to Settings and enter your redemption code" },
+                        { step: "4", text: "Your plan will be activated immediately" },
+                      ].map((s, i) => (
+                        <div key={i} className="flex items-start gap-4 p-3 rounded-lg" style={{ background: isDark ? "rgba(251,191,36,0.04)" : "rgba(217,119,6,0.04)" }} data-testid={`text-redeem-step-${i}`}>
+                          <div className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: isDark ? "rgba(251,191,36,0.15)" : "rgba(217,119,6,0.12)", color: isDark ? "#fbbf24" : "#d97706" }}>
+                            {s.step}
+                          </div>
+                          <span className="text-sm leading-relaxed pt-1" style={{ color: c.textSec }}>{s.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!isSoftware && product.description && (
+                <div className="pdp-fade-in pdp-fade-in-d2">
+                  <p className="text-base sm:text-lg leading-relaxed whitespace-pre-wrap" style={{ color: c.textSec, lineHeight: "1.8" }} data-testid="text-product-description">
+                    {product.description}
+                  </p>
+                </div>
+              )}
+
+              <div className="pdp-separator" />
+
+              <div className="pdp-fade-in pdp-fade-in-d3">
+                <div className="pdp-card p-6 sm:p-8">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                      {hasDiscount && (
+                        <span className="text-lg line-through" style={{ color: c.textTer }} data-testid="text-product-original-price">
+                          {formatPrice(product.originalPriceCents!)}
+                        </span>
+                      )}
+                      <span className="pdp-price-glow text-4xl sm:text-5xl font-extrabold" data-testid="text-product-price">
+                        {formatPrice(product.priceCents)}
+                      </span>
+                      {isSoftware && (
+                        <span className="text-sm font-medium" style={{ color: c.textSec }}>one-time</span>
+                      )}
+                      {hasDiscount && (
+                        <span className="pdp-discount text-xs font-bold px-2 py-1 rounded-full" data-testid="badge-discount">
+                          SAVE {getDiscountPercent(product.originalPriceCents!, product.priceCents)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex items-center gap-2">
+                    <div className="relative flex-1 max-w-[200px]">
+                      <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: c.textTer }} />
+                      <input
+                        type="text"
+                        placeholder="Coupon code"
+                        value={couponCode}
+                        onChange={(e) => { setCouponCode(e.target.value); setCouponError(""); }}
+                        className="w-full pl-9 pr-3 py-2.5 rounded-lg text-sm border-0 outline-none"
+                        style={{
+                          background: c.cardBg,
+                          color: c.text,
+                          border: `1px solid ${c.cardBorder}`,
+                        }}
+                        data-testid="input-coupon-code"
+                      />
+                    </div>
+                  </div>
+                  {couponError && (
+                    <p className="mt-2 text-sm" style={{ color: "#ef4444" }} data-testid="text-coupon-error">{couponError}</p>
+                  )}
+
+                  <div className="mt-4">
+                    <Button className="pdp-buy-btn w-full sm:w-auto font-semibold text-base border-0 no-default-hover-elevate no-default-active-elevate px-10 py-6 rounded-xl" size="lg" onClick={handleBuy} disabled={buying} data-testid="button-buy-product">
+                      {isSoftware ? <Key className="mr-2 h-5 w-5" /> : <ShoppingBag className="mr-2 h-5 w-5" />}
+                      {buying ? "Processing..." : isSoftware ? "Get This Deal" : "Buy Now"}
+                    </Button>
+                  </div>
+
+                  <div className="mt-5 flex items-center gap-6 flex-wrap">
+                    {(isSoftware
+                      ? [{ label: "Instant Code Delivery", icon: Clock }, { label: "Secure Checkout", icon: Shield }, { label: "Lifetime Access", icon: Star }]
+                      : [{ label: "Instant Delivery", icon: Clock }, { label: "Secure Checkout", icon: Shield }, { label: "Lifetime Access", icon: Star }]
+                    ).map(({ label, icon: Icon }, i) => (
+                      <div key={label} className="flex items-center gap-2 text-xs" style={{ color: c.textTer }}>
+                        <Icon className="h-3 w-3" style={{ color: [c.cyan, c.accentAlt, c.accent][i] }} />
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          );
+        })()}
       </main>
 
       <footer className="relative z-10 pb-8 pt-4">
