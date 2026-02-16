@@ -218,6 +218,55 @@ export async function registerRoutes(
     res.json(library);
   });
 
+  app.post("/api/products/bulk-import", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+
+    const rowSchema = z.object({
+      title: z.string().min(1),
+      description: z.string().optional().nullable(),
+      category: z.string().optional().nullable(),
+      priceCents: z.number().int().min(0),
+      originalPriceCents: z.number().int().min(0).optional().nullable(),
+      thumbnailUrl: z.string().optional().nullable(),
+      fileUrl: z.string().optional().nullable(),
+      productType: z.enum(["digital", "software", "template", "ebook", "course", "graphics"]).optional(),
+      deliveryInstructions: z.string().optional().nullable(),
+      accessUrl: z.string().optional().nullable(),
+      redemptionCode: z.string().optional().nullable(),
+    });
+    const schema = z.object({ products: z.array(rowSchema).min(1).max(500) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+
+    const results: { created: number; errors: { row: number; message: string }[] } = { created: 0, errors: [] };
+    for (let i = 0; i < parsed.data.products.length; i++) {
+      const row = parsed.data.products[i];
+      try {
+        await storage.createProduct({
+          ownerId: getUserId(req),
+          source: "PLATFORM",
+          title: row.title,
+          description: row.description || null,
+          category: row.category || "templates",
+          priceCents: row.priceCents,
+          originalPriceCents: row.originalPriceCents ?? null,
+          thumbnailUrl: row.thumbnailUrl ?? null,
+          fileUrl: row.fileUrl ?? null,
+          status: "ACTIVE",
+          productType: row.productType || "digital",
+          deliveryInstructions: row.deliveryInstructions ?? null,
+          accessUrl: row.accessUrl ?? null,
+          redemptionCode: row.redemptionCode ?? null,
+        });
+        results.created++;
+      } catch (err: any) {
+        results.errors.push({ row: i + 1, message: err.message });
+      }
+    }
+    res.json(results);
+  });
+
   app.get("/api/products/mine", isAuthenticated, async (req, res) => {
     const prods = await storage.getProductsByOwner(getUserId(req));
     res.json(prods);

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
@@ -8,8 +8,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles } from "lucide-react";
+import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles, Plus, Trash2, Upload } from "lucide-react";
 import type { Product, PlanTier } from "@shared/schema";
 import { canAccessTier } from "@shared/schema";
 
@@ -76,13 +79,21 @@ export default function LibraryPage() {
     );
   }
 
+  const [showBulkImport, setShowBulkImport] = useState(false);
+
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-library-title">Product Library</h1>
-        <p className="text-muted-foreground mt-1">
-          Browse and import platform products into {activeStore?.name}.
-        </p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-library-title">Product Library</h1>
+          <p className="text-muted-foreground mt-1">
+            Browse and import platform products into {activeStore?.name}.
+          </p>
+        </div>
+        <Button onClick={() => setShowBulkImport(true)} data-testid="button-bulk-add">
+          <Plus className="mr-2 h-4 w-4" />
+          Bulk Add Products
+        </Button>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -262,6 +273,11 @@ export default function LibraryPage() {
         storeName={activeStore?.name || ""}
         onClose={() => setImportProduct(null)}
       />
+
+      <BulkImportDialog
+        open={showBulkImport}
+        onClose={() => setShowBulkImport(false)}
+      />
     </div>
   );
 }
@@ -434,6 +450,250 @@ function ImportDialog({
             {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Import
           </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type BulkRow = {
+  title: string;
+  priceCents: number;
+  category: string;
+  productType: string;
+  description: string;
+  thumbnailUrl: string;
+  accessUrl: string;
+  redemptionCode: string;
+  originalPriceCents: string;
+  deliveryInstructions: string;
+  fileUrl: string;
+};
+
+const EMPTY_ROW: BulkRow = {
+  title: "",
+  priceCents: 0,
+  category: "templates",
+  productType: "digital",
+  description: "",
+  thumbnailUrl: "",
+  accessUrl: "",
+  redemptionCode: "",
+  originalPriceCents: "",
+  deliveryInstructions: "",
+  fileUrl: "",
+};
+
+function BulkImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { toast } = useToast();
+  const [rows, setRows] = useState<BulkRow[]>([{ ...EMPTY_ROW }]);
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+
+  const updateRow = useCallback((index: number, field: keyof BulkRow, value: string | number) => {
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+  }, []);
+
+  const addRow = useCallback(() => {
+    setRows((prev) => [...prev, { ...EMPTY_ROW }]);
+  }, []);
+
+  const removeRow = useCallback((index: number) => {
+    setRows((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const products = rows
+        .filter((r) => r.title.trim())
+        .map((r) => ({
+          title: r.title.trim(),
+          priceCents: Math.round(r.priceCents * 100),
+          originalPriceCents: r.originalPriceCents ? Math.round(Number(r.originalPriceCents) * 100) : null,
+          category: r.category || "templates",
+          productType: r.productType || "digital",
+          description: r.description || null,
+          thumbnailUrl: r.thumbnailUrl || null,
+          accessUrl: r.accessUrl || null,
+          redemptionCode: r.redemptionCode || null,
+          deliveryInstructions: r.deliveryInstructions || null,
+          fileUrl: r.fileUrl || null,
+        }));
+      if (!products.length) throw new Error("Add at least one product with a title");
+      const res = await apiRequest("POST", "/api/products/bulk-import", { products });
+      return res.json();
+    },
+    onSuccess: (data: { created: number; errors: { row: number; message: string }[] }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products/library"] });
+      if (data.errors.length) {
+        toast({
+          title: `${data.created} products added, ${data.errors.length} failed`,
+          description: data.errors.map((e) => `Row ${e.row}: ${e.message}`).join("; "),
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `${data.created} products added to library` });
+      }
+      setRows([{ ...EMPTY_ROW }]);
+      setExpandedRow(null);
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const validCount = rows.filter((r) => r.title.trim()).length;
+
+  return (
+    <Dialog open={open} onOpenChange={() => { if (!mutation.isPending) onClose(); }}>
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Bulk Add Products</DialogTitle>
+          <DialogDescription>
+            Add multiple products to the library at once. Fill in rows below and click Import All.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+          {rows.map((row, idx) => (
+            <Card key={idx} className="overflow-visible">
+              <CardContent className="p-3 space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="shrink-0">#{idx + 1}</Badge>
+                  <Input
+                    placeholder="Product title *"
+                    value={row.title}
+                    onChange={(e) => updateRow(idx, "title", e.target.value)}
+                    className="flex-1 min-w-[200px]"
+                    data-testid={`input-bulk-title-${idx}`}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Price ($)"
+                    value={row.priceCents || ""}
+                    onChange={(e) => updateRow(idx, "priceCents", parseFloat(e.target.value) || 0)}
+                    className="w-24"
+                    data-testid={`input-bulk-price-${idx}`}
+                  />
+                  <Select value={row.category} onValueChange={(v) => updateRow(idx, "category", v)}>
+                    <SelectTrigger className="w-32" data-testid={`select-bulk-category-${idx}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="templates">Templates</SelectItem>
+                      <SelectItem value="graphics">Graphics</SelectItem>
+                      <SelectItem value="ebooks">Ebooks</SelectItem>
+                      <SelectItem value="tools">Tools</SelectItem>
+                      <SelectItem value="software">Software</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={row.productType} onValueChange={(v) => updateRow(idx, "productType", v)}>
+                    <SelectTrigger className="w-28" data-testid={`select-bulk-type-${idx}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="digital">Digital</SelectItem>
+                      <SelectItem value="software">Software</SelectItem>
+                      <SelectItem value="template">Template</SelectItem>
+                      <SelectItem value="ebook">Ebook</SelectItem>
+                      <SelectItem value="course">Course</SelectItem>
+                      <SelectItem value="graphics">Graphics</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setExpandedRow(expandedRow === idx ? null : idx)}
+                    data-testid={`button-bulk-expand-${idx}`}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  {rows.length > 1 && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => removeRow(idx)}
+                      data-testid={`button-bulk-remove-${idx}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {expandedRow === idx && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <Textarea
+                      placeholder="Description (for software deals, use section headings like WHAT YOU GET, WHY..., PERFECT FOR, REGULAR PRICING)"
+                      value={row.description}
+                      onChange={(e) => updateRow(idx, "description", e.target.value)}
+                      rows={4}
+                      data-testid={`input-bulk-description-${idx}`}
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Thumbnail URL"
+                        value={row.thumbnailUrl}
+                        onChange={(e) => updateRow(idx, "thumbnailUrl", e.target.value)}
+                        data-testid={`input-bulk-thumbnail-${idx}`}
+                      />
+                      <Input
+                        placeholder="Original price ($ MSRP for deals)"
+                        value={row.originalPriceCents}
+                        onChange={(e) => updateRow(idx, "originalPriceCents", e.target.value)}
+                        data-testid={`input-bulk-original-price-${idx}`}
+                      />
+                      <Input
+                        placeholder="Access URL (e.g. https://app.example.com)"
+                        value={row.accessUrl}
+                        onChange={(e) => updateRow(idx, "accessUrl", e.target.value)}
+                        data-testid={`input-bulk-access-url-${idx}`}
+                      />
+                      <Input
+                        placeholder="Redemption code"
+                        value={row.redemptionCode}
+                        onChange={(e) => updateRow(idx, "redemptionCode", e.target.value)}
+                        data-testid={`input-bulk-redemption-${idx}`}
+                      />
+                      <Input
+                        placeholder="File/download URL"
+                        value={row.fileUrl}
+                        onChange={(e) => updateRow(idx, "fileUrl", e.target.value)}
+                        data-testid={`input-bulk-file-url-${idx}`}
+                      />
+                      <Input
+                        placeholder="Delivery instructions"
+                        value={row.deliveryInstructions}
+                        onChange={(e) => updateRow(idx, "deliveryInstructions", e.target.value)}
+                        data-testid={`input-bulk-delivery-${idx}`}
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between gap-4 pt-3 border-t flex-wrap">
+          <Button variant="outline" onClick={addRow} data-testid="button-bulk-add-row">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Row
+          </Button>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">{validCount} product{validCount !== 1 ? "s" : ""} ready</span>
+            <Button
+              disabled={mutation.isPending || validCount === 0}
+              onClick={() => mutation.mutate()}
+              data-testid="button-bulk-import-all"
+            >
+              {mutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              Import All ({validCount})
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
