@@ -120,7 +120,14 @@ export default function MyProductsPage() {
                       ${(product.priceCents / 100).toFixed(2)}
                     </Badge>
                   </div>
-                  <Badge variant="outline" className="text-xs mb-2 capitalize">{product.category}</Badge>
+                  <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                    <Badge variant="outline" className="text-xs capitalize">{product.category}</Badge>
+                    {product.productType && product.productType !== "digital" && (
+                      <Badge variant="secondary" className="text-xs capitalize" data-testid={`badge-type-${product.id}`}>
+                        {product.productType}
+                      </Badge>
+                    )}
+                  </div>
                   {product.description && (
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                       {product.description}
@@ -465,6 +472,10 @@ function ProductFormDialog({
   const [fileUrl, setFileUrl] = useState("");
   const [fileDelivery, setFileDelivery] = useState<"upload" | "url">("upload");
   const [status, setStatus] = useState<"DRAFT" | "ACTIVE">("ACTIVE");
+  const [productType, setProductType] = useState<string>("digital");
+  const [deliveryInstructions, setDeliveryInstructions] = useState("");
+  const [accessUrl, setAccessUrl] = useState("");
+  const [redemptionCode, setRedemptionCode] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -486,6 +497,10 @@ function ProductFormDialog({
       setFileUrl(product.fileUrl || "");
       setFileDelivery(product.fileUrl?.startsWith("/objects/") ? "upload" : product.fileUrl ? "url" : "upload");
       setStatus(product.status);
+      setProductType(product.productType || "digital");
+      setDeliveryInstructions(product.deliveryInstructions || "");
+      setAccessUrl(product.accessUrl || "");
+      setRedemptionCode(product.redemptionCode || "");
     } else {
       setTitle("");
       setDescription("");
@@ -496,6 +511,10 @@ function ProductFormDialog({
       setFileUrl("");
       setFileDelivery("upload");
       setStatus("ACTIVE");
+      setProductType("digital");
+      setDeliveryInstructions("");
+      setAccessUrl("");
+      setRedemptionCode("");
     }
   };
 
@@ -595,6 +614,10 @@ function ProductFormDialog({
         originalPriceCents: origPriceCents,
         fileUrl: fileUrl || null,
         status,
+        productType,
+        deliveryInstructions: deliveryInstructions || null,
+        accessUrl: accessUrl || null,
+        redemptionCode: redemptionCode || null,
         images: buildImagesPayload(),
       };
       await apiRequest("POST", "/api/products", body);
@@ -621,6 +644,10 @@ function ProductFormDialog({
         originalPriceCents: origPriceCents,
         fileUrl: fileUrl || null,
         status,
+        productType,
+        deliveryInstructions: deliveryInstructions || null,
+        accessUrl: accessUrl || null,
+        redemptionCode: redemptionCode || null,
         images: buildImagesPayload(),
       };
       await apiRequest("PATCH", `/api/products/${product!.id}`, body);
@@ -708,6 +735,86 @@ function ProductFormDialog({
               </Select>
             </div>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="productType">Product Type</Label>
+            <Select value={productType} onValueChange={setProductType}>
+              <SelectTrigger data-testid="select-product-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="digital">Digital Download</SelectItem>
+                <SelectItem value="template">Template (Canva, Figma, etc.)</SelectItem>
+                <SelectItem value="software">Software / SaaS Deal</SelectItem>
+                <SelectItem value="ebook">Ebook / Guide</SelectItem>
+                <SelectItem value="course">Course / Video</SelectItem>
+                <SelectItem value="graphics">Graphics / Assets</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {productType === "template" && "Buyers will see access instructions and a direct link to the template."}
+              {productType === "software" && "Buyers will receive a redemption code to activate the deal."}
+              {productType === "ebook" && "Buyers will get a direct file download with reading instructions."}
+              {productType === "course" && "Buyers will receive enrollment instructions and an access link."}
+              {productType === "graphics" && "Buyers will get file downloads with usage info."}
+              {productType === "digital" && "Buyers will get a standard file download."}
+            </p>
+          </div>
+
+          {(productType === "template" || productType === "course") && (
+            <div className="space-y-2">
+              <Label htmlFor="accessUrl">Access URL</Label>
+              <Input
+                id="accessUrl"
+                type="url"
+                placeholder={productType === "template" ? "https://www.canva.com/design/..." : "https://course-platform.com/enroll/..."}
+                value={accessUrl}
+                onChange={(e) => setAccessUrl(e.target.value)}
+                data-testid="input-access-url"
+              />
+              <p className="text-xs text-muted-foreground">
+                {productType === "template" ? "Direct link to the template (Canva, Figma, etc.)" : "Link where buyers can access the course"}
+              </p>
+            </div>
+          )}
+
+          {productType === "software" && (
+            <div className="space-y-2">
+              <Label htmlFor="redemptionCode">Redemption Code</Label>
+              <Input
+                id="redemptionCode"
+                placeholder="DEAL-XXXX-XXXX"
+                value={redemptionCode}
+                onChange={(e) => setRedemptionCode(e.target.value)}
+                data-testid="input-redemption-code"
+              />
+              <p className="text-xs text-muted-foreground">
+                Code that buyers will use to activate the software deal
+              </p>
+            </div>
+          )}
+
+          {productType !== "digital" && (
+            <div className="space-y-2">
+              <Label htmlFor="deliveryInstructions">Delivery Instructions</Label>
+              <Textarea
+                id="deliveryInstructions"
+                placeholder={
+                  productType === "template" ? "Step 1: Click the link below\nStep 2: Open in Canva\nStep 3: Make a copy and customize"
+                  : productType === "software" ? "Step 1: Go to the software website\nStep 2: Create an account\nStep 3: Enter your redemption code"
+                  : productType === "course" ? "Step 1: Click the enrollment link\nStep 2: Create your account\nStep 3: Start learning"
+                  : "Instructions for accessing your purchase..."
+                }
+                value={deliveryInstructions}
+                onChange={(e) => setDeliveryInstructions(e.target.value)}
+                rows={4}
+                data-testid="input-delivery-instructions"
+              />
+              <p className="text-xs text-muted-foreground">
+                Step-by-step instructions shown to buyers after purchase. They can also download these as a PDF.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

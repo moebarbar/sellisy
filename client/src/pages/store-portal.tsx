@@ -12,7 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Package, Mail, Loader2, ArrowRight, LogOut, Moon, Sun,
   ChevronRight, Download, ArrowLeft, ExternalLink, ShoppingBag,
-  Store as StoreIcon, FileDown, Clock,
+  Store as StoreIcon, FileDown, Clock, Key, BookOpen, Play,
+  Palette, FileText, Copy, Check, Layers,
 } from "lucide-react";
 
 type CustomerMe = { id: string; email: string };
@@ -50,6 +51,11 @@ type OrderItem = {
   priceCents: number;
   thumbnailUrl: string | null;
   hasFiles: boolean;
+  productType: string;
+  deliveryInstructions: string | null;
+  accessUrl: string | null;
+  redemptionCode: string | null;
+  description: string | null;
 };
 
 type UpsellProduct = {
@@ -354,6 +360,17 @@ function PortalPurchases({ store, theme, purchases, isLoading }: {
   );
 }
 
+function getProductTypeInfo(type: string) {
+  switch (type) {
+    case "template": return { icon: Layers, label: "Template", color: "text-purple-400" };
+    case "software": return { icon: Key, label: "Software Deal", color: "text-green-400" };
+    case "ebook": return { icon: BookOpen, label: "Ebook", color: "text-blue-400" };
+    case "course": return { icon: Play, label: "Course", color: "text-orange-400" };
+    case "graphics": return { icon: Palette, label: "Graphics", color: "text-pink-400" };
+    default: return { icon: FileDown, label: "Digital Download", color: "text-cyan-400" };
+  }
+}
+
 function PortalOrderDetail({ store, theme, orderId }: {
   store: StoreInfo;
   theme: ReturnType<typeof useStoreBranding>;
@@ -361,6 +378,7 @@ function PortalOrderDetail({ store, theme, orderId }: {
 }) {
   const { toast } = useToast();
   const slug = store.slug;
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const { data: customer } = useQuery<CustomerMe>({
     queryKey: ["/api/customer/me"],
@@ -448,46 +466,163 @@ function PortalOrderDetail({ store, theme, orderId }: {
             </div>
           </div>
 
-          <div className="space-y-3">
-            <h2 className={`text-lg font-semibold ${theme.text}`}>Items</h2>
-            {purchase.items.map((item) => (
-              <div key={item.id} className={`rounded-lg border p-4 ${theme.cardBg}`} data-testid={`card-portal-item-${item.id}`}>
-                <div className="flex items-center gap-4">
-                  <div className={`h-16 w-16 rounded-md overflow-hidden shrink-0 ${theme.isNeon ? "bg-[#1a1a2e]" : "bg-[#f0ede8]"}`}>
-                    {item.thumbnailUrl ? (
-                      <img src={item.thumbnailUrl} alt={item.title} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center">
-                        <Package className={`h-5 w-5 ${theme.textMuted}`} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-medium text-sm ${theme.text}`} data-testid={`text-portal-item-title-${item.id}`}>
-                      {item.title}
-                    </p>
-                    <p className={`text-xs mt-0.5 ${theme.textMuted}`}>
-                      {item.priceCents === 0 ? "Free" : `$${(item.priceCents / 100).toFixed(2)}`}
-                    </p>
-                  </div>
-                  {item.hasFiles && (
-                    <button
-                      onClick={() => downloadMutation.mutate(item.id)}
-                      disabled={downloadMutation.isPending}
-                      className={`inline-flex items-center rounded-md h-9 px-3 text-sm ${theme.btnPrimary} disabled:opacity-50`}
-                      data-testid={`button-portal-download-${item.id}`}
-                    >
-                      {downloadMutation.isPending ? (
-                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+          <div className="space-y-4">
+            <h2 className={`text-lg font-semibold ${theme.text}`}>Your Products</h2>
+            {purchase.items.map((item) => {
+              const typeInfo = getProductTypeInfo(item.productType);
+              const TypeIcon = typeInfo.icon;
+              return (
+                <div key={item.id} className={`rounded-lg border overflow-hidden ${theme.cardBg}`} data-testid={`card-portal-item-${item.id}`}>
+                  <div className="flex items-center gap-4 p-4">
+                    <div className={`h-16 w-16 rounded-md overflow-hidden shrink-0 ${theme.isNeon ? "bg-[#1a1a2e]" : "bg-[#f0ede8]"}`}>
+                      {item.thumbnailUrl ? (
+                        <img src={item.thumbnailUrl} alt={item.title} className="h-full w-full object-cover" />
                       ) : (
-                        <Download className="mr-2 h-3.5 w-3.5" />
+                        <div className="h-full w-full flex items-center justify-center">
+                          <Package className={`h-5 w-5 ${theme.textMuted}`} />
+                        </div>
                       )}
-                      Download
-                    </button>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium text-sm ${theme.text}`} data-testid={`text-portal-item-title-${item.id}`}>
+                        {item.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className={`text-xs ${theme.textMuted}`}>
+                          {item.priceCents === 0 ? "Free" : `$${(item.priceCents / 100).toFixed(2)}`}
+                        </span>
+                        <span className={`inline-flex items-center text-xs gap-1 px-2 py-0.5 rounded-full border ${theme.badgeBg}`}>
+                          <TypeIcon className="h-3 w-3" />
+                          {typeInfo.label}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(item.deliveryInstructions || item.accessUrl || item.redemptionCode || item.hasFiles) && (
+                    <div className={`border-t px-4 py-4 space-y-4 ${theme.borderColor}`}>
+                      {item.redemptionCode && (
+                        <div className="space-y-2">
+                          <p className={`text-xs font-medium uppercase tracking-wider ${theme.textMuted}`}>Redemption Code</p>
+                          <div className={`flex items-center gap-2 p-3 rounded-md border ${theme.isNeon ? "bg-[#0a0a0f] border-[#2a2a3a]" : "bg-[#f5f3ee] border-[#e0ddd5]"}`}>
+                            <code className={`flex-1 text-sm font-mono ${theme.text}`} data-testid={`text-redemption-code-${item.id}`}>
+                              {item.redemptionCode}
+                            </code>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(item.redemptionCode!);
+                                setCopiedCode(item.id);
+                                setTimeout(() => setCopiedCode(null), 2000);
+                                toast({ title: "Code copied" });
+                              }}
+                              className={`inline-flex items-center justify-center h-8 w-8 rounded-md ${theme.btnGhost}`}
+                              data-testid={`button-copy-code-${item.id}`}
+                            >
+                              {copiedCode === item.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {item.accessUrl && (
+                        <div className="space-y-2">
+                          <p className={`text-xs font-medium uppercase tracking-wider ${theme.textMuted}`}>
+                            {item.productType === "template" ? "Template Link" : item.productType === "course" ? "Course Access" : "Access Link"}
+                          </p>
+                          <a
+                            href={item.accessUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`inline-flex items-center rounded-md h-9 px-4 text-sm ${theme.btnPrimary}`}
+                            data-testid={`link-access-url-${item.id}`}
+                          >
+                            <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                            {item.productType === "template" ? "Open Template" : item.productType === "course" ? "Start Course" : "Access Product"}
+                          </a>
+                        </div>
+                      )}
+
+                      {item.deliveryInstructions && (
+                        <div className="space-y-2">
+                          <p className={`text-xs font-medium uppercase tracking-wider ${theme.textMuted}`}>How to Access</p>
+                          <div className={`rounded-md p-3 border ${theme.isNeon ? "bg-[#0a0a0f]/50 border-[#1e1e2e]" : "bg-[#f9f8f5] border-[#e8e5e0]"}`}>
+                            {item.deliveryInstructions.split("\n").map((line, i) => (
+                              <p key={i} className={`text-sm leading-relaxed ${theme.textSecondary} ${i > 0 ? "mt-1.5" : ""}`}>
+                                {line}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {item.hasFiles && (
+                        <div className="space-y-2">
+                          <p className={`text-xs font-medium uppercase tracking-wider ${theme.textMuted}`}>
+                            {item.productType === "ebook" ? "Download Your Ebook" : item.productType === "graphics" ? "Download Files" : "Download"}
+                          </p>
+                          <button
+                            onClick={() => downloadMutation.mutate(item.id)}
+                            disabled={downloadMutation.isPending}
+                            className={`inline-flex items-center rounded-md h-9 px-4 text-sm ${theme.btnPrimary} disabled:opacity-50`}
+                            data-testid={`button-portal-download-${item.id}`}
+                          >
+                            {downloadMutation.isPending ? (
+                              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Download className="mr-2 h-3.5 w-3.5" />
+                            )}
+                            Download Files
+                          </button>
+                        </div>
+                      )}
+
+                      {(item.deliveryInstructions || item.accessUrl || item.redemptionCode) && (
+                        <div className="pt-2">
+                          <button
+                            onClick={() => {
+                              const w = window.open("", "_blank");
+                              if (!w) return;
+                              const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+                              const escTitle = esc(item.title);
+                              const escStore = esc(store.name);
+                              const escCode = item.redemptionCode ? esc(item.redemptionCode) : "";
+                              const escUrl = item.accessUrl ? esc(item.accessUrl) : "";
+                              const escInstructions = item.deliveryInstructions ? esc(item.deliveryInstructions).replace(/\n/g, "<br>") : "";
+                              w.document.write(`<!DOCTYPE html><html><head><title>${escTitle} - Delivery Instructions</title><style>
+                                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; }
+                                h1 { font-size: 22px; margin-bottom: 4px; }
+                                .meta { color: #666; font-size: 13px; margin-bottom: 24px; }
+                                .section { margin-bottom: 20px; }
+                                .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 8px; }
+                                .code-box { background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px 16px; font-family: monospace; font-size: 15px; }
+                                .link { color: #0066cc; }
+                                .instructions { line-height: 1.7; font-size: 14px; }
+                                .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #eee; font-size: 12px; color: #999; }
+                                @media print { body { margin: 20px; } }
+                              </style></head><body>
+                                <h1>${escTitle}</h1>
+                                <p class="meta">Purchased from ${escStore} &bull; ${typeInfo.label}</p>
+                                ${escCode ? `<div class="section"><p class="section-title">Redemption Code</p><div class="code-box">${escCode}</div></div>` : ""}
+                                ${escUrl ? `<div class="section"><p class="section-title">Access Link</p><a class="link" href="${escUrl}">${escUrl}</a></div>` : ""}
+                                ${escInstructions ? `<div class="section"><p class="section-title">Instructions</p><div class="instructions">${escInstructions}</div></div>` : ""}
+                                <div class="footer">Save this page for your records.</div>
+                              </body></html>`);
+                              w.document.close();
+                              setTimeout(() => w.print(), 300);
+                            }}
+                            className={`inline-flex items-center rounded-md h-9 px-4 text-sm border ${theme.isNeon ? "border-[#2a2a3a] text-gray-300 hover:bg-white/5" : "border-[#d5d0c8] text-[#5a5a5a] hover:bg-black/5"}`}
+                            data-testid={`button-save-pdf-${item.id}`}
+                          >
+                            <FileText className="mr-2 h-3.5 w-3.5" />
+                            Save as PDF
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {purchase.upsellProducts.length > 0 && (

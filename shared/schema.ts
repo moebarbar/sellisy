@@ -9,7 +9,7 @@ export const productSourceEnum = pgEnum("product_source", ["PLATFORM", "USER"]);
 export const productStatusEnum = pgEnum("product_status", ["DRAFT", "ACTIVE"]);
 export const orderStatusEnum = pgEnum("order_status", ["PENDING", "COMPLETED", "FAILED"]);
 export const planTierEnum = pgEnum("plan_tier", ["basic", "pro", "max"]);
-export const productTypeEnum = pgEnum("product_type", ["digital", "software"]);
+export const productTypeEnum = pgEnum("product_type", ["digital", "software", "template", "ebook", "course", "graphics"]);
 
 export const userProfiles = pgTable("user_profiles", {
   userId: varchar("user_id", { length: 64 }).primaryKey(),
@@ -93,6 +93,9 @@ export const products = pgTable("products", {
   status: productStatusEnum("status").notNull().default("DRAFT"),
   requiredTier: planTierEnum("required_tier").notNull().default("basic"),
   productType: productTypeEnum("product_type").notNull().default("digital"),
+  deliveryInstructions: text("delivery_instructions"),
+  accessUrl: text("access_url"),
+  redemptionCode: text("redemption_code"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

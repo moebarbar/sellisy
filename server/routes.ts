@@ -238,6 +238,10 @@ export async function registerRoutes(
       thumbnailUrl: z.string().optional().nullable(),
       fileUrl: z.string().optional().nullable(),
       status: z.enum(["DRAFT", "ACTIVE"]).optional(),
+      productType: z.enum(["digital", "software", "template", "ebook", "course", "graphics"]).optional(),
+      deliveryInstructions: z.string().optional().nullable(),
+      accessUrl: z.string().optional().nullable(),
+      redemptionCode: z.string().optional().nullable(),
       images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -258,6 +262,10 @@ export async function registerRoutes(
       thumbnailUrl: thumbUrl,
       fileUrl: parsed.data.fileUrl ?? null,
       status: parsed.data.status || "ACTIVE",
+      productType: parsed.data.productType || "digital",
+      deliveryInstructions: parsed.data.deliveryInstructions ?? null,
+      accessUrl: parsed.data.accessUrl ?? null,
+      redemptionCode: parsed.data.redemptionCode ?? null,
     });
 
     if (imgs.length > 0) {
@@ -287,6 +295,10 @@ export async function registerRoutes(
       thumbnailUrl: z.string().optional().nullable(),
       fileUrl: z.string().optional().nullable(),
       status: z.enum(["DRAFT", "ACTIVE"]).optional(),
+      productType: z.enum(["digital", "software", "template", "ebook", "course", "graphics"]).optional(),
+      deliveryInstructions: z.string().optional().nullable(),
+      accessUrl: z.string().optional().nullable(),
+      redemptionCode: z.string().optional().nullable(),
       images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -1325,6 +1337,11 @@ export async function registerRoutes(
           priceCents: item.priceCents,
           thumbnailUrl: item.product.thumbnailUrl,
           hasFiles,
+          productType: item.product.productType || "digital",
+          deliveryInstructions: item.product.deliveryInstructions || null,
+          accessUrl: item.product.accessUrl || null,
+          redemptionCode: item.product.redemptionCode || null,
+          description: item.product.description || null,
         };
       })
     );
