@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
 import { useUserProfile } from "@/hooks/use-user-profile";
+import { useUpload } from "@/hooks/use-upload";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -10,9 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles, Plus, Trash2, Upload } from "lucide-react";
+import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles, Plus, Trash2, Upload, ImagePlus, Star, X } from "lucide-react";
 import type { Product, PlanTier } from "@shared/schema";
 import { canAccessTier } from "@shared/schema";
 
@@ -90,9 +92,9 @@ export default function LibraryPage() {
             Browse and import platform products into {activeStore?.name}.
           </p>
         </div>
-        <Button onClick={() => setShowBulkImport(true)} data-testid="button-bulk-add">
+        <Button onClick={() => setShowBulkImport(true)} data-testid="button-add-product">
           <Plus className="mr-2 h-4 w-4" />
-          Bulk Add Products
+          Add Product
         </Button>
       </div>
 
@@ -274,7 +276,7 @@ export default function LibraryPage() {
         onClose={() => setImportProduct(null)}
       />
 
-      <BulkImportDialog
+      <AddProductDialog
         open={showBulkImport}
         onClose={() => setShowBulkImport(false)}
       />
@@ -456,244 +458,357 @@ function ImportDialog({
   );
 }
 
-type BulkRow = {
-  title: string;
-  priceCents: number;
-  category: string;
-  productType: string;
-  description: string;
-  thumbnailUrl: string;
-  accessUrl: string;
-  redemptionCode: string;
-  originalPriceCents: string;
-  deliveryInstructions: string;
-  fileUrl: string;
+type UploadedImage = {
+  url: string;
+  isThumbnail: boolean;
 };
 
-const EMPTY_ROW: BulkRow = {
-  title: "",
-  priceCents: 0,
-  category: "templates",
-  productType: "digital",
-  description: "",
-  thumbnailUrl: "",
-  accessUrl: "",
-  redemptionCode: "",
-  originalPriceCents: "",
-  deliveryInstructions: "",
-  fileUrl: "",
-};
-
-function BulkImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { toast } = useToast();
-  const [rows, setRows] = useState<BulkRow[]>([{ ...EMPTY_ROW }]);
-  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const { uploadFile, isUploading, progress } = useUpload();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const updateRow = useCallback((index: number, field: keyof BulkRow, value: string | number) => {
-    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+  const [title, setTitle] = useState("");
+  const [price, setPrice] = useState("");
+  const [originalPrice, setOriginalPrice] = useState("");
+  const [category, setCategory] = useState("templates");
+  const [productType, setProductType] = useState("digital");
+  const [description, setDescription] = useState("");
+  const [accessUrl, setAccessUrl] = useState("");
+  const [redemptionCode, setRedemptionCode] = useState("");
+  const [deliveryInstructions, setDeliveryInstructions] = useState("");
+  const [fileUrl, setFileUrl] = useState("");
+  const [images, setImages] = useState<UploadedImage[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+
+  const resetForm = useCallback(() => {
+    setTitle("");
+    setPrice("");
+    setOriginalPrice("");
+    setCategory("templates");
+    setProductType("digital");
+    setDescription("");
+    setAccessUrl("");
+    setRedemptionCode("");
+    setDeliveryInstructions("");
+    setFileUrl("");
+    setImages([]);
   }, []);
 
-  const addRow = useCallback(() => {
-    setRows((prev) => [...prev, { ...EMPTY_ROW }]);
+  const handleImageUpload = useCallback(async (files: FileList) => {
+    const remaining = 5 - images.length;
+    const toUpload = Array.from(files).slice(0, remaining);
+    if (!toUpload.length) {
+      toast({ title: "Maximum 5 images", variant: "destructive" });
+      return;
+    }
+
+    setUploadingImages(true);
+    const newImages: UploadedImage[] = [];
+    for (const file of toUpload) {
+      const result = await uploadFile(file);
+      if (result) {
+        newImages.push({ url: result.objectPath, isThumbnail: false });
+      }
+    }
+
+    setImages((prev) => {
+      const combined = [...prev, ...newImages];
+      if (!combined.some((img) => img.isThumbnail) && combined.length > 0) {
+        combined[0].isThumbnail = true;
+      }
+      return combined;
+    });
+    setUploadingImages(false);
+  }, [images.length, uploadFile, toast]);
+
+  const setThumbnail = useCallback((index: number) => {
+    setImages((prev) => prev.map((img, i) => ({ ...img, isThumbnail: i === index })));
   }, []);
 
-  const removeRow = useCallback((index: number) => {
-    setRows((prev) => prev.filter((_, i) => i !== index));
+  const removeImage = useCallback((index: number) => {
+    setImages((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length > 0 && !next.some((img) => img.isThumbnail)) {
+        next[0].isThumbnail = true;
+      }
+      return next;
+    });
   }, []);
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const products = rows
-        .filter((r) => r.title.trim())
-        .map((r) => ({
-          title: r.title.trim(),
-          priceCents: Math.round(r.priceCents * 100),
-          originalPriceCents: r.originalPriceCents ? Math.round(Number(r.originalPriceCents) * 100) : null,
-          category: r.category || "templates",
-          productType: r.productType || "digital",
-          description: r.description || null,
-          thumbnailUrl: r.thumbnailUrl || null,
-          accessUrl: r.accessUrl || null,
-          redemptionCode: r.redemptionCode || null,
-          deliveryInstructions: r.deliveryInstructions || null,
-          fileUrl: r.fileUrl || null,
-        }));
-      if (!products.length) throw new Error("Add at least one product with a title");
-      const res = await apiRequest("POST", "/api/products/bulk-import", { products });
+      const priceCents = Math.round((parseFloat(price) || 0) * 100);
+      const origCents = originalPrice ? Math.round(parseFloat(originalPrice) * 100) : null;
+      const thumbnailImg = images.find((img) => img.isThumbnail) || images[0];
+
+      const productData = {
+        title: title.trim(),
+        priceCents,
+        originalPriceCents: origCents,
+        category: category || "templates",
+        productType: productType || "digital",
+        description: description || null,
+        thumbnailUrl: thumbnailImg?.url || null,
+        accessUrl: accessUrl || null,
+        redemptionCode: redemptionCode || null,
+        deliveryInstructions: deliveryInstructions || null,
+        fileUrl: fileUrl || null,
+        images: images.map((img, i) => ({
+          url: img.url,
+          sortOrder: i,
+          isPrimary: img.isThumbnail,
+        })),
+      };
+
+      const res = await apiRequest("POST", "/api/products/bulk-import", { products: [productData] });
       return res.json();
     },
-    onSuccess: (data: { created: number; errors: { row: number; message: string }[] }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products/library"] });
-      if (data.errors.length) {
-        toast({
-          title: `${data.created} products added, ${data.errors.length} failed`,
-          description: data.errors.map((e) => `Row ${e.row}: ${e.message}`).join("; "),
-          variant: "destructive",
-        });
-      } else {
-        toast({ title: `${data.created} products added to library` });
-      }
-      setRows([{ ...EMPTY_ROW }]);
-      setExpandedRow(null);
+      toast({ title: "Product added to library" });
+      resetForm();
       onClose();
     },
     onError: (err: any) => {
-      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+      toast({ title: "Failed to add product", description: err.message, variant: "destructive" });
     },
   });
 
-  const validCount = rows.filter((r) => r.title.trim()).length;
-
   return (
-    <Dialog open={open} onOpenChange={() => { if (!mutation.isPending) onClose(); }}>
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+    <Dialog open={open} onOpenChange={() => { if (!mutation.isPending && !uploadingImages) { resetForm(); onClose(); } }}>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Bulk Add Products</DialogTitle>
+          <DialogTitle>Add Product to Library</DialogTitle>
           <DialogDescription>
-            Add multiple products to the library at once. Fill in rows below and click Import All.
+            Add a new product that any store can import. Upload up to 5 images.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-          {rows.map((row, idx) => (
-            <Card key={idx} className="overflow-visible">
-              <CardContent className="p-3 space-y-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="outline" className="shrink-0">#{idx + 1}</Badge>
-                  <Input
-                    placeholder="Product title *"
-                    value={row.title}
-                    onChange={(e) => updateRow(idx, "title", e.target.value)}
-                    className="flex-1 min-w-[200px]"
-                    data-testid={`input-bulk-title-${idx}`}
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Price ($)"
-                    value={row.priceCents || ""}
-                    onChange={(e) => updateRow(idx, "priceCents", parseFloat(e.target.value) || 0)}
-                    className="w-24"
-                    data-testid={`input-bulk-price-${idx}`}
-                  />
-                  <Select value={row.category} onValueChange={(v) => updateRow(idx, "category", v)}>
-                    <SelectTrigger className="w-32" data-testid={`select-bulk-category-${idx}`}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="templates">Templates</SelectItem>
-                      <SelectItem value="graphics">Graphics</SelectItem>
-                      <SelectItem value="ebooks">Ebooks</SelectItem>
-                      <SelectItem value="tools">Tools</SelectItem>
-                      <SelectItem value="software">Software</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={row.productType} onValueChange={(v) => updateRow(idx, "productType", v)}>
-                    <SelectTrigger className="w-28" data-testid={`select-bulk-type-${idx}`}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="digital">Digital</SelectItem>
-                      <SelectItem value="software">Software</SelectItem>
-                      <SelectItem value="template">Template</SelectItem>
-                      <SelectItem value="ebook">Ebook</SelectItem>
-                      <SelectItem value="course">Course</SelectItem>
-                      <SelectItem value="graphics">Graphics</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setExpandedRow(expandedRow === idx ? null : idx)}
-                    data-testid={`button-bulk-expand-${idx}`}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  {rows.length > 1 && (
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          <div className="space-y-2">
+            <Label htmlFor="add-title">Title *</Label>
+            <Input
+              id="add-title"
+              placeholder="Product title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              data-testid="input-add-title"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="add-price">Price ($)</Label>
+              <Input
+                id="add-price"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                data-testid="input-add-price"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-original-price">Original Price ($ MSRP)</Label>
+              <Input
+                id="add-original-price"
+                type="number"
+                step="0.01"
+                placeholder="Optional"
+                value={originalPrice}
+                onChange={(e) => setOriginalPrice(e.target.value)}
+                data-testid="input-add-original-price"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger data-testid="select-add-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="templates">Templates</SelectItem>
+                  <SelectItem value="graphics">Graphics</SelectItem>
+                  <SelectItem value="ebooks">Ebooks</SelectItem>
+                  <SelectItem value="tools">Tools</SelectItem>
+                  <SelectItem value="software">Software</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Product Type</Label>
+              <Select value={productType} onValueChange={setProductType}>
+                <SelectTrigger data-testid="select-add-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="digital">Digital</SelectItem>
+                  <SelectItem value="software">Software</SelectItem>
+                  <SelectItem value="template">Template</SelectItem>
+                  <SelectItem value="ebook">Ebook</SelectItem>
+                  <SelectItem value="course">Course</SelectItem>
+                  <SelectItem value="graphics">Graphics</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="add-description">Description</Label>
+            <Textarea
+              id="add-description"
+              placeholder="Product description..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              data-testid="input-add-description"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Product Images (up to 5)</Label>
+              <span className="text-xs text-muted-foreground">{images.length}/5 uploaded</span>
+            </div>
+
+            <div className="flex gap-3 flex-wrap">
+              {images.map((img, idx) => (
+                <div
+                  key={idx}
+                  className={`relative w-24 h-24 rounded-md overflow-hidden border-2 ${img.isThumbnail ? "border-primary" : "border-transparent"}`}
+                  data-testid={`img-preview-${idx}`}
+                >
+                  <img src={img.url} alt={`Image ${idx + 1}`} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center gap-1 opacity-0 hover:opacity-100">
                     <Button
                       size="icon"
                       variant="ghost"
-                      onClick={() => removeRow(idx)}
-                      data-testid={`button-bulk-remove-${idx}`}
+                      className="h-7 w-7 text-white"
+                      onClick={() => setThumbnail(idx)}
+                      title="Set as thumbnail"
+                      data-testid={`button-set-thumbnail-${idx}`}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Star className={`h-4 w-4 ${img.isThumbnail ? "fill-yellow-400 text-yellow-400" : ""}`} />
                     </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-white"
+                      onClick={() => removeImage(idx)}
+                      title="Remove"
+                      data-testid={`button-remove-image-${idx}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {img.isThumbnail && (
+                    <Badge className="absolute top-1 left-1 text-[10px] px-1 py-0">Thumb</Badge>
                   )}
                 </div>
+              ))}
 
-                {expandedRow === idx && (
-                  <div className="space-y-2 pt-2 border-t">
-                    <Textarea
-                      placeholder="Description (for software deals, use section headings like WHAT YOU GET, WHY..., PERFECT FOR, REGULAR PRICING)"
-                      value={row.description}
-                      onChange={(e) => updateRow(idx, "description", e.target.value)}
-                      rows={4}
-                      data-testid={`input-bulk-description-${idx}`}
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        placeholder="Thumbnail URL"
-                        value={row.thumbnailUrl}
-                        onChange={(e) => updateRow(idx, "thumbnailUrl", e.target.value)}
-                        data-testid={`input-bulk-thumbnail-${idx}`}
-                      />
-                      <Input
-                        placeholder="Original price ($ MSRP for deals)"
-                        value={row.originalPriceCents}
-                        onChange={(e) => updateRow(idx, "originalPriceCents", e.target.value)}
-                        data-testid={`input-bulk-original-price-${idx}`}
-                      />
-                      <Input
-                        placeholder="Access URL (e.g. https://app.example.com)"
-                        value={row.accessUrl}
-                        onChange={(e) => updateRow(idx, "accessUrl", e.target.value)}
-                        data-testid={`input-bulk-access-url-${idx}`}
-                      />
-                      <Input
-                        placeholder="Redemption code"
-                        value={row.redemptionCode}
-                        onChange={(e) => updateRow(idx, "redemptionCode", e.target.value)}
-                        data-testid={`input-bulk-redemption-${idx}`}
-                      />
-                      <Input
-                        placeholder="File/download URL"
-                        value={row.fileUrl}
-                        onChange={(e) => updateRow(idx, "fileUrl", e.target.value)}
-                        data-testid={`input-bulk-file-url-${idx}`}
-                      />
-                      <Input
-                        placeholder="Delivery instructions"
-                        value={row.deliveryInstructions}
-                        onChange={(e) => updateRow(idx, "deliveryInstructions", e.target.value)}
-                        data-testid={`input-bulk-delivery-${idx}`}
-                      />
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+              {images.length < 5 && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImages}
+                  className="w-24 h-24 rounded-md border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-muted-foreground/60 transition-colors"
+                  data-testid="button-upload-images"
+                >
+                  {uploadingImages ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-5 w-5" />
+                  )}
+                  <span className="text-[10px]">{uploadingImages ? `${progress}%` : "Add"}</span>
+                </button>
+              )}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.length) {
+                  handleImageUpload(e.target.files);
+                  e.target.value = "";
+                }
+              }}
+              data-testid="input-image-files"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="add-access-url">Access URL</Label>
+              <Input
+                id="add-access-url"
+                placeholder="https://app.example.com"
+                value={accessUrl}
+                onChange={(e) => setAccessUrl(e.target.value)}
+                data-testid="input-add-access-url"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-redemption">Redemption Code</Label>
+              <Input
+                id="add-redemption"
+                placeholder="ABC123"
+                value={redemptionCode}
+                onChange={(e) => setRedemptionCode(e.target.value)}
+                data-testid="input-add-redemption"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="add-file-url">File/Download URL</Label>
+              <Input
+                id="add-file-url"
+                placeholder="https://..."
+                value={fileUrl}
+                onChange={(e) => setFileUrl(e.target.value)}
+                data-testid="input-add-file-url"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-delivery">Delivery Instructions</Label>
+              <Input
+                id="add-delivery"
+                placeholder="Steps after purchase..."
+                value={deliveryInstructions}
+                onChange={(e) => setDeliveryInstructions(e.target.value)}
+                data-testid="input-add-delivery"
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between gap-4 pt-3 border-t flex-wrap">
-          <Button variant="outline" onClick={addRow} data-testid="button-bulk-add-row">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Row
+        <div className="flex items-center justify-end gap-3 pt-3 border-t">
+          <Button variant="outline" onClick={() => { resetForm(); onClose(); }} data-testid="button-cancel-add">
+            Cancel
           </Button>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{validCount} product{validCount !== 1 ? "s" : ""} ready</span>
-            <Button
-              disabled={mutation.isPending || validCount === 0}
-              onClick={() => mutation.mutate()}
-              data-testid="button-bulk-import-all"
-            >
-              {mutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Upload className="mr-2 h-4 w-4" />
-              )}
-              Import All ({validCount})
-            </Button>
-          </div>
+          <Button
+            disabled={mutation.isPending || !title.trim() || uploadingImages}
+            onClick={() => mutation.mutate()}
+            data-testid="button-save-product"
+          >
+            {mutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="mr-2 h-4 w-4" />
+            )}
+            Add Product
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

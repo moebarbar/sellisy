@@ -222,6 +222,11 @@ export async function registerRoutes(
     const admin = await isUserAdmin(getUserId(req));
     if (!admin) return res.status(403).json({ message: "Admin access required" });
 
+    const imageSchema = z.object({
+      url: z.string().min(1),
+      sortOrder: z.number().int().min(0),
+      isPrimary: z.boolean(),
+    });
     const rowSchema = z.object({
       title: z.string().min(1),
       description: z.string().optional().nullable(),
@@ -234,6 +239,7 @@ export async function registerRoutes(
       deliveryInstructions: z.string().optional().nullable(),
       accessUrl: z.string().optional().nullable(),
       redemptionCode: z.string().optional().nullable(),
+      images: z.array(imageSchema).optional(),
     });
     const schema = z.object({ products: z.array(rowSchema).min(1).max(500) });
     const parsed = schema.safeParse(req.body);
@@ -243,7 +249,11 @@ export async function registerRoutes(
     for (let i = 0; i < parsed.data.products.length; i++) {
       const row = parsed.data.products[i];
       try {
-        await storage.createProduct({
+        const imgs = row.images || [];
+        const primaryImg = imgs.find((img) => img.isPrimary) || imgs[0];
+        const thumbUrl = primaryImg?.url ?? row.thumbnailUrl ?? null;
+
+        const product = await storage.createProduct({
           ownerId: getUserId(req),
           source: "PLATFORM",
           title: row.title,
@@ -251,7 +261,7 @@ export async function registerRoutes(
           category: row.category || "templates",
           priceCents: row.priceCents,
           originalPriceCents: row.originalPriceCents ?? null,
-          thumbnailUrl: row.thumbnailUrl ?? null,
+          thumbnailUrl: thumbUrl,
           fileUrl: row.fileUrl ?? null,
           status: "ACTIVE",
           productType: row.productType || "digital",
@@ -259,6 +269,11 @@ export async function registerRoutes(
           accessUrl: row.accessUrl ?? null,
           redemptionCode: row.redemptionCode ?? null,
         });
+
+        if (imgs.length > 0) {
+          await storage.setProductImages(product.id, imgs);
+        }
+
         results.created++;
       } catch (err: any) {
         results.errors.push({ row: i + 1, message: err.message });
