@@ -282,6 +282,13 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                             {product.title}
                           </a>
                         </h3>
+                        {product.tags && product.tags.length > 0 && (
+                          <div className="flex gap-1.5 flex-wrap mb-3">
+                            {product.tags.slice(0, 3).map((tag, i) => (
+                              <span key={i} className="px-2 py-0.5 rounded-full text-[10px] font-medium tracking-wide" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)", color: c.textTertiary }} data-testid={`badge-silk-tag-${product.id}-${i}`}>{tag}</span>
+                            ))}
+                          </div>
+                        )}
                         {product.description && (
                           <p className="text-sm leading-relaxed line-clamp-3 mb-6" style={{ color: c.textSecondary }}>
                             {product.description}

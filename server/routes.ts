@@ -925,8 +925,8 @@ export async function registerRoutes(
       if (!sp || !sp.isPublished) return res.status(404).json({ message: "Product not available in this store" });
       const effectivePrice = sp.customPriceCents ?? product.priceCents;
       totalCents = effectivePrice;
-      itemName = product.title;
-      itemDescription = product.description || `Digital product from ${store.name}`;
+      itemName = sp.customTitle || product.title;
+      itemDescription = sp.customDescription || product.description || `Digital product from ${store.name}`;
       itemImage = product.thumbnailUrl;
       itemsToAdd.push({ productId: product.id, priceCents: effectivePrice });
     }
@@ -1121,7 +1121,13 @@ export async function registerRoutes(
       },
       downloadToken: tokenHash,
       store: store ? { name: store.name, slug: store.slug } : null,
-      items: items.map(i => ({ title: i.product.title, priceCents: i.priceCents })),
+      items: await Promise.all(items.map(async (i) => {
+        const sp = await storage.getStoreProductByStoreAndProduct(order.storeId, i.productId);
+        return {
+          title: sp?.customTitle || i.product.title,
+          priceCents: i.priceCents,
+        };
+      })),
       fileCount,
     });
   });

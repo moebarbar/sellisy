@@ -387,6 +387,13 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                         {product.category}
                       </div>
                     )}
+                    {product.tags && product.tags.length > 0 && (
+                      <div className="flex gap-1.5 flex-wrap mb-3">
+                        {product.tags.slice(0, 3).map((tag, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)", color: c.textSecondary }} data-testid={`badge-neon-tag-${product.id}-${i}`}>{tag}</span>
+                        ))}
+                      </div>
+                    )}
                     <a href={"/s/" + store.slug + "/product/" + product.id} className="block">
                       <h3 className="font-semibold text-lg mb-2 tracking-tight transition-colors duration-300" style={{ color: isDark ? "rgba(255,255,255,0.95)" : c.text }} data-testid={`text-neon-product-${product.id}`}>
                         {product.title}
