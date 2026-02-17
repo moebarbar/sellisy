@@ -10,6 +10,7 @@ export const productStatusEnum = pgEnum("product_status", ["DRAFT", "ACTIVE"]);
 export const orderStatusEnum = pgEnum("order_status", ["PENDING", "COMPLETED", "FAILED"]);
 export const planTierEnum = pgEnum("plan_tier", ["basic", "pro", "max"]);
 export const productTypeEnum = pgEnum("product_type", ["digital", "software", "template", "ebook", "course", "graphics"]);
+export const paymentProviderEnum = pgEnum("payment_provider", ["stripe", "paypal"]);
 
 export const userProfiles = pgTable("user_profiles", {
   userId: varchar("user_id", { length: 64 }).primaryKey(),
@@ -72,6 +73,9 @@ export const stores = pgTable("stores", {
   logoUrl: text("logo_url"),
   accentColor: text("accent_color"),
   heroBannerUrl: text("hero_banner_url"),
+  paymentProvider: paymentProviderEnum("payment_provider").notNull().default("stripe"),
+  paypalClientId: text("paypal_client_id"),
+  paypalClientSecret: text("paypal_client_secret"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -157,6 +161,7 @@ export const orders = pgTable("orders", {
   customerId: varchar("customer_id", { length: 64 }),
   totalCents: integer("total_cents").notNull().default(0),
   stripeSessionId: text("stripe_session_id"),
+  paypalOrderId: text("paypal_order_id"),
   couponId: varchar("coupon_id", { length: 64 }),
   status: orderStatusEnum("status").notNull().default("PENDING"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

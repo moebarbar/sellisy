@@ -16,6 +16,86 @@ function getUserId(req: Request): string {
   return (req.user as any)?.claims?.sub;
 }
 
+function sanitizeStore(store: any) {
+  const { paypalClientId, paypalClientSecret, ...safe } = store;
+  return { ...safe, paypalClientId: paypalClientId ? "***configured***" : null };
+}
+
+async function getPayPalAccessToken(clientId: string, clientSecret: string): Promise<string> {
+  const isLive = clientId.startsWith("A") && clientId.length > 50;
+  const baseUrl = isLive ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const resp = await fetch(`${baseUrl}/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`PayPal auth failed: ${resp.status} ${text}`);
+  }
+  const data = await resp.json() as any;
+  return data.access_token;
+}
+
+function getPayPalBaseUrl(clientId: string): string {
+  const isLive = clientId.startsWith("A") && clientId.length > 50;
+  return isLive ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+}
+
+async function createPayPalOrder(
+  clientId: string,
+  clientSecret: string,
+  totalCents: number,
+  itemName: string,
+  orderId: string,
+  storeId: string,
+  storeSlug: string,
+  appUrl: string,
+): Promise<{ approveUrl: string; paypalOrderId: string }> {
+  const accessToken = await getPayPalAccessToken(clientId, clientSecret);
+  const baseUrl = getPayPalBaseUrl(clientId);
+  const totalUsd = (totalCents / 100).toFixed(2);
+
+  const resp = await fetch(`${baseUrl}/v2/checkout/orders`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      intent: "CAPTURE",
+      purchase_units: [{
+        reference_id: orderId,
+        description: itemName.substring(0, 127),
+        amount: {
+          currency_code: "USD",
+          value: totalUsd,
+        },
+      }],
+      application_context: {
+        return_url: `${appUrl}/api/paypal/capture?orderId=${orderId}&storeSlug=${storeSlug}`,
+        cancel_url: `${appUrl}/s/${storeSlug}`,
+        brand_name: itemName.substring(0, 127),
+        user_action: "PAY_NOW",
+      },
+    }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`PayPal create order failed: ${resp.status} ${text}`);
+  }
+
+  const paypalOrder = await resp.json() as any;
+  const approveLink = paypalOrder.links?.find((l: any) => l.rel === "approve");
+  if (!approveLink) throw new Error("PayPal approve link not found");
+  return { approveUrl: approveLink.href, paypalOrderId: paypalOrder.id };
+}
+
 async function getUserPlanTier(userId: string): Promise<PlanTier> {
   const profile = await storage.getUserProfile(userId);
   return (profile?.planTier as PlanTier) || "basic";
@@ -138,6 +218,9 @@ export async function registerRoutes(
       logoUrl: z.string().optional().nullable(),
       accentColor: z.string().optional().nullable(),
       heroBannerUrl: z.string().optional().nullable(),
+      paymentProvider: z.enum(["stripe", "paypal"]).optional(),
+      paypalClientId: z.string().optional().nullable(),
+      paypalClientSecret: z.string().optional().nullable(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -839,7 +922,7 @@ export async function registerRoutes(
       ...b,
       products: allBundleItems[i].map((item) => item.product),
     }));
-    res.json({ store, products: productsWithMeta, bundles: bundlesWithProducts });
+    res.json({ store: sanitizeStore(store), products: productsWithMeta, bundles: bundlesWithProducts });
   });
 
   app.get("/api/storefront/:slug/product/:productId", async (req, res) => {
@@ -866,7 +949,7 @@ export async function registerRoutes(
       isLeadMagnet: sp.isLeadMagnet,
       storeProductId: sp.id,
     };
-    res.json({ store, product: effectiveProduct, images });
+    res.json({ store: sanitizeStore(store), product: effectiveProduct, images });
   });
 
   app.get("/api/storefront/:slug/bundle/:bundleId", async (req, res) => {
@@ -876,7 +959,7 @@ export async function registerRoutes(
     const data = await storage.getBundleWithProducts(req.params.bundleId as string);
     if (!data || data.bundle.storeId !== store.id || !data.bundle.isPublished) return res.status(404).json({ message: "Bundle not found" });
 
-    res.json({ store, bundle: data.bundle, products: data.products });
+    res.json({ store: sanitizeStore(store), bundle: data.bundle, products: data.products });
   });
 
   app.get("/api/stripe/publishable-key", async (_req, res) => {
@@ -995,61 +1078,184 @@ export async function registerRoutes(
       });
     }
 
-    try {
-      const stripe = await getUncachableStripeClient();
+    const buyerEmail = parsed.data.buyerEmail || "pending@checkout.com";
+    let customerId: string | null = null;
+    if (buyerEmail && buyerEmail !== "pending@checkout.com") {
+      const customer = await storage.findOrCreateCustomer(buyerEmail);
+      customerId = customer.id;
+    }
 
-      const stripeBuyerEmail = parsed.data.buyerEmail || "pending@checkout.com";
-      let stripeCustomerId: string | null = null;
-      if (stripeBuyerEmail && stripeBuyerEmail !== "pending@checkout.com") {
-        const customer = await storage.findOrCreateCustomer(stripeBuyerEmail);
-        stripeCustomerId = customer.id;
+    const [order] = await db.insert(orders).values({
+      storeId: store.id,
+      buyerEmail,
+      customerId,
+      totalCents: finalTotalCents,
+      stripeSessionId: null,
+      couponId,
+      status: "PENDING",
+    }).returning();
+
+    for (const item of itemsToAdd) {
+      await db.insert(orderItems).values({ orderId: order.id, ...item });
+    }
+
+    if (store.paymentProvider === "paypal" && store.paypalClientId && store.paypalClientSecret) {
+      try {
+        const { approveUrl, paypalOrderId } = await createPayPalOrder(
+          store.paypalClientId,
+          store.paypalClientSecret,
+          finalTotalCents,
+          itemName,
+          order.id,
+          store.id,
+          store.slug,
+          appUrl,
+        );
+        await db.update(orders).set({ paypalOrderId }).where(eq(orders.id, order.id));
+        res.json({ url: approveUrl });
+      } catch (error: any) {
+        console.error("PayPal checkout error:", error.message);
+        await db.update(orders).set({ status: "FAILED" }).where(eq(orders.id, order.id));
+        res.status(500).json({ message: "PayPal payment processing unavailable. Please try again later." });
       }
+    } else {
+      try {
+        const stripe = await getUncachableStripeClient();
 
-      const [order] = await db.insert(orders).values({
-        storeId: store.id,
-        buyerEmail: stripeBuyerEmail,
-        customerId: stripeCustomerId,
-        totalCents: finalTotalCents,
-        stripeSessionId: null,
-        couponId,
-        status: "PENDING",
-      }).returning();
+        const productData: any = { name: itemName };
+        if (itemDescription) productData.description = itemDescription.substring(0, 500);
+        const images: string[] = [];
+        if (itemImage && itemImage.startsWith("http")) images.push(itemImage);
+        if (images.length > 0) productData.images = images;
 
-      for (const item of itemsToAdd) {
-        await db.insert(orderItems).values({ orderId: order.id, ...item });
-      }
-
-      const productData: any = { name: itemName };
-      if (itemDescription) productData.description = itemDescription.substring(0, 500);
-      const images: string[] = [];
-      if (itemImage && itemImage.startsWith("http")) images.push(itemImage);
-      if (images.length > 0) productData.images = images;
-
-      const session = await stripe.checkout.sessions.create({
-        mode: 'payment',
-        line_items: [{
-          price_data: {
-            currency: 'usd',
-            product_data: productData,
-            unit_amount: finalTotalCents,
+        const session = await stripe.checkout.sessions.create({
+          mode: 'payment',
+          line_items: [{
+            price_data: {
+              currency: 'usd',
+              product_data: productData,
+              unit_amount: finalTotalCents,
+            },
+            quantity: 1,
+          }],
+          metadata: {
+            orderId: order.id,
+            storeId: store.id,
+            couponId: couponId || '',
           },
-          quantity: 1,
-        }],
-        metadata: {
-          orderId: order.id,
-          storeId: store.id,
-          couponId: couponId || '',
+          success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${appUrl}/s/${store.slug}`,
+        });
+
+        await db.update(orders).set({ stripeSessionId: session.id }).where(eq(orders.id, order.id));
+
+        res.json({ url: session.url });
+      } catch (error: any) {
+        console.error("Stripe checkout error:", error.message);
+        res.status(500).json({ message: "Payment processing unavailable. Please try again later." });
+      }
+    }
+  });
+
+  app.get("/api/paypal/capture", async (req, res) => {
+    const { token: paypalToken, orderId, storeSlug } = req.query as { token?: string; orderId?: string; storeSlug?: string };
+    if (!paypalToken || !orderId) {
+      return res.redirect(`/s/${storeSlug || ""}`);
+    }
+
+    const order = await storage.getOrderById(orderId);
+    if (!order || order.status !== "PENDING") {
+      return res.redirect(`/checkout/success?order_id=${orderId}`);
+    }
+
+    if (order.paypalOrderId && order.paypalOrderId !== paypalToken) {
+      console.error("PayPal token mismatch: expected", order.paypalOrderId, "got", paypalToken);
+      return res.redirect(`/s/${storeSlug || ""}`);
+    }
+
+    const store = await storage.getStoreById(order.storeId);
+    if (!store || !store.paypalClientId || !store.paypalClientSecret) {
+      return res.redirect(`/s/${storeSlug || ""}`);
+    }
+
+    try {
+      const accessToken = await getPayPalAccessToken(store.paypalClientId, store.paypalClientSecret);
+      const baseUrl = getPayPalBaseUrl(store.paypalClientId);
+
+      const captureResp = await fetch(`${baseUrl}/v2/checkout/orders/${paypalToken}/capture`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
-        success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${appUrl}/s/${store.slug}`,
       });
 
-      await db.update(orders).set({ stripeSessionId: session.id }).where(eq(orders.id, order.id));
+      if (!captureResp.ok) {
+        const text = await captureResp.text();
+        console.error("PayPal capture failed:", text);
+        await db.update(orders).set({ status: "FAILED" }).where(eq(orders.id, order.id));
+        return res.redirect(`/s/${storeSlug || ""}`);
+      }
 
-      res.json({ url: session.url });
+      const captureData = await captureResp.json() as any;
+      const captureStatus = captureData.status;
+
+      const purchaseUnit = captureData.purchase_units?.[0];
+      const capturedReferenceId = purchaseUnit?.reference_id;
+      const capturedAmount = purchaseUnit?.amount?.value;
+      const expectedAmount = (order.totalCents / 100).toFixed(2);
+
+      if (capturedReferenceId && capturedReferenceId !== order.id) {
+        console.error("PayPal reference_id mismatch:", capturedReferenceId, "vs", order.id);
+        await db.update(orders).set({ status: "FAILED" }).where(eq(orders.id, order.id));
+        return res.redirect(`/s/${storeSlug || ""}`);
+      }
+
+      if (capturedAmount && capturedAmount !== expectedAmount) {
+        console.error("PayPal amount mismatch:", capturedAmount, "vs", expectedAmount);
+        await db.update(orders).set({ status: "FAILED" }).where(eq(orders.id, order.id));
+        return res.redirect(`/s/${storeSlug || ""}`);
+      }
+
+      if (captureStatus === "COMPLETED") {
+        const payerEmail = captureData.payer?.email_address || order.buyerEmail;
+
+        const tokenHash = randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        await db.transaction(async (tx) => {
+          await tx.update(orders).set({
+            status: "COMPLETED",
+            buyerEmail: payerEmail !== "pending@checkout.com" ? payerEmail : order.buyerEmail,
+          }).where(eq(orders.id, order.id));
+
+          await tx.insert(downloadTokens).values({
+            orderId: order.id,
+            tokenHash,
+            expiresAt,
+          });
+
+          if (order.couponId) {
+            await tx.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, order.couponId));
+          }
+        });
+
+        if (payerEmail && payerEmail !== "pending@checkout.com") {
+          const customer = await storage.findOrCreateCustomer(payerEmail);
+          await storage.setOrderCustomerId(order.id, customer.id);
+          await storage.linkOrdersByEmail(payerEmail, customer.id);
+        }
+
+        return res.redirect(`/checkout/success?order_id=${order.id}`);
+      } else {
+        console.error("PayPal capture status not COMPLETED:", captureStatus);
+        await db.update(orders).set({ status: "FAILED" }).where(eq(orders.id, order.id));
+        return res.redirect(`/s/${storeSlug || ""}`);
+      }
     } catch (error: any) {
-      console.error("Stripe checkout error:", error.message);
-      res.status(500).json({ message: "Payment processing unavailable. Please try again later." });
+      console.error("PayPal capture error:", error.message);
+      await db.update(orders).set({ status: "FAILED" }).where(eq(orders.id, order.id));
+      return res.redirect(`/s/${storeSlug || ""}`);
     }
   });
 
