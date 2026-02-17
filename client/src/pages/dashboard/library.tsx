@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles, Plus, Trash2, Upload, ImagePlus, Star, X } from "lucide-react";
+import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles, Plus, Trash2, Upload, ImagePlus, Star, X, FileIcon, Link as LinkIcon } from "lucide-react";
 import type { Product, PlanTier } from "@shared/schema";
 import { canAccessTier } from "@shared/schema";
 
@@ -63,6 +63,8 @@ export default function LibraryPage() {
 
   const categoryFilters = useMemo(() => buildCategoryFilters(products), [products]);
 
+  const [showBulkImport, setShowBulkImport] = useState(false);
+
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     if (activeCategory === "all") return products;
@@ -86,8 +88,6 @@ export default function LibraryPage() {
       </div>
     );
   }
-
-  const [showBulkImport, setShowBulkImport] = useState(false);
 
   return (
     <div className="p-6 space-y-6">
@@ -506,8 +506,10 @@ type UploadedImage = {
 
 function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { toast } = useToast();
-  const { uploadFile, isUploading, progress } = useUpload();
+  const { uploadFile: uploadImageFile, isUploading, progress } = useUpload();
+  const { uploadFile: uploadDeliverableFile } = useUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const deliverableInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
@@ -520,6 +522,9 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
   const [redemptionCode, setRedemptionCode] = useState("");
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [fileUrl, setFileUrl] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [fileDelivery, setFileDelivery] = useState<"upload" | "url">("upload");
+  const [fileUploading, setFileUploading] = useState(false);
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
 
@@ -535,8 +540,27 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
     setRedemptionCode("");
     setDeliveryInstructions("");
     setFileUrl("");
+    setFileName("");
+    setFileDelivery("upload");
     setImages([]);
   }, []);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileUploading(true);
+    try {
+      const result = await uploadDeliverableFile(file);
+      if (result) {
+        setFileUrl(result.objectPath);
+        setFileName(file.name);
+      }
+    } catch {
+      toast({ title: "File upload failed", variant: "destructive" });
+    }
+    setFileUploading(false);
+    if (deliverableInputRef.current) deliverableInputRef.current.value = "";
+  };
 
   const handleImageUpload = useCallback(async (files: FileList) => {
     const remaining = 5 - images.length;
@@ -549,7 +573,7 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
     setUploadingImages(true);
     const newImages: UploadedImage[] = [];
     for (const file of toUpload) {
-      const result = await uploadFile(file);
+      const result = await uploadImageFile(file);
       if (result) {
         newImages.push({ url: result.objectPath, isThumbnail: false });
       }
@@ -563,7 +587,7 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
       return combined;
     });
     setUploadingImages(false);
-  }, [images.length, uploadFile, toast]);
+  }, [images.length, uploadImageFile, toast]);
 
   const setThumbnail = useCallback((index: number) => {
     setImages((prev) => prev.map((img, i) => ({ ...img, isThumbnail: i === index })));
@@ -622,7 +646,7 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
   });
 
   return (
-    <Dialog open={open} onOpenChange={() => { if (!mutation.isPending && !uploadingImages) { resetForm(); onClose(); } }}>
+    <Dialog open={open} onOpenChange={() => { if (!mutation.isPending && !uploadingImages && !fileUploading) { resetForm(); onClose(); } }}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Add Product to Library</DialogTitle>
@@ -834,15 +858,75 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="add-file-url">Download / File URL</Label>
-                <Input
-                  id="add-file-url"
-                  placeholder="https://example.com/download/product.zip"
-                  value={fileUrl}
-                  onChange={(e) => setFileUrl(e.target.value)}
-                  data-testid="input-add-file-url"
-                />
-                <p className="text-xs text-muted-foreground">Direct link to downloadable file</p>
+                <Label>Deliverable File</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={fileDelivery === "upload" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => { setFileDelivery("upload"); setFileUrl(""); setFileName(""); }}
+                    data-testid="button-add-file-upload-mode"
+                  >
+                    <Upload className="mr-2 h-3.5 w-3.5" />
+                    Upload File
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={fileDelivery === "url" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => { setFileDelivery("url"); setFileUrl(""); setFileName(""); }}
+                    data-testid="button-add-file-url-mode"
+                  >
+                    <LinkIcon className="mr-2 h-3.5 w-3.5" />
+                    External URL
+                  </Button>
+                </div>
+                {fileDelivery === "upload" ? (
+                  <div className="space-y-1">
+                    {fileUrl ? (
+                      <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
+                        <div className="flex items-center gap-2 text-sm min-w-0">
+                          <FileIcon className="h-4 w-4 shrink-0 text-green-600" />
+                          <span className="truncate">{fileName || "File uploaded"}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => { setFileUrl(""); setFileName(""); }}
+                          data-testid="button-remove-file"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <Input
+                          ref={deliverableInputRef}
+                          type="file"
+                          onChange={handleFileUpload}
+                          disabled={fileUploading}
+                          data-testid="input-add-file-upload"
+                        />
+                        {fileUploading && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span>Uploading...</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/download/product.zip"
+                    value={fileUrl}
+                    onChange={(e) => setFileUrl(e.target.value)}
+                    data-testid="input-add-file-url"
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">The file customers will download after purchase</p>
               </div>
 
               <div className="space-y-2">
@@ -866,7 +950,7 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
             Cancel
           </Button>
           <Button
-            disabled={mutation.isPending || !title.trim() || uploadingImages}
+            disabled={mutation.isPending || !title.trim() || uploadingImages || fileUploading}
             onClick={() => mutation.mutate()}
             data-testid="button-save-product"
           >
