@@ -183,9 +183,12 @@ export default function LibraryPage() {
                     </div>
                     <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                       <Badge variant="outline" className="text-xs capitalize">{product.category}</Badge>
-                      {isSoftware && (
-                        <Badge variant="outline" className="text-xs">Software</Badge>
+                      {product.productType && product.productType !== "digital" && (
+                        <Badge variant="outline" className="text-xs capitalize">{product.productType}</Badge>
                       )}
+                      {product.tags && product.tags.slice(0, 2).map((tag, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">{tag}</Badge>
+                      ))}
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                       {product.description}
@@ -354,10 +357,42 @@ function ProductDetailDialog({
 
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-1">Description</h4>
-              <p className="text-sm leading-relaxed" data-testid="text-detail-description">
+              <p className="text-sm leading-relaxed whitespace-pre-line" data-testid="text-detail-description">
                 {product.description || "No description available."}
               </p>
             </div>
+
+            {product.tags && product.tags.length > 0 && (
+              <div className="flex gap-1.5 flex-wrap">
+                {product.tags.map((tag, i) => (
+                  <Badge key={i} variant="outline" className="text-xs" data-testid={`badge-tag-${i}`}>{tag}</Badge>
+                ))}
+              </div>
+            )}
+
+            {(product.accessUrl || product.redemptionCode || product.deliveryInstructions) && (
+              <div className="space-y-2 pt-2 border-t">
+                <h4 className="text-sm font-medium text-muted-foreground">Customer Delivery Info</h4>
+                {product.accessUrl && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Access URL: </span>
+                    <a href={product.accessUrl} target="_blank" rel="noreferrer" className="underline" data-testid="link-detail-access-url">{product.accessUrl}</a>
+                  </div>
+                )}
+                {product.redemptionCode && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Redemption Code: </span>
+                    <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{product.redemptionCode}</code>
+                  </div>
+                )}
+                {product.deliveryInstructions && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Instructions: </span>
+                    <span className="whitespace-pre-line">{product.deliveryInstructions}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {isLocked ? (
               <div className="rounded-lg border border-dashed p-4 text-center">
@@ -474,6 +509,7 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
   const [category, setCategory] = useState("templates");
   const [productType, setProductType] = useState("digital");
   const [description, setDescription] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
   const [accessUrl, setAccessUrl] = useState("");
   const [redemptionCode, setRedemptionCode] = useState("");
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
@@ -488,6 +524,7 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
     setCategory("templates");
     setProductType("digital");
     setDescription("");
+    setTagsInput("");
     setAccessUrl("");
     setRedemptionCode("");
     setDeliveryInstructions("");
@@ -542,6 +579,8 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
       const origCents = originalPrice ? Math.round(parseFloat(originalPrice) * 100) : null;
       const thumbnailImg = images.find((img) => img.isThumbnail) || images[0];
 
+      const parsedTags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
+
       const productData = {
         title: title.trim(),
         priceCents,
@@ -554,6 +593,7 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
         redemptionCode: redemptionCode || null,
         deliveryInstructions: deliveryInstructions || null,
         fileUrl: fileUrl || null,
+        tags: parsedTags.length > 0 ? parsedTags : null,
         images: images.map((img, i) => ({
           url: img.url,
           sortOrder: i,
@@ -659,15 +699,27 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="add-description">Description</Label>
+            <Label htmlFor="add-description">Description *</Label>
             <Textarea
               id="add-description"
-              placeholder="Product description..."
+              placeholder="Detailed product description shown to customers..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
               data-testid="input-add-description"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="add-tags">Tags</Label>
+            <Input
+              id="add-tags"
+              placeholder="analytics, saas, lifetime-deal (comma separated)"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              data-testid="input-add-tags"
+            />
+            <p className="text-xs text-muted-foreground">Separate tags with commas</p>
           </div>
 
           <div className="space-y-2">
@@ -746,49 +798,58 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="add-access-url">Access URL</Label>
-              <Input
-                id="add-access-url"
-                placeholder="https://app.example.com"
-                value={accessUrl}
-                onChange={(e) => setAccessUrl(e.target.value)}
-                data-testid="input-add-access-url"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-redemption">Redemption Code</Label>
-              <Input
-                id="add-redemption"
-                placeholder="ABC123"
-                value={redemptionCode}
-                onChange={(e) => setRedemptionCode(e.target.value)}
-                data-testid="input-add-redemption"
-              />
-            </div>
-          </div>
+          <div className="pt-2 border-t">
+            <p className="text-sm font-medium mb-3">Customer Delivery (shown to buyers after purchase)</p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="add-access-url">Product Access URL</Label>
+                  <Input
+                    id="add-access-url"
+                    placeholder="https://app.example.com/register"
+                    value={accessUrl}
+                    onChange={(e) => setAccessUrl(e.target.value)}
+                    data-testid="input-add-access-url"
+                  />
+                  <p className="text-xs text-muted-foreground">Link customers use to access the product</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-redemption">Redemption / License Code</Label>
+                  <Input
+                    id="add-redemption"
+                    placeholder="ABC123-XYZ789"
+                    value={redemptionCode}
+                    onChange={(e) => setRedemptionCode(e.target.value)}
+                    data-testid="input-add-redemption"
+                  />
+                  <p className="text-xs text-muted-foreground">Code customers redeem to activate</p>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="add-file-url">File/Download URL</Label>
-              <Input
-                id="add-file-url"
-                placeholder="https://..."
-                value={fileUrl}
-                onChange={(e) => setFileUrl(e.target.value)}
-                data-testid="input-add-file-url"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-delivery">Delivery Instructions</Label>
-              <Input
-                id="add-delivery"
-                placeholder="Steps after purchase..."
-                value={deliveryInstructions}
-                onChange={(e) => setDeliveryInstructions(e.target.value)}
-                data-testid="input-add-delivery"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="add-file-url">Download / File URL</Label>
+                <Input
+                  id="add-file-url"
+                  placeholder="https://example.com/download/product.zip"
+                  value={fileUrl}
+                  onChange={(e) => setFileUrl(e.target.value)}
+                  data-testid="input-add-file-url"
+                />
+                <p className="text-xs text-muted-foreground">Direct link to downloadable file</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="add-delivery">Delivery Instructions</Label>
+                <Textarea
+                  id="add-delivery"
+                  placeholder={"Step-by-step instructions shown to customers after purchase...\n\n1. Go to https://...\n2. Create your account\n3. Enter your redemption code\n4. Start using the product"}
+                  value={deliveryInstructions}
+                  onChange={(e) => setDeliveryInstructions(e.target.value)}
+                  rows={4}
+                  data-testid="input-add-delivery"
+                />
+                <p className="text-xs text-muted-foreground">Step-by-step guide shown on customer order page</p>
+              </div>
             </div>
           </div>
         </div>

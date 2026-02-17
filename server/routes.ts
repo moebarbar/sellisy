@@ -239,6 +239,7 @@ export async function registerRoutes(
       deliveryInstructions: z.string().optional().nullable(),
       accessUrl: z.string().optional().nullable(),
       redemptionCode: z.string().optional().nullable(),
+      tags: z.array(z.string()).optional().nullable(),
       images: z.array(imageSchema).optional(),
     });
     const schema = z.object({ products: z.array(rowSchema).min(1).max(500) });
@@ -268,6 +269,7 @@ export async function registerRoutes(
           deliveryInstructions: row.deliveryInstructions ?? null,
           accessUrl: row.accessUrl ?? null,
           redemptionCode: row.redemptionCode ?? null,
+          tags: row.tags ?? null,
         });
 
         if (imgs.length > 0) {
@@ -306,6 +308,7 @@ export async function registerRoutes(
       deliveryInstructions: z.string().optional().nullable(),
       accessUrl: z.string().optional().nullable(),
       redemptionCode: z.string().optional().nullable(),
+      tags: z.array(z.string()).optional().nullable(),
       images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -330,6 +333,7 @@ export async function registerRoutes(
       deliveryInstructions: parsed.data.deliveryInstructions ?? null,
       accessUrl: parsed.data.accessUrl ?? null,
       redemptionCode: parsed.data.redemptionCode ?? null,
+      tags: parsed.data.tags ?? null,
     });
 
     if (imgs.length > 0) {
@@ -363,6 +367,7 @@ export async function registerRoutes(
       deliveryInstructions: z.string().optional().nullable(),
       accessUrl: z.string().optional().nullable(),
       redemptionCode: z.string().optional().nullable(),
+      tags: z.array(z.string()).optional().nullable(),
       images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);

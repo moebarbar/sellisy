@@ -169,7 +169,7 @@ export class DatabaseStorage implements IStorage {
     return product;
   }
 
-  async updateProduct(id: string, data: Partial<Pick<Product, "title" | "description" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status">>) {
+  async updateProduct(id: string, data: Partial<Pick<Product, "title" | "description" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags">>) {
     const [product] = await db.update(products).set(data).where(eq(products.id, id)).returning();
     return product;
   }

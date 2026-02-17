@@ -96,6 +96,7 @@ export const products = pgTable("products", {
   deliveryInstructions: text("delivery_instructions"),
   accessUrl: text("access_url"),
   redemptionCode: text("redemption_code"),
+  tags: text("tags").array(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

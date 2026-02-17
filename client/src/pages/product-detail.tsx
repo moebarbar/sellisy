@@ -389,6 +389,21 @@ export default function ProductDetailPage() {
                   <Sparkles className="h-3 w-3" />
                   <span>by {store.name}</span>
                 </a>
+
+                {product.tags && product.tags.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap mt-3">
+                    {product.tags.map((tag, i) => (
+                      <span
+                        key={i}
+                        className="text-xs px-2 py-0.5 rounded-full"
+                        style={{ background: `${c.accent}12`, border: `1px solid ${c.accent}20`, color: `${c.accent}bb` }}
+                        data-testid={`badge-tag-${i}`}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="pdp-separator" />
