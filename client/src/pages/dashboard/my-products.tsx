@@ -127,6 +127,11 @@ export default function MyProductsPage() {
                         {product.productType}
                       </Badge>
                     )}
+                    {(product.tags || []).slice(0, 2).map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs" data-testid={`badge-tag-${product.id}-${tag}`}>
+                        {tag}
+                      </Badge>
+                    ))}
                   </div>
                   {product.description && (
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
@@ -476,6 +481,7 @@ function ProductFormDialog({
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [accessUrl, setAccessUrl] = useState("");
   const [redemptionCode, setRedemptionCode] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -501,6 +507,7 @@ function ProductFormDialog({
       setDeliveryInstructions(product.deliveryInstructions || "");
       setAccessUrl(product.accessUrl || "");
       setRedemptionCode(product.redemptionCode || "");
+      setTagsInput((product.tags || []).join(", "));
     } else {
       setTitle("");
       setDescription("");
@@ -515,6 +522,7 @@ function ProductFormDialog({
       setDeliveryInstructions("");
       setAccessUrl("");
       setRedemptionCode("");
+      setTagsInput("");
     }
   };
 
@@ -606,6 +614,7 @@ function ProductFormDialog({
     mutationFn: async () => {
       const priceCents = Math.round(parseFloat(price) * 100);
       const origPriceCents = originalPrice ? Math.round(parseFloat(originalPrice) * 100) : null;
+      const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : [];
       const body: any = {
         title,
         description: description || null,
@@ -618,6 +627,7 @@ function ProductFormDialog({
         deliveryInstructions: deliveryInstructions || null,
         accessUrl: accessUrl || null,
         redemptionCode: redemptionCode || null,
+        tags,
         images: buildImagesPayload(),
       };
       await apiRequest("POST", "/api/products", body);
@@ -636,6 +646,7 @@ function ProductFormDialog({
     mutationFn: async () => {
       const priceCents = Math.round(parseFloat(price) * 100);
       const origPriceCents = originalPrice ? Math.round(parseFloat(originalPrice) * 100) : null;
+      const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : [];
       const body: any = {
         title,
         description: description || null,
@@ -648,6 +659,7 @@ function ProductFormDialog({
         deliveryInstructions: deliveryInstructions || null,
         accessUrl: accessUrl || null,
         redemptionCode: redemptionCode || null,
+        tags,
         images: buildImagesPayload(),
       };
       await apiRequest("PATCH", `/api/products/${product!.id}`, body);
@@ -711,6 +723,18 @@ function ProductFormDialog({
               rows={3}
               data-testid="input-product-description"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tags">Tags</Label>
+            <Input
+              id="tags"
+              placeholder="e.g. design, saas, marketing (comma separated)"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              data-testid="input-product-tags"
+            />
+            <p className="text-xs text-muted-foreground">Comma-separated tags to help buyers find your product</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
