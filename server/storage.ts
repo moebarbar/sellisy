@@ -406,15 +406,25 @@ export class DatabaseStorage implements IStorage {
 
   async ensureDefaultCategories(ownerId: string) {
     const existing = await this.getCategoriesByOwner(ownerId);
-    if (existing.length > 0) return existing;
     const defaults = [
       { name: "Templates", slug: "templates", sortOrder: 0 },
       { name: "Graphics", slug: "graphics", sortOrder: 1 },
       { name: "Ebooks", slug: "ebooks", sortOrder: 2 },
       { name: "Tools", slug: "tools", sortOrder: 3 },
+      { name: "Software", slug: "software", sortOrder: 4 },
     ];
-    const rows = defaults.map((d) => ({ ...d, ownerId }));
-    return db.insert(categories).values(rows).returning();
+    if (existing.length === 0) {
+      const rows = defaults.map((d) => ({ ...d, ownerId }));
+      return db.insert(categories).values(rows).returning();
+    }
+    const existingSlugs = new Set(existing.map((c) => c.slug));
+    const missing = defaults.filter((d) => !existingSlugs.has(d.slug));
+    if (missing.length > 0) {
+      const rows = missing.map((d) => ({ ...d, ownerId }));
+      const added = await db.insert(categories).values(rows).returning();
+      return [...existing, ...added];
+    }
+    return existing;
   }
 
   async getUserProfile(userId: string) {

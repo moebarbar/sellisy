@@ -18,13 +18,17 @@ import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles, P
 import type { Product, PlanTier } from "@shared/schema";
 import { canAccessTier } from "@shared/schema";
 
-const CATEGORIES = [
-  { key: "all", label: "All Products" },
-  { key: "templates", label: "Templates" },
-  { key: "graphics", label: "Graphics" },
-  { key: "ebooks", label: "Ebooks" },
-  { key: "tools", label: "Tools" },
-];
+function buildCategoryFilters(products: Product[] | undefined) {
+  const cats = new Set<string>();
+  (products || []).forEach((p) => {
+    if (p.category) cats.add(p.category);
+  });
+  const sorted = Array.from(cats).sort();
+  return [
+    { key: "all", label: "All Products" },
+    ...sorted.map((c) => ({ key: c, label: c.charAt(0).toUpperCase() + c.slice(1) })),
+  ];
+}
 
 const TIER_COLORS: Record<string, string> = {
   basic: "bg-muted text-muted-foreground",
@@ -56,6 +60,8 @@ export default function LibraryPage() {
   });
 
   const importedSet = useMemo(() => new Set(importedProductIds || []), [importedProductIds]);
+
+  const categoryFilters = useMemo(() => buildCategoryFilters(products), [products]);
 
   const filteredProducts = useMemo(() => {
     if (!products) return [];
@@ -99,7 +105,7 @@ export default function LibraryPage() {
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        {CATEGORIES.map((cat) => (
+        {categoryFilters.map((cat) => (
           <Button
             key={cat.key}
             variant={activeCategory === cat.key ? "default" : "outline"}
@@ -727,6 +733,7 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
               <Label>Product Images (up to 5)</Label>
               <span className="text-xs text-muted-foreground">{images.length}/5 uploaded</span>
             </div>
+            <p className="text-xs text-muted-foreground">Best practice: use square images at 512x512 pixels for consistent display</p>
 
             <div className="flex gap-3 flex-wrap">
               {images.map((img, idx) => (

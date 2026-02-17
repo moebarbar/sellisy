@@ -871,7 +871,8 @@ function ProductFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Product Images <span className="text-xs text-muted-foreground">(Square, 512px or 1024px recommended)</span></Label>
+            <Label>Product Images</Label>
+            <p className="text-xs text-muted-foreground">Best practice: use square images at 512x512 pixels for consistent display</p>
             {images.length > 0 && (
               <div className="grid grid-cols-4 gap-2" data-testid="grid-product-images">
                 {images.map((img, index) => (
