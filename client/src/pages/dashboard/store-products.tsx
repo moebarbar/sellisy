@@ -12,7 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
-import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign, Pencil, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { StoreProduct, Product, Bundle } from "@shared/schema";
 
@@ -22,6 +24,7 @@ type BundleWithProducts = Bundle & { products: Product[] };
 export default function StoreProductsPage() {
   const { activeStore, activeStoreId, storesLoading } = useActiveStore();
   const { toast } = useToast();
+  const [editingSp, setEditingSp] = useState<StoreProductWithProduct | null>(null);
 
   const { data: storeProducts, isLoading } = useQuery<StoreProductWithProduct[]>({
     queryKey: ["/api/store-products", activeStoreId],
@@ -100,6 +103,7 @@ export default function StoreProductsPage() {
                 storeId={activeStoreId}
                 allProducts={storeProducts}
                 bundles={bundles || []}
+                onEdit={() => setEditingSp(sp)}
               />
             ))}
           </div>
@@ -133,6 +137,11 @@ export default function StoreProductsPage() {
           </CardContent>
         </Card>
       )}
+      <EditStoreProductDialog
+        storeProduct={editingSp}
+        storeId={activeStoreId}
+        onClose={() => setEditingSp(null)}
+      />
     </div>
   );
 }
@@ -142,11 +151,13 @@ function StoreProductRow({
   storeId,
   allProducts,
   bundles,
+  onEdit,
 }: {
   storeProduct: StoreProductWithProduct;
   storeId: string;
   allProducts: StoreProductWithProduct[];
   bundles: BundleWithProducts[];
+  onEdit: () => void;
 }) {
   const { toast } = useToast();
   const product = storeProduct.product;
@@ -191,7 +202,7 @@ function StoreProductRow({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-medium truncate" data-testid={`text-sp-title-${storeProduct.id}`}>
-                {product.title}
+                {storeProduct.customTitle || product.title}
               </h3>
               {storeProduct.isLeadMagnet && (
                 <Badge variant="secondary" className="text-xs">
@@ -202,6 +213,11 @@ function StoreProductRow({
               {hasCustomPrice && !isFree && (
                 <Badge variant="outline" className="text-xs">
                   Custom Price
+                </Badge>
+              )}
+              {(storeProduct.customTitle || storeProduct.customDescription || storeProduct.customTags) && (
+                <Badge variant="outline" className="text-xs">
+                  Customized
                 </Badge>
               )}
             </div>
@@ -222,6 +238,14 @@ function StoreProductRow({
               disabled={toggleMutation.isPending}
               data-testid={`switch-publish-${storeProduct.id}`}
             />
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onEdit}
+              data-testid={`button-edit-sp-${storeProduct.id}`}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
               size="icon"
               variant="ghost"
@@ -349,5 +373,211 @@ function StoreProductRow({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function EditStoreProductDialog({
+  storeProduct,
+  storeId,
+  onClose,
+}: {
+  storeProduct: StoreProductWithProduct | null;
+  storeId: string;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const product = storeProduct?.product;
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const [accessUrl, setAccessUrl] = useState("");
+  const [redemptionCode, setRedemptionCode] = useState("");
+  const [deliveryInstructions, setDeliveryInstructions] = useState("");
+
+  const resetForm = () => {
+    if (!storeProduct || !product) return;
+    setTitle(storeProduct.customTitle || product.title);
+    setDescription(storeProduct.customDescription || product.description || "");
+    setTagsInput((storeProduct.customTags || product.tags || []).join(", "));
+    setAccessUrl(storeProduct.customAccessUrl || product.accessUrl || "");
+    setRedemptionCode(storeProduct.customRedemptionCode || product.redemptionCode || "");
+    setDeliveryInstructions(storeProduct.customDeliveryInstructions || product.deliveryInstructions || "");
+  };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen) {
+      resetForm();
+    } else {
+      onClose();
+    }
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!storeProduct || !product) return;
+      const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : [];
+      const data: Record<string, unknown> = {
+        customTitle: title !== product.title ? title : null,
+        customDescription: description !== (product.description || "") ? description : null,
+        customTags: JSON.stringify(tags) !== JSON.stringify(product.tags || []) ? tags : null,
+        customAccessUrl: accessUrl !== (product.accessUrl || "") ? accessUrl || null : null,
+        customRedemptionCode: redemptionCode !== (product.redemptionCode || "") ? redemptionCode || null : null,
+        customDeliveryInstructions: deliveryInstructions !== (product.deliveryInstructions || "") ? deliveryInstructions || null : null,
+      };
+      await apiRequest("PATCH", `/api/store-products/${storeProduct.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store-products", storeId] });
+      toast({ title: "Product customization saved" });
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to save", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      if (!storeProduct) return;
+      await apiRequest("PATCH", `/api/store-products/${storeProduct.id}`, {
+        customTitle: null,
+        customDescription: null,
+        customTags: null,
+        customAccessUrl: null,
+        customRedemptionCode: null,
+        customDeliveryInstructions: null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store-products", storeId] });
+      toast({ title: "Product reset to original" });
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to reset", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const hasOverrides = storeProduct && (
+    storeProduct.customTitle || storeProduct.customDescription ||
+    storeProduct.customTags || storeProduct.customAccessUrl ||
+    storeProduct.customRedemptionCode || storeProduct.customDeliveryInstructions
+  );
+
+  return (
+    <Dialog open={!!storeProduct} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => { e.preventDefault(); resetForm(); }}>
+        <DialogHeader>
+          <DialogTitle data-testid="text-edit-sp-title">Customize for Your Store</DialogTitle>
+          <DialogDescription>
+            Edit how "{product?.title}" appears on your storefront. Changes only affect your store.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            saveMutation.mutate();
+          }}
+          className="space-y-4"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="sp-title">Title</Label>
+            <Input
+              id="sp-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={product?.title}
+              data-testid="input-sp-title"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sp-description">Description</Label>
+            <Textarea
+              id="sp-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={product?.description || "Product description..."}
+              rows={4}
+              data-testid="input-sp-description"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sp-tags">Tags</Label>
+            <Input
+              id="sp-tags"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="e.g. design, saas, marketing (comma separated)"
+              data-testid="input-sp-tags"
+            />
+            <p className="text-xs text-muted-foreground">Comma-separated tags shown on your storefront</p>
+          </div>
+
+          <div className="space-y-3 pt-2 border-t">
+            <h4 className="text-sm font-medium text-muted-foreground">Customer Delivery (shown to buyers after purchase)</h4>
+
+            <div className="space-y-2">
+              <Label htmlFor="sp-access-url">Access URL</Label>
+              <Input
+                id="sp-access-url"
+                type="url"
+                value={accessUrl}
+                onChange={(e) => setAccessUrl(e.target.value)}
+                placeholder="https://..."
+                data-testid="input-sp-access-url"
+              />
+              <p className="text-xs text-muted-foreground">Direct link buyers use to access the product</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sp-redemption-code">Redemption Code</Label>
+              <Input
+                id="sp-redemption-code"
+                value={redemptionCode}
+                onChange={(e) => setRedemptionCode(e.target.value)}
+                placeholder="CODE-XXXX"
+                data-testid="input-sp-redemption-code"
+              />
+              <p className="text-xs text-muted-foreground">Activation code buyers receive after purchase</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sp-delivery-instructions">Delivery Instructions</Label>
+              <Textarea
+                id="sp-delivery-instructions"
+                value={deliveryInstructions}
+                onChange={(e) => setDeliveryInstructions(e.target.value)}
+                placeholder="Step-by-step instructions for the buyer..."
+                rows={4}
+                data-testid="input-sp-delivery-instructions"
+              />
+              <p className="text-xs text-muted-foreground">Step-by-step instructions shown after purchase</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button type="submit" className="flex-1" disabled={saveMutation.isPending} data-testid="button-save-sp-edits">
+              {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+            {hasOverrides && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => resetMutation.mutate()}
+                disabled={resetMutation.isPending}
+                data-testid="button-reset-sp-edits"
+              >
+                {resetMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Reset to Original
+              </Button>
+            )}
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

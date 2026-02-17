@@ -495,6 +495,12 @@ export async function registerRoutes(
   app.patch("/api/store-products/:id", isAuthenticated, async (req, res) => {
     const schema = z.object({
       customPriceCents: z.number().int().min(0).nullable().optional(),
+      customTitle: z.string().nullable().optional(),
+      customDescription: z.string().nullable().optional(),
+      customTags: z.array(z.string()).nullable().optional(),
+      customAccessUrl: z.string().nullable().optional(),
+      customRedemptionCode: z.string().nullable().optional(),
+      customDeliveryInstructions: z.string().nullable().optional(),
       isPublished: z.boolean().optional(),
       isLeadMagnet: z.boolean().optional(),
       upsellProductId: z.string().nullable().optional(),
@@ -812,6 +818,12 @@ export async function registerRoutes(
     const publishedRows = storeProductRows.filter((sp) => sp.isPublished);
     const productsWithMeta = publishedRows.map((sp) => ({
       ...sp.product,
+      title: sp.customTitle || sp.product.title,
+      description: sp.customDescription || sp.product.description,
+      tags: sp.customTags || sp.product.tags,
+      accessUrl: sp.customAccessUrl || sp.product.accessUrl,
+      redemptionCode: sp.customRedemptionCode || sp.product.redemptionCode,
+      deliveryInstructions: sp.customDeliveryInstructions || sp.product.deliveryInstructions,
       priceCents: sp.customPriceCents ?? sp.product.priceCents,
       originalPriceCents: sp.customPriceCents != null && sp.customPriceCents !== sp.product.priceCents ? sp.product.priceCents : sp.product.originalPriceCents,
       isLeadMagnet: sp.isLeadMagnet,
@@ -843,6 +855,12 @@ export async function registerRoutes(
     const images = await storage.getProductImages(product.id);
     const effectiveProduct = {
       ...product,
+      title: sp.customTitle || product.title,
+      description: sp.customDescription || product.description,
+      tags: sp.customTags || product.tags,
+      accessUrl: sp.customAccessUrl || product.accessUrl,
+      redemptionCode: sp.customRedemptionCode || product.redemptionCode,
+      deliveryInstructions: sp.customDeliveryInstructions || product.deliveryInstructions,
       priceCents: sp.customPriceCents ?? product.priceCents,
       originalPriceCents: sp.customPriceCents != null && sp.customPriceCents !== product.priceCents ? product.priceCents : product.originalPriceCents,
       isLeadMagnet: sp.isLeadMagnet,
@@ -1224,7 +1242,7 @@ export async function registerRoutes(
 
     res.json({
       order: { id: order.id, buyerEmail: order.buyerEmail, totalCents: order.totalCents },
-      product: product ? { id: product.id, title: product.title, thumbnailUrl: product.thumbnailUrl } : null,
+      product: product ? { id: product.id, title: sp?.customTitle || product.title, thumbnailUrl: product.thumbnailUrl } : null,
       store: store ? { id: store.id, name: store.name, slug: store.slug } : null,
       downloadToken: tokenHash,
       upsellProduct,
@@ -1371,12 +1389,15 @@ export async function registerRoutes(
             name: order.store.name,
             slug: order.store.slug,
           },
-          items: items.map((i) => ({
-            id: i.id,
-            productId: i.productId,
-            title: i.product.title,
-            priceCents: i.priceCents,
-            thumbnailUrl: i.product.thumbnailUrl,
+          items: await Promise.all(items.map(async (i) => {
+            const sp = await storage.getStoreProductByStoreAndProduct(order.storeId, i.productId);
+            return {
+              id: i.id,
+              productId: i.productId,
+              title: sp?.customTitle || i.product.title,
+              priceCents: i.priceCents,
+              thumbnailUrl: i.product.thumbnailUrl,
+            };
           })),
         };
       })
@@ -1399,18 +1420,19 @@ export async function registerRoutes(
       items.map(async (item) => {
         const assets = await storage.getFileAssetsByProduct(item.productId);
         const hasFiles = assets.length > 0 || !!item.product.fileUrl;
+        const sp = await storage.getStoreProductByStoreAndProduct(order.storeId, item.productId);
         return {
           id: item.id,
           productId: item.productId,
-          title: item.product.title,
+          title: sp?.customTitle || item.product.title,
           priceCents: item.priceCents,
           thumbnailUrl: item.product.thumbnailUrl,
           hasFiles,
           productType: item.product.productType || "digital",
-          deliveryInstructions: item.product.deliveryInstructions || null,
-          accessUrl: item.product.accessUrl || null,
-          redemptionCode: item.product.redemptionCode || null,
-          description: item.product.description || null,
+          deliveryInstructions: sp?.customDeliveryInstructions || item.product.deliveryInstructions || null,
+          accessUrl: sp?.customAccessUrl || item.product.accessUrl || null,
+          redemptionCode: sp?.customRedemptionCode || item.product.redemptionCode || null,
+          description: sp?.customDescription || item.product.description || null,
         };
       })
     );
