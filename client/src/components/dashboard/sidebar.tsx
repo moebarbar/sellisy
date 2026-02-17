@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
-  Library,
+  ShoppingBag,
   LayoutDashboard,
   LogOut,
   ShoppingCart,
@@ -43,7 +43,7 @@ const navItems = [
   { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/dashboard/products", icon: Package },
   { title: "My Products", url: "/dashboard/my-products", icon: Sparkles },
-  { title: "Library", url: "/dashboard/library", icon: Library },
+  { title: "Products Library", url: "/dashboard/library", icon: ShoppingBag },
   { title: "Bundles", url: "/dashboard/bundles", icon: Layers },
   { title: "Coupons", url: "/dashboard/coupons", icon: Ticket },
   { title: "Orders", url: "/dashboard/orders", icon: ShoppingCart },
