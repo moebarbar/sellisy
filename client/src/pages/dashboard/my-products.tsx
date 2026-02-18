@@ -12,11 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useUpload } from "@/hooks/use-upload";
-import { Plus, Package, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download, Star, X } from "lucide-react";
+import { Plus, Package, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download, Star, X, ArrowUpToLine } from "lucide-react";
+import { useUserProfile } from "@/hooks/use-user-profile";
 import type { Product, Store, ProductImage, Category } from "@shared/schema";
 
 export default function MyProductsPage() {
   const { toast } = useToast();
+  const { isAdmin } = useUserProfile();
   const [activeCategory, setActiveCategory] = useState("all");
 
   const { data: userCategories } = useQuery<Category[]>({
@@ -46,6 +48,20 @@ export default function MyProductsPage() {
     },
     onError: (err: any) => {
       toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const promoteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("POST", `/api/products/${id}/promote`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products/mine"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products/library"] });
+      toast({ title: "Product promoted to Library", description: "This product is now available as a platform product in the Library." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Promote failed", description: err.message, variant: "destructive" });
     },
   });
 
@@ -163,6 +179,18 @@ export default function MyProductsPage() {
                     >
                       <Download className="h-3.5 w-3.5" />
                     </Button>
+                    {isAdmin && product.source !== "PLATFORM" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => promoteMutation.mutate(product.id)}
+                        disabled={promoteMutation.isPending}
+                        data-testid={`button-promote-${product.id}`}
+                        title="Promote to Library"
+                      >
+                        <ArrowUpToLine className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

@@ -44,7 +44,7 @@ const TIER_LABELS: Record<string, string> = {
 
 export default function LibraryPage() {
   const { activeStore, activeStoreId, storesLoading } = useActiveStore();
-  const { tier: userTier, canAccess } = useUserProfile();
+  const { tier: userTier, canAccess, isAdmin } = useUserProfile();
 
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products/library"],
@@ -98,10 +98,12 @@ export default function LibraryPage() {
             Browse and import platform products into {activeStore?.name}.
           </p>
         </div>
-        <Button onClick={() => setShowBulkImport(true)} data-testid="button-add-product">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Product
-        </Button>
+        {isAdmin && (
+          <Button onClick={() => setShowBulkImport(true)} data-testid="button-add-product">
+            <Plus className="mr-2 h-4 w-4" />
+            Add to Library
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
