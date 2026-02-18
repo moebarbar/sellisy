@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Ticket, Plus, Trash2, Percent, DollarSign, Store } from "lucide-react";
 import type { Coupon } from "@shared/schema";
 
@@ -143,15 +144,20 @@ export default function CouponsPage() {
                     disabled={toggleMutation.isPending}
                     data-testid={`switch-coupon-active-${coupon.id}`}
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteMutation.mutate(coupon.id)}
-                    disabled={deleteMutation.isPending}
-                    data-testid={`button-delete-coupon-${coupon.id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteMutation.mutate(coupon.id)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-coupon-${coupon.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete</TooltipContent>
+                  </Tooltip>
                 </div>
               </CardContent>
             </Card>

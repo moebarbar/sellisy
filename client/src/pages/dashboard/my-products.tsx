@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useUpload } from "@/hooks/use-upload";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Plus, Package, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download, Star, X, ArrowUpToLine } from "lucide-react";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import type { Product, Store, ProductImage, Category } from "@shared/schema";
@@ -179,34 +180,48 @@ export default function MyProductsPage() {
                       <Pencil className="mr-2 h-3.5 w-3.5" />
                       Edit
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setImportProduct(product)}
-                      data-testid={`button-import-to-store-${product.id}`}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setImportProduct(product)}
+                          data-testid={`button-import-to-store-${product.id}`}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Import to Store</TooltipContent>
+                    </Tooltip>
                     {isAdmin && product.source !== "PLATFORM" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => promoteMutation.mutate(product.id)}
-                        disabled={promoteMutation.isPending}
-                        data-testid={`button-promote-${product.id}`}
-                        title="Promote to Library"
-                      >
-                        <ArrowUpToLine className="h-3.5 w-3.5" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => promoteMutation.mutate(product.id)}
+                            disabled={promoteMutation.isPending}
+                            data-testid={`button-promote-${product.id}`}
+                          >
+                            <ArrowUpToLine className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Promote to Library</TooltipContent>
+                      </Tooltip>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDeleteTarget(product)}
-                      data-testid={`button-delete-${product.id}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDeleteTarget(product)}
+                          data-testid={`button-delete-${product.id}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               </CardContent>

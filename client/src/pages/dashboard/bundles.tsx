@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Layers, Plus, Trash2, Store } from "lucide-react";
 import type { StoreProduct, Product } from "@shared/schema";
 
@@ -272,15 +273,20 @@ export default function BundlesPage() {
                     disabled={togglePublishMutation.isPending}
                     data-testid={`switch-bundle-publish-${bundle.id}`}
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteBundleMutation.mutate(bundle.id)}
-                    disabled={deleteBundleMutation.isPending}
-                    data-testid={`button-delete-bundle-${bundle.id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteBundleMutation.mutate(bundle.id)}
+                        disabled={deleteBundleMutation.isPending}
+                        data-testid={`button-delete-bundle-${bundle.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete</TooltipContent>
+                  </Tooltip>
                 </div>
               </CardContent>
             </Card>

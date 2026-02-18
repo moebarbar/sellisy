@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign, Pencil, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { StoreProduct, Product, Bundle } from "@shared/schema";
@@ -238,22 +239,32 @@ function StoreProductRow({
               disabled={toggleMutation.isPending}
               data-testid={`switch-publish-${storeProduct.id}`}
             />
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={onEdit}
-              data-testid={`button-edit-sp-${storeProduct.id}`}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setExpanded(!expanded)}
-              data-testid={`button-expand-${storeProduct.id}`}
-            >
-              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={onEdit}
+                  data-testid={`button-edit-sp-${storeProduct.id}`}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Edit</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setExpanded(!expanded)}
+                  data-testid={`button-expand-${storeProduct.id}`}
+                >
+                  {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{expanded ? "Collapse" : "Expand"}</TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
