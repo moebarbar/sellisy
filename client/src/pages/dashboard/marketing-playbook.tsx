@@ -26,6 +26,28 @@ import {
   Target,
   Filter,
   ArrowRight,
+  ListChecks,
+  Crosshair,
+  Users,
+  MailPlus,
+  ShoppingBag,
+  MessageSquare,
+  ThumbsUp,
+  Hash,
+  Globe,
+  PenTool,
+  Gift,
+  Tags,
+  Percent,
+  TrendingUp,
+  MousePointerClick,
+  RefreshCw,
+  Activity,
+  Handshake,
+  Video,
+  ImageIcon,
+  Camera,
+  Play,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,6 +73,41 @@ const CATEGORY_ORDER = [
   "Paid Ads",
   "Analytics",
 ];
+
+const STRATEGY_ICONS: Record<string, { icon: typeof Rocket; color: string; bg: string }> = {
+  "launch-checklist": { icon: ListChecks, color: "text-orange-500", bg: "bg-orange-500/10" },
+  "product-positioning": { icon: Crosshair, color: "text-violet-500", bg: "bg-violet-500/10" },
+  "email-list-building": { icon: MailPlus, color: "text-blue-500", bg: "bg-blue-500/10" },
+  "email-welcome-sequence": { icon: Mail, color: "text-sky-500", bg: "bg-sky-500/10" },
+  "post-purchase-emails": { icon: ShoppingBag, color: "text-teal-500", bg: "bg-teal-500/10" },
+  "social-content-strategy": { icon: MessageSquare, color: "text-pink-500", bg: "bg-pink-500/10" },
+  "social-proof": { icon: ThumbsUp, color: "text-amber-500", bg: "bg-amber-500/10" },
+  "twitter-launch": { icon: Hash, color: "text-sky-400", bg: "bg-sky-400/10" },
+  "seo-basics": { icon: Globe, color: "text-green-500", bg: "bg-green-500/10" },
+  "content-marketing": { icon: PenTool, color: "text-indigo-500", bg: "bg-indigo-500/10" },
+  "lead-magnet-strategy": { icon: Gift, color: "text-rose-500", bg: "bg-rose-500/10" },
+  "bundle-strategy": { icon: Tags, color: "text-cyan-500", bg: "bg-cyan-500/10" },
+  "coupon-strategy": { icon: Percent, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  "upsell-cross-sell": { icon: TrendingUp, color: "text-lime-500", bg: "bg-lime-500/10" },
+  "paid-ads-getting-started": { icon: MousePointerClick, color: "text-red-500", bg: "bg-red-500/10" },
+  "retargeting": { icon: RefreshCw, color: "text-purple-500", bg: "bg-purple-500/10" },
+  "analytics-tracking": { icon: Activity, color: "text-blue-400", bg: "bg-blue-400/10" },
+  "partnership-marketing": { icon: Handshake, color: "text-amber-600", bg: "bg-amber-600/10" },
+  "tiktok-strategy": { icon: Video, color: "text-fuchsia-500", bg: "bg-fuchsia-500/10" },
+  "pinterest-strategy": { icon: ImageIcon, color: "text-red-400", bg: "bg-red-400/10" },
+  "instagram-strategy": { icon: Camera, color: "text-pink-400", bg: "bg-pink-400/10" },
+  "youtube-strategy": { icon: Play, color: "text-red-500", bg: "bg-red-500/10" },
+  "cross-platform-strategy": { icon: Share2, color: "text-violet-400", bg: "bg-violet-400/10" },
+  "linkedin-strategy": { icon: Users, color: "text-blue-600", bg: "bg-blue-600/10" },
+  "reddit-strategy": { icon: MessageSquare, color: "text-orange-400", bg: "bg-orange-400/10" },
+  "twitter-x-strategy": { icon: Hash, color: "text-sky-400", bg: "bg-sky-400/10" },
+};
+
+const getStrategyIcon = (id: string, category: string) => {
+  if (STRATEGY_ICONS[id]) return STRATEGY_ICONS[id];
+  const CatIcon = CATEGORY_ICONS[category] || Rocket;
+  return { icon: CatIcon, color: "text-muted-foreground", bg: "bg-muted" };
+};
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   easy: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
@@ -128,6 +185,9 @@ function StrategyCard({
 }) {
   const [expanded, setExpanded] = useState(false);
 
+  const si = getStrategyIcon(strategy.id, strategy.category);
+  const StrategyIcon = si.icon;
+
   return (
     <Card
       className={`transition-colors ${status === "completed" ? "opacity-75" : ""}`}
@@ -135,13 +195,18 @@ function StrategyCard({
     >
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm leading-tight" data-testid={`text-strategy-title-${strategy.id}`}>
-              {strategy.title}
-            </h3>
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-              {strategy.description}
-            </p>
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className={`shrink-0 flex items-center justify-center h-9 w-9 rounded-md ${si.bg}`} data-testid={`icon-strategy-${strategy.id}`}>
+              <StrategyIcon className={`h-4.5 w-4.5 ${si.color}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm leading-tight" data-testid={`text-strategy-title-${strategy.id}`}>
+                {strategy.title}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                {strategy.description}
+              </p>
+            </div>
           </div>
           <StatusButton status={status} onChange={onStatusChange} />
         </div>
