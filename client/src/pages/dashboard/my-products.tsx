@@ -65,6 +65,14 @@ export default function MyProductsPage() {
     },
   });
 
+  const productCategories = useMemo(() => {
+    const cats = new Set<string>();
+    (products || []).forEach((p) => {
+      if (p.category) cats.add(p.category);
+    });
+    return Array.from(cats).sort();
+  }, [products]);
+
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     if (activeCategory === "all") return products;
@@ -93,15 +101,15 @@ export default function MyProductsPage() {
         >
           All
         </Button>
-        {(userCategories || []).map((cat) => (
+        {productCategories.map((cat) => (
           <Button
-            key={cat.slug}
-            variant={activeCategory === cat.slug ? "default" : "outline"}
+            key={cat}
+            variant={activeCategory === cat ? "default" : "outline"}
             size="sm"
-            onClick={() => setActiveCategory(cat.slug)}
-            data-testid={`button-my-category-${cat.slug}`}
+            onClick={() => setActiveCategory(cat)}
+            data-testid={`button-my-category-${cat}`}
           >
-            {cat.name}
+            {cat.charAt(0).toUpperCase() + cat.slice(1)}
           </Button>
         ))}
       </div>
