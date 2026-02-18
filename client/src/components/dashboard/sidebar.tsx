@@ -23,8 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { TemplateSelector } from "@/components/dashboard/template-selector";
 import {
   ShoppingBag,
   LayoutDashboard,
@@ -211,15 +211,7 @@ export function CreateStoreDialog({ open, onClose }: { open: boolean; onClose: (
           </div>
           <div className="space-y-2">
             <Label>Template</Label>
-            <Select value={template} onValueChange={setTemplate}>
-              <SelectTrigger data-testid="select-template">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="neon">Neon — Bold & Modern</SelectItem>
-                <SelectItem value="silk">Silk — Elegant & Minimal</SelectItem>
-              </SelectContent>
-            </Select>
+            <TemplateSelector value={template} onChange={setTemplate} />
           </div>
           <Button
             type="submit"

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { TemplateSelector } from "@/components/dashboard/template-selector";
 import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon, CreditCard, CheckCircle2, XCircle } from "lucide-react";
 
 function ImageUploadField({
@@ -250,15 +251,7 @@ export default function StoreSettingsPage() {
             </div>
             <div className="space-y-2">
               <Label>Template</Label>
-              <Select value={templateKey} onValueChange={setTemplateKey}>
-                <SelectTrigger data-testid="select-settings-template">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="neon">Neon (Dark, Bold)</SelectItem>
-                  <SelectItem value="silk">Silk (Elegant, Minimal)</SelectItem>
-                </SelectContent>
-              </Select>
+              <TemplateSelector value={templateKey} onChange={setTemplateKey} storeName={name} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="settings-tagline">Tagline</Label>
