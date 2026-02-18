@@ -28,7 +28,10 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
   const isDark = mode === "dark";
   const [leadModalProduct, setLeadModalProduct] = useState<StorefrontProduct | null>(null);
 
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
   const handleBuy = async (product: StorefrontProduct) => {
+    setCheckoutError(null);
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
@@ -36,13 +39,15 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
         body: JSON.stringify({ storeId: store.id, productId: product.id }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        setCheckoutError(data.message || "Something went wrong. Please try again.");
+        return;
+      }
       if (data.url) {
         window.location.href = data.url;
-      } else if (data.mockUrl) {
-        window.location.href = data.mockUrl;
       }
     } catch {
-      alert("Checkout is not configured yet.");
+      setCheckoutError("Checkout is not available right now. Please try again later.");
     }
   };
 
@@ -333,6 +338,12 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
       </section>
 
       <main className="relative z-10 mx-auto max-w-6xl px-6 pb-20">
+        {checkoutError && (
+          <div className="mb-6 rounded-lg px-4 py-3 text-sm font-medium flex items-center justify-between gap-3" style={{ background: "rgba(239,68,68,0.12)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.25)" }} data-testid="text-checkout-error">
+            <span>{checkoutError}</span>
+            <button onClick={() => setCheckoutError(null)} className="shrink-0 opacity-70 hover:opacity-100" aria-label="Dismiss">&#10005;</button>
+          </div>
+        )}
         {products.length === 0 ? (
           <div className="text-center py-20" data-testid="neon-empty-products">
             <div className="neon-float inline-flex items-center justify-center h-24 w-24 rounded-2xl mx-auto mb-8" style={{ background: `${c.accent}12`, border: `1px solid ${c.accent}25` }}>
