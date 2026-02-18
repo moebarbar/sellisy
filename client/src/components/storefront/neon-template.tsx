@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift, User } from "lucide-react";
+import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift, User, X } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import type { Store, Product, Bundle } from "@shared/schema";
 
@@ -339,9 +339,11 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
 
       <main className="relative z-10 mx-auto max-w-6xl px-6 pb-20">
         {checkoutError && (
-          <div className="mb-6 rounded-lg px-4 py-3 text-sm font-medium flex items-center justify-between gap-3" style={{ background: "rgba(239,68,68,0.12)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.25)" }} data-testid="text-checkout-error">
+          <div className="mb-6 rounded-lg px-4 py-3 text-sm font-medium flex items-center justify-between gap-3" role="alert" aria-live="polite" style={{ background: isDark ? "rgba(239,68,68,0.12)" : "rgba(239,68,68,0.08)", color: isDark ? "#fca5a5" : "#dc2626", border: `1px solid ${isDark ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.2)"}` }} data-testid="text-checkout-error">
             <span>{checkoutError}</span>
-            <button onClick={() => setCheckoutError(null)} className="shrink-0 opacity-70 hover:opacity-100" aria-label="Dismiss">&#10005;</button>
+            <Button size="icon" variant="ghost" onClick={() => setCheckoutError(null)} aria-label="Dismiss error" data-testid="button-dismiss-checkout-error" className="shrink-0" style={{ color: isDark ? "#fca5a5" : "#dc2626" }}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         )}
         {products.length === 0 ? (
