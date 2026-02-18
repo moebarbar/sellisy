@@ -37,6 +37,7 @@ import {
   Settings,
   Sparkles,
   Crown,
+  BookOpen,
 } from "lucide-react";
 
 const navItems = [
@@ -47,6 +48,7 @@ const navItems = [
   { title: "Bundles", url: "/dashboard/bundles", icon: Layers },
   { title: "Coupons", url: "/dashboard/coupons", icon: Ticket },
   { title: "Orders", url: "/dashboard/orders", icon: ShoppingCart },
+  { title: "Marketing", url: "/dashboard/marketing", icon: BookOpen },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
 

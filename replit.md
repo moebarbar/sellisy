@@ -4,6 +4,7 @@
 Multi-tenant digital product storefront builder. Users sign up, create stores from templates, import products from a platform library, publish them, and accept payments with secure download delivery.
 
 ## Recent Changes
+- 2026-02-18: **Marketing Playbook** — Dashboard section with 18 curated marketing strategies across 8 categories (Launch, Email Marketing, Social Media, SEO, Content Marketing, Sales Strategy, Paid Ads, Analytics). Each strategy includes actionable steps, difficulty/impact ratings. Per-store progress tracking (Not Started/In Progress/Completed) with overall progress bar. Category and status filters. Tables: marketingStrategies (seeded content), storeStrategyProgress (per-store tracking). API: GET /api/marketing/strategies, GET/PATCH /api/marketing/progress/:storeId.
 - 2026-02-17: **PayPal payment provider** — Store owners can choose between Stripe or PayPal as their payment processor in Store Settings. PayPal credentials (Client ID + Secret) stored per-store. `/api/checkout` routes to PayPal or Stripe based on store's `paymentProvider`. PayPal flow: create order → buyer approves on PayPal → `/api/paypal/capture` captures payment, creates download tokens, redirects to success page. Sandbox/live auto-detected from Client ID format. Public storefront endpoints sanitize PayPal secrets. `paymentProvider`, `paypalClientId`, `paypalClientSecret` columns on stores table.
 - 2026-02-17: **File upload for product delivery** — Library Add Product dialog now supports direct file upload for deliverable files (via Object Storage) in addition to external URLs. Upload/URL toggle matches My Products page pattern. Separate useUpload instances for images vs deliverable files prevent state conflicts. Post-upload shows file name with remove button. Fixed React hooks ordering bug (useState after conditional return).
 - 2026-02-17: **Storefront product tags + checkout overrides** — Neon and Silk templates now display up to 3 product tags on storefront product cards. Checkout API uses store-level overrides (customTitle, customDescription) for Stripe session display and checkout success page. Products Library title consistent across sidebar and page header.
@@ -77,6 +78,7 @@ Multi-tenant digital product storefront builder. Users sign up, create stores fr
 - `client/src/components/storefront/` — Neon and Silk templates
 - `client/src/components/storefront/lead-magnet-modal.tsx` — Shared email capture modal for lead magnets
 - `client/src/pages/claim-success.tsx` — Post-claim success page with download and upsell
+- `client/src/pages/dashboard/marketing-playbook.tsx` — Marketing Playbook page with strategy cards, progress tracking, and filters
 
 ## User Preferences
 - Clean, minimal code

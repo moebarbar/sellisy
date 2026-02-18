@@ -4,9 +4,9 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { orders, orderItems, downloadTokens, coupons, customers, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
-import { seedDatabase } from "./seed";
+import { orders, orderItems, downloadTokens, coupons, customers, marketingStrategies, storeStrategyProgress, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { seedDatabase, seedMarketingIfNeeded } from "./seed";
 import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
@@ -116,6 +116,7 @@ export async function registerRoutes(
   app.use(cookieParser());
 
   await seedDatabase();
+  await seedMarketingIfNeeded();
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
@@ -1746,6 +1747,57 @@ export async function registerRoutes(
     }
 
     res.json({ files });
+  });
+
+  app.get("/api/marketing/strategies", isAuthenticated, async (_req, res) => {
+    const allStrategies = await db.select().from(marketingStrategies).orderBy(marketingStrategies.category, marketingStrategies.sortOrder);
+    res.json(allStrategies);
+  });
+
+  app.get("/api/marketing/progress/:storeId", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const storeId = req.params.storeId as string;
+    const store = await storage.getStoreById(storeId);
+    if (!store || store.ownerId !== userId) {
+      return res.status(403).json({ message: "Not your store" });
+    }
+    const progress = await db.select().from(storeStrategyProgress).where(eq(storeStrategyProgress.storeId, storeId));
+    res.json(progress);
+  });
+
+  app.patch("/api/marketing/progress/:storeId/:strategyId", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const storeId = req.params.storeId as string;
+    const strategyId = req.params.strategyId as string;
+    const store = await storage.getStoreById(storeId);
+    if (!store || store.ownerId !== userId) {
+      return res.status(403).json({ message: "Not your store" });
+    }
+
+    const { status } = req.body as { status: "not_started" | "in_progress" | "completed" };
+    if (!["not_started", "in_progress", "completed"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const existing = await db.select().from(storeStrategyProgress)
+      .where(and(
+        eq(storeStrategyProgress.storeId, storeId),
+        eq(storeStrategyProgress.strategyId, strategyId),
+      ));
+
+    if (existing.length > 0) {
+      await db.update(storeStrategyProgress)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(storeStrategyProgress.id, existing[0].id));
+    } else {
+      await db.insert(storeStrategyProgress).values({
+        storeId,
+        strategyId,
+        status,
+      });
+    }
+
+    res.json({ success: true });
   });
 
   return httpServer;

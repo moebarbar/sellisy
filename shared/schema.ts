@@ -272,3 +272,34 @@ export const categories = pgTable("categories", {
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true });
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
+
+export const strategyStatusEnum = pgEnum("strategy_status", ["not_started", "in_progress", "completed"]);
+export const strategyDifficultyEnum = pgEnum("strategy_difficulty", ["easy", "medium", "hard"]);
+export const strategyImpactEnum = pgEnum("strategy_impact", ["low", "medium", "high"]);
+
+export const marketingStrategies = pgTable("marketing_strategies", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  steps: text("steps").array().notNull(),
+  difficulty: strategyDifficultyEnum("difficulty").notNull().default("medium"),
+  impact: strategyImpactEnum("impact").notNull().default("medium"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertMarketingStrategySchema = createInsertSchema(marketingStrategies);
+export type InsertMarketingStrategy = z.infer<typeof insertMarketingStrategySchema>;
+export type MarketingStrategy = typeof marketingStrategies.$inferSelect;
+
+export const storeStrategyProgress = pgTable("store_strategy_progress", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  strategyId: varchar("strategy_id", { length: 64 }).notNull(),
+  status: strategyStatusEnum("status").notNull().default("not_started"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertStoreStrategyProgressSchema = createInsertSchema(storeStrategyProgress).omit({ id: true, updatedAt: true });
+export type InsertStoreStrategyProgress = z.infer<typeof insertStoreStrategyProgressSchema>;
+export type StoreStrategyProgress = typeof storeStrategyProgress.$inferSelect;
