@@ -4,7 +4,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { orders, orderItems, downloadTokens, coupons, customers, marketingStrategies, storeStrategyProgress, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
+import { orders, orderItems, downloadTokens, coupons, customers, products, marketingStrategies, storeStrategyProgress, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { seedDatabase, seedMarketingIfNeeded } from "./seed";
 import { randomBytes, createHash } from "crypto";
@@ -300,6 +300,20 @@ export async function registerRoutes(
   app.get("/api/products/library", isAuthenticated, async (_req, res) => {
     const library = await storage.getLibraryProducts();
     res.json(library);
+  });
+
+  app.post("/api/products/:id/promote", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+
+    const productId = req.params.id as string;
+    const product = await storage.getProductById(productId);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (product.source === "PLATFORM") return res.status(400).json({ message: "Product is already a platform product" });
+
+    await db.update(products).set({ source: "PLATFORM", ownerId: null }).where(eq(products.id, productId));
+    const updated = await storage.getProductById(productId);
+    res.json(updated);
   });
 
   app.post("/api/products/bulk-import", isAuthenticated, async (req, res) => {
