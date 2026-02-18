@@ -25,7 +25,9 @@ import {
   Zap,
   Target,
   Filter,
+  ArrowRight,
 } from "lucide-react";
+import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const CATEGORY_ICONS: Record<string, typeof Rocket> = {
@@ -155,16 +157,26 @@ function StrategyCard({
           </span>
         </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-between text-xs text-muted-foreground"
-          onClick={() => setExpanded(!expanded)}
-          data-testid={`button-expand-${strategy.id}`}
-        >
-          {expanded ? "Hide steps" : `${strategy.steps.length} actionable steps`}
-          {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1 justify-between text-xs text-muted-foreground"
+            onClick={() => setExpanded(!expanded)}
+            data-testid={`button-expand-${strategy.id}`}
+          >
+            {expanded ? "Hide steps" : `${strategy.steps.length} actionable steps`}
+            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </Button>
+          {strategy.content && (
+            <Link href={`/dashboard/marketing/${strategy.id}`}>
+              <Button variant="outline" size="sm" className="gap-1 text-xs" data-testid={`button-view-guide-${strategy.id}`}>
+                Full Guide
+                <ArrowRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          )}
+        </div>
 
         {expanded && (
           <ol className="space-y-2 pl-1">

@@ -283,6 +283,7 @@ export const marketingStrategies = pgTable("marketing_strategies", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   steps: text("steps").array().notNull(),
+  content: text("content"),
   difficulty: strategyDifficultyEnum("difficulty").notNull().default("medium"),
   impact: strategyImpactEnum("impact").notNull().default("medium"),
   sortOrder: integer("sort_order").notNull().default(0),

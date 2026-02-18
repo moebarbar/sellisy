@@ -27,6 +27,7 @@ const LibraryPage = lazy(() => import("@/pages/dashboard/library"));
 const MyProductsPage = lazy(() => import("@/pages/dashboard/my-products"));
 const StoreSettingsPage = lazy(() => import("@/pages/dashboard/store-settings"));
 const MarketingPlaybookPage = lazy(() => import("@/pages/dashboard/marketing-playbook"));
+const StrategyDetailPage = lazy(() => import("@/pages/dashboard/strategy-detail"));
 
 const AccountLoginPage = lazy(() => import("@/pages/account/login"));
 const AccountVerifyPage = lazy(() => import("@/pages/account/verify"));
@@ -73,6 +74,9 @@ function Router() {
         </Route>
         <Route path="/dashboard/settings">
           <DashboardLayout><StoreSettingsPage /></DashboardLayout>
+        </Route>
+        <Route path="/dashboard/marketing/:strategyId">
+          <DashboardLayout><StrategyDetailPage /></DashboardLayout>
         </Route>
         <Route path="/dashboard/marketing">
           <DashboardLayout><MarketingPlaybookPage /></DashboardLayout>
