@@ -19,7 +19,7 @@ import {
   ListChecks,
   Lightbulb,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useEffect, useRef } from "react";
 
 function parseMarkdown(md: string) {
   const lines = md.split("\n");
@@ -258,6 +258,17 @@ export default function StrategyDetailPage() {
     return strategies.filter((s) => s.category === strategy.category && s.id !== strategy.id);
   }, [strategy, strategies]);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const scrollParent = containerRef.current?.closest("main");
+    if (scrollParent) {
+      scrollParent.scrollTo(0, 0);
+    } else {
+      window.scrollTo(0, 0);
+    }
+  }, [strategyId]);
+
   const renderedContent = useMemo(() => {
     if (!strategy?.content) return null;
     return parseMarkdown(strategy.content);
@@ -295,7 +306,7 @@ export default function StrategyDetailPage() {
   const imp = IMPACT_LABELS[strategy.impact];
 
   return (
-    <div className="p-6 max-w-4xl mx-auto" data-testid="strategy-detail-page">
+    <div ref={containerRef} className="p-6 max-w-4xl mx-auto" data-testid="strategy-detail-page">
       <Link href="/dashboard/marketing">
         <Button variant="ghost" size="sm" className="gap-1.5 mb-6 text-muted-foreground" data-testid="button-back-to-playbook">
           <ArrowLeft className="h-4 w-4" />
