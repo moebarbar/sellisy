@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check, Zap, Gem, Eye, ShoppingBag, Package, Star, X } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 
 type TemplatePreviewColors = {
@@ -373,6 +374,10 @@ export function TemplateSelector({
 
       <Dialog open={!!previewTemplate} onOpenChange={(open) => !open && setPreviewKey(null)}>
         <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden">
+          <VisuallyHidden>
+            <DialogTitle>{previewTemplate?.name || "Template"} Preview</DialogTitle>
+            <DialogDescription>Full preview of the {previewTemplate?.name || ""} storefront template</DialogDescription>
+          </VisuallyHidden>
           {previewTemplate && (
             <>
               <div className="flex items-center justify-between px-4 py-3 border-b">
