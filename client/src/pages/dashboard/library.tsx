@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles, Plus, Trash2, Upload, ImagePlus, Star, X, FileIcon, Link as LinkIcon } from "lucide-react";
+import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles, Plus, Trash2, Upload, ImagePlus, Star, X, FileIcon, Link as LinkIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Product, PlanTier } from "@shared/schema";
 import { canAccessTier } from "@shared/schema";
 
@@ -295,6 +295,90 @@ export default function LibraryPage() {
   );
 }
 
+function ImageCarousel({ images, isLocked, requiredTier }: { images: { url: string }[]; isLocked: boolean; requiredTier: PlanTier }) {
+  const [current, setCurrent] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const total = images.length;
+
+  const scrollTo = useCallback((index: number) => {
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+    el.scrollTo({ left: index * el.clientWidth, behavior: "smooth" });
+  }, []);
+
+  const prev = () => scrollTo((current - 1 + total) % total);
+  const next = () => scrollTo((current + 1) % total);
+
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    setCurrent(idx);
+  }, []);
+
+  if (total === 0) return null;
+
+  return (
+    <div className="relative rounded-md overflow-hidden bg-muted aspect-square group" data-testid="carousel-container">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex w-full h-full overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
+      >
+        {images.map((img, i) => (
+          <img
+            key={i}
+            src={img.url}
+            alt={`Image ${i + 1} of ${total}`}
+            className={`w-full h-full object-cover flex-shrink-0 snap-center ${isLocked ? "grayscale" : ""}`}
+            data-testid={i === 0 ? "img-detail-product" : `img-carousel-${i}`}
+            draggable={false}
+          />
+        ))}
+      </div>
+      {isLocked && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+          <div className="flex flex-col items-center gap-2">
+            <Lock className="h-10 w-10 text-white drop-shadow-md" />
+            <span className="text-sm font-medium text-white drop-shadow-md">
+              {TIER_LABELS[requiredTier]} Plan Required
+            </span>
+          </div>
+        </div>
+      )}
+      {total > 1 && (
+        <>
+          <button
+            onClick={prev}
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            data-testid="button-carousel-prev"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            onClick={next}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            data-testid="button-carousel-next"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5" data-testid="carousel-dots">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => scrollTo(i)}
+                className={`w-2 h-2 rounded-full transition-all ${i === current ? "bg-white w-4" : "bg-white/50"}`}
+                data-testid={`button-carousel-dot-${i}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ProductDetailDialog({
   product,
   isImported,
@@ -312,6 +396,19 @@ function ProductDetailDialog({
 }) {
   const requiredTier = (product?.requiredTier || "basic") as PlanTier;
 
+  const { data: productImages } = useQuery<{ id: string; url: string; sortOrder: number; isPrimary: boolean }[]>({
+    queryKey: [`/api/products/${product?.id}/images`],
+    enabled: !!product,
+  });
+
+  const carouselImages = useMemo(() => {
+    if (productImages && productImages.length > 0) {
+      return [...productImages].sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+    if (product?.thumbnailUrl) return [{ url: product.thumbnailUrl }];
+    return [];
+  }, [productImages, product?.thumbnailUrl]);
+
   return (
     <Dialog open={!!product} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
@@ -321,25 +418,8 @@ function ProductDetailDialog({
         </DialogHeader>
         {product && (
           <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-            {product.thumbnailUrl && (
-              <div className="relative rounded-md overflow-hidden bg-muted aspect-square">
-                <img
-                  src={product.thumbnailUrl}
-                  alt={product.title}
-                  className={`w-full h-full object-cover ${isLocked ? "grayscale" : ""}`}
-                  data-testid="img-detail-product"
-                />
-                {isLocked && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <div className="flex flex-col items-center gap-2">
-                      <Lock className="h-10 w-10 text-white drop-shadow-md" />
-                      <span className="text-sm font-medium text-white drop-shadow-md">
-                        {TIER_LABELS[requiredTier]} Plan Required
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
+            {carouselImages.length > 0 && (
+              <ImageCarousel images={carouselImages} isLocked={isLocked} requiredTier={requiredTier} />
             )}
 
             <div className="flex items-center justify-between gap-4 flex-wrap">
