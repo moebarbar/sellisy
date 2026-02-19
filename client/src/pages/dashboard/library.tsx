@@ -314,13 +314,13 @@ function ProductDetailDialog({
 
   return (
     <Dialog open={!!product} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle data-testid="text-detail-title">{product?.title}</DialogTitle>
           <DialogDescription>Product details and information</DialogDescription>
         </DialogHeader>
         {product && (
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
             {product.thumbnailUrl && (
               <div className="relative rounded-md overflow-hidden bg-muted aspect-square">
                 <img
