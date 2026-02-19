@@ -953,6 +953,55 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
+  app.post("/api/knowledge-bases/:id/create-product", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const kb = await storage.getKnowledgeBaseById(req.params.id as string);
+    if (!kb || kb.ownerId !== userId) return res.status(404).json({ message: "Not found" });
+
+    const pages = await storage.getKbPagesByKnowledgeBase(kb.id);
+    if (pages.length === 0) return res.status(400).json({ message: "Add at least one page before creating a product." });
+
+    const appUrl = `${req.protocol}://${req.get("host")}`;
+    const accessUrl = `${appUrl}/kb/${kb.id}`;
+
+    if (kb.productId) {
+      const existing = await storage.getProductById(kb.productId);
+      if (existing && existing.ownerId === userId) {
+        await storage.updateProduct(existing.id, {
+          title: kb.title,
+          description: kb.description || `Knowledge base with ${pages.length} pages`,
+          priceCents: kb.priceCents,
+          thumbnailUrl: kb.coverImageUrl || null,
+          accessUrl,
+          status: kb.isPublished ? "ACTIVE" : "DRAFT",
+        });
+        const updated = await storage.getProductById(existing.id);
+        return res.json(updated);
+      }
+    }
+
+    const product = await storage.createProduct({
+      ownerId: userId,
+      source: "USER",
+      title: kb.title,
+      description: kb.description || `Knowledge base with ${pages.length} pages`,
+      category: "courses",
+      priceCents: kb.priceCents,
+      thumbnailUrl: kb.coverImageUrl || null,
+      fileUrl: null,
+      status: kb.isPublished ? "ACTIVE" : "DRAFT",
+      requiredTier: "basic",
+      productType: "course",
+      deliveryInstructions: "Access your course content using the link below. Your access token is automatically included.",
+      accessUrl,
+      redemptionCode: null,
+      tags: ["course", "knowledge-base"],
+    });
+
+    await storage.updateKnowledgeBase(kb.id, { productId: product.id });
+    res.json(product);
+  });
+
   app.get("/api/knowledge-bases/:id/pages", isAuthenticated, async (req, res) => {
     const kb = await storage.getKnowledgeBaseById(req.params.id as string);
     if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
@@ -1077,12 +1126,58 @@ export async function registerRoutes(
     const kb = await storage.getKnowledgeBaseById(req.params.id as string);
     if (!kb || !kb.isPublished) return res.status(404).json({ message: "Not found" });
     const pages = await storage.getKbPagesByKnowledgeBase(kb.id);
-    res.json({ knowledgeBase: { id: kb.id, title: kb.title, description: kb.description, coverImageUrl: kb.coverImageUrl }, pages });
+    const isPaid = kb.priceCents > 0;
+
+    let hasAccess = !isPaid;
+    if (isPaid) {
+      const accessToken = req.query.token as string | undefined;
+      if (accessToken) {
+        const dl = await db.select().from(downloadTokens).where(eq(downloadTokens.tokenHash, accessToken)).then(r => r[0]);
+        if (dl && (!dl.expiresAt || dl.expiresAt > new Date())) {
+          hasAccess = true;
+        }
+      }
+      const userId = getUserId(req);
+      if (userId && userId === kb.ownerId) {
+        hasAccess = true;
+      }
+    }
+
+    res.json({
+      knowledgeBase: {
+        id: kb.id,
+        title: kb.title,
+        description: kb.description,
+        coverImageUrl: kb.coverImageUrl,
+        priceCents: kb.priceCents,
+      },
+      pages: hasAccess ? pages : pages.map(p => ({ ...p, locked: true })),
+      hasAccess,
+    });
   });
 
   app.get("/api/kb/:id/view/page/:pageId", async (req, res) => {
     const kb = await storage.getKnowledgeBaseById(req.params.id as string);
     if (!kb || !kb.isPublished) return res.status(404).json({ message: "Not found" });
+
+    const isPaid = kb.priceCents > 0;
+    let hasAccess = !isPaid;
+    if (isPaid) {
+      const accessToken = req.query.token as string | undefined;
+      if (accessToken) {
+        const dl = await db.select().from(downloadTokens).where(eq(downloadTokens.tokenHash, accessToken)).then(r => r[0]);
+        if (dl && (!dl.expiresAt || dl.expiresAt > new Date())) {
+          hasAccess = true;
+        }
+      }
+      const userId = getUserId(req);
+      if (userId && userId === kb.ownerId) {
+        hasAccess = true;
+      }
+    }
+
+    if (!hasAccess) return res.status(403).json({ message: "Purchase required to access this content." });
+
     const page = await storage.getKbPageById(req.params.pageId as string);
     if (!page || page.knowledgeBaseId !== kb.id) return res.status(404).json({ message: "Not found" });
     const blocks = await storage.getKbBlocksByPage(page.id);
@@ -1829,11 +1924,21 @@ export async function registerRoutes(
     const store = await storage.getStoreById(order.storeId);
     const items = await storage.getOrderItemsByOrder(order.id);
 
+    const orderTokens = await db.select().from(downloadTokens).where(eq(downloadTokens.orderId, order.id));
+    const activeToken = orderTokens.find(t => !t.expiresAt || t.expiresAt > new Date());
+
     const itemsWithFiles = await Promise.all(
       items.map(async (item) => {
         const assets = await storage.getFileAssetsByProduct(item.productId);
         const hasFiles = assets.length > 0 || !!item.product.fileUrl;
         const sp = await storage.getStoreProductByStoreAndProduct(order.storeId, item.productId);
+        let resolvedAccessUrl = sp?.customAccessUrl || item.product.accessUrl || null;
+
+        if (resolvedAccessUrl && resolvedAccessUrl.includes("/kb/") && activeToken) {
+          const sep = resolvedAccessUrl.includes("?") ? "&" : "?";
+          resolvedAccessUrl = `${resolvedAccessUrl}${sep}token=${activeToken.tokenHash}`;
+        }
+
         return {
           id: item.id,
           productId: item.productId,
@@ -1843,7 +1948,7 @@ export async function registerRoutes(
           hasFiles,
           productType: item.product.productType || "digital",
           deliveryInstructions: sp?.customDeliveryInstructions || item.product.deliveryInstructions || null,
-          accessUrl: sp?.customAccessUrl || item.product.accessUrl || null,
+          accessUrl: resolvedAccessUrl,
           redemptionCode: sp?.customRedemptionCode || item.product.redemptionCode || null,
           description: sp?.customDescription || item.product.description || null,
         };

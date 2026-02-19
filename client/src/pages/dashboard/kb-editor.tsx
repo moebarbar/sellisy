@@ -1,13 +1,18 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +38,11 @@ import {
   ArrowLeft,
   MoreHorizontal,
   Edit3,
+  Settings,
+  Eye,
+  ExternalLink,
+  Copy,
+  Check,
 } from "lucide-react";
 import type { KnowledgeBase, KbPage, KbBlock } from "@shared/schema";
 
@@ -48,6 +58,37 @@ const BLOCK_TYPES: { type: BlockType; label: string; icon: any; description: str
   { type: "link", label: "External Link", icon: LinkIcon, description: "Add a clickable link" },
 ];
 
+function useDebouncedCallback(callback: (value: string) => void, delay: number) {
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  return useCallback((value: string) => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => callback(value), delay);
+  }, [callback, delay]);
+}
+
+function DebouncedInput({
+  value: externalValue,
+  onChange,
+  delay = 600,
+  ...props
+}: { value: string; onChange: (val: string) => void; delay?: number } & Omit<React.ComponentProps<typeof Input>, "value" | "onChange">) {
+  const [localValue, setLocalValue] = useState(externalValue);
+  const debouncedSave = useDebouncedCallback(onChange, delay);
+
+  useEffect(() => { setLocalValue(externalValue); }, [externalValue]);
+
+  return (
+    <Input
+      {...props}
+      value={localValue}
+      onChange={(e) => {
+        setLocalValue(e.target.value);
+        debouncedSave(e.target.value);
+      }}
+    />
+  );
+}
+
 function PageTree({
   pages,
   activePageId,
@@ -55,7 +96,6 @@ function PageTree({
   onCreatePage,
   onDeletePage,
   onRenamePage,
-  kbId,
 }: {
   pages: KbPage[];
   activePageId: string | null;
@@ -63,7 +103,6 @@ function PageTree({
   onCreatePage: (parentId?: string | null) => void;
   onDeletePage: (id: string) => void;
   onRenamePage: (id: string, title: string) => void;
-  kbId: string;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -71,10 +110,6 @@ function PageTree({
 
   const rootPages = pages.filter((p) => !p.parentPageId);
   const getChildren = (parentId: string) => pages.filter((p) => p.parentPageId === parentId);
-
-  const toggleExpand = (id: string) => {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const startRename = (page: KbPage) => {
     setEditingId(page.id);
@@ -107,7 +142,7 @@ function PageTree({
         >
           {hasChildren ? (
             <button
-              onClick={(e) => { e.stopPropagation(); toggleExpand(page.id); }}
+              onClick={(e) => { e.stopPropagation(); setExpanded((prev) => ({ ...prev, [page.id]: !prev[page.id] })); }}
               className="p-0.5 flex-shrink-0"
               data-testid={`button-toggle-${page.id}`}
             >
@@ -196,8 +231,6 @@ function BlockEditor({
   const { toast } = useToast();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
-  const [showSlashMenu, setShowSlashMenu] = useState<string | null>(null);
-  const [slashFilter, setSlashFilter] = useState("");
 
   const createBlockMutation = useMutation({
     mutationFn: async (data: { type: BlockType; sortOrder: number }) => {
@@ -205,13 +238,14 @@ function BlockEditor({
       return res.json();
     },
     onSuccess: () => onRefresh(),
+    onError: () => toast({ title: "Error", description: "Failed to add block.", variant: "destructive" }),
   });
 
   const updateBlockMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<KbBlock> }) => {
       await apiRequest("PATCH", `/api/kb-blocks/${id}`, data);
     },
-    onSuccess: () => onRefresh(),
+    onError: () => toast({ title: "Error", description: "Failed to save block.", variant: "destructive" }),
   });
 
   const deleteBlockMutation = useMutation({
@@ -219,6 +253,7 @@ function BlockEditor({
       await apiRequest("DELETE", `/api/kb-blocks/${id}`);
     },
     onSuccess: () => onRefresh(),
+    onError: () => toast({ title: "Error", description: "Failed to delete block.", variant: "destructive" }),
   });
 
   const reorderMutation = useMutation({
@@ -226,24 +261,20 @@ function BlockEditor({
       await apiRequest("PUT", `/api/kb-pages/${pageId}/blocks/reorder`, { blockIds });
     },
     onSuccess: () => onRefresh(),
+    onError: () => toast({ title: "Error", description: "Failed to reorder blocks.", variant: "destructive" }),
   });
 
   const addBlock = (type: BlockType, afterIndex?: number) => {
     const sortOrder = afterIndex != null ? afterIndex + 1 : blocks.length;
     createBlockMutation.mutate({ type, sortOrder });
-    setShowSlashMenu(null);
-    setSlashFilter("");
   };
 
   const handleContentChange = useCallback((blockId: string, content: string) => {
-    if (content.startsWith("/")) {
-      setShowSlashMenu(blockId);
-      setSlashFilter(content.slice(1).toLowerCase());
-      return;
-    }
-    setShowSlashMenu(null);
-    setSlashFilter("");
     updateBlockMutation.mutate({ id: blockId, data: { content } });
+  }, []);
+
+  const handleTypeChange = useCallback((blockId: string, type: BlockType) => {
+    updateBlockMutation.mutate({ id: blockId, data: { type, content: "" } });
   }, []);
 
   const handleDragStart = (idx: number) => setDragIdx(idx);
@@ -265,63 +296,54 @@ function BlockEditor({
     setDragOverIdx(null);
   };
 
-  const filteredTypes = BLOCK_TYPES.filter(
-    (bt) => bt.label.toLowerCase().includes(slashFilter) || bt.type.includes(slashFilter)
-  );
-
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       {blocks.map((block, idx) => (
-        <div
-          key={block.id}
-          className={`group relative flex items-start gap-1 ${
-            dragOverIdx === idx ? "border-t-2 border-primary" : ""
-          }`}
-          draggable
-          onDragStart={() => handleDragStart(idx)}
-          onDragOver={(e) => handleDragOver(e, idx)}
-          onDrop={() => handleDrop(idx)}
-          onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
-          data-testid={`block-${block.id}`}
-        >
-          <div className="flex flex-col items-center gap-0.5 pt-1 invisible group-hover:visible flex-shrink-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground" data-testid={`grip-${block.id}`}>
-                  <GripVertical className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Drag to reorder</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="p-0.5 rounded text-muted-foreground"
-                  onClick={() => deleteBlockMutation.mutate(block.id)}
-                  data-testid={`button-delete-block-${block.id}`}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Delete block</TooltipContent>
-            </Tooltip>
-          </div>
+        <div key={block.id}>
+          <InlineAddButton onClick={(type) => addBlock(type, idx - 1)} show={idx === 0} />
+          <div
+            className={`group relative flex items-start gap-1 rounded-md transition-colors ${
+              dragOverIdx === idx ? "bg-primary/5 border-l-2 border-primary" : ""
+            } ${dragIdx === idx ? "opacity-40" : ""}`}
+            draggable
+            onDragStart={() => handleDragStart(idx)}
+            onDragOver={(e) => handleDragOver(e, idx)}
+            onDrop={() => handleDrop(idx)}
+            onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+            data-testid={`block-${block.id}`}
+          >
+            <div className="flex flex-col items-center gap-0.5 pt-1 invisible group-hover:visible flex-shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground" data-testid={`grip-${block.id}`}>
+                    <GripVertical className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Drag to reorder</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="p-0.5 rounded text-muted-foreground"
+                    onClick={() => deleteBlockMutation.mutate(block.id)}
+                    data-testid={`button-delete-block-${block.id}`}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Delete block</TooltipContent>
+              </Tooltip>
+            </div>
 
-          <div className="flex-1 min-w-0 relative">
-            <BlockContent
-              block={block}
-              onContentChange={handleContentChange}
-              showSlashMenu={showSlashMenu === block.id}
-              slashFilter={slashFilter}
-              filteredTypes={filteredTypes}
-              onSelectSlashType={(type) => {
-                updateBlockMutation.mutate({ id: block.id, data: { type, content: "" } });
-                setShowSlashMenu(null);
-                setSlashFilter("");
-              }}
-              onDismissSlash={() => { setShowSlashMenu(null); setSlashFilter(""); }}
-            />
+            <div className="flex-1 min-w-0 relative">
+              <BlockContent
+                block={block}
+                onContentChange={handleContentChange}
+                onTypeChange={handleTypeChange}
+              />
+            </div>
           </div>
+          <InlineAddButton onClick={(type) => addBlock(type, idx)} />
         </div>
       ))}
 
@@ -350,49 +372,122 @@ function BlockEditor({
   );
 }
 
+function InlineAddButton({ onClick, show }: { onClick: (type: BlockType) => void; show?: boolean }) {
+  return (
+    <div className={`group/add flex items-center h-2 ${show ? "" : ""}`}>
+      <div className="invisible group-hover/add:visible flex items-center w-full">
+        <div className="flex-1 h-px bg-border" />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="flex-shrink-0 mx-1 p-0 rounded-full bg-muted border w-5 h-5 flex items-center justify-center text-muted-foreground"
+              data-testid="button-inline-add-block"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            {BLOCK_TYPES.map((bt) => (
+              <DropdownMenuItem key={bt.type} onClick={() => onClick(bt.type)}>
+                <bt.icon className="mr-2 h-4 w-4" />
+                <div>
+                  <div className="text-sm">{bt.label}</div>
+                  <div className="text-xs text-muted-foreground">{bt.description}</div>
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+    </div>
+  );
+}
+
 function BlockContent({
   block,
   onContentChange,
-  showSlashMenu,
-  slashFilter,
-  filteredTypes,
-  onSelectSlashType,
-  onDismissSlash,
+  onTypeChange,
 }: {
   block: KbBlock;
   onContentChange: (id: string, content: string) => void;
-  showSlashMenu: boolean;
-  slashFilter: string;
-  filteredTypes: typeof BLOCK_TYPES;
-  onSelectSlashType: (type: BlockType) => void;
-  onDismissSlash: () => void;
+  onTypeChange: (id: string, type: BlockType) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashFilter, setSlashFilter] = useState("");
+
+  const saveContent = useCallback((text: string) => {
+    onContentChange(block.id, text);
+  }, [block.id, onContentChange]);
 
   const handleInput = () => {
     if (!ref.current) return;
     const text = ref.current.innerText;
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      onContentChange(block.id, text);
-    }, 500);
+
+    if (text.startsWith("/")) {
+      setShowSlashMenu(true);
+      setSlashFilter(text.slice(1).toLowerCase());
+      return;
+    }
+
+    setShowSlashMenu(false);
+    setSlashFilter("");
+    debounceRef.current = setTimeout(() => saveContent(text), 500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (showSlashMenu && e.key === "Escape") {
       e.preventDefault();
-      onDismissSlash();
+      setShowSlashMenu(false);
+      setSlashFilter("");
     }
+    if (e.key === "Enter" && !e.shiftKey && showSlashMenu) {
+      e.preventDefault();
+      const filtered = BLOCK_TYPES.filter(
+        (bt) => bt.label.toLowerCase().includes(slashFilter) || bt.type.includes(slashFilter)
+      );
+      if (filtered.length > 0) {
+        selectSlashType(filtered[0].type);
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    if (!ref.current) return;
+    clearTimeout(debounceRef.current);
+    const text = ref.current.innerText;
+    if (showSlashMenu) {
+      setShowSlashMenu(false);
+      setSlashFilter("");
+    }
+    saveContent(text);
+  };
+
+  const selectSlashType = (type: BlockType) => {
+    setShowSlashMenu(false);
+    setSlashFilter("");
+    onTypeChange(block.id, type);
+    if (ref.current) ref.current.innerText = "";
   };
 
   useEffect(() => {
     if (ref.current && ref.current.innerText !== block.content) {
       ref.current.innerText = block.content;
     }
-  }, [block.id]);
+  }, [block.id, block.content]);
+
+  useEffect(() => {
+    return () => clearTimeout(debounceRef.current);
+  }, []);
 
   const baseClass = "outline-none w-full min-h-[1.5em] whitespace-pre-wrap break-words";
+
+  const filteredTypes = BLOCK_TYPES.filter(
+    (bt) => bt.label.toLowerCase().includes(slashFilter) || bt.type.includes(slashFilter)
+  );
 
   const renderEditable = (className: string, placeholder: string) => (
     <div className="relative">
@@ -404,6 +499,7 @@ function BlockContent({
         data-placeholder={placeholder}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
         data-testid={`editor-block-${block.id}`}
       />
       {showSlashMenu && filteredTypes.length > 0 && (
@@ -412,7 +508,7 @@ function BlockContent({
             <button
               key={bt.type}
               className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left hover-elevate"
-              onClick={() => onSelectSlashType(bt.type)}
+              onMouseDown={(e) => { e.preventDefault(); selectSlashType(bt.type); }}
               data-testid={`slash-${bt.type}`}
             >
               <bt.icon className="h-4 w-4 text-muted-foreground" />
@@ -502,6 +598,210 @@ function BlockContent({
   }
 }
 
+function KbSettingsPanel({
+  kb,
+  kbId,
+  pageCount,
+}: {
+  kb: KnowledgeBase;
+  kbId: string;
+  pageCount: number;
+}) {
+  const { toast } = useToast();
+  const [showSettings, setShowSettings] = useState(false);
+  const [description, setDescription] = useState(kb.description || "");
+  const [coverImageUrl, setCoverImageUrl] = useState(kb.coverImageUrl || "");
+  const [priceCents, setPriceCents] = useState(kb.priceCents || 0);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setDescription(kb.description || "");
+    setCoverImageUrl(kb.coverImageUrl || "");
+    setPriceCents(kb.priceCents || 0);
+  }, [kb]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: Partial<KnowledgeBase>) => {
+      const res = await apiRequest("PATCH", `/api/knowledge-bases/${kbId}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/knowledge-bases/${kbId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/knowledge-bases"] });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to update settings.", variant: "destructive" }),
+  });
+
+  const togglePublish = () => {
+    if (!kb.isPublished && pageCount === 0) {
+      toast({ title: "Cannot publish", description: "Add at least one page before publishing.", variant: "destructive" });
+      return;
+    }
+    updateMutation.mutate({ isPublished: !kb.isPublished });
+    if (!kb.isPublished) {
+      toast({ title: "Published!", description: "Your knowledge base is now publicly accessible." });
+    } else {
+      toast({ title: "Unpublished", description: "Your knowledge base is no longer publicly visible." });
+    }
+  };
+
+  const createProductMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/knowledge-bases/${kbId}/create-product`);
+      return res.json();
+    },
+    onSuccess: (product: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/knowledge-bases/${kbId}`] });
+      toast({ title: "Product created!", description: `"${product.title}" is now available in your Products page for import into any store.` });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to create product.", variant: "destructive" }),
+  });
+
+  const saveSettings = () => {
+    updateMutation.mutate({ description, coverImageUrl: coverImageUrl || null, priceCents });
+    toast({ title: "Saved", description: "Settings updated." });
+    setShowSettings(false);
+  };
+
+  const viewerUrl = `${window.location.origin}/kb/${kbId}`;
+  const copyLink = () => {
+    navigator.clipboard.writeText(viewerUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {kb.isPublished && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => window.open(viewerUrl, "_blank")}
+                data-testid="button-preview-kb"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Preview live page</TooltipContent>
+          </Tooltip>
+        )}
+        {kb.isPublished && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={copyLink} data-testid="button-copy-kb-link">
+                {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{copied ? "Copied!" : "Copy link"}</TooltipContent>
+          </Tooltip>
+        )}
+        <Button
+          variant={kb.isPublished ? "secondary" : "default"}
+          size="sm"
+          onClick={togglePublish}
+          disabled={updateMutation.isPending}
+          data-testid="button-toggle-publish"
+        >
+          {updateMutation.isPending && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+          {kb.isPublished ? "Unpublish" : "Publish"}
+        </Button>
+        <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)} data-testid="button-kb-settings">
+          <Settings className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Knowledge Base Settings</DialogTitle>
+            <DialogDescription>Configure how your content appears to readers.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="A brief description of this knowledge base..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                data-testid="input-kb-description"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Cover Image URL</Label>
+              <Input
+                placeholder="https://example.com/cover.jpg"
+                value={coverImageUrl}
+                onChange={(e) => setCoverImageUrl(e.target.value)}
+                data-testid="input-kb-cover-image"
+              />
+              {coverImageUrl && (
+                <div className="rounded-md overflow-hidden bg-muted aspect-video mt-2">
+                  <img src={coverImageUrl} alt="Cover preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Price (USD)</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">$</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={(priceCents / 100).toFixed(2)}
+                  onChange={(e) => setPriceCents(Math.round(parseFloat(e.target.value || "0") * 100))}
+                  data-testid="input-kb-price"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Set to 0 for free access. Paid content requires purchase verification.</p>
+            </div>
+            {kb.isPublished && (
+              <div className="space-y-1.5">
+                <Label>Public Link</Label>
+                <div className="flex items-center gap-2">
+                  <Input readOnly value={viewerUrl} className="text-xs" data-testid="input-kb-public-link" />
+                  <Button variant="outline" size="icon" onClick={copyLink}>
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label>Sell as Product</Label>
+              <p className="text-xs text-muted-foreground">
+                {kb.productId
+                  ? "This knowledge base is linked to a product. Click below to sync changes."
+                  : "Create a course product from this knowledge base so you can import it into your stores and sell it."}
+              </p>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => createProductMutation.mutate()}
+                disabled={createProductMutation.isPending || pageCount === 0}
+                data-testid="button-create-product-from-kb"
+              >
+                {createProductMutation.isPending && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                {kb.productId ? "Sync Product" : "Create Product"}
+              </Button>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowSettings(false)}>Cancel</Button>
+              <Button onClick={saveSettings} disabled={updateMutation.isPending} data-testid="button-save-kb-settings">
+                {updateMutation.isPending && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                Save Settings
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function KbEditorPage() {
   const [, params] = useRoute("/dashboard/kb/:id");
   const [, navigate] = useLocation();
@@ -541,6 +841,7 @@ export default function KbEditorPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/knowledge-bases/${kbId}/pages`] });
       setActivePageId(page.id);
     },
+    onError: () => toast({ title: "Error", description: "Failed to create page.", variant: "destructive" }),
   });
 
   const renamePageMutation = useMutation({
@@ -550,6 +851,7 @@ export default function KbEditorPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/knowledge-bases/${kbId}/pages`] });
     },
+    onError: () => toast({ title: "Error", description: "Failed to rename page.", variant: "destructive" }),
   });
 
   const deletePageMutation = useMutation({
@@ -563,6 +865,7 @@ export default function KbEditorPage() {
         setActivePageId(remaining.length > 0 ? remaining[0].id : null);
       }
     },
+    onError: () => toast({ title: "Error", description: "Failed to delete page.", variant: "destructive" }),
   });
 
   const updateKbTitleMutation = useMutation({
@@ -573,7 +876,16 @@ export default function KbEditorPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/knowledge-bases/${kbId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/knowledge-bases"] });
     },
+    onError: () => toast({ title: "Error", description: "Failed to rename.", variant: "destructive" }),
   });
+
+  const debouncedRenameKb = useDebouncedCallback((title: string) => {
+    if (title.trim()) updateKbTitleMutation.mutate(title.trim());
+  }, 600);
+
+  const debouncedRenamePage = useDebouncedCallback((title: string) => {
+    if (activePage && title.trim()) renamePageMutation.mutate({ id: activePage.id, title: title.trim() });
+  }, 600);
 
   if (kbLoading) {
     return (
@@ -598,17 +910,30 @@ export default function KbEditorPage() {
   return (
     <div className="flex h-full" data-testid="kb-editor">
       <div className="w-64 flex-shrink-0 border-r flex flex-col bg-muted/30">
-        <div className="p-3 border-b flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/content-creator")} data-testid="button-back-to-kbs">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex-1 min-w-0">
-            <Input
-              className="h-7 text-sm font-semibold border-none bg-transparent px-1"
-              value={kb.title}
-              onChange={(e) => updateKbTitleMutation.mutate(e.target.value)}
-              data-testid="input-kb-title"
-            />
+        <div className="p-3 border-b space-y-2">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/content-creator")} data-testid="button-back-to-kbs">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-1 min-w-0">
+              <DebouncedInput
+                className="h-7 text-sm font-semibold border-none bg-transparent px-1"
+                value={kb.title}
+                onChange={debouncedRenameKb}
+                data-testid="input-kb-title"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-1.5">
+              {kb.isPublished ? (
+                <Badge variant="secondary">Published</Badge>
+              ) : (
+                <Badge variant="outline">Draft</Badge>
+              )}
+              <span className="text-xs text-muted-foreground">{pages.length} pages</span>
+            </div>
+            <KbSettingsPanel kb={kb} kbId={kbId} pageCount={pages.length} />
           </div>
         </div>
 
@@ -636,7 +961,6 @@ export default function KbEditorPage() {
               onCreatePage={(parentId) => createPageMutation.mutate(parentId)}
               onDeletePage={(id) => deletePageMutation.mutate(id)}
               onRenamePage={(id, title) => renamePageMutation.mutate({ id, title })}
-              kbId={kbId}
             />
           )}
         </div>
@@ -646,10 +970,10 @@ export default function KbEditorPage() {
         {activePageId && activePage ? (
           <div className="max-w-3xl mx-auto p-8">
             <div className="mb-6">
-              <Input
+              <DebouncedInput
                 className="text-3xl font-bold border-none bg-transparent px-0 h-auto focus-visible:ring-0"
                 value={activePage.title}
-                onChange={(e) => renamePageMutation.mutate({ id: activePage.id, title: e.target.value })}
+                onChange={debouncedRenamePage}
                 placeholder="Untitled Page"
                 data-testid="input-page-title"
               />

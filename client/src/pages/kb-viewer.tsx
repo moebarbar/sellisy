@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
-import { useRoute } from "wouter";
+import { useRoute, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { ChevronRight, ChevronDown, FileText, BookOpen, ExternalLink, Link as LinkIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ChevronRight, ChevronDown, FileText, BookOpen, Lock, Link as LinkIcon } from "lucide-react";
 
 interface KbViewPage {
   id: string;
   title: string;
   parentPageId: string | null;
   sortOrder: number;
+  locked?: boolean;
 }
 
 interface KbViewBlock {
@@ -24,10 +25,12 @@ function ViewerPageTree({
   pages,
   activePageId,
   onSelectPage,
+  hasAccess,
 }: {
   pages: KbViewPage[];
   activePageId: string | null;
   onSelectPage: (id: string) => void;
+  hasAccess: boolean;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const rootPages = pages.filter((p) => !p.parentPageId);
@@ -42,17 +45,22 @@ function ViewerPageTree({
     return (
       <div key={page.id}>
         <div
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md cursor-pointer text-sm transition-colors ${
-            isActive ? "bg-accent text-accent-foreground font-medium" : "hover-elevate"
-          }`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+            !hasAccess ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+          } ${isActive ? "bg-accent text-accent-foreground font-medium" : hasAccess ? "hover-elevate" : ""}`}
           style={{ paddingLeft: `${depth * 16 + 12}px` }}
-          onClick={() => onSelectPage(page.id)}
+          onClick={() => hasAccess && onSelectPage(page.id)}
           data-testid={`viewer-page-${page.id}`}
         >
           {hasChildren ? (
-            <button onClick={(e) => { e.stopPropagation(); setExpanded((prev) => ({ ...prev, [page.id]: !prev[page.id] })); }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded((prev) => ({ ...prev, [page.id]: !prev[page.id] })); }}
+              disabled={!hasAccess}
+            >
               {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             </button>
+          ) : !hasAccess ? (
+            <Lock className="h-3 w-3 text-muted-foreground" />
           ) : (
             <FileText className="h-3 w-3 text-muted-foreground" />
           )}
@@ -112,45 +120,53 @@ function BlockRenderer({ block }: { block: KbViewBlock }) {
 export default function KbViewerPage() {
   const [, params] = useRoute("/kb/:id");
   const kbId = params?.id || "";
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const accessToken = searchParams.get("token") || "";
   const [activePageId, setActivePageId] = useState<string | null>(null);
 
-  const { data, isLoading, error } = useQuery<{ knowledgeBase: any; pages: KbViewPage[] }>({
-    queryKey: ["/api/kb", kbId, "view"],
+  const tokenParam = accessToken ? `?token=${encodeURIComponent(accessToken)}` : "";
+
+  const { data, isLoading, error } = useQuery<{ knowledgeBase: any; pages: KbViewPage[]; hasAccess: boolean }>({
+    queryKey: ["/api/kb", kbId, "view", accessToken],
     queryFn: async () => {
-      const res = await fetch(`/api/kb/${kbId}/view`);
+      const res = await fetch(`/api/kb/${kbId}/view${tokenParam}`);
       if (!res.ok) throw new Error("Not found");
       return res.json();
     },
     enabled: !!kbId,
   });
 
-  const { data: pageData } = useQuery<{ page: KbViewPage; blocks: KbViewBlock[] }>({
-    queryKey: ["/api/kb", kbId, "view/page", activePageId],
+  const { data: pageData, error: pageError } = useQuery<{ page: KbViewPage; blocks: KbViewBlock[] }>({
+    queryKey: ["/api/kb", kbId, "view/page", activePageId, accessToken],
     queryFn: async () => {
-      const res = await fetch(`/api/kb/${kbId}/view/page/${activePageId}`);
-      if (!res.ok) throw new Error("Not found");
+      const res = await fetch(`/api/kb/${kbId}/view/page/${activePageId}${tokenParam}`);
+      if (!res.ok) throw new Error(res.status === 403 ? "Purchase required" : "Not found");
       return res.json();
     },
-    enabled: !!kbId && !!activePageId,
+    enabled: !!kbId && !!activePageId && !!data?.hasAccess,
   });
 
   useEffect(() => {
-    if (data?.pages && data.pages.length > 0 && !activePageId) {
+    if (data?.pages && data.pages.length > 0 && !activePageId && data.hasAccess) {
       setActivePageId(data.pages[0].id);
     }
   }, [data, activePageId]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Skeleton className="h-12 w-64" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="space-y-3 text-center">
+          <Skeleton className="h-8 w-48 mx-auto" />
+          <Skeleton className="h-4 w-32 mx-auto" />
+        </div>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Card>
           <CardContent className="p-8 text-center">
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -162,22 +178,48 @@ export default function KbViewerPage() {
     );
   }
 
-  const { knowledgeBase, pages } = data;
+  const { knowledgeBase, pages, hasAccess } = data;
 
   return (
-    <div className="min-h-screen flex" data-testid="kb-viewer">
-      <aside className="w-64 flex-shrink-0 border-r bg-muted/30 p-4 space-y-4">
-        <div>
-          <h2 className="font-bold text-lg" data-testid="text-viewer-title">{knowledgeBase.title}</h2>
+    <div className="min-h-screen flex bg-background" data-testid="kb-viewer">
+      <aside className="w-64 flex-shrink-0 border-r bg-muted/30 flex flex-col">
+        <div className="p-4 border-b space-y-2">
+          <h2 className="font-bold text-lg leading-tight" data-testid="text-viewer-title">{knowledgeBase.title}</h2>
           {knowledgeBase.description && (
-            <p className="text-xs text-muted-foreground mt-1">{knowledgeBase.description}</p>
+            <p className="text-xs text-muted-foreground">{knowledgeBase.description}</p>
+          )}
+          {knowledgeBase.priceCents > 0 && (
+            <Badge variant="secondary">${(knowledgeBase.priceCents / 100).toFixed(2)}</Badge>
           )}
         </div>
-        <ViewerPageTree pages={pages} activePageId={activePageId} onSelectPage={setActivePageId} />
+        <div className="flex-1 overflow-y-auto p-3">
+          <ViewerPageTree
+            pages={pages}
+            activePageId={activePageId}
+            onSelectPage={setActivePageId}
+            hasAccess={hasAccess}
+          />
+        </div>
       </aside>
 
       <main className="flex-1 overflow-y-auto">
-        {activePageId && pageData ? (
+        {!hasAccess ? (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-4 p-8">
+            <Lock className="h-16 w-16 text-muted-foreground" />
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Premium Content</h2>
+              <p className="text-muted-foreground max-w-md">
+                This knowledge base requires a purchase to access.
+                {knowledgeBase.priceCents > 0 && (
+                  <> It is available for <span className="font-semibold text-foreground">${(knowledgeBase.priceCents / 100).toFixed(2)}</span>.</>
+                )}
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              If you have already purchased this content, use the access link from your order confirmation.
+            </p>
+          </div>
+        ) : activePageId && pageData ? (
           <div className="max-w-3xl mx-auto p-8">
             <h1 className="text-3xl font-bold mb-6" data-testid="text-viewer-page-title">{pageData.page.title}</h1>
             <div className="space-y-1">
@@ -189,9 +231,13 @@ export default function KbViewerPage() {
               )}
             </div>
           </div>
+        ) : hasAccess && pages.length > 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <Skeleton className="h-8 w-48" />
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-muted-foreground">Select a page from the sidebar</p>
+            <p className="text-muted-foreground">No pages available.</p>
           </div>
         )}
       </main>
