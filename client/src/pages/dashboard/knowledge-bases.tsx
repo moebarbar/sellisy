@@ -1,0 +1,198 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Plus, BookOpen, Trash2, Loader2, FileText, ExternalLink } from "lucide-react";
+import type { KnowledgeBase } from "@shared/schema";
+
+export default function KnowledgeBasesPage() {
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<KnowledgeBase | null>(null);
+
+  const { data: knowledgeBases, isLoading } = useQuery<KnowledgeBase[]>({
+    queryKey: ["/api/knowledge-bases"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (title: string) => {
+      const res = await apiRequest("POST", "/api/knowledge-bases", { title: title || "Untitled" });
+      return res.json();
+    },
+    onSuccess: (kb: KnowledgeBase) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/knowledge-bases"] });
+      toast({ title: "Created", description: `"${kb.title}" is ready to edit.` });
+      setShowCreate(false);
+      setNewTitle("");
+      navigate(`/dashboard/kb/${kb.id}`);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/knowledge-bases/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/knowledge-bases"] });
+      toast({ title: "Deleted", description: "Knowledge base removed." });
+      setDeleteTarget(null);
+    },
+  });
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold" data-testid="text-kb-heading">Content Creator</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Build courses, guides, SOPs, and digital products with the block editor
+          </p>
+        </div>
+        <Button onClick={() => setShowCreate(true)} data-testid="button-create-kb">
+          <Plus className="mr-2 h-4 w-4" />
+          New Knowledge Base
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-40 rounded-md" />
+          ))}
+        </div>
+      ) : !knowledgeBases || knowledgeBases.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-1">No knowledge bases yet</h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+              Create your first knowledge base to start building courses, guides, and digital products.
+            </p>
+            <Button onClick={() => setShowCreate(true)} data-testid="button-create-kb-empty">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Your First
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {knowledgeBases.map((kb) => (
+            <Card
+              key={kb.id}
+              className="cursor-pointer hover-elevate"
+              onClick={() => navigate(`/dashboard/kb/${kb.id}`)}
+              data-testid={`card-kb-${kb.id}`}
+            >
+              <CardContent className="p-5 space-y-3">
+                {kb.coverImageUrl ? (
+                  <div className="aspect-video rounded-md overflow-hidden bg-muted">
+                    <img src={kb.coverImageUrl} alt={kb.title} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="aspect-video rounded-md bg-muted flex items-center justify-center">
+                    <FileText className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold truncate" data-testid={`text-kb-title-${kb.id}`}>{kb.title}</h3>
+                    {kb.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{kb.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {kb.isPublished && <Badge variant="secondary">Published</Badge>}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(kb); }}
+                          data-testid={`button-delete-kb-${kb.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Delete</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{new Date(kb.createdAt).toLocaleDateString()}</span>
+                  {kb.priceCents > 0 && (
+                    <Badge variant="outline">${(kb.priceCents / 100).toFixed(2)}</Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New Knowledge Base</DialogTitle>
+            <DialogDescription>Give your knowledge base a name to get started.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="kb-title">Title</Label>
+              <Input
+                id="kb-title"
+                placeholder="e.g., Social Media Mastery Course"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") createMutation.mutate(newTitle); }}
+                data-testid="input-kb-title"
+              />
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => createMutation.mutate(newTitle)}
+              disabled={createMutation.isPending}
+              data-testid="button-confirm-create-kb"
+            >
+              {createMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Create & Open Editor
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Knowledge Base</DialogTitle>
+            <DialogDescription>
+              This will permanently delete "{deleteTarget?.title}" and all its pages and content. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} data-testid="button-cancel-delete-kb">Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete-kb"
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

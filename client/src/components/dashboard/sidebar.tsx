@@ -38,6 +38,7 @@ import {
   Sparkles,
   Crown,
   BookOpen,
+  PenTool,
 } from "lucide-react";
 
 const navItems = [
@@ -48,6 +49,7 @@ const navItems = [
   { title: "Bundles", url: "/dashboard/bundles", icon: Layers },
   { title: "Coupons", url: "/dashboard/coupons", icon: Ticket },
   { title: "Orders", url: "/dashboard/orders", icon: ShoppingCart },
+  { title: "Content Creator", url: "/dashboard/content-creator", icon: PenTool },
   { title: "Marketing", url: "/dashboard/marketing", icon: BookOpen },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
@@ -92,7 +94,9 @@ export function AppSidebar() {
                     isActive={
                       item.url === "/dashboard"
                         ? location === "/dashboard"
-                        : location.startsWith(item.url)
+                        : item.url === "/dashboard/content-creator"
+                          ? location.startsWith("/dashboard/content-creator") || location.startsWith("/dashboard/kb/")
+                          : location.startsWith(item.url)
                     }
                   >
                     <Link href={item.url}>

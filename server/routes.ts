@@ -904,6 +904,191 @@ export async function registerRoutes(
     res.json(storesWithCounts.filter(s => s.productCount > 0));
   });
 
+  // --- Knowledge Bases ---
+
+  app.get("/api/knowledge-bases", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const kbs = await storage.getKnowledgeBasesByOwner(userId);
+    res.json(kbs);
+  });
+
+  app.post("/api/knowledge-bases", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const schema = z.object({ title: z.string().optional() });
+    const parsed = schema.safeParse(req.body);
+    const kb = await storage.createKnowledgeBase({
+      ownerId: userId,
+      title: parsed.success && parsed.data.title ? parsed.data.title : "Untitled",
+    });
+    res.json(kb);
+  });
+
+  app.get("/api/knowledge-bases/:id", isAuthenticated, async (req, res) => {
+    const kb = await storage.getKnowledgeBaseById(req.params.id as string);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    res.json(kb);
+  });
+
+  app.patch("/api/knowledge-bases/:id", isAuthenticated, async (req, res) => {
+    const kb = await storage.getKnowledgeBaseById(req.params.id as string);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const schema = z.object({
+      title: z.string().optional(),
+      description: z.string().nullable().optional(),
+      coverImageUrl: z.string().nullable().optional(),
+      priceCents: z.number().int().min(0).optional(),
+      isPublished: z.boolean().optional(),
+      productId: z.string().nullable().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const updated = await storage.updateKnowledgeBase(kb.id, parsed.data);
+    res.json(updated);
+  });
+
+  app.delete("/api/knowledge-bases/:id", isAuthenticated, async (req, res) => {
+    const kb = await storage.getKnowledgeBaseById(req.params.id as string);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    await storage.deleteKnowledgeBase(kb.id);
+    res.json({ ok: true });
+  });
+
+  app.get("/api/knowledge-bases/:id/pages", isAuthenticated, async (req, res) => {
+    const kb = await storage.getKnowledgeBaseById(req.params.id as string);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const pages = await storage.getKbPagesByKnowledgeBase(kb.id);
+    res.json(pages);
+  });
+
+  app.post("/api/knowledge-bases/:id/pages", isAuthenticated, async (req, res) => {
+    const kb = await storage.getKnowledgeBaseById(req.params.id as string);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const schema = z.object({
+      title: z.string().optional(),
+      parentPageId: z.string().nullable().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    const page = await storage.createKbPage({
+      knowledgeBaseId: kb.id,
+      title: parsed.success && parsed.data.title ? parsed.data.title : "Untitled Page",
+      parentPageId: parsed.success ? parsed.data.parentPageId || null : null,
+    });
+    res.json(page);
+  });
+
+  app.patch("/api/kb-pages/:id", isAuthenticated, async (req, res) => {
+    const page = await storage.getKbPageById(req.params.id as string);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const schema = z.object({
+      title: z.string().optional(),
+      parentPageId: z.string().nullable().optional(),
+      sortOrder: z.number().int().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const updated = await storage.updateKbPage(page.id, parsed.data);
+    res.json(updated);
+  });
+
+  app.delete("/api/kb-pages/:id", isAuthenticated, async (req, res) => {
+    const page = await storage.getKbPageById(req.params.id as string);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    await storage.deleteKbPage(page.id);
+    res.json({ ok: true });
+  });
+
+  app.get("/api/kb-pages/:id/blocks", isAuthenticated, async (req, res) => {
+    const page = await storage.getKbPageById(req.params.id as string);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const blocks = await storage.getKbBlocksByPage(page.id);
+    res.json(blocks);
+  });
+
+  app.post("/api/kb-pages/:id/blocks", isAuthenticated, async (req, res) => {
+    const page = await storage.getKbPageById(req.params.id as string);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const schema = z.object({
+      type: z.enum(["text", "heading1", "heading2", "heading3", "image", "video", "link"]).optional(),
+      content: z.string().optional(),
+      sortOrder: z.number().int().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    const existingBlocks = await storage.getKbBlocksByPage(page.id);
+    const block = await storage.createKbBlock({
+      pageId: page.id,
+      type: parsed.success && parsed.data.type ? parsed.data.type : "text",
+      content: parsed.success && parsed.data.content ? parsed.data.content : "",
+      sortOrder: parsed.success && parsed.data.sortOrder != null ? parsed.data.sortOrder : existingBlocks.length,
+    });
+    res.json(block);
+  });
+
+  app.patch("/api/kb-blocks/:id", isAuthenticated, async (req, res) => {
+    const block = await storage.getKbBlockById(req.params.id as string);
+    if (!block) return res.status(404).json({ message: "Not found" });
+    const page = await storage.getKbPageById(block.pageId);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const schema = z.object({
+      type: z.enum(["text", "heading1", "heading2", "heading3", "image", "video", "link"]).optional(),
+      content: z.string().optional(),
+      sortOrder: z.number().int().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const updated = await storage.updateKbBlock(block.id, parsed.data);
+    res.json(updated);
+  });
+
+  app.delete("/api/kb-blocks/:id", isAuthenticated, async (req, res) => {
+    const block = await storage.getKbBlockById(req.params.id as string);
+    if (!block) return res.status(404).json({ message: "Not found" });
+    const page = await storage.getKbPageById(block.pageId);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    await storage.deleteKbBlock(block.id);
+    res.json({ ok: true });
+  });
+
+  app.put("/api/kb-pages/:id/blocks/reorder", isAuthenticated, async (req, res) => {
+    const page = await storage.getKbPageById(req.params.id as string);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const schema = z.object({ blockIds: z.array(z.string()) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    await storage.reorderKbBlocks(page.id, parsed.data.blockIds);
+    res.json({ ok: true });
+  });
+
+  // Public KB viewer
+  app.get("/api/kb/:id/view", async (req, res) => {
+    const kb = await storage.getKnowledgeBaseById(req.params.id as string);
+    if (!kb || !kb.isPublished) return res.status(404).json({ message: "Not found" });
+    const pages = await storage.getKbPagesByKnowledgeBase(kb.id);
+    res.json({ knowledgeBase: { id: kb.id, title: kb.title, description: kb.description, coverImageUrl: kb.coverImageUrl }, pages });
+  });
+
+  app.get("/api/kb/:id/view/page/:pageId", async (req, res) => {
+    const kb = await storage.getKnowledgeBaseById(req.params.id as string);
+    if (!kb || !kb.isPublished) return res.status(404).json({ message: "Not found" });
+    const page = await storage.getKbPageById(req.params.pageId as string);
+    if (!page || page.knowledgeBaseId !== kb.id) return res.status(404).json({ message: "Not found" });
+    const blocks = await storage.getKbBlocksByPage(page.id);
+    res.json({ page, blocks });
+  });
+
   // --- Public storefront ---
 
   app.get("/api/storefront/:slug", async (req, res) => {

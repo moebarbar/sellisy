@@ -28,12 +28,15 @@ const MyProductsPage = lazy(() => import("@/pages/dashboard/my-products"));
 const StoreSettingsPage = lazy(() => import("@/pages/dashboard/store-settings"));
 const MarketingPlaybookPage = lazy(() => import("@/pages/dashboard/marketing-playbook"));
 const StrategyDetailPage = lazy(() => import("@/pages/dashboard/strategy-detail"));
+const KnowledgeBasesPage = lazy(() => import("@/pages/dashboard/knowledge-bases"));
+const KbEditorPage = lazy(() => import("@/pages/dashboard/kb-editor"));
 
 const AccountLoginPage = lazy(() => import("@/pages/account/login"));
 const AccountVerifyPage = lazy(() => import("@/pages/account/verify"));
 const AccountPurchasesPage = lazy(() => import("@/pages/account/purchases"));
 const AccountPurchaseDetailPage = lazy(() => import("@/pages/account/purchase-detail"));
 const StorePortalPage = lazy(() => import("@/pages/store-portal"));
+const KbViewerPage = lazy(() => import("@/pages/kb-viewer"));
 
 function PageFallback() {
   return (
@@ -81,6 +84,12 @@ function Router() {
         <Route path="/dashboard/marketing">
           <DashboardLayout><MarketingPlaybookPage /></DashboardLayout>
         </Route>
+        <Route path="/dashboard/kb/:id">
+          <DashboardLayout><KbEditorPage /></DashboardLayout>
+        </Route>
+        <Route path="/dashboard/content-creator">
+          <DashboardLayout><KnowledgeBasesPage /></DashboardLayout>
+        </Route>
         <Route path="/account" component={AccountLoginPage} />
         <Route path="/account/verify" component={AccountVerifyPage} />
         <Route path="/account/purchases" component={AccountPurchasesPage} />
@@ -90,6 +99,7 @@ function Router() {
         <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
         <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
         <Route path="/s/:slug" component={StorefrontPage} />
+        <Route path="/kb/:id" component={KbViewerPage} />
         <Route path="/checkout/success" component={CheckoutSuccessPage} />
         <Route path="/claim/success" component={ClaimSuccessPage} />
         <Route component={NotFound} />

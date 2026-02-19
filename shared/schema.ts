@@ -304,3 +304,46 @@ export const storeStrategyProgress = pgTable("store_strategy_progress", {
 export const insertStoreStrategyProgressSchema = createInsertSchema(storeStrategyProgress).omit({ id: true, updatedAt: true });
 export type InsertStoreStrategyProgress = z.infer<typeof insertStoreStrategyProgressSchema>;
 export type StoreStrategyProgress = typeof storeStrategyProgress.$inferSelect;
+
+export const blockTypeEnum = pgEnum("block_type", ["text", "heading1", "heading2", "heading3", "image", "video", "link"]);
+
+export const knowledgeBases = pgTable("knowledge_bases", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id", { length: 64 }).notNull(),
+  title: text("title").notNull().default("Untitled"),
+  description: text("description"),
+  coverImageUrl: text("cover_image_url"),
+  priceCents: integer("price_cents").notNull().default(0),
+  isPublished: boolean("is_published").notNull().default(false),
+  productId: varchar("product_id", { length: 64 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertKnowledgeBaseSchema = createInsertSchema(knowledgeBases).omit({ id: true, createdAt: true });
+export type InsertKnowledgeBase = z.infer<typeof insertKnowledgeBaseSchema>;
+export type KnowledgeBase = typeof knowledgeBases.$inferSelect;
+
+export const kbPages = pgTable("kb_pages", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  knowledgeBaseId: varchar("knowledge_base_id", { length: 64 }).notNull(),
+  parentPageId: varchar("parent_page_id", { length: 64 }),
+  title: text("title").notNull().default("Untitled Page"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertKbPageSchema = createInsertSchema(kbPages).omit({ id: true, createdAt: true });
+export type InsertKbPage = z.infer<typeof insertKbPageSchema>;
+export type KbPage = typeof kbPages.$inferSelect;
+
+export const kbBlocks = pgTable("kb_blocks", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  pageId: varchar("page_id", { length: 64 }).notNull(),
+  type: blockTypeEnum("type").notNull().default("text"),
+  content: text("content").notNull().default(""),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertKbBlockSchema = createInsertSchema(kbBlocks).omit({ id: true });
+export type InsertKbBlock = z.infer<typeof insertKbBlockSchema>;
+export type KbBlock = typeof kbBlocks.$inferSelect;

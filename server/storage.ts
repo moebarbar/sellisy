@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
   bundles, bundleItems, coupons, productImages, categories, userProfiles,
-  customers, customerSessions,
+  customers, customerSessions, knowledgeBases, kbPages, kbBlocks,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -19,6 +19,9 @@ import {
   type UserProfile, type InsertUserProfile,
   type Customer, type InsertCustomer,
   type CustomerSession, type InsertCustomerSession,
+  type KnowledgeBase, type InsertKnowledgeBase,
+  type KbPage, type InsertKbPage,
+  type KbBlock, type InsertKbBlock,
   type PlanTier,
 } from "@shared/schema";
 
@@ -103,6 +106,25 @@ export interface IStorage {
   getOrdersByCustomer(customerId: string): Promise<(Order & { store: Store })[]>;
   setOrderCustomerId(orderId: string, customerId: string): Promise<void>;
   linkOrdersByEmail(email: string, customerId: string): Promise<void>;
+
+  getKnowledgeBasesByOwner(ownerId: string): Promise<KnowledgeBase[]>;
+  getKnowledgeBaseById(id: string): Promise<KnowledgeBase | undefined>;
+  createKnowledgeBase(data: InsertKnowledgeBase): Promise<KnowledgeBase>;
+  updateKnowledgeBase(id: string, data: Partial<Pick<KnowledgeBase, "title" | "description" | "coverImageUrl" | "priceCents" | "isPublished" | "productId">>): Promise<KnowledgeBase | undefined>;
+  deleteKnowledgeBase(id: string): Promise<void>;
+
+  getKbPagesByKnowledgeBase(knowledgeBaseId: string): Promise<KbPage[]>;
+  getKbPageById(id: string): Promise<KbPage | undefined>;
+  createKbPage(data: InsertKbPage): Promise<KbPage>;
+  updateKbPage(id: string, data: Partial<Pick<KbPage, "title" | "parentPageId" | "sortOrder">>): Promise<KbPage | undefined>;
+  deleteKbPage(id: string): Promise<void>;
+
+  getKbBlocksByPage(pageId: string): Promise<KbBlock[]>;
+  getKbBlockById(id: string): Promise<KbBlock | undefined>;
+  createKbBlock(data: InsertKbBlock): Promise<KbBlock>;
+  updateKbBlock(id: string, data: Partial<Pick<KbBlock, "type" | "content" | "sortOrder">>): Promise<KbBlock | undefined>;
+  deleteKbBlock(id: string): Promise<void>;
+  reorderKbBlocks(pageId: string, blockIds: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -512,6 +534,91 @@ export class DatabaseStorage implements IStorage {
     await db.update(orders).set({ customerId }).where(
       and(eq(orders.buyerEmail, email.toLowerCase()), sql`${orders.customerId} IS NULL`)
     );
+  }
+
+  async getKnowledgeBasesByOwner(ownerId: string) {
+    return db.select().from(knowledgeBases).where(eq(knowledgeBases.ownerId, ownerId)).orderBy(desc(knowledgeBases.createdAt));
+  }
+
+  async getKnowledgeBaseById(id: string) {
+    const [kb] = await db.select().from(knowledgeBases).where(eq(knowledgeBases.id, id));
+    return kb;
+  }
+
+  async createKnowledgeBase(data: InsertKnowledgeBase) {
+    const [kb] = await db.insert(knowledgeBases).values(data).returning();
+    return kb;
+  }
+
+  async updateKnowledgeBase(id: string, data: Partial<Pick<KnowledgeBase, "title" | "description" | "coverImageUrl" | "priceCents" | "isPublished" | "productId">>) {
+    const [kb] = await db.update(knowledgeBases).set(data).where(eq(knowledgeBases.id, id)).returning();
+    return kb;
+  }
+
+  async deleteKnowledgeBase(id: string) {
+    const pages = await this.getKbPagesByKnowledgeBase(id);
+    for (const page of pages) {
+      await db.delete(kbBlocks).where(eq(kbBlocks.pageId, page.id));
+    }
+    await db.delete(kbPages).where(eq(kbPages.knowledgeBaseId, id));
+    await db.delete(knowledgeBases).where(eq(knowledgeBases.id, id));
+  }
+
+  async getKbPagesByKnowledgeBase(knowledgeBaseId: string) {
+    return db.select().from(kbPages).where(eq(kbPages.knowledgeBaseId, knowledgeBaseId)).orderBy(kbPages.sortOrder);
+  }
+
+  async getKbPageById(id: string) {
+    const [page] = await db.select().from(kbPages).where(eq(kbPages.id, id));
+    return page;
+  }
+
+  async createKbPage(data: InsertKbPage) {
+    const [page] = await db.insert(kbPages).values(data).returning();
+    return page;
+  }
+
+  async updateKbPage(id: string, data: Partial<Pick<KbPage, "title" | "parentPageId" | "sortOrder">>) {
+    const [page] = await db.update(kbPages).set(data).where(eq(kbPages.id, id)).returning();
+    return page;
+  }
+
+  async deleteKbPage(id: string) {
+    await db.delete(kbBlocks).where(eq(kbBlocks.pageId, id));
+    const children = await db.select().from(kbPages).where(eq(kbPages.parentPageId, id));
+    for (const child of children) {
+      await this.deleteKbPage(child.id);
+    }
+    await db.delete(kbPages).where(eq(kbPages.id, id));
+  }
+
+  async getKbBlocksByPage(pageId: string) {
+    return db.select().from(kbBlocks).where(eq(kbBlocks.pageId, pageId)).orderBy(kbBlocks.sortOrder);
+  }
+
+  async getKbBlockById(id: string) {
+    const [block] = await db.select().from(kbBlocks).where(eq(kbBlocks.id, id));
+    return block;
+  }
+
+  async createKbBlock(data: InsertKbBlock) {
+    const [block] = await db.insert(kbBlocks).values(data).returning();
+    return block;
+  }
+
+  async updateKbBlock(id: string, data: Partial<Pick<KbBlock, "type" | "content" | "sortOrder">>) {
+    const [block] = await db.update(kbBlocks).set(data).where(eq(kbBlocks.id, id)).returning();
+    return block;
+  }
+
+  async deleteKbBlock(id: string) {
+    await db.delete(kbBlocks).where(eq(kbBlocks.id, id));
+  }
+
+  async reorderKbBlocks(pageId: string, blockIds: string[]) {
+    for (let i = 0; i < blockIds.length; i++) {
+      await db.update(kbBlocks).set({ sortOrder: i }).where(and(eq(kbBlocks.id, blockIds[i]), eq(kbBlocks.pageId, pageId)));
+    }
   }
 }
 
