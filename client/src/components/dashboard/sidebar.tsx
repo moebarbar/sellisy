@@ -46,11 +46,11 @@ const navItems = [
   { title: "Products", url: "/dashboard/products", icon: Package },
   { title: "My Products", url: "/dashboard/my-products", icon: Sparkles },
   { title: "Products Library", url: "/dashboard/library", icon: ShoppingBag },
+  { title: "Content Creator", url: "/dashboard/content-creator", icon: PenTool },
   { title: "Bundles", url: "/dashboard/bundles", icon: Layers },
+  { title: "Marketing", url: "/dashboard/marketing", icon: BookOpen },
   { title: "Coupons", url: "/dashboard/coupons", icon: Ticket },
   { title: "Orders", url: "/dashboard/orders", icon: ShoppingCart },
-  { title: "Content Creator", url: "/dashboard/content-creator", icon: PenTool },
-  { title: "Marketing", url: "/dashboard/marketing", icon: BookOpen },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
 ];
 
