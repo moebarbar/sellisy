@@ -140,7 +140,7 @@ export default function KnowledgeBasesPage() {
                 )}
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="font-semibold truncate" data-testid={`text-kb-title-${kb.id}`}>{kb.title}</h3>
+                    <h3 className="font-semibold text-sm leading-snug break-words" data-testid={`text-kb-title-${kb.id}`}>{kb.title}</h3>
                     {kb.description && (
                       <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{kb.description}</p>
                     )}
