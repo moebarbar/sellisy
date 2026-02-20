@@ -305,7 +305,7 @@ export const insertStoreStrategyProgressSchema = createInsertSchema(storeStrateg
 export type InsertStoreStrategyProgress = z.infer<typeof insertStoreStrategyProgressSchema>;
 export type StoreStrategyProgress = typeof storeStrategyProgress.$inferSelect;
 
-export const blockTypeEnum = pgEnum("block_type", ["text", "heading1", "heading2", "heading3", "image", "video", "link"]);
+export const blockTypeEnum = pgEnum("block_type", ["text", "heading1", "heading2", "heading3", "image", "video", "link", "bullet_list", "numbered_list", "todo", "toggle", "code", "quote", "divider", "callout"]);
 
 export const knowledgeBases = pgTable("knowledge_bases", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),

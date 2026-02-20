@@ -4,7 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, ChevronDown, FileText, BookOpen, Lock, Link as LinkIcon } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronDown,
+  FileText,
+  BookOpen,
+  Lock,
+  Link as LinkIcon,
+  Check,
+  AlertCircle,
+} from "lucide-react";
 
 interface KbViewPage {
   id: string;
@@ -33,8 +42,11 @@ function ViewerPageTree({
   hasAccess: boolean;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const rootPages = pages.filter((p) => !p.parentPageId);
-  const getChildren = (parentId: string) => pages.filter((p) => p.parentPageId === parentId);
+  const rootPages = pages
+    .filter((p) => !p.parentPageId)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const getChildren = (parentId: string) =>
+    pages.filter((p) => p.parentPageId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
 
   const renderPage = (page: KbViewPage, depth: number) => {
     const children = getChildren(page.id);
@@ -74,7 +86,17 @@ function ViewerPageTree({
   return <div className="space-y-0.5">{rootPages.map((page) => renderPage(page, 0))}</div>;
 }
 
+function parseTodoContent(content: string): { checked: boolean; text: string } {
+  const match = content.match(/^\[([ x])\]\s*([\s\S]*)/);
+  if (match) {
+    return { checked: match[1] === "x", text: match[2] };
+  }
+  return { checked: false, text: content };
+}
+
 function BlockRenderer({ block }: { block: KbViewBlock }) {
+  const [toggleOpen, setToggleOpen] = useState(false);
+
   switch (block.type) {
     case "heading1":
       return <h1 className="text-3xl font-bold py-2">{block.content}</h1>;
@@ -82,12 +104,89 @@ function BlockRenderer({ block }: { block: KbViewBlock }) {
       return <h2 className="text-2xl font-semibold py-1.5">{block.content}</h2>;
     case "heading3":
       return <h3 className="text-xl font-medium py-1">{block.content}</h3>;
+
+    case "bullet_list":
+      return (
+        <div className="flex items-start gap-2 py-0.5 pl-2">
+          <span className="text-muted-foreground mt-[3px] flex-shrink-0">&#8226;</span>
+          <p className="whitespace-pre-wrap">{block.content}</p>
+        </div>
+      );
+
+    case "numbered_list":
+      return (
+        <div className="flex items-start gap-2 py-0.5 pl-2">
+          <span className="text-muted-foreground mt-[1px] flex-shrink-0 text-sm font-medium min-w-[1.25rem] text-right">{block.sortOrder + 1}.</span>
+          <p className="whitespace-pre-wrap">{block.content}</p>
+        </div>
+      );
+
+    case "todo": {
+      const parsed = parseTodoContent(block.content);
+      return (
+        <div className="flex items-start gap-2 py-0.5 pl-2">
+          <div className={`mt-[3px] flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center ${
+            parsed.checked ? "bg-primary border-primary" : "border-muted-foreground/40"
+          }`}>
+            {parsed.checked && <Check className="h-3 w-3 text-primary-foreground" />}
+          </div>
+          <p className={`whitespace-pre-wrap ${parsed.checked ? "line-through text-muted-foreground" : ""}`}>{parsed.text}</p>
+        </div>
+      );
+    }
+
+    case "toggle": {
+      const parts = block.content.split("\n---\n");
+      const title = parts[0] || "";
+      const body = parts.slice(1).join("\n---\n") || "";
+      return (
+        <div className="rounded-md border bg-muted/20 my-1">
+          <button
+            className="flex items-center gap-1 px-3 py-2 w-full text-left"
+            onClick={() => setToggleOpen(!toggleOpen)}
+          >
+            {toggleOpen ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+            <span className="font-medium">{title}</span>
+          </button>
+          {toggleOpen && body && (
+            <div className="px-3 pb-3 pl-9 text-sm whitespace-pre-wrap">{body}</div>
+          )}
+        </div>
+      );
+    }
+
+    case "code":
+      return (
+        <div className="rounded-md bg-muted/60 border p-3 my-1 overflow-x-auto">
+          <pre className="font-mono text-sm whitespace-pre-wrap">{block.content}</pre>
+        </div>
+      );
+
+    case "quote":
+      return (
+        <div className="border-l-[3px] border-muted-foreground/30 pl-4 py-1 my-1">
+          <p className="italic text-muted-foreground whitespace-pre-wrap">{block.content}</p>
+        </div>
+      );
+
+    case "callout":
+      return (
+        <div className="rounded-md bg-muted/50 border px-4 py-3 flex items-start gap-3 my-1">
+          <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+          <p className="text-sm whitespace-pre-wrap">{block.content}</p>
+        </div>
+      );
+
+    case "divider":
+      return <hr className="border-border my-3" />;
+
     case "image":
       return block.content ? (
         <div className="py-2 rounded-md overflow-hidden">
           <img src={block.content} alt="" className="max-w-full h-auto rounded-md" />
         </div>
       ) : null;
+
     case "video":
       return block.content ? (
         <div className="py-2 aspect-video rounded-md overflow-hidden">
@@ -98,6 +197,7 @@ function BlockRenderer({ block }: { block: KbViewBlock }) {
           />
         </div>
       ) : null;
+
     case "link":
       return block.content ? (
         <div className="py-1">
@@ -112,6 +212,7 @@ function BlockRenderer({ block }: { block: KbViewBlock }) {
           </a>
         </div>
       ) : null;
+
     default:
       return block.content ? <p className="py-0.5 whitespace-pre-wrap leading-relaxed">{block.content}</p> : null;
   }
@@ -149,7 +250,8 @@ export default function KbViewerPage() {
 
   useEffect(() => {
     if (data?.pages && data.pages.length > 0 && !activePageId && data.hasAccess) {
-      setActivePageId(data.pages[0].id);
+      const sorted = [...data.pages].filter(p => !p.parentPageId).sort((a, b) => a.sortOrder - b.sortOrder);
+      setActivePageId(sorted[0]?.id || data.pages[0].id);
     }
   }, [data, activePageId]);
 
@@ -221,8 +323,8 @@ export default function KbViewerPage() {
           </div>
         ) : activePageId && pageData ? (
           <div className="max-w-3xl mx-auto p-8">
-            <h1 className="text-3xl font-bold mb-6" data-testid="text-viewer-page-title">{pageData.page.title}</h1>
-            <div className="space-y-1">
+            <h1 className="text-2xl font-bold mb-6" data-testid="text-viewer-page-title">{pageData.page.title}</h1>
+            <div className="space-y-0.5">
               {pageData.blocks.map((block) => (
                 <BlockRenderer key={block.id} block={block} />
               ))}

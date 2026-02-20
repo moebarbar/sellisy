@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -43,20 +43,38 @@ import {
   ExternalLink,
   Copy,
   Check,
+  List,
+  ListOrdered,
+  CheckSquare,
+  ChevronRightIcon,
+  Code2,
+  Quote,
+  Minus,
+  AlertCircle,
 } from "lucide-react";
 import type { KnowledgeBase, KbPage, KbBlock } from "@shared/schema";
 
-type BlockType = "text" | "heading1" | "heading2" | "heading3" | "image" | "video" | "link";
+type BlockType = "text" | "heading1" | "heading2" | "heading3" | "image" | "video" | "link" | "bullet_list" | "numbered_list" | "todo" | "toggle" | "code" | "quote" | "divider" | "callout";
 
-const BLOCK_TYPES: { type: BlockType; label: string; icon: any; description: string }[] = [
-  { type: "text", label: "Text", icon: Type, description: "Plain text paragraph" },
-  { type: "heading1", label: "Heading 1", icon: Heading1, description: "Large title" },
-  { type: "heading2", label: "Heading 2", icon: Heading2, description: "Medium header" },
-  { type: "heading3", label: "Heading 3", icon: Heading3, description: "Small header" },
-  { type: "image", label: "Image", icon: ImageIcon, description: "Embed an image URL" },
-  { type: "video", label: "Video", icon: Video, description: "Embed a video URL" },
-  { type: "link", label: "External Link", icon: LinkIcon, description: "Add a clickable link" },
+const BLOCK_TYPES: { type: BlockType; label: string; icon: any; description: string; category: string }[] = [
+  { type: "text", label: "Text", icon: Type, description: "Plain text paragraph", category: "Basic" },
+  { type: "heading1", label: "Heading 1", icon: Heading1, description: "Large section heading", category: "Basic" },
+  { type: "heading2", label: "Heading 2", icon: Heading2, description: "Medium section heading", category: "Basic" },
+  { type: "heading3", label: "Heading 3", icon: Heading3, description: "Small section heading", category: "Basic" },
+  { type: "bullet_list", label: "Bullet List", icon: List, description: "Unordered bullet list", category: "Lists" },
+  { type: "numbered_list", label: "Numbered List", icon: ListOrdered, description: "Ordered numbered list", category: "Lists" },
+  { type: "todo", label: "To-do List", icon: CheckSquare, description: "Checklist with checkboxes", category: "Lists" },
+  { type: "toggle", label: "Toggle", icon: ChevronRightIcon, description: "Collapsible content section", category: "Advanced" },
+  { type: "code", label: "Code", icon: Code2, description: "Code block with syntax", category: "Advanced" },
+  { type: "quote", label: "Quote", icon: Quote, description: "Blockquote callout", category: "Advanced" },
+  { type: "callout", label: "Callout", icon: AlertCircle, description: "Highlighted info box", category: "Advanced" },
+  { type: "divider", label: "Divider", icon: Minus, description: "Horizontal line separator", category: "Advanced" },
+  { type: "image", label: "Image", icon: ImageIcon, description: "Embed an image URL", category: "Media" },
+  { type: "video", label: "Video", icon: Video, description: "Embed a video URL", category: "Media" },
+  { type: "link", label: "Link", icon: LinkIcon, description: "Add a clickable link", category: "Media" },
 ];
+
+const CATEGORIES = ["Basic", "Lists", "Advanced", "Media"];
 
 function useDebouncedCallback(callback: (value: string) => void, delay: number) {
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -96,6 +114,8 @@ function PageTree({
   onCreatePage,
   onDeletePage,
   onRenamePage,
+  onReorderPages,
+  kbId,
 }: {
   pages: KbPage[];
   activePageId: string | null;
@@ -103,13 +123,20 @@ function PageTree({
   onCreatePage: (parentId?: string | null) => void;
   onDeletePage: (id: string) => void;
   onRenamePage: (id: string, title: string) => void;
+  onReorderPages: (pageIds: string[]) => void;
+  kbId: string;
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
-  const rootPages = pages.filter((p) => !p.parentPageId);
-  const getChildren = (parentId: string) => pages.filter((p) => p.parentPageId === parentId);
+  const rootPages = pages
+    .filter((p) => !p.parentPageId)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const getChildren = (parentId: string) =>
+    pages.filter((p) => p.parentPageId === parentId).sort((a, b) => a.sortOrder - b.sortOrder);
 
   const startRename = (page: KbPage) => {
     setEditingId(page.id);
@@ -123,23 +150,66 @@ function PageTree({
     setEditingId(null);
   };
 
+  const handleDragStart = (e: React.DragEvent, pageId: string) => {
+    e.dataTransfer.effectAllowed = "move";
+    setDragId(pageId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, pageId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (pageId !== dragId) setDragOverId(pageId);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!dragId || dragId === targetId) {
+      setDragId(null);
+      setDragOverId(null);
+      return;
+    }
+    const currentOrder = rootPages.map(p => p.id);
+    const dragIdx = currentOrder.indexOf(dragId);
+    const targetIdx = currentOrder.indexOf(targetId);
+    if (dragIdx === -1 || targetIdx === -1) {
+      setDragId(null);
+      setDragOverId(null);
+      return;
+    }
+    currentOrder.splice(dragIdx, 1);
+    currentOrder.splice(targetIdx, 0, dragId);
+    onReorderPages(currentOrder);
+    setDragId(null);
+    setDragOverId(null);
+  };
+
   const renderPage = (page: KbPage, depth: number) => {
     const children = getChildren(page.id);
     const hasChildren = children.length > 0;
     const isExpanded = expanded[page.id] ?? true;
     const isActive = page.id === activePageId;
     const isEditing = editingId === page.id;
+    const isDragging = dragId === page.id;
+    const isDragOver = dragOverId === page.id;
 
     return (
       <div key={page.id}>
         <div
-          className={`group flex items-center gap-1 px-2 py-1 rounded-md cursor-pointer text-sm transition-colors ${
+          className={`group flex items-center gap-1 px-2 py-1.5 rounded-md cursor-pointer text-sm transition-all ${
             isActive ? "bg-accent text-accent-foreground" : "hover-elevate"
-          }`}
-          style={{ paddingLeft: `${depth * 16 + 8}px` }}
+          } ${isDragging ? "opacity-30" : ""} ${isDragOver ? "ring-1 ring-primary bg-primary/5" : ""}`}
+          style={{ paddingLeft: `${depth * 16 + 4}px` }}
           onClick={() => onSelectPage(page.id)}
+          draggable={!isEditing && depth === 0}
+          onDragStart={(e) => handleDragStart(e, page.id)}
+          onDragOver={(e) => handleDragOver(e, page.id)}
+          onDrop={(e) => handleDrop(e, page.id)}
+          onDragEnd={() => { setDragId(null); setDragOverId(null); }}
           data-testid={`page-tree-item-${page.id}`}
         >
+          {depth === 0 && (
+            <GripVertical className="h-3 w-3 flex-shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity" />
+          )}
           {hasChildren ? (
             <button
               onClick={(e) => { e.stopPropagation(); setExpanded((prev) => ({ ...prev, [page.id]: !prev[page.id] })); }}
@@ -219,25 +289,104 @@ function PageTree({
   );
 }
 
+function SlashCommandMenu({
+  filter,
+  onSelect,
+  onClose,
+  selectedIndex,
+}: {
+  filter: string;
+  onSelect: (type: BlockType) => void;
+  onClose: () => void;
+  selectedIndex: number;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const filteredTypes = useMemo(() =>
+    BLOCK_TYPES.filter(
+      (bt) => bt.label.toLowerCase().includes(filter.toLowerCase()) || bt.type.includes(filter.toLowerCase()) || bt.description.toLowerCase().includes(filter.toLowerCase())
+    ), [filter]);
+
+  useEffect(() => {
+    const item = menuRef.current?.querySelector(`[data-index="${selectedIndex}"]`) as HTMLElement | null;
+    item?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
+
+  if (filteredTypes.length === 0) {
+    return (
+      <div className="absolute left-0 top-full z-50 mt-1 bg-popover border rounded-md shadow-lg py-2 px-3 w-64" data-testid="slash-menu">
+        <p className="text-sm text-muted-foreground">No results</p>
+      </div>
+    );
+  }
+
+  const grouped = CATEGORIES.map(cat => ({
+    category: cat,
+    items: filteredTypes.filter(bt => bt.category === cat),
+  })).filter(g => g.items.length > 0);
+
+  let globalIdx = 0;
+
+  return (
+    <div ref={menuRef} className="absolute left-0 top-full z-50 mt-1 bg-popover border rounded-md shadow-lg py-1.5 w-72 max-h-80 overflow-y-auto" data-testid="slash-menu">
+      {grouped.map((group) => (
+        <div key={group.category}>
+          <div className="px-3 py-1 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{group.category}</div>
+          {group.items.map((bt) => {
+            const idx = globalIdx++;
+            return (
+              <button
+                key={bt.type}
+                data-index={idx}
+                className={`flex items-center gap-2.5 w-full px-3 py-1.5 text-sm text-left transition-colors ${
+                  idx === selectedIndex ? "bg-accent text-accent-foreground" : "hover-elevate"
+                }`}
+                onMouseDown={(e) => { e.preventDefault(); onSelect(bt.type); }}
+                data-testid={`slash-${bt.type}`}
+              >
+                <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted flex-shrink-0">
+                  <bt.icon className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-medium text-sm">{bt.label}</div>
+                  <div className="text-xs text-muted-foreground truncate">{bt.description}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function BlockEditor({
   pageId,
   blocks,
   onRefresh,
+  pageTitle,
+  onPageTitleChange,
 }: {
   pageId: string;
   blocks: KbBlock[];
   onRefresh: () => void;
+  pageTitle: string;
+  onPageTitleChange: (title: string) => void;
 }) {
   const { toast } = useToast();
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [focusBlockId, setFocusBlockId] = useState<string | null>(null);
+  const blockRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const titleRef = useRef<HTMLDivElement>(null);
 
   const createBlockMutation = useMutation({
     mutationFn: async (data: { type: BlockType; sortOrder: number }) => {
       const res = await apiRequest("POST", `/api/kb-pages/${pageId}/blocks`, data);
       return res.json();
     },
-    onSuccess: () => onRefresh(),
+    onSuccess: (newBlock: KbBlock) => {
+      onRefresh();
+      setFocusBlockId(newBlock.id);
+    },
     onError: () => toast({ title: "Error", description: "Failed to add block.", variant: "destructive" }),
   });
 
@@ -264,10 +413,29 @@ function BlockEditor({
     onError: () => toast({ title: "Error", description: "Failed to reorder blocks.", variant: "destructive" }),
   });
 
-  const addBlock = (type: BlockType, afterIndex?: number) => {
+  useEffect(() => {
+    if (focusBlockId) {
+      const timer = setTimeout(() => {
+        const el = blockRefs.current[focusBlockId];
+        if (el) {
+          el.focus();
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.selectNodeContents(el);
+          range.collapse(false);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+        setFocusBlockId(null);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [focusBlockId, blocks]);
+
+  const addBlock = useCallback((type: BlockType, afterIndex?: number) => {
     const sortOrder = afterIndex != null ? afterIndex + 1 : blocks.length;
     createBlockMutation.mutate({ type, sortOrder });
-  };
+  }, [blocks.length]);
 
   const handleContentChange = useCallback((blockId: string, content: string) => {
     updateBlockMutation.mutate({ id: blockId, data: { content } });
@@ -275,7 +443,30 @@ function BlockEditor({
 
   const handleTypeChange = useCallback((blockId: string, type: BlockType) => {
     updateBlockMutation.mutate({ id: blockId, data: { type, content: "" } });
+    setFocusBlockId(blockId);
   }, []);
+
+  const handleEnterOnBlock = useCallback((blockIndex: number) => {
+    addBlock("text", blockIndex);
+  }, [addBlock]);
+
+  const handleBackspaceOnEmpty = useCallback((blockId: string, blockIndex: number) => {
+    deleteBlockMutation.mutate(blockId);
+    if (blockIndex > 0) {
+      setFocusBlockId(blocks[blockIndex - 1]?.id || null);
+    }
+  }, [blocks]);
+
+  const handleArrowNav = useCallback((blockIndex: number, direction: "up" | "down") => {
+    if (direction === "up" && blockIndex > 0) {
+      setFocusBlockId(blocks[blockIndex - 1].id);
+    } else if (direction === "down" && blockIndex < blocks.length - 1) {
+      setFocusBlockId(blocks[blockIndex + 1].id);
+    }
+  }, [blocks]);
+
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const handleDragStart = (idx: number) => setDragIdx(idx);
   const handleDragOver = (e: React.DragEvent, idx: number) => {
@@ -296,127 +487,147 @@ function BlockEditor({
     setDragOverIdx(null);
   };
 
-  return (
-    <div className="space-y-0.5">
-      {blocks.map((block, idx) => (
-        <div key={block.id}>
-          <InlineAddButton onClick={(type) => addBlock(type, idx - 1)} show={idx === 0} />
-          <div
-            className={`group relative flex items-start gap-1 rounded-md transition-colors ${
-              dragOverIdx === idx ? "bg-primary/5 border-l-2 border-primary" : ""
-            } ${dragIdx === idx ? "opacity-40" : ""}`}
-            draggable
-            onDragStart={() => handleDragStart(idx)}
-            onDragOver={(e) => handleDragOver(e, idx)}
-            onDrop={() => handleDrop(idx)}
-            onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
-            data-testid={`block-${block.id}`}
-          >
-            <div className="flex flex-col items-center gap-0.5 pt-1 invisible group-hover:visible flex-shrink-0">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground" data-testid={`grip-${block.id}`}>
-                    <GripVertical className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="left">Drag to reorder</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="p-0.5 rounded text-muted-foreground"
-                    onClick={() => deleteBlockMutation.mutate(block.id)}
-                    data-testid={`button-delete-block-${block.id}`}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="left">Delete block</TooltipContent>
-              </Tooltip>
-            </div>
+  useEffect(() => {
+    if (titleRef.current && titleRef.current.innerText !== pageTitle) {
+      titleRef.current.innerText = pageTitle;
+    }
+  }, [pageId, pageTitle]);
 
-            <div className="flex-1 min-w-0 relative">
-              <BlockContent
-                block={block}
-                onContentChange={handleContentChange}
-                onTypeChange={handleTypeChange}
-              />
-            </div>
+  const titleDebounce = useRef<ReturnType<typeof setTimeout>>();
+  const handleTitleInput = () => {
+    if (!titleRef.current) return;
+    clearTimeout(titleDebounce.current);
+    const text = titleRef.current.innerText;
+    titleDebounce.current = setTimeout(() => {
+      if (text.trim()) onPageTitleChange(text.trim());
+    }, 600);
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (blocks.length > 0) {
+        setFocusBlockId(blocks[0].id);
+      } else {
+        addBlock("text", -1);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-0">
+      <div
+        ref={titleRef}
+        contentEditable
+        suppressContentEditableWarning
+        className="text-2xl font-bold outline-none mb-6 py-1 empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/40 empty:before:pointer-events-none"
+        data-placeholder="Untitled"
+        onInput={handleTitleInput}
+        onKeyDown={handleTitleKeyDown}
+        data-testid="input-page-title"
+      />
+
+      {blocks.map((block, idx) => (
+        <div
+          key={block.id}
+          className={`group relative flex items-start gap-0.5 rounded-md transition-all ${
+            dragOverIdx === idx ? "bg-primary/5 ring-1 ring-primary/20" : ""
+          } ${dragIdx === idx ? "opacity-30" : ""}`}
+          draggable
+          onDragStart={() => handleDragStart(idx)}
+          onDragOver={(e) => handleDragOver(e, idx)}
+          onDrop={() => handleDrop(idx)}
+          onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+          data-testid={`block-${block.id}`}
+        >
+          <div className="flex items-center gap-0 pt-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="p-0.5 rounded text-muted-foreground hover-elevate"
+                  onClick={() => addBlock("text", idx - 1)}
+                  data-testid={`button-add-above-${block.id}`}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Add block</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground" data-testid={`grip-${block.id}`}>
+                  <GripVertical className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Drag to reorder</TooltipContent>
+            </Tooltip>
           </div>
-          <InlineAddButton onClick={(type) => addBlock(type, idx)} />
+
+          <div className="flex-1 min-w-0 relative">
+            <BlockContent
+              block={block}
+              blockIndex={idx}
+              onContentChange={handleContentChange}
+              onTypeChange={handleTypeChange}
+              onEnter={handleEnterOnBlock}
+              onBackspaceEmpty={handleBackspaceOnEmpty}
+              onArrowNav={handleArrowNav}
+              onDelete={(id) => deleteBlockMutation.mutate(id)}
+              registerRef={(id, el) => { blockRefs.current[id] = el; }}
+            />
+          </div>
         </div>
       ))}
 
-      <div className="pt-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="text-muted-foreground" data-testid="button-add-block">
-              <Plus className="mr-2 h-3.5 w-3.5" />
-              Add a block
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {BLOCK_TYPES.map((bt) => (
-              <DropdownMenuItem key={bt.type} onClick={() => addBlock(bt.type)} data-testid={`menu-block-${bt.type}`}>
-                <bt.icon className="mr-2 h-4 w-4" />
-                <div>
-                  <div className="text-sm">{bt.label}</div>
-                  <div className="text-xs text-muted-foreground">{bt.description}</div>
-                </div>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
-  );
-}
-
-function InlineAddButton({ onClick, show }: { onClick: (type: BlockType) => void; show?: boolean }) {
-  return (
-    <div className={`group/add flex items-center h-2 ${show ? "" : ""}`}>
-      <div className="invisible group-hover/add:visible flex items-center w-full">
-        <div className="flex-1 h-px bg-border" />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="flex-shrink-0 mx-1 p-0 rounded-full bg-muted border w-5 h-5 flex items-center justify-center text-muted-foreground"
-              data-testid="button-inline-add-block"
-            >
-              <Plus className="h-3 w-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {BLOCK_TYPES.map((bt) => (
-              <DropdownMenuItem key={bt.type} onClick={() => onClick(bt.type)}>
-                <bt.icon className="mr-2 h-4 w-4" />
-                <div>
-                  <div className="text-sm">{bt.label}</div>
-                  <div className="text-xs text-muted-foreground">{bt.description}</div>
-                </div>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <div className="flex-1 h-px bg-border" />
-      </div>
+      {blocks.length === 0 && (
+        <div
+          className="text-muted-foreground/40 text-base py-2 cursor-text"
+          onClick={() => addBlock("text", -1)}
+          data-testid="empty-editor-placeholder"
+        >
+          Type '/' for commands, or click to start writing...
+        </div>
+      )}
     </div>
   );
 }
 
 function BlockContent({
   block,
+  blockIndex,
   onContentChange,
   onTypeChange,
+  onEnter,
+  onBackspaceEmpty,
+  onArrowNav,
+  onDelete,
+  registerRef,
 }: {
   block: KbBlock;
+  blockIndex: number;
   onContentChange: (id: string, content: string) => void;
   onTypeChange: (id: string, type: BlockType) => void;
+  onEnter: (blockIndex: number) => void;
+  onBackspaceEmpty: (blockId: string, blockIndex: number) => void;
+  onArrowNav: (blockIndex: number, direction: "up" | "down") => void;
+  onDelete: (id: string) => void;
+  registerRef: (id: string, el: HTMLDivElement | null) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashFilter, setSlashFilter] = useState("");
+  const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
+
+  const filteredTypes = useMemo(() =>
+    BLOCK_TYPES.filter(
+      (bt) => bt.label.toLowerCase().includes(slashFilter.toLowerCase()) || bt.type.includes(slashFilter.toLowerCase()) || bt.description.toLowerCase().includes(slashFilter.toLowerCase())
+    ), [slashFilter]);
+
+  useEffect(() => {
+    registerRef(block.id, ref.current);
+    return () => registerRef(block.id, null);
+  }, [block.id]);
 
   const saveContent = useCallback((text: string) => {
     onContentChange(block.id, text);
@@ -427,30 +638,115 @@ function BlockContent({
     const text = ref.current.innerText;
     clearTimeout(debounceRef.current);
 
-    if (text.startsWith("/")) {
+    if (text === "/") {
       setShowSlashMenu(true);
-      setSlashFilter(text.slice(1).toLowerCase());
+      setSlashFilter("");
+      setSlashSelectedIndex(0);
       return;
     }
 
-    setShowSlashMenu(false);
-    setSlashFilter("");
+    if (text.startsWith("/") && showSlashMenu) {
+      setSlashFilter(text.slice(1));
+      setSlashSelectedIndex(0);
+      return;
+    }
+
+    if (showSlashMenu && !text.startsWith("/")) {
+      setShowSlashMenu(false);
+      setSlashFilter("");
+    }
+
     debounceRef.current = setTimeout(() => saveContent(text), 500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (showSlashMenu && e.key === "Escape") {
-      e.preventDefault();
-      setShowSlashMenu(false);
-      setSlashFilter("");
+    if (showSlashMenu) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowSlashMenu(false);
+        setSlashFilter("");
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashSelectedIndex((prev) => Math.min(prev + 1, filteredTypes.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashSelectedIndex((prev) => Math.max(prev - 1, 0));
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (filteredTypes.length > 0) {
+          selectSlashType(filteredTypes[slashSelectedIndex]?.type || filteredTypes[0].type);
+        }
+        return;
+      }
     }
-    if (e.key === "Enter" && !e.shiftKey && showSlashMenu) {
+
+    const isListType = ["bullet_list", "numbered_list", "todo"].includes(block.type);
+    if (e.key === "Tab" && isListType) {
       e.preventDefault();
-      const filtered = BLOCK_TYPES.filter(
-        (bt) => bt.label.toLowerCase().includes(slashFilter) || bt.type.includes(slashFilter)
-      );
-      if (filtered.length > 0) {
-        selectSlashType(filtered[0].type);
+      if (!ref.current) return;
+      const text = ref.current.innerText;
+      if (e.shiftKey) {
+        if (text.startsWith("  ")) {
+          ref.current.innerText = text.slice(2);
+          saveContent(text.slice(2));
+        }
+      } else {
+        ref.current.innerText = "  " + text;
+        saveContent("  " + text);
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.selectNodeContents(ref.current);
+        range.collapse(false);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
+      return;
+    }
+
+    if (e.key === "Enter" && !e.shiftKey && !showSlashMenu) {
+      e.preventDefault();
+      clearTimeout(debounceRef.current);
+      if (ref.current) saveContent(ref.current.innerText);
+      onEnter(blockIndex);
+    }
+
+    if (e.key === "Backspace" && ref.current) {
+      const text = ref.current.innerText;
+      if (text === "" || text === "\n") {
+        e.preventDefault();
+        onBackspaceEmpty(block.id, blockIndex);
+      }
+    }
+
+    if (e.key === "ArrowUp" && !showSlashMenu) {
+      const sel = window.getSelection();
+      if (sel && ref.current) {
+        const range = sel.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        const containerRect = ref.current.getBoundingClientRect();
+        if (Math.abs(rect.top - containerRect.top) < 2) {
+          e.preventDefault();
+          onArrowNav(blockIndex, "up");
+        }
+      }
+    }
+
+    if (e.key === "ArrowDown" && !showSlashMenu) {
+      const sel = window.getSelection();
+      if (sel && ref.current) {
+        const range = sel.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        const containerRect = ref.current.getBoundingClientRect();
+        if (Math.abs(rect.bottom - containerRect.bottom) < 2) {
+          e.preventDefault();
+          onArrowNav(blockIndex, "down");
+        }
       }
     }
   };
@@ -483,11 +779,21 @@ function BlockContent({
     return () => clearTimeout(debounceRef.current);
   }, []);
 
-  const baseClass = "outline-none w-full min-h-[1.5em] whitespace-pre-wrap break-words";
+  const placeholders: Record<string, string> = {
+    text: "Type '/' for commands, or start writing...",
+    heading1: "Heading 1",
+    heading2: "Heading 2",
+    heading3: "Heading 3",
+    bullet_list: "List item",
+    numbered_list: "List item",
+    todo: "To-do item",
+    toggle: "Toggle title",
+    code: "Write code...",
+    quote: "Write a quote...",
+    callout: "Type a callout...",
+  };
 
-  const filteredTypes = BLOCK_TYPES.filter(
-    (bt) => bt.label.toLowerCase().includes(slashFilter) || bt.type.includes(slashFilter)
-  );
+  const baseClass = "outline-none w-full min-h-[1.5em] whitespace-pre-wrap break-words";
 
   const renderEditable = (className: string, placeholder: string) => (
     <div className="relative">
@@ -495,41 +801,108 @@ function BlockContent({
         ref={ref}
         contentEditable
         suppressContentEditableWarning
-        className={`${baseClass} ${className} empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none`}
+        className={`${baseClass} ${className} empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/40 empty:before:pointer-events-none`}
         data-placeholder={placeholder}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         data-testid={`editor-block-${block.id}`}
       />
-      {showSlashMenu && filteredTypes.length > 0 && (
-        <div className="absolute left-0 top-full z-50 mt-1 bg-popover border rounded-md shadow-md py-1 w-56" data-testid="slash-menu">
-          {filteredTypes.map((bt) => (
-            <button
-              key={bt.type}
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left hover-elevate"
-              onMouseDown={(e) => { e.preventDefault(); selectSlashType(bt.type); }}
-              data-testid={`slash-${bt.type}`}
-            >
-              <bt.icon className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <div>{bt.label}</div>
-                <div className="text-xs text-muted-foreground">{bt.description}</div>
-              </div>
-            </button>
-          ))}
-        </div>
+      {showSlashMenu && (
+        <SlashCommandMenu
+          filter={slashFilter}
+          onSelect={selectSlashType}
+          onClose={() => { setShowSlashMenu(false); setSlashFilter(""); }}
+          selectedIndex={slashSelectedIndex}
+        />
       )}
     </div>
   );
 
   switch (block.type) {
     case "heading1":
-      return renderEditable("text-3xl font-bold py-1", "Heading 1");
+      return renderEditable("text-3xl font-bold py-1", placeholders.heading1);
     case "heading2":
-      return renderEditable("text-2xl font-semibold py-1", "Heading 2");
+      return renderEditable("text-2xl font-semibold py-1", placeholders.heading2);
     case "heading3":
-      return renderEditable("text-xl font-medium py-0.5", "Heading 3");
+      return renderEditable("text-xl font-medium py-0.5", placeholders.heading3);
+
+    case "bullet_list":
+      return (
+        <div className="flex items-start gap-2 py-0.5">
+          <span className="text-muted-foreground mt-[3px] flex-shrink-0 select-none">&#8226;</span>
+          {renderEditable("text-base", placeholders.bullet_list)}
+        </div>
+      );
+
+    case "numbered_list":
+      return (
+        <div className="flex items-start gap-2 py-0.5">
+          <span className="text-muted-foreground mt-[1px] flex-shrink-0 select-none text-sm font-medium min-w-[1.25rem] text-right">{blockIndex + 1}.</span>
+          {renderEditable("text-base", placeholders.numbered_list)}
+        </div>
+      );
+
+    case "todo":
+      return <TodoBlock block={block} onContentChange={onContentChange} renderEditable={renderEditable} placeholder={placeholders.todo} />;
+
+    case "toggle":
+      return <ToggleBlock block={block} onContentChange={onContentChange} renderEditable={renderEditable} placeholder={placeholders.toggle} />;
+
+    case "code":
+      return (
+        <div className="rounded-md bg-muted/60 border overflow-visible">
+          <div
+            ref={ref}
+            contentEditable
+            suppressContentEditableWarning
+            className={`${baseClass} font-mono text-sm p-3 text-foreground`}
+            data-placeholder={placeholders.code}
+            style={{ tabSize: 2 }}
+            onInput={handleInput}
+            onKeyDown={(e) => {
+              if (e.key === "Tab") {
+                e.preventDefault();
+                document.execCommand("insertText", false, "  ");
+              }
+              handleKeyDown(e);
+            }}
+            onBlur={handleBlur}
+            data-testid={`editor-block-${block.id}`}
+          />
+          {showSlashMenu && (
+            <SlashCommandMenu
+              filter={slashFilter}
+              onSelect={selectSlashType}
+              onClose={() => { setShowSlashMenu(false); setSlashFilter(""); }}
+              selectedIndex={slashSelectedIndex}
+            />
+          )}
+        </div>
+      );
+
+    case "quote":
+      return (
+        <div className="border-l-[3px] border-muted-foreground/30 pl-4 py-0.5">
+          {renderEditable("text-base italic text-muted-foreground", placeholders.quote)}
+        </div>
+      );
+
+    case "callout":
+      return (
+        <div className="rounded-md bg-muted/50 border px-4 py-3 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+          {renderEditable("text-sm", placeholders.callout)}
+        </div>
+      );
+
+    case "divider":
+      return (
+        <div className="py-3 group/divider">
+          <hr className="border-border" />
+        </div>
+      );
+
     case "image":
       return (
         <div className="space-y-2 py-1">
@@ -547,6 +920,7 @@ function BlockContent({
           />
         </div>
       );
+
     case "video":
       return (
         <div className="space-y-2 py-1">
@@ -569,6 +943,7 @@ function BlockContent({
           />
         </div>
       );
+
     case "link":
       return (
         <div className="space-y-2 py-1">
@@ -593,9 +968,99 @@ function BlockContent({
           />
         </div>
       );
+
     default:
-      return renderEditable("text-base py-0.5", "Type '/' for commands or start writing...");
+      return renderEditable("text-base py-0.5", placeholders.text);
   }
+}
+
+function TodoBlock({
+  block,
+  onContentChange,
+  renderEditable,
+  placeholder,
+}: {
+  block: KbBlock;
+  onContentChange: (id: string, content: string) => void;
+  renderEditable: (className: string, placeholder: string) => JSX.Element;
+  placeholder: string;
+}) {
+  const parsed = parseTodoContent(block.content);
+
+  const toggleCheck = () => {
+    const newContent = `[${parsed.checked ? " " : "x"}] ${parsed.text}`;
+    onContentChange(block.id, newContent);
+  };
+
+  return (
+    <div className="flex items-start gap-2 py-0.5">
+      <button
+        className={`mt-[3px] flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+          parsed.checked ? "bg-primary border-primary" : "border-muted-foreground/40"
+        }`}
+        onClick={toggleCheck}
+        data-testid={`todo-check-${block.id}`}
+      >
+        {parsed.checked && <Check className="h-3 w-3 text-primary-foreground" />}
+      </button>
+      <div className={`flex-1 ${parsed.checked ? "line-through text-muted-foreground" : ""}`}>
+        {renderEditable("text-base", placeholder)}
+      </div>
+    </div>
+  );
+}
+
+function parseTodoContent(content: string): { checked: boolean; text: string } {
+  const match = content.match(/^\[([ x])\]\s*([\s\S]*)/);
+  if (match) {
+    return { checked: match[1] === "x", text: match[2] };
+  }
+  return { checked: false, text: content };
+}
+
+function ToggleBlock({
+  block,
+  onContentChange,
+  renderEditable,
+  placeholder,
+}: {
+  block: KbBlock;
+  onContentChange: (id: string, content: string) => void;
+  renderEditable: (className: string, placeholder: string) => JSX.Element;
+  placeholder: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const parts = block.content.split("\n---\n");
+  const title = parts[0] || "";
+  const body = parts.slice(1).join("\n---\n") || "";
+
+  return (
+    <div className="rounded-md border bg-muted/20 overflow-visible">
+      <div className="flex items-start gap-1 px-3 py-2">
+        <button
+          className="p-0.5 mt-0.5 flex-shrink-0 text-muted-foreground"
+          onClick={() => setIsOpen(!isOpen)}
+          data-testid={`toggle-btn-${block.id}`}
+        >
+          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
+        <div className="flex-1 min-w-0">
+          {renderEditable("text-base font-medium", placeholder)}
+        </div>
+      </div>
+      {isOpen && (
+        <div className="px-3 pb-3 pl-9 text-sm text-muted-foreground">
+          <textarea
+            className="w-full bg-transparent border-none outline-none resize-none min-h-[2em] text-foreground"
+            placeholder="Toggle content..."
+            value={body}
+            onChange={(e) => onContentChange(block.id, `${title}\n---\n${e.target.value}`)}
+            data-testid={`toggle-body-${block.id}`}
+          />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function KbSettingsPanel({
@@ -828,7 +1293,8 @@ export default function KbEditorPage() {
 
   useEffect(() => {
     if (pages.length > 0 && !activePageId) {
-      setActivePageId(pages[0].id);
+      const sorted = [...pages].filter(p => !p.parentPageId).sort((a, b) => a.sortOrder - b.sortOrder);
+      setActivePageId(sorted[0]?.id || pages[0].id);
     }
   }, [pages, activePageId]);
 
@@ -868,6 +1334,16 @@ export default function KbEditorPage() {
     onError: () => toast({ title: "Error", description: "Failed to delete page.", variant: "destructive" }),
   });
 
+  const reorderPagesMutation = useMutation({
+    mutationFn: async (pageIds: string[]) => {
+      await apiRequest("PUT", `/api/knowledge-bases/${kbId}/pages/reorder`, { pageIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/knowledge-bases/${kbId}/pages`] });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to reorder pages.", variant: "destructive" }),
+  });
+
   const updateKbTitleMutation = useMutation({
     mutationFn: async (title: string) => {
       await apiRequest("PATCH", `/api/knowledge-bases/${kbId}`, { title });
@@ -879,13 +1355,11 @@ export default function KbEditorPage() {
     onError: () => toast({ title: "Error", description: "Failed to rename.", variant: "destructive" }),
   });
 
-  const debouncedRenameKb = useDebouncedCallback((title: string) => {
-    if (title.trim()) updateKbTitleMutation.mutate(title.trim());
-  }, 600);
-
-  const debouncedRenamePage = useDebouncedCallback((title: string) => {
-    if (activePage && title.trim()) renamePageMutation.mutate({ id: activePage.id, title: title.trim() });
-  }, 600);
+  const handlePageTitleChange = useCallback((title: string) => {
+    if (activePage) {
+      renamePageMutation.mutate({ id: activePage.id, title });
+    }
+  }, [activePage]);
 
   if (kbLoading) {
     return (
@@ -919,7 +1393,7 @@ export default function KbEditorPage() {
               <DebouncedInput
                 className="h-7 text-sm font-semibold border-none bg-transparent px-1"
                 value={kb.title}
-                onChange={debouncedRenameKb}
+                onChange={(val) => { if (val.trim()) updateKbTitleMutation.mutate(val.trim()); }}
                 data-testid="input-kb-title"
               />
             </div>
@@ -961,6 +1435,8 @@ export default function KbEditorPage() {
               onCreatePage={(parentId) => createPageMutation.mutate(parentId)}
               onDeletePage={(id) => deletePageMutation.mutate(id)}
               onRenamePage={(id, title) => renamePageMutation.mutate({ id, title })}
+              onReorderPages={(pageIds) => reorderPagesMutation.mutate(pageIds)}
+              kbId={kbId}
             />
           )}
         </div>
@@ -969,19 +1445,12 @@ export default function KbEditorPage() {
       <div className="flex-1 overflow-y-auto">
         {activePageId && activePage ? (
           <div className="max-w-3xl mx-auto p-8">
-            <div className="mb-6">
-              <DebouncedInput
-                className="text-3xl font-bold border-none bg-transparent px-0 h-auto focus-visible:ring-0"
-                value={activePage.title}
-                onChange={debouncedRenamePage}
-                placeholder="Untitled Page"
-                data-testid="input-page-title"
-              />
-            </div>
             <BlockEditor
               pageId={activePageId}
               blocks={blocks}
               onRefresh={() => refetchBlocks()}
+              pageTitle={activePage.title}
+              onPageTitleChange={handlePageTitleChange}
             />
           </div>
         ) : (

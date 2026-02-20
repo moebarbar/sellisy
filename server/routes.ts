@@ -1065,7 +1065,7 @@ export async function registerRoutes(
     const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
     if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
     const schema = z.object({
-      type: z.enum(["text", "heading1", "heading2", "heading3", "image", "video", "link"]).optional(),
+      type: z.enum(["text", "heading1", "heading2", "heading3", "image", "video", "link", "bullet_list", "numbered_list", "todo", "toggle", "code", "quote", "divider", "callout"]).optional(),
       content: z.string().optional(),
       sortOrder: z.number().int().optional(),
     });
@@ -1088,7 +1088,7 @@ export async function registerRoutes(
     const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
     if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
     const schema = z.object({
-      type: z.enum(["text", "heading1", "heading2", "heading3", "image", "video", "link"]).optional(),
+      type: z.enum(["text", "heading1", "heading2", "heading3", "image", "video", "link", "bullet_list", "numbered_list", "todo", "toggle", "code", "quote", "divider", "callout"]).optional(),
       content: z.string().optional(),
       sortOrder: z.number().int().optional(),
     });
@@ -1106,6 +1106,22 @@ export async function registerRoutes(
     const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
     if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
     await storage.deleteKbBlock(block.id);
+    res.json({ ok: true });
+  });
+
+  app.put("/api/knowledge-bases/:id/pages/reorder", isAuthenticated, async (req, res) => {
+    const kb = await storage.getKnowledgeBaseById(req.params.id as string);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const schema = z.object({ pageIds: z.array(z.string()) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const pages = await storage.getKbPagesByKnowledgeBase(kb.id);
+    for (let i = 0; i < parsed.data.pageIds.length; i++) {
+      const page = pages.find(p => p.id === parsed.data.pageIds[i]);
+      if (page) {
+        await storage.updateKbPage(page.id, { sortOrder: i });
+      }
+    }
     res.json({ ok: true });
   });
 
