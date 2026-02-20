@@ -206,10 +206,10 @@
     @apply hidden;
   }
 
-  /* Placeholder styling for contentEditable div */
-  [contenteditable][data-placeholder]:empty::before {
+  /* Placeholder styling for contentEditable div - only show when focused */
+  [contenteditable][data-placeholder]:focus:empty::before {
     content: attr(data-placeholder);
-    color: hsl(var(--muted-foreground));
+    color: hsl(var(--muted-foreground) / 0.4);
     pointer-events: none;
   }
 

@@ -843,13 +843,24 @@ function BlockEditor({
         </div>
       ))}
 
-      {blocks.length === 0 && (
+      {blocks.length === 0 ? (
         <div
           className="text-muted-foreground/40 text-base py-2 cursor-text"
           onClick={() => addBlock("text", -1)}
           data-testid="empty-editor-placeholder"
         >
           Type '/' for commands, or click to start writing...
+        </div>
+      ) : (
+        <div
+          className="min-h-[6rem] py-2 cursor-text group/add-end"
+          onClick={() => addBlock("text", blocks.length - 1)}
+          data-testid="add-block-end"
+        >
+          <div className="flex items-center gap-2 text-muted-foreground/0 group-hover/add-end:text-muted-foreground/40 transition-colors">
+            <Plus className="h-3.5 w-3.5" />
+            <span className="text-sm">Click to add a block</span>
+          </div>
         </div>
       )}
     </div>
@@ -1051,11 +1062,25 @@ function BlockContent({
       }
     }
 
-    if (e.key === "Enter" && !e.shiftKey && !showSlashMenu) {
-      e.preventDefault();
-      clearTimeout(debounceRef.current);
-      if (ref.current) saveContent(getContent());
-      onEnter(blockIndex, block.type as BlockType);
+    if (e.key === "Enter" && !showSlashMenu) {
+      if (block.type === "code" && !e.shiftKey) {
+        e.preventDefault();
+        document.execCommand("insertLineBreak");
+        return;
+      }
+      if (block.type === "code" && e.shiftKey) {
+        e.preventDefault();
+        clearTimeout(debounceRef.current);
+        if (ref.current) saveContent(getContent());
+        onEnter(blockIndex, "text" as BlockType);
+        return;
+      }
+      if (!e.shiftKey) {
+        e.preventDefault();
+        clearTimeout(debounceRef.current);
+        if (ref.current) saveContent(getContent());
+        onEnter(blockIndex, block.type as BlockType);
+      }
     }
 
     if (e.key === "Backspace" && ref.current) {
@@ -1150,7 +1175,7 @@ function BlockContent({
         ref={ref}
         contentEditable
         suppressContentEditableWarning
-        className={`${baseClass} ${className} empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/40 empty:before:pointer-events-none`}
+        className={`${baseClass} ${className}`}
         data-placeholder={placeholder}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
