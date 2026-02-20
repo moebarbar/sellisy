@@ -613,11 +613,12 @@ function BlockEditor({
     const controller = new AbortController();
     pendingSavesRef.current[id] = controller;
     try {
-      await apiRequest("PATCH", `/api/kb-blocks/${id}`, data);
+      await apiRequest("PATCH", `/api/kb-blocks/${id}`, data, controller.signal);
     } catch (err: any) {
-      if (err?.name !== "AbortError") {
-        toast({ title: "Error", description: "Failed to save block.", variant: "destructive" });
-      }
+      if (err?.name === "AbortError") return;
+      if (controller.signal.aborted) return;
+      console.error("Save block error:", id, err?.message);
+      toast({ title: "Error", description: "Failed to save block.", variant: "destructive" });
     } finally {
       if (pendingSavesRef.current[id] === controller) {
         delete pendingSavesRef.current[id];
@@ -627,6 +628,10 @@ function BlockEditor({
 
   const deleteBlockMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (pendingSavesRef.current[id]) {
+        pendingSavesRef.current[id].abort();
+        delete pendingSavesRef.current[id];
+      }
       await apiRequest("DELETE", `/api/kb-blocks/${id}`);
     },
     onSuccess: (_data, deletedId) => {
