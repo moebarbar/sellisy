@@ -396,6 +396,7 @@ export async function registerRoutes(
     const schema = z.object({
       title: z.string().min(1),
       description: z.string().optional().nullable(),
+      tagline: z.string().optional().nullable(),
       category: z.string().optional().nullable(),
       priceCents: z.number().int().min(0),
       originalPriceCents: z.number().int().min(0).optional().nullable(),
@@ -407,6 +408,9 @@ export async function registerRoutes(
       accessUrl: z.string().optional().nullable(),
       redemptionCode: z.string().optional().nullable(),
       tags: z.array(z.string()).optional().nullable(),
+      highlights: z.array(z.string()).optional().nullable(),
+      version: z.string().optional().nullable(),
+      fileSize: z.string().optional().nullable(),
       images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -421,6 +425,7 @@ export async function registerRoutes(
       source: "USER",
       title: parsed.data.title,
       description: parsed.data.description || null,
+      tagline: parsed.data.tagline ?? null,
       category: parsed.data.category || "templates",
       priceCents: parsed.data.priceCents,
       originalPriceCents: parsed.data.originalPriceCents ?? null,
@@ -432,6 +437,9 @@ export async function registerRoutes(
       accessUrl: parsed.data.accessUrl ?? null,
       redemptionCode: parsed.data.redemptionCode ?? null,
       tags: parsed.data.tags ?? null,
+      highlights: parsed.data.highlights ?? null,
+      version: parsed.data.version ?? null,
+      fileSize: parsed.data.fileSize ?? null,
     });
 
     if (imgs.length > 0) {
@@ -455,6 +463,7 @@ export async function registerRoutes(
     const schema = z.object({
       title: z.string().min(1).optional(),
       description: z.string().optional().nullable(),
+      tagline: z.string().optional().nullable(),
       category: z.string().optional(),
       priceCents: z.number().int().min(0).optional(),
       originalPriceCents: z.number().int().min(0).optional().nullable(),
@@ -466,6 +475,9 @@ export async function registerRoutes(
       accessUrl: z.string().optional().nullable(),
       redemptionCode: z.string().optional().nullable(),
       tags: z.array(z.string()).optional().nullable(),
+      highlights: z.array(z.string()).optional().nullable(),
+      version: z.string().optional().nullable(),
+      fileSize: z.string().optional().nullable(),
       images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);

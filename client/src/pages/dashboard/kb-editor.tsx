@@ -442,12 +442,19 @@ function BlockEditor({
   }, []);
 
   const handleTypeChange = useCallback((blockId: string, type: BlockType) => {
+    queryClient.setQueryData<KbBlock[]>(
+      [`/api/kb-pages/${pageId}/blocks`],
+      (old) => old?.map((b) => b.id === blockId ? { ...b, type, content: "" } : b)
+    );
     updateBlockMutation.mutate({ id: blockId, data: { type, content: "" } });
     setFocusBlockId(blockId);
-  }, []);
+  }, [pageId]);
 
-  const handleEnterOnBlock = useCallback((blockIndex: number) => {
-    addBlock("text", blockIndex);
+  const continuationTypes: BlockType[] = ["bullet_list", "numbered_list", "todo", "quote", "callout"];
+
+  const handleEnterOnBlock = useCallback((blockIndex: number, currentType?: BlockType) => {
+    const nextType = currentType && continuationTypes.includes(currentType) ? currentType : "text";
+    addBlock(nextType, blockIndex);
   }, [addBlock]);
 
   const handleBackspaceOnEmpty = useCallback((blockId: string, blockIndex: number) => {
@@ -607,7 +614,7 @@ function BlockContent({
   blockIndex: number;
   onContentChange: (id: string, content: string) => void;
   onTypeChange: (id: string, type: BlockType) => void;
-  onEnter: (blockIndex: number) => void;
+  onEnter: (blockIndex: number, currentType?: BlockType) => void;
   onBackspaceEmpty: (blockId: string, blockIndex: number) => void;
   onArrowNav: (blockIndex: number, direction: "up" | "down") => void;
   onDelete: (id: string) => void;
@@ -713,7 +720,7 @@ function BlockContent({
       e.preventDefault();
       clearTimeout(debounceRef.current);
       if (ref.current) saveContent(ref.current.innerText);
-      onEnter(blockIndex);
+      onEnter(blockIndex, block.type as BlockType);
     }
 
     if (e.key === "Backspace" && ref.current) {

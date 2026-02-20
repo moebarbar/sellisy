@@ -89,6 +89,7 @@ export const products = pgTable("products", {
   source: productSourceEnum("source").notNull().default("USER"),
   title: text("title").notNull(),
   description: text("description"),
+  tagline: text("tagline"),
   category: text("category").notNull().default("templates"),
   priceCents: integer("price_cents").notNull().default(0),
   originalPriceCents: integer("original_price_cents"),
@@ -101,6 +102,9 @@ export const products = pgTable("products", {
   accessUrl: text("access_url"),
   redemptionCode: text("redemption_code"),
   tags: text("tags").array(),
+  highlights: text("highlights").array(),
+  version: text("version"),
+  fileSize: text("file_size"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

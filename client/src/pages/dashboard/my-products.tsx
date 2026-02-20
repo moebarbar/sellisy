@@ -145,11 +145,21 @@ export default function MyProductsPage() {
                       ${(product.priceCents / 100).toFixed(2)}
                     </Badge>
                   </div>
+                  {product.tagline && (
+                    <p className="text-sm text-muted-foreground mb-1" data-testid={`text-tagline-${product.id}`}>
+                      {product.tagline}
+                    </p>
+                  )}
                   <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                     <Badge variant="outline" className="text-xs capitalize">{product.category}</Badge>
                     {product.productType && product.productType !== "digital" && (
                       <Badge variant="secondary" className="text-xs capitalize" data-testid={`badge-type-${product.id}`}>
                         {product.productType}
+                      </Badge>
+                    )}
+                    {product.version && (
+                      <Badge variant="secondary" className="text-xs" data-testid={`badge-version-${product.id}`}>
+                        v{product.version}
                       </Badge>
                     )}
                     {(product.tags || []).slice(0, 2).map((tag) => (
@@ -533,6 +543,10 @@ function ProductFormDialog({
   const [accessUrl, setAccessUrl] = useState("");
   const [redemptionCode, setRedemptionCode] = useState("");
   const [tagsInput, setTagsInput] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [highlightsInput, setHighlightsInput] = useState("");
+  const [version, setVersion] = useState("");
+  const [fileSize, setFileSize] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -548,6 +562,7 @@ function ProductFormDialog({
     if (mode === "edit" && product) {
       setTitle(product.title);
       setDescription(product.description || "");
+      setTagline(product.tagline || "");
       setCategory(product.category);
       setPrice((product.priceCents / 100).toFixed(2));
       setOriginalPrice(product.originalPriceCents ? (product.originalPriceCents / 100).toFixed(2) : "");
@@ -559,9 +574,13 @@ function ProductFormDialog({
       setAccessUrl(product.accessUrl || "");
       setRedemptionCode(product.redemptionCode || "");
       setTagsInput((product.tags || []).join(", "));
+      setHighlightsInput((product.highlights || []).join("\n"));
+      setVersion(product.version || "");
+      setFileSize(product.fileSize || "");
     } else {
       setTitle("");
       setDescription("");
+      setTagline("");
       setCategory(userCategories[0]?.slug || "templates");
       setPrice("");
       setOriginalPrice("");
@@ -574,6 +593,9 @@ function ProductFormDialog({
       setAccessUrl("");
       setRedemptionCode("");
       setTagsInput("");
+      setHighlightsInput("");
+      setVersion("");
+      setFileSize("");
     }
   };
 
@@ -666,9 +688,11 @@ function ProductFormDialog({
       const priceCents = Math.round(parseFloat(price) * 100);
       const origPriceCents = originalPrice ? Math.round(parseFloat(originalPrice) * 100) : null;
       const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : [];
+      const highlightsList = highlightsInput ? highlightsInput.split("\n").map(h => h.trim()).filter(Boolean) : [];
       const body: any = {
         title,
         description: description || null,
+        tagline: tagline || null,
         category,
         priceCents,
         originalPriceCents: origPriceCents,
@@ -679,6 +703,9 @@ function ProductFormDialog({
         accessUrl: accessUrl || null,
         redemptionCode: redemptionCode || null,
         tags,
+        highlights: highlightsList.length > 0 ? highlightsList : null,
+        version: version || null,
+        fileSize: fileSize || null,
         images: buildImagesPayload(),
       };
       await apiRequest("POST", "/api/products", body);
@@ -698,9 +725,11 @@ function ProductFormDialog({
       const priceCents = Math.round(parseFloat(price) * 100);
       const origPriceCents = originalPrice ? Math.round(parseFloat(originalPrice) * 100) : null;
       const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : [];
+      const highlightsList = highlightsInput ? highlightsInput.split("\n").map(h => h.trim()).filter(Boolean) : [];
       const body: any = {
         title,
         description: description || null,
+        tagline: tagline || null,
         category,
         priceCents,
         originalPriceCents: origPriceCents,
@@ -711,6 +740,9 @@ function ProductFormDialog({
         accessUrl: accessUrl || null,
         redemptionCode: redemptionCode || null,
         tags,
+        highlights: highlightsList.length > 0 ? highlightsList : null,
+        version: version || null,
+        fileSize: fileSize || null,
         images: buildImagesPayload(),
       };
       await apiRequest("PATCH", `/api/products/${product!.id}`, body);
@@ -765,10 +797,22 @@ function ProductFormDialog({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="tagline">Tagline</Label>
+            <Input
+              id="tagline"
+              placeholder="A short catchy subtitle for your product"
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value)}
+              data-testid="input-product-tagline"
+            />
+            <p className="text-xs text-muted-foreground">Short subtitle shown on product cards (max ~80 characters)</p>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              placeholder="Describe your product..."
+              placeholder="Describe your product in detail..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -786,6 +830,19 @@ function ProductFormDialog({
               data-testid="input-product-tags"
             />
             <p className="text-xs text-muted-foreground">Comma-separated tags to help buyers find your product</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="highlights">Key Highlights</Label>
+            <Textarea
+              id="highlights"
+              placeholder={"Lifetime access included\nNo monthly fees\n24/7 customer support\nFree updates forever"}
+              value={highlightsInput}
+              onChange={(e) => setHighlightsInput(e.target.value)}
+              rows={3}
+              data-testid="input-product-highlights"
+            />
+            <p className="text-xs text-muted-foreground">One highlight per line. These are shown as bullet points on your product listing.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -917,6 +974,29 @@ function ProductFormDialog({
                 value={originalPrice}
                 onChange={(e) => setOriginalPrice(e.target.value)}
                 data-testid="input-product-original-price"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="version">Version</Label>
+              <Input
+                id="version"
+                placeholder="e.g. 2.1, v3.0"
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+                data-testid="input-product-version"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fileSize">File Size</Label>
+              <Input
+                id="fileSize"
+                placeholder="e.g. 25 MB, 1.2 GB"
+                value={fileSize}
+                onChange={(e) => setFileSize(e.target.value)}
+                data-testid="input-product-file-size"
               />
             </div>
           </div>
