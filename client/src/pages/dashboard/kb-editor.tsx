@@ -89,6 +89,13 @@ const CATEGORIES = ["Basic", "Lists", "Advanced", "Media"];
 
 const FORMAT_TYPES = ["text", "heading1", "heading2", "heading3", "bullet_list", "numbered_list", "todo", "quote", "callout"];
 
+const FORMATTING_TAG_RE = /<(b|i|u|s|strong|em|code|mark|a|strike|span)\b[^>]*>/i;
+
+function hasFormattingTags(html: string): boolean {
+  return FORMATTING_TAG_RE.test(html);
+}
+
+
 function getSelectionRect(): DOMRect | null {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
@@ -908,10 +915,20 @@ function BlockContent({
     onContentChange(block.id, text);
   }, [block.id, onContentChange]);
 
+  const isCodeBlock = block.type === "code";
+
   const getContent = () => {
     if (!ref.current) return "";
-    const hasFormatting = ref.current.querySelector("b, i, u, s, strong, em, code, mark, a, strike");
-    return hasFormatting ? ref.current.innerHTML : ref.current.innerText;
+    if (isCodeBlock) return ref.current.textContent || "";
+    const hasFormatting = ref.current.querySelector("b, i, u, s, strong, em, code, mark, a, strike, span[style]");
+    if (hasFormatting) {
+      let html = ref.current.innerHTML;
+      html = html.replace(/<div><br\s*\/?><\/div>/gi, "");
+      html = html.replace(/<div>(.*?)<\/div>/gi, "$1");
+      html = html.replace(/^(<br\s*\/?>)+|(<br\s*\/?>)+$/gi, "");
+      return html;
+    }
+    return ref.current.innerText;
   };
 
   const handleInput = () => {
@@ -991,7 +1008,7 @@ function BlockContent({
       return;
     }
 
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !isCodeBlock) {
       if (e.key === "b") { e.preventDefault(); document.execCommand("bold"); handleInput(); return; }
       if (e.key === "i") { e.preventDefault(); document.execCommand("italic"); handleInput(); return; }
       if (e.key === "u") { e.preventDefault(); document.execCommand("underline"); handleInput(); return; }
@@ -1032,7 +1049,7 @@ function BlockContent({
       }
     }
 
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !isCodeBlock) {
       if (e.key === "S" || e.key === "s") { e.preventDefault(); document.execCommand("strikeThrough"); handleInput(); return; }
       if (e.key === "H" || e.key === "h") {
         e.preventDefault();
@@ -1065,7 +1082,22 @@ function BlockContent({
     if (e.key === "Enter" && !showSlashMenu) {
       if (block.type === "code" && !e.shiftKey) {
         e.preventDefault();
-        document.execCommand("insertLineBreak");
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount) {
+          const range = sel.getRangeAt(0);
+          range.deleteContents();
+          const newline = document.createTextNode("\n");
+          range.insertNode(newline);
+          range.setStartAfter(newline);
+          range.setEndAfter(newline);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          if (ref.current && ref.current.textContent?.endsWith("\n")) {
+            const spacer = document.createTextNode("\n");
+            ref.current.appendChild(spacer);
+          }
+        }
+        handleInput();
         return;
       }
       if (block.type === "code" && e.shiftKey) {
@@ -1137,8 +1169,13 @@ function BlockContent({
 
   useEffect(() => {
     if (!ref.current) return;
-    const hasHtml = block.content.includes("<");
-    if (hasHtml) {
+    if (isCodeBlock) {
+      if (ref.current.textContent !== block.content) {
+        ref.current.textContent = block.content;
+      }
+      return;
+    }
+    if (hasFormattingTags(block.content)) {
       if (ref.current.innerHTML !== block.content) {
         ref.current.innerHTML = block.content;
       }
@@ -1147,7 +1184,7 @@ function BlockContent({
         ref.current.innerText = block.content;
       }
     }
-  }, [block.id, block.content]);
+  }, [block.id, block.content, isCodeBlock]);
 
   useEffect(() => {
     return () => clearTimeout(debounceRef.current);
