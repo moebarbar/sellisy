@@ -2018,13 +2018,22 @@ function KbSettingsPanel({
   kb,
   kbId,
   pageCount,
+  showSettingsExternal,
+  onCloseSettings,
 }: {
   kb: KnowledgeBase;
   kbId: string;
   pageCount: number;
+  showSettingsExternal?: boolean;
+  onCloseSettings?: () => void;
 }) {
   const { toast } = useToast();
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettingsInternal, setShowSettingsInternal] = useState(false);
+  const showSettings = showSettingsExternal ?? showSettingsInternal;
+  const setShowSettings = (v: boolean) => {
+    setShowSettingsInternal(v);
+    if (!v && onCloseSettings) onCloseSettings();
+  };
   const [description, setDescription] = useState(kb.description || "");
   const [coverImageUrl, setCoverImageUrl] = useState(kb.coverImageUrl || "");
   const [priceCents, setPriceCents] = useState(kb.priceCents || 0);
@@ -2106,27 +2115,28 @@ function KbSettingsPanel({
 
   return (
     <>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
+        {kb.isPublished ? (
+          <Badge variant="secondary" className="text-[11px]">Published</Badge>
+        ) : (
+          <Badge variant="outline" className="text-[11px]">Draft</Badge>
+        )}
+        <div className="flex-1" />
         {kb.isPublished && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => window.open(viewerUrl, "_blank")}
-                data-testid="button-preview-kb"
-              >
-                <Eye className="h-4 w-4" />
+              <Button variant="ghost" size="icon" onClick={() => window.open(viewerUrl, "_blank")} data-testid="button-preview-kb">
+                <Eye className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Preview live page</TooltipContent>
+            <TooltipContent>Preview</TooltipContent>
           </Tooltip>
         )}
         {kb.isPublished && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={copyLink} data-testid="button-copy-kb-link">
-                {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
               </Button>
             </TooltipTrigger>
             <TooltipContent>{copied ? "Copied!" : "Copy link"}</TooltipContent>
@@ -2142,14 +2152,6 @@ function KbSettingsPanel({
           {updateMutation.isPending && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
           {kb.isPublished ? "Unpublish" : "Publish"}
         </Button>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)} data-testid="button-kb-settings">
-              <Settings className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Settings</TooltipContent>
-        </Tooltip>
       </div>
 
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
@@ -2288,6 +2290,7 @@ export default function KbEditorPage() {
   const { toast } = useToast();
   const kbId = params?.id || "";
   const [activePageId, setActivePageId] = useState<string | null>(null);
+  const [showKbSettings, setShowKbSettings] = useState(false);
 
   const { data: kb, isLoading: kbLoading } = useQuery<KnowledgeBase>({
     queryKey: [`/api/knowledge-bases/${kbId}`],
@@ -2401,36 +2404,29 @@ export default function KbEditorPage() {
   return (
     <div className="flex h-full" data-testid="kb-editor">
       <div className="w-64 flex-shrink-0 border-r flex flex-col bg-muted/30">
-        <div className="p-3 border-b space-y-2.5">
-          <div className="flex items-center gap-1.5">
+        <div className="p-3 border-b">
+          <div className="flex items-center gap-1.5 mb-3">
             <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => navigate("/dashboard/content-creator")} data-testid="button-back-to-kbs">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-1 min-w-0">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DebouncedInput
-                    className="h-auto text-sm font-semibold border-none bg-transparent px-1 py-0.5 leading-snug"
-                    value={kb.title}
-                    onChange={(val) => { if (val.trim()) updateKbTitleMutation.mutate(val.trim()); }}
-                    data-testid="input-kb-title"
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[250px] break-words">
-                  {kb.title}
-                </TooltipContent>
-              </Tooltip>
+              <DebouncedInput
+                className="h-auto text-sm font-semibold border-none bg-transparent px-1 py-0.5 leading-snug truncate"
+                value={kb.title}
+                onChange={(val) => { if (val.trim()) updateKbTitleMutation.mutate(val.trim()); }}
+                data-testid="input-kb-title"
+              />
             </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => setShowKbSettings(true)} data-testid="button-kb-settings-top">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Settings</TooltipContent>
+            </Tooltip>
           </div>
-          <div className="flex items-center gap-2 px-1">
-            {kb.isPublished ? (
-              <Badge variant="secondary">Published</Badge>
-            ) : (
-              <Badge variant="outline">Draft</Badge>
-            )}
-            <div className="flex-1" />
-            <KbSettingsPanel kb={kb} kbId={kbId} pageCount={pages.length} />
-          </div>
+          <KbSettingsPanel kb={kb} kbId={kbId} pageCount={pages.length} showSettingsExternal={showKbSettings} onCloseSettings={() => setShowKbSettings(false)} />
         </div>
 
         <div className="flex-1 overflow-y-auto p-2.5">
