@@ -438,8 +438,12 @@ function BlockEditor({
   }, [blocks.length]);
 
   const handleContentChange = useCallback((blockId: string, content: string) => {
+    queryClient.setQueryData<KbBlock[]>(
+      [`/api/kb-pages/${pageId}/blocks`],
+      (old) => old?.map((b) => b.id === blockId ? { ...b, content } : b)
+    );
     updateBlockMutation.mutate({ id: blockId, data: { content } });
-  }, []);
+  }, [pageId]);
 
   const handleTypeChange = useCallback((blockId: string, type: BlockType) => {
     queryClient.setQueryData<KbBlock[]>(
@@ -911,70 +915,13 @@ function BlockContent({
       );
 
     case "image":
-      return (
-        <div className="space-y-2 py-1">
-          {block.content ? (
-            <div className="rounded-md overflow-hidden bg-muted">
-              <img src={block.content} alt="Block image" className="max-w-full h-auto" data-testid={`img-block-${block.id}`} />
-            </div>
-          ) : null}
-          <Input
-            placeholder="Paste image URL..."
-            defaultValue={block.content}
-            onBlur={(e) => onContentChange(block.id, e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") onContentChange(block.id, (e.target as HTMLInputElement).value); }}
-            data-testid={`input-block-${block.id}`}
-          />
-        </div>
-      );
+      return <MediaUrlBlock block={block} onContentChange={onContentChange} type="image" />;
 
     case "video":
-      return (
-        <div className="space-y-2 py-1">
-          {block.content ? (
-            <div className="rounded-md overflow-hidden bg-muted aspect-video">
-              <iframe
-                src={block.content.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/")}
-                className="w-full h-full"
-                allowFullScreen
-                data-testid={`video-block-${block.id}`}
-              />
-            </div>
-          ) : null}
-          <Input
-            placeholder="Paste video URL (YouTube, Vimeo, etc.)..."
-            defaultValue={block.content}
-            onBlur={(e) => onContentChange(block.id, e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") onContentChange(block.id, (e.target as HTMLInputElement).value); }}
-            data-testid={`input-block-${block.id}`}
-          />
-        </div>
-      );
+      return <MediaUrlBlock block={block} onContentChange={onContentChange} type="video" />;
 
     case "link":
-      return (
-        <div className="space-y-2 py-1">
-          {block.content ? (
-            <a
-              href={block.content}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-primary underline underline-offset-2"
-              data-testid={`link-block-${block.id}`}
-            >
-              <LinkIcon className="h-3.5 w-3.5" />
-              {block.content}
-            </a>
-          ) : null}
-          <Input
-            placeholder="Paste link URL..."
-            defaultValue={block.content}
-            onBlur={(e) => onContentChange(block.id, e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") onContentChange(block.id, (e.target as HTMLInputElement).value); }}
-            data-testid={`input-block-${block.id}`}
-          />
-        </div>
-      );
+      return <MediaUrlBlock block={block} onContentChange={onContentChange} type="link" />;
 
     default:
       return renderEditable("text-base py-0.5", placeholders.text);
@@ -1023,6 +970,72 @@ function parseTodoContent(content: string): { checked: boolean; text: string } {
     return { checked: match[1] === "x", text: match[2] };
   }
   return { checked: false, text: content };
+}
+
+function MediaUrlBlock({
+  block,
+  onContentChange,
+  type,
+}: {
+  block: KbBlock;
+  onContentChange: (id: string, content: string) => void;
+  type: "image" | "video" | "link";
+}) {
+  const [inputVal, setInputVal] = useState(block.content || "");
+
+  useEffect(() => {
+    setInputVal(block.content || "");
+  }, [block.content]);
+
+  const commit = () => {
+    if (inputVal !== block.content) {
+      onContentChange(block.id, inputVal);
+    }
+  };
+
+  const placeholder = type === "image" ? "Paste image URL..." : type === "video" ? "Paste video URL (YouTube, Vimeo, etc.)..." : "Paste link URL...";
+
+  const preview = block.content ? (
+    type === "image" ? (
+      <div className="rounded-md overflow-hidden bg-muted">
+        <img src={block.content} alt="Block image" className="max-w-full h-auto" data-testid={`img-block-${block.id}`} />
+      </div>
+    ) : type === "video" ? (
+      <div className="rounded-md overflow-hidden bg-muted aspect-video">
+        <iframe
+          src={block.content.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/")}
+          className="w-full h-full"
+          allowFullScreen
+          data-testid={`video-block-${block.id}`}
+        />
+      </div>
+    ) : (
+      <a
+        href={block.content}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1.5 text-sm text-primary underline underline-offset-2"
+        data-testid={`link-block-${block.id}`}
+      >
+        <LinkIcon className="h-3.5 w-3.5" />
+        {block.content}
+      </a>
+    )
+  ) : null;
+
+  return (
+    <div className="space-y-2 py-1">
+      {preview}
+      <Input
+        placeholder={placeholder}
+        value={inputVal}
+        onChange={(e) => setInputVal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") commit(); }}
+        data-testid={`input-block-${block.id}`}
+      />
+    </div>
+  );
 }
 
 function ToggleBlock({
