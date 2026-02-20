@@ -582,30 +582,60 @@ function BlockEditor({
   const titleRef = useRef<HTMLDivElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
 
+  const pendingSavesRef = useRef<Record<string, AbortController>>({});
+  const localContentMapRef = useRef<Record<string, string>>({});
+
   const createBlockMutation = useMutation({
     mutationFn: async (data: { type: BlockType; sortOrder: number }) => {
       const res = await apiRequest("POST", `/api/kb-pages/${pageId}/blocks`, data);
       return res.json();
     },
     onSuccess: (newBlock: KbBlock) => {
-      onRefresh();
+      queryClient.setQueryData<KbBlock[]>(
+        [`/api/kb-pages/${pageId}/blocks`],
+        (old) => {
+          if (!old) return [newBlock];
+          const result = [...old];
+          const insertAt = newBlock.sortOrder;
+          result.splice(insertAt, 0, newBlock);
+          return result;
+        }
+      );
       setFocusBlockId(newBlock.id);
     },
     onError: () => toast({ title: "Error", description: "Failed to add block.", variant: "destructive" }),
   });
 
-  const updateBlockMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<KbBlock> }) => {
+  const saveBlockToServer = useCallback(async (id: string, data: Partial<KbBlock>) => {
+    if (pendingSavesRef.current[id]) {
+      pendingSavesRef.current[id].abort();
+    }
+    const controller = new AbortController();
+    pendingSavesRef.current[id] = controller;
+    try {
       await apiRequest("PATCH", `/api/kb-blocks/${id}`, data);
-    },
-    onError: () => toast({ title: "Error", description: "Failed to save block.", variant: "destructive" }),
-  });
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        toast({ title: "Error", description: "Failed to save block.", variant: "destructive" });
+      }
+    } finally {
+      if (pendingSavesRef.current[id] === controller) {
+        delete pendingSavesRef.current[id];
+      }
+    }
+  }, []);
 
   const deleteBlockMutation = useMutation({
     mutationFn: async (id: string) => {
       await apiRequest("DELETE", `/api/kb-blocks/${id}`);
     },
-    onSuccess: () => onRefresh(),
+    onSuccess: (_data, deletedId) => {
+      queryClient.setQueryData<KbBlock[]>(
+        [`/api/kb-pages/${pageId}/blocks`],
+        (old) => old?.filter((b) => b.id !== deletedId)
+      );
+      delete localContentMapRef.current[deletedId];
+    },
     onError: () => toast({ title: "Error", description: "Failed to delete block.", variant: "destructive" }),
   });
 
@@ -631,10 +661,10 @@ function BlockEditor({
           sel?.addRange(range);
         }
         setFocusBlockId(null);
-      }, 100);
+      }, 50);
       return () => clearTimeout(timer);
     }
-  }, [focusBlockId, blocks]);
+  }, [focusBlockId]);
 
   const addBlock = useCallback((type: BlockType, afterIndex?: number) => {
     const sortOrder = afterIndex != null ? afterIndex + 1 : blocks.length;
@@ -642,21 +672,23 @@ function BlockEditor({
   }, [blocks.length]);
 
   const handleContentChange = useCallback((blockId: string, content: string) => {
+    localContentMapRef.current[blockId] = content;
     queryClient.setQueryData<KbBlock[]>(
       [`/api/kb-pages/${pageId}/blocks`],
       (old) => old?.map((b) => b.id === blockId ? { ...b, content } : b)
     );
-    updateBlockMutation.mutate({ id: blockId, data: { content } });
-  }, [pageId]);
+    saveBlockToServer(blockId, { content });
+  }, [pageId, saveBlockToServer]);
 
   const handleTypeChange = useCallback((blockId: string, type: BlockType) => {
+    localContentMapRef.current[blockId] = "";
     queryClient.setQueryData<KbBlock[]>(
       [`/api/kb-pages/${pageId}/blocks`],
       (old) => old?.map((b) => b.id === blockId ? { ...b, type, content: "" } : b)
     );
-    updateBlockMutation.mutate({ id: blockId, data: { type, content: "" } });
+    saveBlockToServer(blockId, { type, content: "" });
     setFocusBlockId(blockId);
-  }, [pageId]);
+  }, [pageId, saveBlockToServer]);
 
   const continuationTypes: BlockType[] = ["bullet_list", "numbered_list", "todo", "quote", "callout"];
 
@@ -666,10 +698,10 @@ function BlockEditor({
   }, [addBlock]);
 
   const handleBackspaceOnEmpty = useCallback((blockId: string, blockIndex: number) => {
-    deleteBlockMutation.mutate(blockId);
     if (blockIndex > 0) {
       setFocusBlockId(blocks[blockIndex - 1]?.id || null);
     }
+    deleteBlockMutation.mutate(blockId);
   }, [blocks]);
 
   const handleArrowNav = useCallback((blockIndex: number, direction: "up" | "down") => {
@@ -685,10 +717,14 @@ function BlockEditor({
     if (!block) return;
     createBlockMutation.mutate({ type: block.type as BlockType, sortOrder: blockIndex + 1 }, {
       onSuccess: (newBlock: KbBlock) => {
-        updateBlockMutation.mutate({ id: newBlock.id, data: { content: block.content } });
+        saveBlockToServer(newBlock.id, { content: block.content });
+        queryClient.setQueryData<KbBlock[]>(
+          [`/api/kb-pages/${pageId}/blocks`],
+          (old) => old?.map((b) => b.id === newBlock.id ? { ...b, content: block.content } : b)
+        );
       },
     });
-  }, [blocks]);
+  }, [blocks, pageId, saveBlockToServer]);
 
   const handleMoveBlock = useCallback((blockIndex: number, direction: "up" | "down") => {
     const targetIdx = direction === "up" ? blockIndex - 1 : blockIndex + 1;
@@ -891,6 +927,8 @@ function BlockContent({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const isFocusedRef = useRef(false);
+  const lastSavedContentRef = useRef<string | null>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashFilter, setSlashFilter] = useState("");
   const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
@@ -902,10 +940,12 @@ function BlockContent({
 
   useEffect(() => {
     registerRef(block.id, ref.current);
+    lastSavedContentRef.current = null;
     return () => registerRef(block.id, null);
   }, [block.id]);
 
   const saveContent = useCallback((text: string) => {
+    lastSavedContentRef.current = text;
     onContentChange(block.id, text);
   }, [block.id, onContentChange]);
 
@@ -1140,14 +1180,22 @@ function BlockContent({
     }
   };
 
+  const handleFocus = () => {
+    isFocusedRef.current = true;
+  };
+
   const handleBlur = () => {
+    isFocusedRef.current = false;
     if (!ref.current) return;
     clearTimeout(debounceRef.current);
     if (showSlashMenu) {
       setShowSlashMenu(false);
       setSlashFilter("");
     }
-    saveContent(getContent());
+    const content = getContent();
+    if (content !== lastSavedContentRef.current) {
+      saveContent(content);
+    }
   };
 
   const selectSlashType = (type: BlockType) => {
@@ -1159,14 +1207,16 @@ function BlockContent({
 
   useEffect(() => {
     if (!ref.current) return;
+    if (isFocusedRef.current) return;
+    if (block.content === lastSavedContentRef.current) return;
     if (isCodeBlock) {
       if (ref.current.textContent !== block.content) {
         ref.current.textContent = block.content;
       }
-      return;
-    }
-    if (ref.current.innerHTML !== block.content) {
-      ref.current.innerHTML = block.content;
+    } else {
+      if (ref.current.innerHTML !== block.content) {
+        ref.current.innerHTML = block.content;
+      }
     }
   }, [block.id, block.content, isCodeBlock]);
 
@@ -1200,6 +1250,7 @@ function BlockContent({
         data-placeholder={placeholder}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         data-testid={`editor-block-${block.id}`}
       />
@@ -1262,6 +1313,7 @@ function BlockContent({
               }
               handleKeyDown(e);
             }}
+            onFocus={handleFocus}
             onBlur={handleBlur}
             data-testid={`editor-block-${block.id}`}
           />
@@ -1734,6 +1786,8 @@ export default function KbEditorPage() {
   const { data: blocks = [], refetch: refetchBlocks } = useQuery<KbBlock[]>({
     queryKey: [`/api/kb-pages/${activePageId}/blocks`],
     enabled: !!activePageId,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
   const activePage = pages.find((p) => p.id === activePageId);
