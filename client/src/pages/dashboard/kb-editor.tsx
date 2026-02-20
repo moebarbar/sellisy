@@ -873,6 +873,7 @@ function BlockEditor({
             <BlockContent
               block={block}
               blockIndex={idx}
+              blocks={blocks}
               onContentChange={handleContentChange}
               onTypeChange={handleTypeChange}
               onEnter={handleEnterOnBlock}
@@ -912,6 +913,7 @@ function BlockEditor({
 function BlockContent({
   block,
   blockIndex,
+  blocks,
   onContentChange,
   onTypeChange,
   onEnter,
@@ -922,6 +924,7 @@ function BlockContent({
 }: {
   block: KbBlock;
   blockIndex: number;
+  blocks: KbBlock[];
   onContentChange: (id: string, content: string) => void;
   onTypeChange: (id: string, type: BlockType) => void;
   onEnter: (blockIndex: number, currentType?: BlockType) => void;
@@ -937,6 +940,7 @@ function BlockContent({
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashFilter, setSlashFilter] = useState("");
   const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
+  const [pastedUrl, setPastedUrl] = useState<string | null>(null);
 
   const filteredTypes = useMemo(() =>
     BLOCK_TYPES.filter(
@@ -992,6 +996,66 @@ function BlockContent({
     const content = getContent();
     debounceRef.current = setTimeout(() => saveContent(content), 500);
   };
+
+  const isUrl = (text: string) => /^https?:\/\/\S+$/i.test(text.trim());
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    if (isCodeBlock) return;
+    const text = e.clipboardData.getData("text/plain").trim();
+    if (isUrl(text)) {
+      e.preventDefault();
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const textNode = document.createTextNode(text);
+        range.insertNode(textNode);
+        range.setStartAfter(textNode);
+        range.setEndAfter(textNode);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      const content = getContent();
+      clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => saveContent(content), 500);
+      setPastedUrl(text);
+    }
+  };
+
+  const convertPastedUrlToLink = () => {
+    if (!pastedUrl || !ref.current) return;
+    const url = pastedUrl;
+    setPastedUrl(null);
+    const sel = window.getSelection();
+    if (!sel) return;
+    const walker = document.createTreeWalker(ref.current, NodeFilter.SHOW_TEXT);
+    let node: Text | null;
+    while ((node = walker.nextNode() as Text | null)) {
+      const idx = node.textContent?.indexOf(url);
+      if (idx != null && idx >= 0) {
+        const range = document.createRange();
+        range.setStart(node, idx);
+        range.setEnd(node, idx + url.length);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.target = "_blank";
+        anchor.rel = "noreferrer";
+        anchor.className = "text-primary underline underline-offset-2";
+        range.surroundContents(anchor);
+        sel.removeAllRanges();
+        const newRange = document.createRange();
+        newRange.setStartAfter(anchor);
+        newRange.setEndAfter(anchor);
+        sel.addRange(newRange);
+        const content = getContent();
+        clearTimeout(debounceRef.current);
+        saveContent(content);
+        break;
+      }
+    }
+  };
+
+  const dismissPastedUrl = () => setPastedUrl(null);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (showSlashMenu) {
@@ -1255,6 +1319,7 @@ function BlockContent({
         data-placeholder={placeholder}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
         onFocus={handleFocus}
         onBlur={handleBlur}
         data-testid={`editor-block-${block.id}`}
@@ -1266,6 +1331,34 @@ function BlockContent({
           onClose={() => { setShowSlashMenu(false); setSlashFilter(""); }}
           selectedIndex={slashSelectedIndex}
         />
+      )}
+      {pastedUrl && (
+        <div
+          className="absolute left-0 bottom-full mb-1 z-50 flex items-center gap-1 bg-popover border rounded-lg shadow-lg px-2 py-1.5 animate-in fade-in-0 zoom-in-95 duration-150"
+          onMouseDown={(e) => e.preventDefault()}
+          data-testid="paste-url-popup"
+        >
+          <span className="text-xs text-muted-foreground mr-1">Pasted URL:</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-6 px-2 gap-1"
+            onClick={dismissPastedUrl}
+            data-testid="button-keep-text"
+          >
+            Dismiss
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            className="text-xs h-6 px-2 gap-1"
+            onClick={convertPastedUrlToLink}
+            data-testid="button-create-link"
+          >
+            <Link2 className="h-3 w-3" />
+            Create Link
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -1281,18 +1374,24 @@ function BlockContent({
     case "bullet_list":
       return (
         <div className="flex items-start gap-2 py-0.5">
-          <span className="text-muted-foreground mt-[3px] flex-shrink-0 select-none">&#8226;</span>
+          <span className="text-foreground mt-[5px] flex-shrink-0 select-none text-[8px] leading-none" aria-hidden="true">&#9679;</span>
           {renderEditable("text-base", placeholders.bullet_list)}
         </div>
       );
 
-    case "numbered_list":
+    case "numbered_list": {
+      let listNum = 1;
+      for (let i = blockIndex - 1; i >= 0; i--) {
+        if (blocks[i]?.type === "numbered_list") listNum++;
+        else break;
+      }
       return (
         <div className="flex items-start gap-2 py-0.5">
-          <span className="text-muted-foreground mt-[1px] flex-shrink-0 select-none text-sm font-medium min-w-[1.25rem] text-right">{blockIndex + 1}.</span>
+          <span className="text-foreground mt-[1px] flex-shrink-0 select-none text-base font-normal min-w-[1.5rem] text-right">{listNum}.</span>
           {renderEditable("text-base", placeholders.numbered_list)}
         </div>
       );
+    }
 
     case "todo":
       return <TodoBlock block={block} onContentChange={onContentChange} renderEditable={renderEditable} placeholder={placeholders.todo} />;
@@ -1343,8 +1442,10 @@ function BlockContent({
     case "callout":
       return (
         <div className="rounded-md bg-muted/50 border px-4 py-3 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-          {renderEditable("text-sm", placeholders.callout)}
+          <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5 pointer-events-none" />
+          <div className="flex-1 min-w-0">
+            {renderEditable("text-base", placeholders.callout)}
+          </div>
         </div>
       );
 
