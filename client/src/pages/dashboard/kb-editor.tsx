@@ -89,6 +89,8 @@ const CATEGORIES = ["Basic", "Lists", "Advanced", "Media"];
 
 const FORMAT_TYPES = ["text", "heading1", "heading2", "heading3", "bullet_list", "numbered_list", "todo", "quote", "callout"];
 
+const CONTINUATION_TYPES: BlockType[] = ["bullet_list", "numbered_list", "todo", "quote", "callout"];
+
 
 function getSelectionRect(): DOMRect | null {
   const sel = window.getSelection();
@@ -695,10 +697,8 @@ function BlockEditor({
     setFocusBlockId(blockId);
   }, [pageId, saveBlockToServer]);
 
-  const continuationTypes: BlockType[] = ["bullet_list", "numbered_list", "todo", "quote", "callout"];
-
   const handleEnterOnBlock = useCallback((blockIndex: number, currentType?: BlockType) => {
-    const nextType = currentType && continuationTypes.includes(currentType) ? currentType : "text";
+    const nextType = currentType && CONTINUATION_TYPES.includes(currentType) ? currentType : "text";
     addBlock(nextType, blockIndex);
   }, [addBlock]);
 
@@ -1209,8 +1209,16 @@ function BlockContent({
       if (!e.shiftKey) {
         e.preventDefault();
         clearTimeout(debounceRef.current);
-        if (ref.current) saveContent(getContent());
-        onEnter(blockIndex, block.type as BlockType);
+        const content = ref.current ? getContent() : "";
+        const isEmpty = !content || content === "<br>" || content === "\n";
+        const isContinuation = CONTINUATION_TYPES.includes(block.type as BlockType);
+        if (isContinuation && isEmpty) {
+          onTypeChange(block.id, "text" as BlockType);
+          if (ref.current) ref.current.innerHTML = "";
+        } else {
+          if (ref.current) saveContent(content);
+          onEnter(blockIndex, block.type as BlockType);
+        }
       }
     }
 
