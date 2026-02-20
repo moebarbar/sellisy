@@ -1310,7 +1310,7 @@ function BlockContent({
   const baseClass = "outline-none w-full min-h-[1.5em] whitespace-pre-wrap break-words";
 
   const renderEditable = (className: string, placeholder: string) => (
-    <div className="relative">
+    <div className="relative flex-1 min-w-0">
       <div
         ref={ref}
         contentEditable
