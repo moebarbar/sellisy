@@ -793,8 +793,8 @@ function BlockEditor({
             <div className="absolute left-8 right-0 top-0 h-0.5 bg-primary rounded-full z-10 pointer-events-none" data-testid={`drop-indicator-${block.id}`} />
           )}
           <div
-            className={`group relative flex items-start gap-0.5 rounded-md transition-all dv-block-enter ${
-              dragIdx === idx ? "opacity-30 scale-[0.98]" : ""
+            className={`group relative flex items-start gap-0.5 rounded-md ${
+              dragIdx === idx ? "opacity-30" : ""
             }`}
             onDragOver={(e) => {
               e.preventDefault();
@@ -805,7 +805,7 @@ function BlockEditor({
             onDrop={(e) => { e.preventDefault(); handleDrop(idx); }}
             data-testid={`block-${block.id}`}
           >
-            <div className="flex items-center gap-0 pt-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+            <div className="flex items-center gap-0 pt-1 invisible group-hover:visible flex-shrink-0">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
