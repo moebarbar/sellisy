@@ -11,7 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, BookOpen, Trash2, Loader2, FileText, ExternalLink } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, BookOpen, Trash2, Loader2, FileText, ExternalLink, MoreHorizontal, Copy } from "lucide-react";
 import type { KnowledgeBase } from "@shared/schema";
 
 export default function KnowledgeBasesPage() {
@@ -25,6 +31,8 @@ export default function KnowledgeBasesPage() {
     queryKey: ["/api/knowledge-bases"],
   });
 
+  const [createError, setCreateError] = useState("");
+
   const createMutation = useMutation({
     mutationFn: async (title: string) => {
       const res = await apiRequest("POST", "/api/knowledge-bases", { title: title || "Untitled" });
@@ -35,7 +43,33 @@ export default function KnowledgeBasesPage() {
       toast({ title: "Created", description: `"${kb.title}" is ready to edit.` });
       setShowCreate(false);
       setNewTitle("");
+      setCreateError("");
       navigate(`/dashboard/kb/${kb.id}`);
+    },
+    onError: (err: Error) => {
+      if (err.message.includes("already exists")) {
+        setCreateError(err.message.replace(/^\d+:\s*/, "").replace(/[{}"]/g, "").replace("message:", "").trim());
+      } else {
+        toast({ title: "Error", description: "Failed to create knowledge base.", variant: "destructive" });
+      }
+    },
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (kb: KnowledgeBase) => {
+      const existingTitles = (knowledgeBases || []).map((k) => k.title.toLowerCase());
+      let copyTitle = `${kb.title} (Copy)`;
+      let n = 2;
+      while (existingTitles.includes(copyTitle.toLowerCase())) {
+        copyTitle = `${kb.title} (Copy ${n})`;
+        n++;
+      }
+      const res = await apiRequest("POST", "/api/knowledge-bases", { title: copyTitle });
+      return res.json();
+    },
+    onSuccess: (newKb: KnowledgeBase) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/knowledge-bases"] });
+      toast({ title: "Duplicated", description: `"${newKb.title}" created.` });
     },
   });
 
@@ -59,7 +93,7 @@ export default function KnowledgeBasesPage() {
             Build courses, guides, SOPs, and digital products with the block editor
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)} data-testid="button-create-kb">
+        <Button onClick={() => { setShowCreate(true); setCreateError(""); }} data-testid="button-create-kb">
           <Plus className="mr-2 h-4 w-4" />
           New Knowledge Base
         </Button>
@@ -79,7 +113,7 @@ export default function KnowledgeBasesPage() {
             <p className="text-sm text-muted-foreground mb-4 max-w-sm">
               Create your first knowledge base to start building courses, guides, and digital products.
             </p>
-            <Button onClick={() => setShowCreate(true)} data-testid="button-create-kb-empty">
+            <Button onClick={() => { setShowCreate(true); setCreateError(""); }} data-testid="button-create-kb-empty">
               <Plus className="mr-2 h-4 w-4" />
               Create Your First
             </Button>
@@ -113,19 +147,35 @@ export default function KnowledgeBasesPage() {
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {kb.isPublished && <Badge variant="secondary">Published</Badge>}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(kb); }}
+                          onClick={(e) => e.stopPropagation()}
+                          data-testid={`button-kb-menu-${kb.id}`}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuItem
+                          onClick={() => duplicateMutation.mutate(kb)}
+                          data-testid={`button-duplicate-kb-${kb.id}`}
+                        >
+                          <Copy className="mr-2 h-4 w-4" />
+                          Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeleteTarget(kb)}
                           data-testid={`button-delete-kb-${kb.id}`}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Delete</TooltipContent>
-                    </Tooltip>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -153,10 +203,13 @@ export default function KnowledgeBasesPage() {
                 id="kb-title"
                 placeholder="e.g., Social Media Mastery Course"
                 value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
+                onChange={(e) => { setNewTitle(e.target.value); setCreateError(""); }}
                 onKeyDown={(e) => { if (e.key === "Enter") createMutation.mutate(newTitle); }}
                 data-testid="input-kb-title"
               />
+              {createError && (
+                <p className="text-sm text-destructive" data-testid="text-create-kb-error">{createError}</p>
+              )}
             </div>
             <Button
               className="w-full"

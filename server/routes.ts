@@ -928,9 +928,14 @@ export async function registerRoutes(
     const userId = getUserId(req);
     const schema = z.object({ title: z.string().optional() });
     const parsed = schema.safeParse(req.body);
+    const title = parsed.success && parsed.data.title ? parsed.data.title.trim() : "Untitled";
+    const existing = await storage.getKnowledgeBasesByOwner(userId);
+    if (existing.some((kb) => kb.title.toLowerCase() === title.toLowerCase())) {
+      return res.status(409).json({ message: `A knowledge base named "${title}" already exists.` });
+    }
     const kb = await storage.createKnowledgeBase({
       ownerId: userId,
-      title: parsed.success && parsed.data.title ? parsed.data.title : "Untitled",
+      title,
     });
     res.json(kb);
   });
