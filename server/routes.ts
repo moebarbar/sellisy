@@ -1034,10 +1034,15 @@ export async function registerRoutes(
       parentPageId: z.string().nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
+    const parentPageId = parsed.success ? parsed.data.parentPageId || null : null;
+    const existingPages = await storage.getKbPagesByKnowledgeBase(kb.id);
+    const siblings = existingPages.filter(p => p.parentPageId === parentPageId);
+    const maxSort = siblings.length > 0 ? Math.max(...siblings.map(p => p.sortOrder)) : -1;
     const page = await storage.createKbPage({
       knowledgeBaseId: kb.id,
       title: parsed.success && parsed.data.title ? parsed.data.title : "Untitled Page",
-      parentPageId: parsed.success ? parsed.data.parentPageId || null : null,
+      parentPageId,
+      sortOrder: maxSort + 1,
     });
     res.json(page);
   });

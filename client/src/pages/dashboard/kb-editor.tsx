@@ -546,6 +546,19 @@ function PageTree({
     setDragOverId(null);
   };
 
+  const getPageNumber = (page: KbPage, depth: number): string => {
+    if (depth === 0) {
+      const idx = rootPages.findIndex(p => p.id === page.id);
+      return String(idx + 1);
+    }
+    const parent = pages.find(p => p.id === page.parentPageId);
+    if (!parent) return "?";
+    const siblings = getChildren(parent.id);
+    const idx = siblings.findIndex(p => p.id === page.id);
+    const parentNum = getPageNumber(parent, depth - 1);
+    return `${parentNum}.${idx + 1}`;
+  };
+
   const renderPage = (page: KbPage, depth: number) => {
     const children = getChildren(page.id);
     const hasChildren = children.length > 0;
@@ -554,14 +567,17 @@ function PageTree({
     const isEditing = editingId === page.id;
     const isDragging = dragId === page.id;
     const isDragOver = dragOverId === page.id;
+    const pageNum = getPageNumber(page, depth);
 
     return (
       <div key={page.id}>
         <div
-          className={`group flex items-center gap-1 px-2 py-1.5 rounded-md cursor-pointer text-sm transition-all ${
-            isActive ? "bg-accent text-accent-foreground" : "hover-elevate"
+          className={`group flex items-center gap-2 px-2.5 py-2.5 rounded-md cursor-pointer transition-all ${
+            isActive
+              ? "bg-primary/10 border border-primary/20"
+              : "hover-elevate border border-transparent"
           } ${isDragging ? "opacity-30" : ""} ${isDragOver ? "ring-1 ring-primary bg-primary/5" : ""}`}
-          style={{ paddingLeft: `${depth * 16 + 4}px` }}
+          style={{ marginLeft: `${depth * 14}px` }}
           onClick={() => onSelectPage(page.id)}
           draggable={!isEditing && depth === 0}
           onDragStart={(e) => handleDragStart(e, page.id)}
@@ -571,23 +587,28 @@ function PageTree({
           data-testid={`page-tree-item-${page.id}`}
         >
           {depth === 0 && (
-            <GripVertical className="h-3 w-3 flex-shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity" />
+            <GripVertical className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity" />
           )}
-          {hasChildren ? (
+
+          <span className={`flex-shrink-0 flex items-center justify-center rounded text-[10px] font-bold leading-none ${
+            depth === 0 ? "w-6 h-6" : "w-5 h-5"
+          } ${isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+            {pageNum}
+          </span>
+
+          {hasChildren && (
             <button
               onClick={(e) => { e.stopPropagation(); setExpanded((prev) => ({ ...prev, [page.id]: !prev[page.id] })); }}
-              className="p-0.5 flex-shrink-0"
+              className="p-0.5 flex-shrink-0 text-muted-foreground"
               data-testid={`button-toggle-${page.id}`}
             >
-              {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             </button>
-          ) : (
-            <FileText className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
           )}
 
           {isEditing ? (
             <Input
-              className="h-6 text-sm px-1"
+              className="h-7 text-sm px-1.5 flex-1"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               onBlur={finishRename}
@@ -597,18 +618,18 @@ function PageTree({
               data-testid={`input-rename-page-${page.id}`}
             />
           ) : (
-            <span className="truncate flex-1">{page.title}</span>
+            <span className={`truncate flex-1 ${depth === 0 ? "text-sm font-medium" : "text-xs"}`}>{page.title}</span>
           )}
 
           <div className="flex items-center gap-0.5 invisible group-hover:visible flex-shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  className="p-0.5 rounded hover-elevate"
+                  className="p-1 rounded hover-elevate"
                   onClick={(e) => { e.stopPropagation(); onCreatePage(page.id); setExpanded((prev) => ({ ...prev, [page.id]: true })); }}
                   data-testid={`button-add-subpage-${page.id}`}
                 >
-                  <Plus className="h-3 w-3" />
+                  <Plus className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent>Add sub-page</TooltipContent>
@@ -616,37 +637,41 @@ function PageTree({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="p-0.5 rounded hover-elevate"
+                  className="p-1 rounded hover-elevate"
                   onClick={(e) => e.stopPropagation()}
                   data-testid={`button-page-menu-${page.id}`}
                 >
-                  <MoreHorizontal className="h-3 w-3" />
+                  <MoreHorizontal className="h-3.5 w-3.5" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-36">
                 <DropdownMenuItem onClick={() => startRename(page)} data-testid={`button-rename-page-${page.id}`}>
-                  <Edit3 className="mr-2 h-3 w-3" />
+                  <Edit3 className="mr-2 h-3.5 w-3.5" />
                   Rename
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive" onClick={() => onDeletePage(page.id)} data-testid={`button-delete-page-${page.id}`}>
-                  <Trash2 className="mr-2 h-3 w-3" />
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
-        {hasChildren && isExpanded && children.map((child) => renderPage(child, depth + 1))}
+        {hasChildren && isExpanded && (
+          <div className={depth === 0 ? "ml-2 mt-0.5 border-l border-border/50 pl-0.5" : "mt-0.5"}>
+            {children.map((child) => renderPage(child, depth + 1))}
+          </div>
+        )}
       </div>
     );
   };
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1">
       {rootPages.map((page) => renderPage(page, 0))}
       {pages.length === 0 && (
-        <p className="text-xs text-muted-foreground px-3 py-4 text-center">No pages yet</p>
+        <p className="text-xs text-muted-foreground px-3 py-6 text-center">No pages yet</p>
       )}
     </div>
   );
@@ -2399,19 +2424,22 @@ export default function KbEditorPage() {
               ) : (
                 <Badge variant="outline">Draft</Badge>
               )}
-              <span className="text-xs text-muted-foreground">{pages.length} pages</span>
             </div>
             <KbSettingsPanel kb={kb} kbId={kbId} pageCount={pages.length} />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2">
-          <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Pages</span>
+        <div className="flex-1 overflow-y-auto p-2.5">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pages</span>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{pages.length}</Badge>
+            </div>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => createPageMutation.mutate(null)} data-testid="button-add-page">
-                  <Plus className="h-3 w-3" />
+                <Button variant="ghost" size="icon" onClick={() => createPageMutation.mutate(null)} data-testid="button-add-page">
+                  <Plus className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Add page</TooltipContent>
