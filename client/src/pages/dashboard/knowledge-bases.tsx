@@ -17,8 +17,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, BookOpen, Trash2, Loader2, FileText, ExternalLink, MoreHorizontal, Copy } from "lucide-react";
+import { Plus, BookOpen, Trash2, Loader2, FileText, ExternalLink, MoreHorizontal, Copy, Calendar, Layers } from "lucide-react";
 import type { KnowledgeBase } from "@shared/schema";
+import kbPlaceholder from "@/assets/images/kb-placeholder.png";
 
 export default function KnowledgeBasesPage() {
   const [, navigate] = useLocation();
@@ -120,42 +121,41 @@ export default function KnowledgeBasesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {knowledgeBases.map((kb) => (
             <Card
               key={kb.id}
-              className="cursor-pointer hover-elevate"
+              className="cursor-pointer hover-elevate group/kb overflow-visible"
               onClick={() => navigate(`/dashboard/kb/${kb.id}`)}
               data-testid={`card-kb-${kb.id}`}
             >
-              <CardContent className="p-5 space-y-3">
-                {kb.coverImageUrl ? (
-                  <div className="aspect-video rounded-md overflow-hidden bg-muted">
-                    <img src={kb.coverImageUrl} alt={kb.title} className="w-full h-full object-cover" />
+              <CardContent className="p-0">
+                <div className="relative">
+                  <div className="aspect-[16/10] rounded-t-md overflow-hidden">
+                    <img
+                      src={kb.coverImageUrl || kbPlaceholder}
+                      alt={kb.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover/kb:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                   </div>
-                ) : (
-                  <div className="aspect-video rounded-md bg-muted flex items-center justify-center">
-                    <FileText className="h-10 w-10 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-sm leading-snug break-words" data-testid={`text-kb-title-${kb.id}`}>{kb.title}</h3>
-                    {kb.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{kb.description}</p>
+                  <div className="absolute top-2.5 left-3 flex items-center gap-1.5">
+                    {kb.isPublished ? (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Published</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-background/60 backdrop-blur-sm">Draft</Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {kb.isPublished && <Badge variant="secondary">Published</Badge>}
+                  <div className="absolute top-2 right-2 invisible group-hover/kb:visible" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
                           size="icon"
                           variant="ghost"
-                          onClick={(e) => e.stopPropagation()}
+                          className="h-7 w-7 bg-background/60 backdrop-blur-sm"
                           data-testid={`button-kb-menu-${kb.id}`}
                         >
-                          <MoreHorizontal className="h-4 w-4" />
+                          <MoreHorizontal className="h-3.5 w-3.5" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
@@ -177,12 +177,27 @@ export default function KnowledgeBasesPage() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <h3 className="font-semibold text-sm leading-snug break-words text-white drop-shadow-sm" data-testid={`text-kb-title-${kb.id}`}>
+                      {kb.title}
+                    </h3>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{new Date(kb.createdAt).toLocaleDateString()}</span>
-                  {kb.priceCents > 0 && (
-                    <Badge variant="outline">${(kb.priceCents / 100).toFixed(2)}</Badge>
+                <div className="px-3.5 py-2.5 space-y-1.5">
+                  {kb.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{kb.description}</p>
                   )}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(kb.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {kb.priceCents > 0 && (
+                      <Badge variant="outline" className="text-[10px]">${(kb.priceCents / 100).toFixed(2)}</Badge>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
