@@ -51,6 +51,7 @@ import {
   Quote,
   Minus,
   AlertCircle,
+  Pencil,
 } from "lucide-react";
 import type { KnowledgeBase, KbPage, KbBlock } from "@shared/schema";
 
@@ -982,20 +983,34 @@ function MediaUrlBlock({
   type: "image" | "video" | "link";
 }) {
   const [inputVal, setInputVal] = useState(block.content || "");
+  const [editing, setEditing] = useState(!block.content);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setInputVal(block.content || "");
+    if (block.content) setEditing(false);
   }, [block.content]);
 
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [editing]);
+
   const commit = () => {
-    if (inputVal !== block.content) {
-      onContentChange(block.id, inputVal);
+    if (inputVal.trim() && inputVal !== block.content) {
+      onContentChange(block.id, inputVal.trim());
+      setEditing(false);
+    } else if (!inputVal.trim() && block.content) {
+      setInputVal(block.content);
+      setEditing(false);
     }
   };
 
   const placeholder = type === "image" ? "Paste image URL..." : type === "video" ? "Paste video URL (YouTube, Vimeo, etc.)..." : "Paste link URL...";
+  const hasContent = !!block.content;
 
-  const preview = block.content ? (
+  const preview = hasContent ? (
     type === "image" ? (
       <div className="rounded-md overflow-hidden bg-muted">
         <img src={block.content} alt="Block image" className="max-w-full h-auto" data-testid={`img-block-${block.id}`} />
@@ -1026,14 +1041,43 @@ function MediaUrlBlock({
   return (
     <div className="space-y-2 py-1">
       {preview}
-      <Input
-        placeholder={placeholder}
-        value={inputVal}
-        onChange={(e) => setInputVal(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => { if (e.key === "Enter") commit(); }}
-        data-testid={`input-block-${block.id}`}
-      />
+      {editing ? (
+        <Input
+          ref={inputRef}
+          placeholder={placeholder}
+          value={inputVal}
+          onChange={(e) => setInputVal(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); commit(); }
+            if (e.key === "Escape") { setInputVal(block.content || ""); setEditing(false); }
+          }}
+          data-testid={`input-block-${block.id}`}
+        />
+      ) : hasContent ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs text-muted-foreground gap-1"
+          onClick={() => setEditing(true)}
+          data-testid={`button-edit-url-${block.id}`}
+        >
+          <Pencil className="h-3 w-3" />
+          Change URL
+        </Button>
+      ) : (
+        <Input
+          ref={inputRef}
+          placeholder={placeholder}
+          value={inputVal}
+          onChange={(e) => setInputVal(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); commit(); }
+          }}
+          data-testid={`input-block-${block.id}`}
+        />
+      )}
     </div>
   );
 }
