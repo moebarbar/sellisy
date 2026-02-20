@@ -104,9 +104,48 @@ function getSelectionRect(): DOMRect | null {
 function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [existingLinkUrl, setExistingLinkUrl] = useState<string | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const linkInputRef = useRef<HTMLInputElement>(null);
+  const savedSelectionRef = useRef<Range | null>(null);
+
+  const saveSelection = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      savedSelectionRef.current = sel.getRangeAt(0).cloneRange();
+    }
+  };
+
+  const restoreSelection = () => {
+    const sel = window.getSelection();
+    if (sel && savedSelectionRef.current) {
+      const range = savedSelectionRef.current;
+      const container = range.commonAncestorContainer instanceof Element
+        ? range.commonAncestorContainer.closest("[contenteditable]")
+        : range.commonAncestorContainer.parentElement?.closest("[contenteditable]");
+      if (container && containerRef.current?.contains(container)) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+  };
+
+  const findParentAnchor = (): HTMLAnchorElement | null => {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    let node: Node | null = sel.getRangeAt(0).commonAncestorContainer;
+    while (node) {
+      if (node instanceof HTMLElement && node.tagName === "A") return node as HTMLAnchorElement;
+      node = node.parentNode;
+    }
+    return null;
+  };
 
   const checkSelection = useCallback(() => {
+    if (showLinkInput) return;
+
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) {
       setPos(null);
@@ -156,14 +195,96 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
       node = node.parentNode;
     }
     setActiveFormats(formats);
-  }, [containerRef]);
+  }, [containerRef, showLinkInput]);
 
   useEffect(() => {
     document.addEventListener("selectionchange", checkSelection);
     return () => document.removeEventListener("selectionchange", checkSelection);
   }, [checkSelection]);
 
+  useEffect(() => {
+    const handleCtrlK = () => openLinkInput();
+    document.addEventListener("kb-open-link-input", handleCtrlK);
+    return () => document.removeEventListener("kb-open-link-input", handleCtrlK);
+  }, []);
+
+  const openLinkInput = () => {
+    saveSelection();
+    const anchor = findParentAnchor();
+    if (anchor) {
+      setExistingLinkUrl(anchor.href);
+      setLinkUrl(anchor.href);
+    } else {
+      setExistingLinkUrl(null);
+      setLinkUrl("");
+    }
+    setShowLinkInput(true);
+    setTimeout(() => linkInputRef.current?.focus(), 50);
+  };
+
+  const applyLink = (url: string) => {
+    restoreSelection();
+    const trimmed = url.trim();
+    if (!trimmed) {
+      setShowLinkInput(false);
+      setLinkUrl("");
+      return;
+    }
+    let finalUrl = trimmed;
+    if (!/^https?:\/\//i.test(finalUrl) && !finalUrl.startsWith("mailto:")) {
+      finalUrl = "https://" + finalUrl;
+    }
+    const existingAnchor = findParentAnchor();
+    if (existingAnchor) {
+      existingAnchor.href = finalUrl;
+      existingAnchor.target = "_blank";
+      existingAnchor.rel = "noreferrer";
+    } else {
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) {
+        const range = sel.getRangeAt(0);
+        try {
+          const anchor = document.createElement("a");
+          anchor.href = finalUrl;
+          anchor.target = "_blank";
+          anchor.rel = "noreferrer";
+          anchor.className = "text-primary underline underline-offset-2";
+          range.surroundContents(anchor);
+        } catch {
+          document.execCommand("createLink", false, finalUrl);
+        }
+      }
+    }
+    triggerInputEvent();
+    setShowLinkInput(false);
+    setLinkUrl("");
+  };
+
+  const removeLink = () => {
+    restoreSelection();
+    const anchor = findParentAnchor();
+    if (anchor) {
+      const parent = anchor.parentNode;
+      while (anchor.firstChild) {
+        parent?.insertBefore(anchor.firstChild, anchor);
+      }
+      parent?.removeChild(anchor);
+      triggerInputEvent();
+    } else {
+      document.execCommand("unlink");
+      triggerInputEvent();
+    }
+    setShowLinkInput(false);
+    setLinkUrl("");
+    setExistingLinkUrl(null);
+  };
+
   const execFormat = (cmd: string) => {
+    if (cmd === "createLink") {
+      openLinkInput();
+      return;
+    }
+
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) return;
 
@@ -213,15 +334,6 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
       return;
     }
 
-    if (cmd === "createLink") {
-      const url = prompt("Enter URL:");
-      if (url) {
-        document.execCommand("createLink", false, url);
-        triggerInputEvent();
-      }
-      return;
-    }
-
     document.execCommand(cmd, false);
     triggerInputEvent();
   };
@@ -252,31 +364,77 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
   return (
     <div
       ref={toolbarRef}
-      className="absolute z-50 flex items-center gap-0.5 bg-popover border rounded-lg shadow-lg px-1 py-0.5 animate-in fade-in-0 zoom-in-95 duration-150"
+      className="absolute z-50 bg-popover border rounded-lg shadow-lg animate-in fade-in-0 zoom-in-95 duration-150"
       style={{ top: pos.top, left: pos.left }}
       onMouseDown={(e) => e.preventDefault()}
       data-testid="inline-format-toolbar"
     >
-      {buttons.map(({ cmd, icon: Icon, label, shortcut }) => (
-        <Tooltip key={cmd}>
-          <TooltipTrigger asChild>
-            <button
-              className={`p-1.5 rounded-md transition-colors ${
-                activeFormats.has(cmd === "strikeThrough" ? "strikethrough" : cmd === "createLink" ? "link" : cmd)
-                  ? "bg-primary/15 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-              onClick={() => execFormat(cmd)}
-              data-testid={`button-format-${cmd}`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="text-xs">
-            {label} <span className="text-muted-foreground ml-1">{shortcut}</span>
-          </TooltipContent>
-        </Tooltip>
-      ))}
+      <div className="flex items-center gap-0.5 px-1 py-0.5">
+        {buttons.map(({ cmd, icon: Icon, label, shortcut }) => (
+          <Tooltip key={cmd}>
+            <TooltipTrigger asChild>
+              <button
+                className={`p-1.5 rounded-md transition-colors ${
+                  activeFormats.has(cmd === "strikeThrough" ? "strikethrough" : cmd === "createLink" ? "link" : cmd)
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+                onClick={() => execFormat(cmd)}
+                data-testid={`button-format-${cmd}`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+              {label} <span className="text-muted-foreground ml-1">{shortcut}</span>
+            </TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
+      {showLinkInput && (
+        <div className="border-t px-2 py-1.5 flex items-center gap-1.5" data-testid="link-input-panel">
+          <Link2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <input
+            ref={linkInputRef}
+            type="url"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); applyLink(linkUrl); }
+              if (e.key === "Escape") { e.preventDefault(); setShowLinkInput(false); setLinkUrl(""); }
+            }}
+            placeholder="Paste or type a link..."
+            className="flex-1 min-w-[180px] bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+            data-testid="input-link-url"
+          />
+          {existingLinkUrl && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="p-1 rounded text-destructive hover:bg-destructive/10 transition-colors"
+                  onClick={removeLink}
+                  data-testid="button-remove-link"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">Remove link</TooltipContent>
+            </Tooltip>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="p-1 rounded text-primary hover:bg-primary/10 transition-colors"
+                onClick={() => applyLink(linkUrl)}
+                data-testid="button-apply-link"
+              >
+                <Check className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">Apply link</TooltipContent>
+          </Tooltip>
+        </div>
+      )}
     </div>
   );
 }
@@ -1220,8 +1378,7 @@ function BlockContent({
         e.preventDefault();
         const sel = window.getSelection();
         if (sel && !sel.isCollapsed) {
-          const url = prompt("Enter URL:");
-          if (url) { document.execCommand("createLink", false, url); handleInput(); }
+          document.dispatchEvent(new CustomEvent("kb-open-link-input"));
         }
         return;
       }
@@ -1422,6 +1579,35 @@ function BlockContent({
 
   const baseClass = "outline-none w-full min-h-[1.5em] whitespace-pre-wrap break-words";
 
+  const [hoveredLink, setHoveredLink] = useState<{ url: string; top: number; left: number } | null>(null);
+  const linkTooltipTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleLinkHover = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const anchor = target.closest("a");
+    if (anchor && ref.current?.contains(anchor)) {
+      clearTimeout(linkTooltipTimeoutRef.current);
+      const rect = anchor.getBoundingClientRect();
+      const containerRect = ref.current.getBoundingClientRect();
+      setHoveredLink({
+        url: anchor.href,
+        top: rect.bottom - containerRect.top + 4,
+        left: rect.left - containerRect.left,
+      });
+    } else {
+      linkTooltipTimeoutRef.current = setTimeout(() => setHoveredLink(null), 200);
+    }
+  };
+
+  const handleLinkClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const anchor = target.closest("a");
+    if (anchor && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      window.open(anchor.href, "_blank", "noreferrer");
+    }
+  };
+
   const renderEditable = (className: string, placeholder: string) => (
     <div className="relative flex-1 min-w-0">
       <div
@@ -1435,8 +1621,30 @@ function BlockContent({
         onPaste={handlePaste}
         onFocus={handleFocus}
         onBlur={handleBlur}
+        onMouseMove={handleLinkHover}
+        onMouseLeave={() => { linkTooltipTimeoutRef.current = setTimeout(() => setHoveredLink(null), 200); }}
+        onClick={handleLinkClick}
         data-testid={`editor-block-${block.id}`}
       />
+      {hoveredLink && (
+        <div
+          className="absolute z-50 flex items-center gap-1.5 bg-popover border rounded-md shadow-lg px-2 py-1 animate-in fade-in-0 duration-100"
+          style={{ top: hoveredLink.top, left: hoveredLink.left, maxWidth: "320px" }}
+          onMouseEnter={() => clearTimeout(linkTooltipTimeoutRef.current)}
+          onMouseLeave={() => setHoveredLink(null)}
+          data-testid="link-hover-tooltip"
+        >
+          <Link2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+          <span className="text-xs text-muted-foreground truncate">{hoveredLink.url}</span>
+          <button
+            className="p-0.5 rounded text-primary hover:bg-primary/10 transition-colors flex-shrink-0"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(hoveredLink.url, "_blank", "noreferrer"); }}
+            data-testid="button-open-link"
+          >
+            <ExternalLink className="h-3 w-3" />
+          </button>
+        </div>
+      )}
       {showSlashMenu && (
         <SlashCommandMenu
           filter={slashFilter}
