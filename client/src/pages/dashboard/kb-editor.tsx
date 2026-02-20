@@ -59,8 +59,6 @@ import {
   Highlighter,
   Code as CodeIcon,
   Link2,
-  ArrowUp,
-  ArrowDown,
   CopyPlus,
 } from "lucide-react";
 import type { KnowledgeBase, KbPage, KbBlock } from "@shared/schema";
@@ -731,23 +729,9 @@ function BlockEditor({
     });
   }, [blocks, pageId, saveBlockToServer]);
 
-  const handleMoveBlock = useCallback((blockIndex: number, direction: "up" | "down") => {
-    const targetIdx = direction === "up" ? blockIndex - 1 : blockIndex + 1;
-    if (targetIdx < 0 || targetIdx >= blocks.length) return;
-    const newOrder = [...blocks];
-    const [moved] = newOrder.splice(blockIndex, 1);
-    newOrder.splice(targetIdx, 0, moved);
-    reorderMutation.mutate(newOrder.map((b) => b.id));
-  }, [blocks]);
-
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
-  const handleDragStart = (idx: number) => setDragIdx(idx);
-  const handleDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault();
-    setDragOverIdx(idx);
-  };
   const handleDrop = (idx: number) => {
     if (dragIdx == null || dragIdx === idx) {
       setDragIdx(null);
@@ -804,73 +788,73 @@ function BlockEditor({
       />
 
       {blocks.map((block, idx) => (
-        <div
-          key={block.id}
-          className={`group relative flex items-start gap-0.5 rounded-md transition-all dv-block-enter ${
-            dragOverIdx === idx ? "bg-primary/5 ring-1 ring-primary/20" : ""
-          } ${dragIdx === idx ? "opacity-30" : ""}`}
-          draggable
-          onDragStart={() => handleDragStart(idx)}
-          onDragOver={(e) => handleDragOver(e, idx)}
-          onDrop={() => handleDrop(idx)}
-          onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
-          data-testid={`block-${block.id}`}
-        >
-          <div className="flex items-center gap-0 pt-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="p-0.5 rounded text-muted-foreground hover-elevate"
-                  onClick={() => addBlock("text", idx - 1)}
-                  data-testid={`button-add-above-${block.id}`}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Add block</TooltipContent>
-            </Tooltip>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground hover-elevate" data-testid={`grip-${block.id}`}>
-                  <GripVertical className="h-3.5 w-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="left" align="start" className="w-44">
-                <DropdownMenuItem
-                  onClick={() => handleMoveBlock(idx, "up")}
-                  disabled={idx === 0}
-                  data-testid={`action-move-up-${block.id}`}
-                >
-                  <ArrowUp className="h-3.5 w-3.5 mr-2" /> Move up
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleMoveBlock(idx, "down")}
-                  disabled={idx === blocks.length - 1}
-                  data-testid={`action-move-down-${block.id}`}
-                >
-                  <ArrowDown className="h-3.5 w-3.5 mr-2" /> Move down
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => handleDuplicateBlock(idx)}
-                  data-testid={`action-duplicate-${block.id}`}
-                >
-                  <CopyPlus className="h-3.5 w-3.5 mr-2" /> Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => deleteBlockMutation.mutate(block.id)}
-                  className="text-destructive focus:text-destructive"
-                  data-testid={`action-delete-${block.id}`}
-                >
-                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+        <div key={block.id} className="relative" data-testid={`block-wrapper-${block.id}`}>
+          {dragOverIdx === idx && dragIdx !== null && dragIdx !== idx && (
+            <div className="absolute left-8 right-0 top-0 h-0.5 bg-primary rounded-full z-10 pointer-events-none" data-testid={`drop-indicator-${block.id}`} />
+          )}
+          <div
+            className={`group relative flex items-start gap-0.5 rounded-md transition-all dv-block-enter ${
+              dragIdx === idx ? "opacity-30 scale-[0.98]" : ""
+            }`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              setDragOverIdx(idx);
+            }}
+            onDragLeave={() => { if (dragOverIdx === idx) setDragOverIdx(null); }}
+            onDrop={(e) => { e.preventDefault(); handleDrop(idx); }}
+            data-testid={`block-${block.id}`}
+          >
+            <div className="flex items-center gap-0 pt-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="p-0.5 rounded text-muted-foreground hover-elevate"
+                    onClick={() => addBlock("text", idx - 1)}
+                    data-testid={`button-add-above-${block.id}`}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Add block</TooltipContent>
+              </Tooltip>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground hover-elevate"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", String(idx));
+                      setDragIdx(idx);
+                    }}
+                    onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                    data-testid={`grip-${block.id}`}
+                  >
+                    <GripVertical className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="left" align="start" className="w-44">
+                  <DropdownMenuItem
+                    onClick={() => handleDuplicateBlock(idx)}
+                    data-testid={`action-duplicate-${block.id}`}
+                  >
+                    <CopyPlus className="h-3.5 w-3.5 mr-2" /> Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => deleteBlockMutation.mutate(block.id)}
+                    className="text-destructive focus:text-destructive"
+                    data-testid={`action-delete-${block.id}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
-          <div className="flex-1 min-w-0 relative">
-            <BlockContent
+            <div className="flex-1 min-w-0 relative">
+              <BlockContent
               block={block}
               blockIndex={idx}
               blocks={blocks}
@@ -882,6 +866,7 @@ function BlockEditor({
               onDelete={(id) => deleteBlockMutation.mutate(id)}
               registerRef={(id, el) => { blockRefs.current[id] = el; }}
             />
+          </div>
           </div>
         </div>
       ))}
