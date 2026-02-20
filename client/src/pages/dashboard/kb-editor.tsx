@@ -746,8 +746,10 @@ function BlockEditor({
     setDragOverIdx(null);
   };
 
+  const isTitleFocusedRef = useRef(false);
+
   useEffect(() => {
-    if (titleRef.current && titleRef.current.innerText !== pageTitle) {
+    if (titleRef.current && !isTitleFocusedRef.current) {
       titleRef.current.innerText = pageTitle;
     }
   }, [pageId, pageTitle]);
@@ -784,6 +786,8 @@ function BlockEditor({
         data-placeholder="Untitled"
         onInput={handleTitleInput}
         onKeyDown={handleTitleKeyDown}
+        onFocus={() => { isTitleFocusedRef.current = true; }}
+        onBlur={() => { isTitleFocusedRef.current = false; }}
         data-testid="input-page-title"
       />
 
