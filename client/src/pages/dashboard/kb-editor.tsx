@@ -1214,7 +1214,20 @@ function BlockContent({
         const isContinuation = CONTINUATION_TYPES.includes(block.type as BlockType);
         if (isContinuation && isEmpty) {
           onTypeChange(block.id, "text" as BlockType);
-          if (ref.current) ref.current.innerHTML = "";
+          if (ref.current) {
+            ref.current.innerHTML = "";
+            setTimeout(() => {
+              if (ref.current) {
+                ref.current.focus();
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.selectNodeContents(ref.current);
+                range.collapse(false);
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+              }
+            }, 60);
+          }
         } else {
           if (ref.current) saveContent(content);
           onEnter(blockIndex, block.type as BlockType);
@@ -1279,7 +1292,20 @@ function BlockContent({
     setShowSlashMenu(false);
     setSlashFilter("");
     onTypeChange(block.id, type);
-    if (ref.current) ref.current.innerText = "";
+    if (ref.current) {
+      ref.current.innerText = "";
+      setTimeout(() => {
+        if (ref.current) {
+          ref.current.focus();
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.selectNodeContents(ref.current);
+          range.collapse(false);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+      }, 60);
+    }
   };
 
   useEffect(() => {
