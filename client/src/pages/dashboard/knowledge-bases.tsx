@@ -131,7 +131,7 @@ export default function KnowledgeBasesPage() {
             >
               <CardContent className="p-0">
                 <div className="relative">
-                  <div className="aspect-[16/10] rounded-t-md overflow-hidden">
+                  <div className="aspect-square rounded-t-md overflow-hidden">
                     <img
                       src={kb.coverImageUrl || kbPlaceholder}
                       alt={kb.title}

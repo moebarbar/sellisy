@@ -61,6 +61,8 @@ import {
   Link2,
   CopyPlus,
 } from "lucide-react";
+import { useUpload } from "@/hooks/use-upload";
+import { Upload, X } from "lucide-react";
 import type { KnowledgeBase, KbPage, KbBlock } from "@shared/schema";
 
 type BlockType = "text" | "heading1" | "heading2" | "heading3" | "image" | "video" | "link" | "bullet_list" | "numbered_list" | "todo" | "toggle" | "code" | "quote" | "divider" | "callout";
@@ -1706,12 +1708,30 @@ function KbSettingsPanel({
   const [coverImageUrl, setCoverImageUrl] = useState(kb.coverImageUrl || "");
   const [priceCents, setPriceCents] = useState(kb.priceCents || 0);
   const [copied, setCopied] = useState(false);
+  const coverFileRef = useRef<HTMLInputElement>(null);
+  const { uploadFile: uploadCoverFile, isUploading: isCoverUploading } = useUpload({
+    onSuccess: (res) => {
+      setCoverImageUrl(res.objectPath);
+    },
+    onError: () => toast({ title: "Upload failed", description: "Could not upload cover image.", variant: "destructive" }),
+  });
 
   useEffect(() => {
     setDescription(kb.description || "");
     setCoverImageUrl(kb.coverImageUrl || "");
     setPriceCents(kb.priceCents || 0);
   }, [kb]);
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+    await uploadCoverFile(file);
+    if (coverFileRef.current) coverFileRef.current.value = "";
+  };
 
   const updateMutation = useMutation({
     mutationFn: async (data: Partial<KnowledgeBase>) => {
@@ -1824,17 +1844,58 @@ function KbSettingsPanel({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Cover Image URL</Label>
-              <Input
-                placeholder="https://example.com/cover.jpg"
-                value={coverImageUrl}
-                onChange={(e) => setCoverImageUrl(e.target.value)}
-                data-testid="input-kb-cover-image"
+              <Label>Cover Image</Label>
+              <p className="text-xs text-muted-foreground">Recommended: 1024 x 1024px (square)</p>
+              <input
+                ref={coverFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleCoverUpload}
+                data-testid="input-kb-cover-file"
               />
-              {coverImageUrl && (
-                <div className="rounded-md overflow-hidden bg-muted aspect-video mt-2">
-                  <img src={coverImageUrl} alt="Cover preview" className="w-full h-full object-cover" />
+              {coverImageUrl ? (
+                <div className="relative group/cover">
+                  <div className="rounded-md overflow-hidden bg-muted w-full max-w-[256px] aspect-square">
+                    <img src={coverImageUrl} alt="Cover preview" className="w-full h-full object-cover" data-testid="img-kb-cover-preview" />
+                  </div>
+                  <div className="absolute top-2 right-2 flex gap-1 invisible group-hover/cover:visible">
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      onClick={() => coverFileRef.current?.click()}
+                      disabled={isCoverUploading}
+                      data-testid="button-kb-cover-replace"
+                    >
+                      {isCoverUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      onClick={() => setCoverImageUrl("")}
+                      data-testid="button-kb-cover-remove"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
+              ) : (
+                <button
+                  type="button"
+                  className="w-full max-w-[256px] aspect-square rounded-md border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-2 hover-elevate transition-colors"
+                  onClick={() => coverFileRef.current?.click()}
+                  disabled={isCoverUploading}
+                  data-testid="button-kb-cover-upload"
+                >
+                  {isCoverUploading ? (
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Click to upload cover image</span>
+                    </>
+                  )}
+                </button>
               )}
             </div>
             <div className="space-y-1.5">
