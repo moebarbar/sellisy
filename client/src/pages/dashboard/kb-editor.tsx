@@ -89,12 +89,6 @@ const CATEGORIES = ["Basic", "Lists", "Advanced", "Media"];
 
 const FORMAT_TYPES = ["text", "heading1", "heading2", "heading3", "bullet_list", "numbered_list", "todo", "quote", "callout"];
 
-const FORMATTING_TAG_RE = /<(b|i|u|s|strong|em|code|mark|a|strike|span)\b[^>]*>/i;
-
-function hasFormattingTags(html: string): boolean {
-  return FORMATTING_TAG_RE.test(html);
-}
-
 
 function getSelectionRect(): DOMRect | null {
   const sel = window.getSelection();
@@ -920,15 +914,11 @@ function BlockContent({
   const getContent = () => {
     if (!ref.current) return "";
     if (isCodeBlock) return ref.current.textContent || "";
-    const hasFormatting = ref.current.querySelector("b, i, u, s, strong, em, code, mark, a, strike, span[style]");
-    if (hasFormatting) {
-      let html = ref.current.innerHTML;
-      html = html.replace(/<div><br\s*\/?><\/div>/gi, "");
-      html = html.replace(/<div>(.*?)<\/div>/gi, "$1");
-      html = html.replace(/^(<br\s*\/?>)+|(<br\s*\/?>)+$/gi, "");
-      return html;
-    }
-    return ref.current.innerText;
+    let html = ref.current.innerHTML;
+    html = html.replace(/<div><br\s*\/?><\/div>/gi, "");
+    html = html.replace(/<div>(.*?)<\/div>/gi, "$1");
+    html = html.replace(/^(<br\s*\/?>)+|(<br\s*\/?>)+$/gi, "");
+    return html;
   };
 
   const handleInput = () => {
@@ -1175,14 +1165,8 @@ function BlockContent({
       }
       return;
     }
-    if (hasFormattingTags(block.content)) {
-      if (ref.current.innerHTML !== block.content) {
-        ref.current.innerHTML = block.content;
-      }
-    } else {
-      if (ref.current.innerText !== block.content) {
-        ref.current.innerText = block.content;
-      }
+    if (ref.current.innerHTML !== block.content) {
+      ref.current.innerHTML = block.content;
     }
   }, [block.id, block.content, isCodeBlock]);
 
