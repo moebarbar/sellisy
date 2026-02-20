@@ -646,6 +646,15 @@ function BlockEditor({
     onError: () => toast({ title: "Error", description: "Failed to delete block.", variant: "destructive" }),
   });
 
+  const bulkCreateMutation = useMutation({
+    mutationFn: async (data: { blocks: { type: string; content: string; sortOrder: number }[] }) => {
+      const res = await apiRequest("POST", `/api/kb-pages/${pageId}/blocks/bulk`, data);
+      return res.json();
+    },
+    onSuccess: () => onRefresh(),
+    onError: () => toast({ title: "Error", description: "Failed to paste content.", variant: "destructive" }),
+  });
+
   const reorderMutation = useMutation({
     mutationFn: async (blockIds: string[]) => {
       await apiRequest("PUT", `/api/kb-pages/${pageId}/blocks/reorder`, { blockIds });
@@ -687,14 +696,32 @@ function BlockEditor({
     saveBlockToServer(blockId, { content });
   }, [pageId, saveBlockToServer]);
 
-  const handleTypeChange = useCallback((blockId: string, type: BlockType) => {
-    localContentMapRef.current[blockId] = "";
-    queryClient.setQueryData<KbBlock[]>(
-      [`/api/kb-pages/${pageId}/blocks`],
-      (old) => old?.map((b) => b.id === blockId ? { ...b, type, content: "" } : b)
-    );
-    saveBlockToServer(blockId, { type, content: "" });
-    setFocusBlockId(blockId);
+  const handleTypeChange = useCallback((blockId: string, type: BlockType, preserveContent?: boolean) => {
+    if (preserveContent) {
+      const currentBlock = queryClient.getQueryData<KbBlock[]>([`/api/kb-pages/${pageId}/blocks`])?.find((b) => b.id === blockId);
+      let content = localContentMapRef.current[blockId] ?? currentBlock?.content ?? "";
+      const PLAIN_TEXT_TYPES: BlockType[] = ["code"];
+      if (PLAIN_TEXT_TYPES.includes(type) && content) {
+        const tmp = document.createElement("div");
+        tmp.innerHTML = content;
+        content = tmp.textContent || "";
+      }
+      localContentMapRef.current[blockId] = content;
+      queryClient.setQueryData<KbBlock[]>(
+        [`/api/kb-pages/${pageId}/blocks`],
+        (old) => old?.map((b) => b.id === blockId ? { ...b, type, content } : b)
+      );
+      saveBlockToServer(blockId, { type, content });
+      setFocusBlockId(blockId);
+    } else {
+      localContentMapRef.current[blockId] = "";
+      queryClient.setQueryData<KbBlock[]>(
+        [`/api/kb-pages/${pageId}/blocks`],
+        (old) => old?.map((b) => b.id === blockId ? { ...b, type, content: "" } : b)
+      );
+      saveBlockToServer(blockId, { type, content: "" });
+      setFocusBlockId(blockId);
+    }
   }, [pageId, saveBlockToServer]);
 
   const handleEnterOnBlock = useCallback((blockIndex: number, currentType?: BlockType) => {
@@ -730,6 +757,51 @@ function BlockEditor({
       },
     });
   }, [blocks, pageId, saveBlockToServer]);
+
+  const parseLineType = useCallback((line: string): { type: BlockType; content: string } => {
+    const trimmed = line.trimStart();
+    if (/^#{4,}\s+/.test(trimmed)) return { type: "heading3", content: trimmed.replace(/^#+\s+/, "") };
+    if (/^###\s+/.test(trimmed)) return { type: "heading3", content: trimmed.replace(/^###\s+/, "") };
+    if (/^##\s+/.test(trimmed)) return { type: "heading2", content: trimmed.replace(/^##\s+/, "") };
+    if (/^#\s+/.test(trimmed)) return { type: "heading1", content: trimmed.replace(/^#\s+/, "") };
+    if (/^[-*]\s+\[[ x]\]\s+/i.test(trimmed)) return { type: "todo", content: trimmed.replace(/^[-*]\s+\[[ x]\]\s+/i, "") };
+    if (/^\[[ x]\]\s+/i.test(trimmed)) return { type: "todo", content: trimmed.replace(/^\[[ x]\]\s+/i, "") };
+    if (/^[-*\u2022\u25E6\u25AA]\s+/.test(trimmed)) return { type: "bullet_list", content: trimmed.replace(/^[-*\u2022\u25E6\u25AA]\s+/, "") };
+    if (/^\d+[.)]\s+/.test(trimmed)) return { type: "numbered_list", content: trimmed.replace(/^\d+[.)]\s+/, "") };
+    if (/^>\s+/.test(trimmed)) return { type: "quote", content: trimmed.replace(/^>\s+/, "") };
+    if (/^---+$/.test(trimmed) || /^\*\*\*+$/.test(trimmed)) return { type: "divider", content: "" };
+    return { type: "text", content: trimmed };
+  }, []);
+
+  const handleSmartPaste = useCallback((e: React.ClipboardEvent) => {
+    const target = e.target as HTMLElement;
+    const blockEl = target.closest("[data-block-id]") as HTMLElement | null;
+    if (!blockEl) return;
+
+    const text = e.clipboardData.getData("text/plain");
+    if (!text) return;
+    const lines = text.split(/\n/);
+    if (lines.length <= 1) return;
+
+    const parsed: { type: BlockType; content: string }[] = [];
+    for (const line of lines) {
+      if (line.trim() === "") continue;
+      parsed.push(parseLineType(line));
+    }
+
+    if (parsed.length <= 1) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const currentBlockId = blockEl.getAttribute("data-block-id");
+    const currentIdx = blocks.findIndex((b) => b.id === currentBlockId);
+    const insertAfter = currentIdx >= 0 ? currentIdx : blocks.length - 1;
+
+    bulkCreateMutation.mutate({
+      blocks: parsed.map((b, i) => ({ type: b.type, content: b.content, sortOrder: insertAfter + 1 + i })),
+    });
+  }, [blocks, parseLineType]);
 
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -778,7 +850,7 @@ function BlockEditor({
   };
 
   return (
-    <div className="space-y-0 relative" ref={editorContainerRef}>
+    <div className="space-y-0 relative" ref={editorContainerRef} onPaste={handleSmartPaste}>
       <InlineFormatToolbar containerRef={editorContainerRef} />
       <div
         ref={titleRef}
@@ -794,7 +866,7 @@ function BlockEditor({
       />
 
       {blocks.map((block, idx) => (
-        <div key={block.id} className="relative" data-testid={`block-wrapper-${block.id}`}>
+        <div key={block.id} className="relative" data-block-id={block.id} data-testid={`block-wrapper-${block.id}`}>
           {dragOverIdx === idx && dragIdx !== null && dragIdx !== idx && (
             <div className="absolute left-8 right-0 top-0 h-0.5 bg-primary rounded-full z-10 pointer-events-none" data-testid={`drop-indicator-${block.id}`} />
           )}
@@ -840,7 +912,23 @@ function BlockEditor({
                     <GripVertical className="h-3.5 w-3.5" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent side="left" align="start" className="w-44">
+                <DropdownMenuContent side="left" align="start" className="w-48">
+                  <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Turn into</div>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {BLOCK_TYPES.filter((bt) => FORMAT_TYPES.includes(bt.type) && bt.type !== block.type).map((bt) => {
+                      const Icon = bt.icon;
+                      return (
+                        <DropdownMenuItem
+                          key={bt.type}
+                          onClick={() => handleTypeChange(block.id, bt.type, true)}
+                          data-testid={`action-turn-${bt.type}-${block.id}`}
+                        >
+                          <Icon className="h-3.5 w-3.5 mr-2" /> {bt.label}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </div>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => handleDuplicateBlock(idx)}
                     data-testid={`action-duplicate-${block.id}`}

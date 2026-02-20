@@ -1097,6 +1097,36 @@ export async function registerRoutes(
     res.json(block);
   });
 
+  app.post("/api/kb-pages/:id/blocks/bulk", isAuthenticated, async (req, res) => {
+    const page = await storage.getKbPageById(req.params.id as string);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const schema = z.object({
+      blocks: z.array(z.object({
+        type: z.enum(["text", "heading1", "heading2", "heading3", "image", "video", "link", "bullet_list", "numbered_list", "todo", "toggle", "code", "quote", "divider", "callout"]),
+        content: z.string(),
+        sortOrder: z.number().int(),
+      })),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const insertAt = Math.min(...parsed.data.blocks.map((b) => b.sortOrder));
+    const count = parsed.data.blocks.length;
+    const existing = await storage.getKbBlocksByPage(page.id);
+    for (const ex of existing) {
+      if (ex.sortOrder >= insertAt) {
+        await storage.updateKbBlock(ex.id, { sortOrder: ex.sortOrder + count });
+      }
+    }
+    const created = [];
+    for (const b of parsed.data.blocks) {
+      const block = await storage.createKbBlock({ pageId: page.id, type: b.type, content: b.content, sortOrder: b.sortOrder });
+      created.push(block);
+    }
+    res.json(created);
+  });
+
   app.patch("/api/kb-blocks/:id", isAuthenticated, async (req, res) => {
     const block = await storage.getKbBlockById(req.params.id as string);
     if (!block) return res.status(404).json({ message: "Not found" });
