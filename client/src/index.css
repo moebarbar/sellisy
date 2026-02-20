@@ -342,6 +342,15 @@
   animation: dv-slide-in-right 0.4s ease-out both;
 }
 
+@keyframes dv-block-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dv-block-enter {
+  animation: dv-block-in 0.2s ease-out both;
+}
+
 .dv-confetti-piece {
   position: fixed;
   top: -10px;

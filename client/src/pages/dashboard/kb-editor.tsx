@@ -52,6 +52,16 @@ import {
   Minus,
   AlertCircle,
   Pencil,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Highlighter,
+  Code as CodeIcon,
+  Link2,
+  ArrowUp,
+  ArrowDown,
+  CopyPlus,
 } from "lucide-react";
 import type { KnowledgeBase, KbPage, KbBlock } from "@shared/schema";
 
@@ -76,6 +86,197 @@ const BLOCK_TYPES: { type: BlockType; label: string; icon: any; description: str
 ];
 
 const CATEGORIES = ["Basic", "Lists", "Advanced", "Media"];
+
+const FORMAT_TYPES = ["text", "heading1", "heading2", "heading3", "bullet_list", "numbered_list", "todo", "quote", "callout"];
+
+function getSelectionRect(): DOMRect | null {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+  const range = sel.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return null;
+  return rect;
+}
+
+function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
+  const toolbarRef = useRef<HTMLDivElement>(null);
+
+  const checkSelection = useCallback(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) {
+      setPos(null);
+      return;
+    }
+
+    const range = sel.getRangeAt(0);
+    if (!containerRef.current?.contains(range.commonAncestorContainer)) {
+      setPos(null);
+      return;
+    }
+
+    const editable = range.commonAncestorContainer instanceof Element
+      ? range.commonAncestorContainer.closest("[contenteditable]")
+      : range.commonAncestorContainer.parentElement?.closest("[contenteditable]");
+    if (!editable) {
+      setPos(null);
+      return;
+    }
+
+    const rect = getSelectionRect();
+    if (!rect) { setPos(null); return; }
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const toolbarWidth = 280;
+    let left = rect.left + rect.width / 2 - containerRect.left - toolbarWidth / 2;
+    left = Math.max(0, Math.min(left, containerRect.width - toolbarWidth));
+
+    setPos({
+      top: rect.top - containerRect.top - 44,
+      left,
+    });
+
+    const formats = new Set<string>();
+    if (document.queryCommandState("bold")) formats.add("bold");
+    if (document.queryCommandState("italic")) formats.add("italic");
+    if (document.queryCommandState("underline")) formats.add("underline");
+    if (document.queryCommandState("strikeThrough")) formats.add("strikethrough");
+
+    let node: Node | null = range.commonAncestorContainer;
+    while (node && node !== editable) {
+      if (node instanceof HTMLElement) {
+        if (node.tagName === "CODE") formats.add("code");
+        if (node.tagName === "MARK") formats.add("highlight");
+        if (node.tagName === "A") formats.add("link");
+      }
+      node = node.parentNode;
+    }
+    setActiveFormats(formats);
+  }, [containerRef]);
+
+  useEffect(() => {
+    document.addEventListener("selectionchange", checkSelection);
+    return () => document.removeEventListener("selectionchange", checkSelection);
+  }, [checkSelection]);
+
+  const execFormat = (cmd: string) => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+
+    if (cmd === "code") {
+      const range = sel.getRangeAt(0);
+      const parent = range.commonAncestorContainer.parentElement;
+      if (parent?.tagName === "CODE") {
+        const text = parent.textContent || "";
+        parent.replaceWith(document.createTextNode(text));
+      } else {
+        try {
+          const code = document.createElement("code");
+          code.className = "px-1.5 py-0.5 rounded bg-muted font-mono text-sm";
+          range.surroundContents(code);
+        } catch {
+          const code = document.createElement("code");
+          code.className = "px-1.5 py-0.5 rounded bg-muted font-mono text-sm";
+          code.textContent = range.toString();
+          range.deleteContents();
+          range.insertNode(code);
+        }
+      }
+      triggerInputEvent();
+      return;
+    }
+
+    if (cmd === "highlight") {
+      const range = sel.getRangeAt(0);
+      const parent = range.commonAncestorContainer.parentElement;
+      if (parent?.tagName === "MARK") {
+        const text = parent.textContent || "";
+        parent.replaceWith(document.createTextNode(text));
+      } else {
+        try {
+          const mark = document.createElement("mark");
+          mark.className = "bg-yellow-200/60 dark:bg-yellow-500/30 px-0.5 rounded-sm";
+          range.surroundContents(mark);
+        } catch {
+          const mark = document.createElement("mark");
+          mark.className = "bg-yellow-200/60 dark:bg-yellow-500/30 px-0.5 rounded-sm";
+          mark.textContent = range.toString();
+          range.deleteContents();
+          range.insertNode(mark);
+        }
+      }
+      triggerInputEvent();
+      return;
+    }
+
+    if (cmd === "createLink") {
+      const url = prompt("Enter URL:");
+      if (url) {
+        document.execCommand("createLink", false, url);
+        triggerInputEvent();
+      }
+      return;
+    }
+
+    document.execCommand(cmd, false);
+    triggerInputEvent();
+  };
+
+  const triggerInputEvent = () => {
+    const sel = window.getSelection();
+    if (!sel?.rangeCount) return;
+    const ancestor = sel.getRangeAt(0).commonAncestorContainer;
+    const editable = ancestor instanceof Element
+      ? ancestor.closest("[contenteditable]")
+      : (ancestor as Node).parentElement?.closest("[contenteditable]");
+    if (editable) editable.dispatchEvent(new Event("input", { bubbles: true }));
+    setTimeout(checkSelection, 10);
+  };
+
+  if (!pos) return null;
+
+  const buttons = [
+    { cmd: "bold", icon: Bold, label: "Bold", shortcut: "Ctrl+B" },
+    { cmd: "italic", icon: Italic, label: "Italic", shortcut: "Ctrl+I" },
+    { cmd: "underline", icon: Underline, label: "Underline", shortcut: "Ctrl+U" },
+    { cmd: "strikeThrough", icon: Strikethrough, label: "Strikethrough", shortcut: "Ctrl+Shift+S" },
+    { cmd: "highlight", icon: Highlighter, label: "Highlight", shortcut: "Ctrl+Shift+H" },
+    { cmd: "code", icon: CodeIcon, label: "Inline Code", shortcut: "Ctrl+E" },
+    { cmd: "createLink", icon: Link2, label: "Link", shortcut: "Ctrl+K" },
+  ];
+
+  return (
+    <div
+      ref={toolbarRef}
+      className="absolute z-50 flex items-center gap-0.5 bg-popover border rounded-lg shadow-lg px-1 py-0.5 animate-in fade-in-0 zoom-in-95 duration-150"
+      style={{ top: pos.top, left: pos.left }}
+      onMouseDown={(e) => e.preventDefault()}
+      data-testid="inline-format-toolbar"
+    >
+      {buttons.map(({ cmd, icon: Icon, label, shortcut }) => (
+        <Tooltip key={cmd}>
+          <TooltipTrigger asChild>
+            <button
+              className={`p-1.5 rounded-md transition-colors ${
+                activeFormats.has(cmd === "strikeThrough" ? "strikethrough" : cmd === "createLink" ? "link" : cmd)
+                  ? "bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+              onClick={() => execFormat(cmd)}
+              data-testid={`button-format-${cmd}`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            {label} <span className="text-muted-foreground ml-1">{shortcut}</span>
+          </TooltipContent>
+        </Tooltip>
+      ))}
+    </div>
+  );
+}
 
 function useDebouncedCallback(callback: (value: string) => void, delay: number) {
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -378,6 +579,7 @@ function BlockEditor({
   const [focusBlockId, setFocusBlockId] = useState<string | null>(null);
   const blockRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const titleRef = useRef<HTMLDivElement>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   const createBlockMutation = useMutation({
     mutationFn: async (data: { type: BlockType; sortOrder: number }) => {
@@ -477,6 +679,25 @@ function BlockEditor({
     }
   }, [blocks]);
 
+  const handleDuplicateBlock = useCallback((blockIndex: number) => {
+    const block = blocks[blockIndex];
+    if (!block) return;
+    createBlockMutation.mutate({ type: block.type as BlockType, sortOrder: blockIndex + 1 }, {
+      onSuccess: (newBlock: KbBlock) => {
+        updateBlockMutation.mutate({ id: newBlock.id, data: { content: block.content } });
+      },
+    });
+  }, [blocks]);
+
+  const handleMoveBlock = useCallback((blockIndex: number, direction: "up" | "down") => {
+    const targetIdx = direction === "up" ? blockIndex - 1 : blockIndex + 1;
+    if (targetIdx < 0 || targetIdx >= blocks.length) return;
+    const newOrder = [...blocks];
+    const [moved] = newOrder.splice(blockIndex, 1);
+    newOrder.splice(targetIdx, 0, moved);
+    reorderMutation.mutate(newOrder.map((b) => b.id));
+  }, [blocks]);
+
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
@@ -527,7 +748,8 @@ function BlockEditor({
   };
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-0 relative" ref={editorContainerRef}>
+      <InlineFormatToolbar containerRef={editorContainerRef} />
       <div
         ref={titleRef}
         contentEditable
@@ -542,7 +764,7 @@ function BlockEditor({
       {blocks.map((block, idx) => (
         <div
           key={block.id}
-          className={`group relative flex items-start gap-0.5 rounded-md transition-all ${
+          className={`group relative flex items-start gap-0.5 rounded-md transition-all dv-block-enter ${
             dragOverIdx === idx ? "bg-primary/5 ring-1 ring-primary/20" : ""
           } ${dragIdx === idx ? "opacity-30" : ""}`}
           draggable
@@ -565,14 +787,44 @@ function BlockEditor({
               </TooltipTrigger>
               <TooltipContent side="left">Add block</TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground" data-testid={`grip-${block.id}`}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground hover-elevate" data-testid={`grip-${block.id}`}>
                   <GripVertical className="h-3.5 w-3.5" />
                 </button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Drag to reorder</TooltipContent>
-            </Tooltip>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="left" align="start" className="w-44">
+                <DropdownMenuItem
+                  onClick={() => handleMoveBlock(idx, "up")}
+                  disabled={idx === 0}
+                  data-testid={`action-move-up-${block.id}`}
+                >
+                  <ArrowUp className="h-3.5 w-3.5 mr-2" /> Move up
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleMoveBlock(idx, "down")}
+                  disabled={idx === blocks.length - 1}
+                  data-testid={`action-move-down-${block.id}`}
+                >
+                  <ArrowDown className="h-3.5 w-3.5 mr-2" /> Move down
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => handleDuplicateBlock(idx)}
+                  data-testid={`action-duplicate-${block.id}`}
+                >
+                  <CopyPlus className="h-3.5 w-3.5 mr-2" /> Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => deleteBlockMutation.mutate(block.id)}
+                  className="text-destructive focus:text-destructive"
+                  data-testid={`action-delete-${block.id}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div className="flex-1 min-w-0 relative">
@@ -645,30 +897,37 @@ function BlockContent({
     onContentChange(block.id, text);
   }, [block.id, onContentChange]);
 
+  const getContent = () => {
+    if (!ref.current) return "";
+    const hasFormatting = ref.current.querySelector("b, i, u, s, strong, em, code, mark, a, strike");
+    return hasFormatting ? ref.current.innerHTML : ref.current.innerText;
+  };
+
   const handleInput = () => {
     if (!ref.current) return;
-    const text = ref.current.innerText;
+    const plainText = ref.current.innerText;
     clearTimeout(debounceRef.current);
 
-    if (text === "/") {
+    if (plainText === "/") {
       setShowSlashMenu(true);
       setSlashFilter("");
       setSlashSelectedIndex(0);
       return;
     }
 
-    if (text.startsWith("/") && showSlashMenu) {
-      setSlashFilter(text.slice(1));
+    if (plainText.startsWith("/") && showSlashMenu) {
+      setSlashFilter(plainText.slice(1));
       setSlashSelectedIndex(0);
       return;
     }
 
-    if (showSlashMenu && !text.startsWith("/")) {
+    if (showSlashMenu && !plainText.startsWith("/")) {
       setShowSlashMenu(false);
       setSlashFilter("");
     }
 
-    debounceRef.current = setTimeout(() => saveContent(text), 500);
+    const content = getContent();
+    debounceRef.current = setTimeout(() => saveContent(content), 500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -721,10 +980,81 @@ function BlockContent({
       return;
     }
 
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      if (e.key === "b") { e.preventDefault(); document.execCommand("bold"); handleInput(); return; }
+      if (e.key === "i") { e.preventDefault(); document.execCommand("italic"); handleInput(); return; }
+      if (e.key === "u") { e.preventDefault(); document.execCommand("underline"); handleInput(); return; }
+      if (e.key === "e") {
+        e.preventDefault();
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed) {
+          const range = sel.getRangeAt(0);
+          const parent = range.commonAncestorContainer.parentElement;
+          if (parent?.tagName === "CODE") {
+            const text = parent.textContent || "";
+            parent.replaceWith(document.createTextNode(text));
+          } else {
+            try {
+              const code = document.createElement("code");
+              code.className = "px-1.5 py-0.5 rounded bg-muted font-mono text-sm";
+              range.surroundContents(code);
+            } catch {
+              const code = document.createElement("code");
+              code.className = "px-1.5 py-0.5 rounded bg-muted font-mono text-sm";
+              code.textContent = range.toString();
+              range.deleteContents();
+              range.insertNode(code);
+            }
+          }
+          handleInput();
+        }
+        return;
+      }
+      if (e.key === "k") {
+        e.preventDefault();
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed) {
+          const url = prompt("Enter URL:");
+          if (url) { document.execCommand("createLink", false, url); handleInput(); }
+        }
+        return;
+      }
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+      if (e.key === "S" || e.key === "s") { e.preventDefault(); document.execCommand("strikeThrough"); handleInput(); return; }
+      if (e.key === "H" || e.key === "h") {
+        e.preventDefault();
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed) {
+          const range = sel.getRangeAt(0);
+          const parent = range.commonAncestorContainer.parentElement;
+          if (parent?.tagName === "MARK") {
+            const text = parent.textContent || "";
+            parent.replaceWith(document.createTextNode(text));
+          } else {
+            try {
+              const mark = document.createElement("mark");
+              mark.className = "bg-yellow-200/60 dark:bg-yellow-500/30 px-0.5 rounded-sm";
+              range.surroundContents(mark);
+            } catch {
+              const mark = document.createElement("mark");
+              mark.className = "bg-yellow-200/60 dark:bg-yellow-500/30 px-0.5 rounded-sm";
+              mark.textContent = range.toString();
+              range.deleteContents();
+              range.insertNode(mark);
+            }
+          }
+          handleInput();
+        }
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey && !showSlashMenu) {
       e.preventDefault();
       clearTimeout(debounceRef.current);
-      if (ref.current) saveContent(ref.current.innerText);
+      if (ref.current) saveContent(getContent());
       onEnter(blockIndex, block.type as BlockType);
     }
 
@@ -766,12 +1096,11 @@ function BlockContent({
   const handleBlur = () => {
     if (!ref.current) return;
     clearTimeout(debounceRef.current);
-    const text = ref.current.innerText;
     if (showSlashMenu) {
       setShowSlashMenu(false);
       setSlashFilter("");
     }
-    saveContent(text);
+    saveContent(getContent());
   };
 
   const selectSlashType = (type: BlockType) => {
@@ -782,8 +1111,16 @@ function BlockContent({
   };
 
   useEffect(() => {
-    if (ref.current && ref.current.innerText !== block.content) {
-      ref.current.innerText = block.content;
+    if (!ref.current) return;
+    const hasHtml = block.content.includes("<");
+    if (hasHtml) {
+      if (ref.current.innerHTML !== block.content) {
+        ref.current.innerHTML = block.content;
+      }
+    } else {
+      if (ref.current.innerText !== block.content) {
+        ref.current.innerText = block.content;
+      }
     }
   }, [block.id, block.content]);
 
