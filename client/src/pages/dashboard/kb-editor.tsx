@@ -871,7 +871,7 @@ function BlockEditor({
             <div className="absolute left-8 right-0 top-0 h-0.5 bg-primary rounded-full z-10 pointer-events-none" data-testid={`drop-indicator-${block.id}`} />
           )}
           <div
-            className={`group relative flex items-start gap-0.5 rounded-md ${
+            className={`group relative flex items-start rounded-md ${
               dragIdx === idx ? "opacity-30" : ""
             }`}
             onDragOver={(e) => {
@@ -883,7 +883,7 @@ function BlockEditor({
             onDrop={(e) => { e.preventDefault(); handleDrop(idx); }}
             data-testid={`block-${block.id}`}
           >
-            <div className="flex items-center gap-0 pt-1 invisible group-hover:visible flex-shrink-0">
+            <div className="flex items-center gap-0 pt-1 w-[44px] flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-75 pointer-events-none group-hover:pointer-events-auto">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -947,7 +947,7 @@ function BlockEditor({
               </DropdownMenu>
             </div>
 
-            <div className="flex-1 min-w-0 relative">
+            <div className="flex-1 min-w-0 relative" style={{ willChange: "transform" }}>
               <BlockContent
               block={block}
               blockIndex={idx}
