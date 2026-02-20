@@ -2015,17 +2015,24 @@ export default function KbEditorPage() {
     <div className="flex h-full" data-testid="kb-editor">
       <div className="w-64 flex-shrink-0 border-r flex flex-col bg-muted/30">
         <div className="p-3 border-b space-y-2">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/content-creator")} data-testid="button-back-to-kbs">
+          <div className="flex items-start gap-1">
+            <Button variant="ghost" size="icon" className="flex-shrink-0 mt-0.5" onClick={() => navigate("/dashboard/content-creator")} data-testid="button-back-to-kbs">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-1 min-w-0">
-              <DebouncedInput
-                className="h-7 text-sm font-semibold border-none bg-transparent px-1"
-                value={kb.title}
-                onChange={(val) => { if (val.trim()) updateKbTitleMutation.mutate(val.trim()); }}
-                data-testid="input-kb-title"
-              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DebouncedInput
+                    className="h-auto text-xs font-semibold border-none bg-transparent px-1 py-1 leading-snug"
+                    value={kb.title}
+                    onChange={(val) => { if (val.trim()) updateKbTitleMutation.mutate(val.trim()); }}
+                    data-testid="input-kb-title"
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[250px] break-words">
+                  {kb.title}
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
           <div className="flex items-center justify-between gap-2 px-1">
