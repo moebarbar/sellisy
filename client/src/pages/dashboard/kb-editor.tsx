@@ -2106,7 +2106,7 @@ function KbSettingsPanel({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 flex-wrap">
+      <div className="flex items-center gap-1">
         {kb.isPublished && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -2133,18 +2133,23 @@ function KbSettingsPanel({
           </Tooltip>
         )}
         <Button
-          variant={kb.isPublished ? "secondary" : "default"}
+          variant={kb.isPublished ? "outline" : "default"}
           size="sm"
           onClick={togglePublish}
           disabled={updateMutation.isPending}
           data-testid="button-toggle-publish"
         >
-          {updateMutation.isPending && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+          {updateMutation.isPending && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
           {kb.isPublished ? "Unpublish" : "Publish"}
         </Button>
-        <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)} data-testid="button-kb-settings">
-          <Settings className="h-4 w-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)} data-testid="button-kb-settings">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Settings</TooltipContent>
+        </Tooltip>
       </div>
 
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
@@ -2396,16 +2401,16 @@ export default function KbEditorPage() {
   return (
     <div className="flex h-full" data-testid="kb-editor">
       <div className="w-64 flex-shrink-0 border-r flex flex-col bg-muted/30">
-        <div className="p-3 border-b space-y-2">
-          <div className="flex items-start gap-1">
-            <Button variant="ghost" size="icon" className="flex-shrink-0 mt-0.5" onClick={() => navigate("/dashboard/content-creator")} data-testid="button-back-to-kbs">
+        <div className="p-3 border-b space-y-2.5">
+          <div className="flex items-center gap-1.5">
+            <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => navigate("/dashboard/content-creator")} data-testid="button-back-to-kbs">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-1 min-w-0">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DebouncedInput
-                    className="h-auto text-xs font-semibold border-none bg-transparent px-1 py-1 leading-snug"
+                    className="h-auto text-sm font-semibold border-none bg-transparent px-1 py-0.5 leading-snug"
                     value={kb.title}
                     onChange={(val) => { if (val.trim()) updateKbTitleMutation.mutate(val.trim()); }}
                     data-testid="input-kb-title"
@@ -2417,14 +2422,13 @@ export default function KbEditorPage() {
               </Tooltip>
             </div>
           </div>
-          <div className="flex items-center justify-between gap-2 px-1">
-            <div className="flex items-center gap-1.5">
-              {kb.isPublished ? (
-                <Badge variant="secondary">Published</Badge>
-              ) : (
-                <Badge variant="outline">Draft</Badge>
-              )}
-            </div>
+          <div className="flex items-center gap-2 px-1">
+            {kb.isPublished ? (
+              <Badge variant="secondary">Published</Badge>
+            ) : (
+              <Badge variant="outline">Draft</Badge>
+            )}
+            <div className="flex-1" />
             <KbSettingsPanel kb={kb} kbId={kbId} pageCount={pages.length} />
           </div>
         </div>
