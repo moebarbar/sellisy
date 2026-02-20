@@ -2034,6 +2034,7 @@ function KbSettingsPanel({
     setShowSettingsInternal(v);
     if (!v && onCloseSettings) onCloseSettings();
   };
+  const [title, setTitle] = useState(kb.title || "");
   const [description, setDescription] = useState(kb.description || "");
   const [coverImageUrl, setCoverImageUrl] = useState(kb.coverImageUrl || "");
   const [priceCents, setPriceCents] = useState(kb.priceCents || 0);
@@ -2047,6 +2048,7 @@ function KbSettingsPanel({
   });
 
   useEffect(() => {
+    setTitle(kb.title || "");
     setDescription(kb.description || "");
     setCoverImageUrl(kb.coverImageUrl || "");
     setPriceCents(kb.priceCents || 0);
@@ -2101,7 +2103,7 @@ function KbSettingsPanel({
   });
 
   const saveSettings = () => {
-    updateMutation.mutate({ description, coverImageUrl: coverImageUrl || null, priceCents });
+    updateMutation.mutate({ title: title.trim() || kb.title, description, coverImageUrl: coverImageUrl || null, priceCents });
     toast({ title: "Saved", description: "Settings updated." });
     setShowSettings(false);
   };
@@ -2161,6 +2163,15 @@ function KbSettingsPanel({
             <DialogDescription>Configure how your content appears to readers.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+            <div className="space-y-1.5">
+              <Label>Title</Label>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Knowledge base title..."
+                data-testid="input-kb-settings-title"
+              />
+            </div>
             <div className="space-y-1.5">
               <Label>Description</Label>
               <Textarea
