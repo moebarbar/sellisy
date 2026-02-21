@@ -1719,8 +1719,8 @@ function BlockContent({
 
     case "bullet_list":
       return (
-        <div className="flex items-start gap-2 py-0.5">
-          <span className="text-foreground mt-[5px] flex-shrink-0 select-none text-[8px] leading-none" aria-hidden="true">&#9679;</span>
+        <div className="flex items-center gap-2 py-0.5">
+          <span className="text-foreground flex-shrink-0 select-none text-[7px] leading-none" aria-hidden="true">●</span>
           {renderEditable("text-base", placeholders.bullet_list)}
         </div>
       );
