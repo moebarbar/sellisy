@@ -91,6 +91,7 @@ const CATEGORIES = ["Basic", "Lists", "Advanced", "Media"];
 const FORMAT_TYPES = ["text", "heading1", "heading2", "heading3", "bullet_list", "numbered_list", "todo", "quote", "callout"];
 
 const CONTINUATION_TYPES: BlockType[] = ["bullet_list", "numbered_list", "todo", "quote", "callout"];
+const REVERT_TO_TEXT_TYPES: BlockType[] = ["bullet_list", "numbered_list", "todo", "quote", "callout", "heading1", "heading2", "heading3"];
 
 
 function getSelectionRect(): DOMRect | null {
@@ -1018,7 +1019,8 @@ function BlockEditor({
 
   const pendingSavesRef = useRef<Record<string, AbortController>>({});
   const localContentMapRef = useRef<Record<string, string>>({});
-  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
+  const savingIndicatorRef = useRef<HTMLDivElement>(null);
   const savingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const createBlockMutation = useMutation({
@@ -1048,7 +1050,8 @@ function BlockEditor({
     }
     const controller = new AbortController();
     pendingSavesRef.current[id] = controller;
-    setIsSaving(true);
+    isSavingRef.current = true;
+    if (savingIndicatorRef.current) savingIndicatorRef.current.style.display = "flex";
     clearTimeout(savingTimeoutRef.current);
     try {
       await apiRequest("PATCH", `/api/kb-blocks/${id}`, data, controller.signal);
@@ -1062,7 +1065,10 @@ function BlockEditor({
         delete pendingSavesRef.current[id];
       }
       if (Object.keys(pendingSavesRef.current).length === 0) {
-        savingTimeoutRef.current = setTimeout(() => setIsSaving(false), 600);
+        savingTimeoutRef.current = setTimeout(() => {
+          isSavingRef.current = false;
+          if (savingIndicatorRef.current) savingIndicatorRef.current.style.display = "none";
+        }, 600);
       }
     }
   }, []);
@@ -1128,12 +1134,8 @@ function BlockEditor({
 
   const handleContentChange = useCallback((blockId: string, content: string) => {
     localContentMapRef.current[blockId] = content;
-    queryClient.setQueryData<KbBlock[]>(
-      [`/api/kb-pages/${pageId}/blocks`],
-      (old) => old?.map((b) => b.id === blockId ? { ...b, content } : b)
-    );
     saveBlockToServer(blockId, { content });
-  }, [pageId, saveBlockToServer]);
+  }, [saveBlockToServer]);
 
   const handleTypeChange = useCallback((blockId: string, type: BlockType, preserveContent?: boolean) => {
     if (preserveContent) {
@@ -1291,12 +1293,10 @@ function BlockEditor({
   return (
     <div className="space-y-0 relative" ref={editorContainerRef} onPaste={handleSmartPaste} style={kbFontFamily ? { fontFamily: `'${kbFontFamily}', sans-serif` } : undefined}>
       <InlineFormatToolbar containerRef={editorContainerRef} />
-      {isSaving && (
-        <div className="absolute top-0 right-0 flex items-center gap-1.5 text-muted-foreground/50 z-10" data-testid="save-indicator">
-          <div className="w-1.5 h-1.5 rounded-full bg-primary/50 save-pulse" />
-          <span className="text-[11px] font-medium">Saving...</span>
-        </div>
-      )}
+      <div ref={savingIndicatorRef} className="absolute top-0 right-0 items-center gap-1.5 text-muted-foreground/50 z-10" style={{ display: "none" }} data-testid="save-indicator">
+        <div className="w-1.5 h-1.5 rounded-full bg-primary/50 save-pulse" />
+        <span className="text-[11px] font-medium">Saving...</span>
+      </div>
       <div
         ref={titleRef}
         contentEditable
@@ -1753,8 +1753,8 @@ function BlockContent({
         clearTimeout(debounceRef.current);
         const content = ref.current ? getContent() : "";
         const isEmpty = !content || content === "<br>" || content === "\n";
-        const isContinuation = CONTINUATION_TYPES.includes(block.type as BlockType);
-        if (isContinuation && isEmpty) {
+        const shouldRevert = REVERT_TO_TEXT_TYPES.includes(block.type as BlockType);
+        if (shouldRevert && isEmpty) {
           onTypeChange(block.id, "text" as BlockType);
           if (ref.current) {
             ref.current.innerHTML = "";
