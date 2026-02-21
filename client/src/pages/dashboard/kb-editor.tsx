@@ -371,21 +371,29 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
     { label: "Default", value: "", family: "inherit" },
     { label: "Inter", value: "Inter", family: "'Inter', sans-serif" },
     { label: "Poppins", value: "Poppins", family: "'Poppins', sans-serif" },
-    { label: "Montserrat", value: "Montserrat", family: "'Montserrat', sans-serif" },
-    { label: "Playfair", value: "Playfair Display", family: "'Playfair Display', serif" },
-    { label: "Lora", value: "Lora", family: "'Lora', serif" },
-    { label: "Merriweather", value: "Merriweather", family: "'Merriweather', serif" },
-    { label: "Space Grotesk", value: "Space Grotesk", family: "'Space Grotesk', sans-serif" },
     { label: "DM Sans", value: "DM Sans", family: "'DM Sans', sans-serif" },
+    { label: "Nunito", value: "Nunito", family: "'Nunito', sans-serif" },
     { label: "Outfit", value: "Outfit", family: "'Outfit', sans-serif" },
-    { label: "Jakarta", value: "Plus Jakarta Sans", family: "'Plus Jakarta Sans', sans-serif" },
+    { label: "Raleway", value: "Raleway", family: "'Raleway', sans-serif" },
+    { label: "Work Sans", value: "Work Sans", family: "'Work Sans', sans-serif" },
+    { label: "Manrope", value: "Manrope", family: "'Manrope', sans-serif" },
+    { label: "Sora", value: "Sora", family: "'Sora', sans-serif" },
+    { label: "Montserrat", value: "Montserrat", family: "'Montserrat', sans-serif" },
+    { label: "Space Grotesk", value: "Space Grotesk", family: "'Space Grotesk', sans-serif" },
     { label: "Roboto", value: "Roboto", family: "'Roboto', sans-serif" },
     { label: "Open Sans", value: "Open Sans", family: "'Open Sans', sans-serif" },
-    { label: "Source Serif", value: "Source Serif 4", family: "'Source Serif 4', serif" },
+    { label: "Jakarta", value: "Plus Jakarta Sans", family: "'Plus Jakarta Sans', sans-serif" },
+    { label: "Playfair Display", value: "Playfair Display", family: "'Playfair Display', serif" },
+    { label: "Merriweather", value: "Merriweather", family: "'Merriweather', serif" },
+    { label: "Lora", value: "Lora", family: "'Lora', serif" },
+    { label: "Crimson Text", value: "Crimson Text", family: "'Crimson Text', serif" },
+    { label: "Source Serif 4", value: "Source Serif 4", family: "'Source Serif 4', serif" },
     { label: "Libre Baskerville", value: "Libre Baskerville", family: "'Libre Baskerville', serif" },
-    { label: "Architects Daughter", value: "Architects Daughter", family: "'Architects Daughter', cursive" },
     { label: "Space Mono", value: "Space Mono", family: "'Space Mono', monospace" },
     { label: "Fira Code", value: "Fira Code", family: "'Fira Code', monospace" },
+    { label: "JetBrains Mono", value: "JetBrains Mono", family: "'JetBrains Mono', monospace" },
+    { label: "Dancing Script", value: "Dancing Script", family: "'Dancing Script', cursive" },
+    { label: "Architects Daughter", value: "Architects Daughter", family: "'Architects Daughter', cursive" },
   ];
 
   const openFontPicker = () => {
@@ -594,7 +602,7 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
         </div>
       )}
       {showFontPicker && (
-        <div className="border-t px-2 py-2 max-h-[200px] overflow-y-auto" data-testid="font-picker-panel">
+        <div className="border-t px-2 py-2 max-h-[280px] overflow-y-auto" data-testid="font-picker-panel">
           <div className="space-y-0.5">
             {TEXT_FONTS.map(({ label, value, family }) => (
               <button
@@ -2784,8 +2792,8 @@ export default function KbEditorPage() {
   }
 
   return (
-    <div className="flex h-full" data-testid="kb-editor">
-      <div className="w-64 flex-shrink-0 border-r flex flex-col bg-muted/30">
+    <div className="flex h-full overflow-hidden" data-testid="kb-editor">
+      <div className="w-64 flex-shrink-0 border-r flex flex-col bg-muted/30 overflow-hidden">
         <div className="p-3 border-b">
           <div className="flex items-center gap-1.5 mb-3">
             <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => navigate("/dashboard/content-creator")} data-testid="button-back-to-kbs">
@@ -2846,7 +2854,7 @@ export default function KbEditorPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {activePageId && activePage ? (
           <div className="max-w-3xl mx-auto p-8">
             <BlockEditor
