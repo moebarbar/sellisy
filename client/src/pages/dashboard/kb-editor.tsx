@@ -107,9 +107,11 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showFontPicker, setShowFontPicker] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [existingLinkUrl, setExistingLinkUrl] = useState<string | null>(null);
   const [activeColor, setActiveColor] = useState<string | null>(null);
+  const [activeFont, setActiveFont] = useState<string | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const linkInputRef = useRef<HTMLInputElement>(null);
   const savedSelectionRef = useRef<Range | null>(null);
@@ -152,11 +154,12 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
       setPos(null);
       setShowLinkInput(false);
       setShowColorPicker(false);
+      setShowFontPicker(false);
       setLinkUrl("");
       return;
     }
 
-    if (showLinkInput || showColorPicker) return;
+    if (showLinkInput || showColorPicker || showFontPicker) return;
 
     const range = sel.getRangeAt(0);
     if (!containerRef.current?.contains(range.commonAncestorContainer)) {
@@ -177,11 +180,15 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
 
     const containerRect = containerRef.current.getBoundingClientRect();
     const toolbarWidth = 320;
+    const toolbarHeight = 44;
     let left = rect.left + rect.width / 2 - containerRect.left - toolbarWidth / 2;
     left = Math.max(0, Math.min(left, containerRect.width - toolbarWidth));
 
+    const spaceAbove = rect.top - containerRect.top;
+    const showBelow = spaceAbove < toolbarHeight + 8;
+
     setPos({
-      top: rect.top - containerRect.top - 44,
+      top: showBelow ? rect.bottom - containerRect.top + 8 : rect.top - containerRect.top - toolbarHeight,
       left,
     });
 
@@ -192,6 +199,7 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
     if (document.queryCommandState("strikeThrough")) formats.add("strikethrough");
 
     let detectedColor: string | null = null;
+    let detectedFont: string | null = null;
     let node: Node | null = range.commonAncestorContainer;
     while (node && node !== editable) {
       if (node instanceof HTMLElement) {
@@ -202,12 +210,17 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
           detectedColor = node.dataset.textColor;
           formats.add("textColor");
         }
+        if (node.tagName === "SPAN" && node.dataset.textFont) {
+          detectedFont = node.dataset.textFont;
+          formats.add("textFont");
+        }
       }
       node = node.parentNode;
     }
     setActiveColor(detectedColor);
+    setActiveFont(detectedFont);
     setActiveFormats(formats);
-  }, [containerRef, showLinkInput, showColorPicker]);
+  }, [containerRef, showLinkInput, showColorPicker, showFontPicker]);
 
   useEffect(() => {
     document.addEventListener("selectionchange", checkSelection);
@@ -222,6 +235,8 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
 
   const openLinkInput = () => {
     saveSelection();
+    setShowColorPicker(false);
+    setShowFontPicker(false);
     const anchor = findParentAnchor();
     if (anchor) {
       setExistingLinkUrl(anchor.href);
@@ -308,6 +323,8 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
 
   const openColorPicker = () => {
     saveSelection();
+    setShowFontPicker(false);
+    setShowLinkInput(false);
     setShowColorPicker(true);
   };
 
@@ -350,6 +367,73 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
     setShowColorPicker(false);
   };
 
+  const TEXT_FONTS = [
+    { label: "Default", value: "", family: "inherit" },
+    { label: "Inter", value: "Inter", family: "'Inter', sans-serif" },
+    { label: "Poppins", value: "Poppins", family: "'Poppins', sans-serif" },
+    { label: "Montserrat", value: "Montserrat", family: "'Montserrat', sans-serif" },
+    { label: "Playfair", value: "Playfair Display", family: "'Playfair Display', serif" },
+    { label: "Lora", value: "Lora", family: "'Lora', serif" },
+    { label: "Merriweather", value: "Merriweather", family: "'Merriweather', serif" },
+    { label: "Space Grotesk", value: "Space Grotesk", family: "'Space Grotesk', sans-serif" },
+    { label: "DM Sans", value: "DM Sans", family: "'DM Sans', sans-serif" },
+    { label: "Outfit", value: "Outfit", family: "'Outfit', sans-serif" },
+    { label: "Jakarta", value: "Plus Jakarta Sans", family: "'Plus Jakarta Sans', sans-serif" },
+    { label: "Roboto", value: "Roboto", family: "'Roboto', sans-serif" },
+    { label: "Open Sans", value: "Open Sans", family: "'Open Sans', sans-serif" },
+    { label: "Source Serif", value: "Source Serif 4", family: "'Source Serif 4', serif" },
+    { label: "Libre Baskerville", value: "Libre Baskerville", family: "'Libre Baskerville', serif" },
+    { label: "Architects Daughter", value: "Architects Daughter", family: "'Architects Daughter', cursive" },
+    { label: "Space Mono", value: "Space Mono", family: "'Space Mono', monospace" },
+    { label: "Fira Code", value: "Fira Code", family: "'Fira Code', monospace" },
+  ];
+
+  const openFontPicker = () => {
+    saveSelection();
+    setShowColorPicker(false);
+    setShowLinkInput(false);
+    setShowFontPicker(true);
+  };
+
+  const applyTextFont = (fontValue: string, fontFamily: string) => {
+    restoreSelection();
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) {
+      setShowFontPicker(false);
+      return;
+    }
+    const range = sel.getRangeAt(0);
+
+    const parent = range.commonAncestorContainer.parentElement;
+    if (parent?.tagName === "SPAN" && parent.dataset.textFont) {
+      if (!fontValue) {
+        const frag = document.createDocumentFragment();
+        while (parent.firstChild) frag.appendChild(parent.firstChild);
+        parent.parentNode?.replaceChild(frag, parent);
+      } else {
+        parent.style.fontFamily = fontFamily;
+        parent.dataset.textFont = fontValue;
+      }
+    } else if (fontValue) {
+      try {
+        const span = document.createElement("span");
+        span.style.fontFamily = fontFamily;
+        span.dataset.textFont = fontValue;
+        range.surroundContents(span);
+      } catch {
+        const span = document.createElement("span");
+        span.style.fontFamily = fontFamily;
+        span.dataset.textFont = fontValue;
+        span.textContent = range.toString();
+        range.deleteContents();
+        range.insertNode(span);
+      }
+    }
+
+    triggerInputEvent();
+    setShowFontPicker(false);
+  };
+
   const execFormat = (cmd: string) => {
     if (cmd === "createLink") {
       openLinkInput();
@@ -358,6 +442,11 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
 
     if (cmd === "textColor") {
       openColorPicker();
+      return;
+    }
+
+    if (cmd === "textFont") {
+      openFontPicker();
       return;
     }
 
@@ -436,6 +525,7 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
     { cmd: "code", icon: CodeIcon, label: "Inline Code", shortcut: "Ctrl+E" },
     { cmd: "createLink", icon: Link2, label: "Link", shortcut: "Ctrl+K" },
     { cmd: "textColor", icon: Palette, label: "Text Color", shortcut: "" },
+    { cmd: "textFont", icon: Type, label: "Font", shortcut: "" },
   ];
 
   return (
@@ -498,6 +588,28 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
               </Tooltip>
+            ))}
+          </div>
+        </div>
+      )}
+      {showFontPicker && (
+        <div className="border-t px-2 py-2 max-h-[200px] overflow-y-auto" data-testid="font-picker-panel">
+          <div className="space-y-0.5">
+            {TEXT_FONTS.map(({ label, value, family }) => (
+              <button
+                key={label}
+                className={`w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors flex items-center justify-between ${
+                  (activeFont === value) || (!activeFont && !value)
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground hover:bg-muted"
+                }`}
+                style={{ fontFamily: family }}
+                onClick={() => applyTextFont(value, family)}
+                data-testid={`button-font-${label.toLowerCase().replace(/\s+/g, "-")}`}
+              >
+                <span>{label}</span>
+                {((activeFont === value) || (!activeFont && !value)) && <Check className="h-3.5 w-3.5" />}
+              </button>
             ))}
           </div>
         </div>
