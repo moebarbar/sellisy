@@ -934,7 +934,7 @@ function SlashCommandMenu({
 
   if (filteredTypes.length === 0) {
     return (
-      <div className="absolute left-0 top-full z-50 mt-1 bg-popover border rounded-md shadow-lg py-2 px-3 w-64" data-testid="slash-menu">
+      <div className="absolute left-0 top-full z-[100] mt-1 bg-popover border rounded-md shadow-xl py-2 px-3 w-64" style={{ backgroundColor: 'hsl(var(--popover))' }} data-testid="slash-menu">
         <p className="text-sm text-muted-foreground">No results</p>
       </div>
     );
@@ -948,7 +948,7 @@ function SlashCommandMenu({
   let globalIdx = 0;
 
   return (
-    <div ref={menuRef} className="absolute left-0 top-full z-50 mt-1 bg-popover border rounded-md shadow-lg py-1.5 w-72 max-h-80 overflow-y-auto" data-testid="slash-menu">
+    <div ref={menuRef} className="absolute left-0 top-full z-[100] mt-1 bg-popover border rounded-md shadow-xl py-1.5 w-72 max-h-80 overflow-y-auto" style={{ backgroundColor: 'hsl(var(--popover))' }} data-testid="slash-menu">
       {grouped.map((group) => (
         <div key={group.category}>
           <div className="px-3 py-1 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{group.category}</div>
@@ -1296,7 +1296,7 @@ function BlockEditor({
       />
 
       {blocks.map((block, idx) => (
-        <div key={block.id} className="relative block-animate-in" data-block-id={block.id} data-testid={`block-wrapper-${block.id}`}>
+        <div key={block.id} className="relative" data-block-id={block.id} data-testid={`block-wrapper-${block.id}`}>
           {dragOverIdx === idx && dragIdx !== null && dragIdx !== idx && (
             <div className="absolute left-8 right-0 top-0 h-0.5 bg-primary rounded-full z-10 pointer-events-none" data-testid={`drop-indicator-${block.id}`} />
           )}
@@ -1377,7 +1377,7 @@ function BlockEditor({
               </DropdownMenu>
             </div>
 
-            <div className="flex-1 min-w-0 relative" style={{ willChange: "transform" }}>
+            <div className="flex-1 min-w-0 relative">
               <BlockContent
               block={block}
               blockIndex={idx}
@@ -2792,8 +2792,8 @@ export default function KbEditorPage() {
   }
 
   return (
-    <div className="flex h-full overflow-hidden" data-testid="kb-editor">
-      <div className="w-64 flex-shrink-0 border-r flex flex-col bg-muted/30 overflow-hidden">
+    <div className="flex h-full" data-testid="kb-editor">
+      <div className="w-64 flex-shrink-0 border-r flex flex-col bg-muted/30">
         <div className="p-3 border-b">
           <div className="flex items-center gap-1.5 mb-3">
             <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => navigate("/dashboard/content-creator")} data-testid="button-back-to-kbs">

@@ -13,14 +13,6 @@
   position: absolute;
 }
 
-@keyframes block-enter {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.block-animate-in {
-  animation: block-enter 0.2s ease-out;
-}
 
 @keyframes save-pulse {
   0%, 100% { opacity: 0.4; }
