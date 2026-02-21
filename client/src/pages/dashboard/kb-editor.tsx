@@ -60,6 +60,7 @@ import {
   Code as CodeIcon,
   Link2,
   CopyPlus,
+  Palette,
 } from "lucide-react";
 import { useUpload } from "@/hooks/use-upload";
 import { Upload, X } from "lucide-react";
@@ -105,8 +106,10 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
   const [showLinkInput, setShowLinkInput] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [existingLinkUrl, setExistingLinkUrl] = useState<string | null>(null);
+  const [activeColor, setActiveColor] = useState<string | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const linkInputRef = useRef<HTMLInputElement>(null);
   const savedSelectionRef = useRef<Range | null>(null);
@@ -144,7 +147,7 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
   };
 
   const checkSelection = useCallback(() => {
-    if (showLinkInput) return;
+    if (showLinkInput || showColorPicker) return;
 
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) {
@@ -170,7 +173,7 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
     if (!rect) { setPos(null); return; }
 
     const containerRect = containerRef.current.getBoundingClientRect();
-    const toolbarWidth = 280;
+    const toolbarWidth = 320;
     let left = rect.left + rect.width / 2 - containerRect.left - toolbarWidth / 2;
     left = Math.max(0, Math.min(left, containerRect.width - toolbarWidth));
 
@@ -185,17 +188,23 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
     if (document.queryCommandState("underline")) formats.add("underline");
     if (document.queryCommandState("strikeThrough")) formats.add("strikethrough");
 
+    let detectedColor: string | null = null;
     let node: Node | null = range.commonAncestorContainer;
     while (node && node !== editable) {
       if (node instanceof HTMLElement) {
         if (node.tagName === "CODE") formats.add("code");
         if (node.tagName === "MARK") formats.add("highlight");
         if (node.tagName === "A") formats.add("link");
+        if (node.tagName === "SPAN" && node.dataset.textColor) {
+          detectedColor = node.dataset.textColor;
+          formats.add("textColor");
+        }
       }
       node = node.parentNode;
     }
+    setActiveColor(detectedColor);
     setActiveFormats(formats);
-  }, [containerRef, showLinkInput]);
+  }, [containerRef, showLinkInput, showColorPicker]);
 
   useEffect(() => {
     document.addEventListener("selectionchange", checkSelection);
@@ -279,9 +288,73 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
     setExistingLinkUrl(null);
   };
 
+  const TEXT_COLORS = [
+    { label: "Default", value: "", color: "currentColor" },
+    { label: "Red", value: "#ef4444", color: "#ef4444" },
+    { label: "Orange", value: "#f97316", color: "#f97316" },
+    { label: "Amber", value: "#f59e0b", color: "#f59e0b" },
+    { label: "Green", value: "#22c55e", color: "#22c55e" },
+    { label: "Teal", value: "#14b8a6", color: "#14b8a6" },
+    { label: "Blue", value: "#3b82f6", color: "#3b82f6" },
+    { label: "Indigo", value: "#6366f1", color: "#6366f1" },
+    { label: "Purple", value: "#a855f7", color: "#a855f7" },
+    { label: "Pink", value: "#ec4899", color: "#ec4899" },
+    { label: "Rose", value: "#f43f5e", color: "#f43f5e" },
+    { label: "Gray", value: "#9ca3af", color: "#9ca3af" },
+  ];
+
+  const openColorPicker = () => {
+    saveSelection();
+    setShowColorPicker(true);
+  };
+
+  const applyTextColor = (colorValue: string) => {
+    restoreSelection();
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) {
+      setShowColorPicker(false);
+      return;
+    }
+    const range = sel.getRangeAt(0);
+
+    const parent = range.commonAncestorContainer.parentElement;
+    if (parent?.tagName === "SPAN" && parent.dataset.textColor) {
+      if (!colorValue) {
+        const frag = document.createDocumentFragment();
+        while (parent.firstChild) frag.appendChild(parent.firstChild);
+        parent.parentNode?.replaceChild(frag, parent);
+      } else {
+        parent.style.color = colorValue;
+        parent.dataset.textColor = colorValue;
+      }
+    } else if (colorValue) {
+      try {
+        const span = document.createElement("span");
+        span.style.color = colorValue;
+        span.dataset.textColor = colorValue;
+        range.surroundContents(span);
+      } catch {
+        const span = document.createElement("span");
+        span.style.color = colorValue;
+        span.dataset.textColor = colorValue;
+        span.textContent = range.toString();
+        range.deleteContents();
+        range.insertNode(span);
+      }
+    }
+
+    triggerInputEvent();
+    setShowColorPicker(false);
+  };
+
   const execFormat = (cmd: string) => {
     if (cmd === "createLink") {
       openLinkInput();
+      return;
+    }
+
+    if (cmd === "textColor") {
+      openColorPicker();
       return;
     }
 
@@ -359,6 +432,7 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
     { cmd: "highlight", icon: Highlighter, label: "Highlight", shortcut: "Ctrl+Shift+H" },
     { cmd: "code", icon: CodeIcon, label: "Inline Code", shortcut: "Ctrl+E" },
     { cmd: "createLink", icon: Link2, label: "Link", shortcut: "Ctrl+K" },
+    { cmd: "textColor", icon: Palette, label: "Text Color", shortcut: "" },
   ];
 
   return (
@@ -382,15 +456,49 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
                 onClick={() => execFormat(cmd)}
                 data-testid={`button-format-${cmd}`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                {cmd === "textColor" && activeColor ? (
+                  <div className="relative">
+                    <Icon className="h-3.5 w-3.5" />
+                    <div className="absolute -bottom-0.5 left-0 right-0 h-[2px] rounded-full" style={{ backgroundColor: activeColor }} />
+                  </div>
+                ) : (
+                  <Icon className="h-3.5 w-3.5" />
+                )}
               </button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs">
-              {label} <span className="text-muted-foreground ml-1">{shortcut}</span>
+              {label}{shortcut && <span className="text-muted-foreground ml-1">{shortcut}</span>}
             </TooltipContent>
           </Tooltip>
         ))}
       </div>
+      {showColorPicker && (
+        <div className="border-t px-2 py-2" data-testid="color-picker-panel">
+          <div className="grid grid-cols-6 gap-1">
+            {TEXT_COLORS.map(({ label, value, color }) => (
+              <Tooltip key={label}>
+                <TooltipTrigger asChild>
+                  <button
+                    className={`w-6 h-6 rounded-md border transition-all flex items-center justify-center ${
+                      (activeColor === value) || (!activeColor && !value)
+                        ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                        : "border-border hover:scale-110"
+                    }`}
+                    style={{ backgroundColor: value || undefined }}
+                    onClick={() => applyTextColor(value)}
+                    data-testid={`button-color-${label.toLowerCase()}`}
+                  >
+                    {!value && (
+                      <span className="text-[10px] font-medium text-foreground">A</span>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">{label}</TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
+      )}
       {showLinkInput && (
         <div className="border-t px-2 py-1.5 flex items-center gap-1.5" data-testid="link-input-panel">
           <Link2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
