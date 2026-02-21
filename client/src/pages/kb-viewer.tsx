@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRoute, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import DOMPurify from "dompurify";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -94,30 +95,45 @@ function parseTodoContent(content: string): { checked: boolean; text: string } {
   return { checked: false, text: content };
 }
 
-function BlockRenderer({ block }: { block: KbViewBlock }) {
+const PURIFY_CONFIG = {
+  ALLOWED_TAGS: ['b', 'strong', 'i', 'em', 'u', 'mark', 'code', 'span', 'a', 'br', 'sub', 'sup', 's', 'del'],
+  ALLOWED_ATTR: ['href', 'target', 'rel', 'style', 'data-color', 'data-font', 'class'],
+  ALLOW_DATA_ATTR: true,
+};
+
+function RichContent({ html, className }: { html: string; className?: string }) {
+  const hasHtml = /<[a-z][\s\S]*>/i.test(html);
+  if (hasHtml) {
+    const clean = DOMPurify.sanitize(html, PURIFY_CONFIG);
+    return <span className={className} dangerouslySetInnerHTML={{ __html: clean }} />;
+  }
+  return <span className={className}>{html}</span>;
+}
+
+function BlockRenderer({ block, listNumber }: { block: KbViewBlock; listNumber?: number }) {
   const [toggleOpen, setToggleOpen] = useState(false);
 
   switch (block.type) {
     case "heading1":
-      return <h1 className="text-3xl font-bold py-2">{block.content}</h1>;
+      return <h1 className="text-3xl font-bold py-2"><RichContent html={block.content} /></h1>;
     case "heading2":
-      return <h2 className="text-2xl font-semibold py-1.5">{block.content}</h2>;
+      return <h2 className="text-2xl font-semibold py-1.5"><RichContent html={block.content} /></h2>;
     case "heading3":
-      return <h3 className="text-xl font-medium py-1">{block.content}</h3>;
+      return <h3 className="text-xl font-medium py-1"><RichContent html={block.content} /></h3>;
 
     case "bullet_list":
       return (
         <div className="flex items-start gap-2 py-0.5 pl-2">
           <span className="text-muted-foreground mt-[3px] flex-shrink-0">&#8226;</span>
-          <p className="whitespace-pre-wrap">{block.content}</p>
+          <div className="whitespace-pre-wrap min-w-0"><RichContent html={block.content} /></div>
         </div>
       );
 
     case "numbered_list":
       return (
         <div className="flex items-start gap-2 py-0.5 pl-2">
-          <span className="text-muted-foreground mt-[1px] flex-shrink-0 text-sm font-medium min-w-[1.25rem] text-right">{block.sortOrder + 1}.</span>
-          <p className="whitespace-pre-wrap">{block.content}</p>
+          <span className="text-muted-foreground mt-[1px] flex-shrink-0 text-sm font-medium min-w-[1.25rem] text-right">{listNumber ?? 1}.</span>
+          <div className="whitespace-pre-wrap min-w-0"><RichContent html={block.content} /></div>
         </div>
       );
 
@@ -130,7 +146,7 @@ function BlockRenderer({ block }: { block: KbViewBlock }) {
           }`}>
             {parsed.checked && <Check className="h-3 w-3 text-primary-foreground" />}
           </div>
-          <p className={`whitespace-pre-wrap ${parsed.checked ? "line-through text-muted-foreground" : ""}`}>{parsed.text}</p>
+          <div className={`whitespace-pre-wrap min-w-0 ${parsed.checked ? "line-through text-muted-foreground" : ""}`}><RichContent html={parsed.text} /></div>
         </div>
       );
     }
@@ -146,10 +162,10 @@ function BlockRenderer({ block }: { block: KbViewBlock }) {
             onClick={() => setToggleOpen(!toggleOpen)}
           >
             {toggleOpen ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-            <span className="font-medium">{title}</span>
+            <span className="font-medium"><RichContent html={title} /></span>
           </button>
           {toggleOpen && body && (
-            <div className="px-3 pb-3 pl-9 text-sm whitespace-pre-wrap">{body}</div>
+            <div className="px-3 pb-3 pl-9 text-sm whitespace-pre-wrap"><RichContent html={body} /></div>
           )}
         </div>
       );
@@ -165,7 +181,7 @@ function BlockRenderer({ block }: { block: KbViewBlock }) {
     case "quote":
       return (
         <div className="border-l-[3px] border-muted-foreground/30 pl-4 py-1 my-1">
-          <p className="italic text-muted-foreground whitespace-pre-wrap">{block.content}</p>
+          <div className="italic text-muted-foreground whitespace-pre-wrap"><RichContent html={block.content} /></div>
         </div>
       );
 
@@ -173,7 +189,7 @@ function BlockRenderer({ block }: { block: KbViewBlock }) {
       return (
         <div className="rounded-md bg-muted/50 border px-4 py-3 flex items-start gap-3 my-1">
           <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-          <p className="text-sm whitespace-pre-wrap">{block.content}</p>
+          <div className="text-sm whitespace-pre-wrap min-w-0"><RichContent html={block.content} /></div>
         </div>
       );
 
@@ -214,7 +230,7 @@ function BlockRenderer({ block }: { block: KbViewBlock }) {
       ) : null;
 
     default:
-      return block.content ? <p className="py-0.5 whitespace-pre-wrap leading-relaxed">{block.content}</p> : null;
+      return block.content ? <div className="py-0.5 whitespace-pre-wrap leading-relaxed"><RichContent html={block.content} /></div> : null;
   }
 }
 
@@ -325,9 +341,17 @@ export default function KbViewerPage() {
           <div className="max-w-3xl mx-auto p-8">
             <h1 className="text-2xl font-bold mb-6" data-testid="text-viewer-page-title">{pageData.page.title}</h1>
             <div className="space-y-0.5">
-              {pageData.blocks.map((block) => (
-                <BlockRenderer key={block.id} block={block} />
-              ))}
+              {pageData.blocks.map((block, idx) => {
+                let listNumber: number | undefined;
+                if (block.type === "numbered_list") {
+                  listNumber = 1;
+                  for (let i = idx - 1; i >= 0; i--) {
+                    if (pageData.blocks[i]?.type === "numbered_list") listNumber++;
+                    else break;
+                  }
+                }
+                return <BlockRenderer key={block.id} block={block} listNumber={listNumber} />;
+              })}
               {pageData.blocks.length === 0 && (
                 <p className="text-muted-foreground py-8 text-center">This page has no content yet.</p>
               )}

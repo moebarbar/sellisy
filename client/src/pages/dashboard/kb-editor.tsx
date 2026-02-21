@@ -559,8 +559,9 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
                 )}
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs">
-              {label}{shortcut && <span className="text-muted-foreground ml-1">{shortcut}</span>}
+            <TooltipContent side="top" className="text-xs px-2 py-1">
+              <span>{label}</span>
+              {shortcut && <kbd className="ml-1.5 text-[10px] font-mono text-muted-foreground bg-muted/50 px-1 py-0.5 rounded">{shortcut}</kbd>}
             </TooltipContent>
           </Tooltip>
         ))}
@@ -994,6 +995,8 @@ function BlockEditor({
 
   const pendingSavesRef = useRef<Record<string, AbortController>>({});
   const localContentMapRef = useRef<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const savingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const createBlockMutation = useMutation({
     mutationFn: async (data: { type: BlockType; sortOrder: number }) => {
@@ -1022,6 +1025,8 @@ function BlockEditor({
     }
     const controller = new AbortController();
     pendingSavesRef.current[id] = controller;
+    setIsSaving(true);
+    clearTimeout(savingTimeoutRef.current);
     try {
       await apiRequest("PATCH", `/api/kb-blocks/${id}`, data, controller.signal);
     } catch (err: any) {
@@ -1032,6 +1037,9 @@ function BlockEditor({
     } finally {
       if (pendingSavesRef.current[id] === controller) {
         delete pendingSavesRef.current[id];
+      }
+      if (Object.keys(pendingSavesRef.current).length === 0) {
+        savingTimeoutRef.current = setTimeout(() => setIsSaving(false), 600);
       }
     }
   }, []);
@@ -1260,6 +1268,12 @@ function BlockEditor({
   return (
     <div className="space-y-0 relative" ref={editorContainerRef} onPaste={handleSmartPaste} style={kbFontFamily ? { fontFamily: `'${kbFontFamily}', sans-serif` } : undefined}>
       <InlineFormatToolbar containerRef={editorContainerRef} />
+      {isSaving && (
+        <div className="absolute top-0 right-0 flex items-center gap-1.5 text-muted-foreground/50 z-10" data-testid="save-indicator">
+          <div className="w-1.5 h-1.5 rounded-full bg-primary/50 save-pulse" />
+          <span className="text-[11px] font-medium">Saving...</span>
+        </div>
+      )}
       <div
         ref={titleRef}
         contentEditable
@@ -1274,12 +1288,12 @@ function BlockEditor({
       />
 
       {blocks.map((block, idx) => (
-        <div key={block.id} className="relative" data-block-id={block.id} data-testid={`block-wrapper-${block.id}`}>
+        <div key={block.id} className="relative block-animate-in" data-block-id={block.id} data-testid={`block-wrapper-${block.id}`}>
           {dragOverIdx === idx && dragIdx !== null && dragIdx !== idx && (
             <div className="absolute left-8 right-0 top-0 h-0.5 bg-primary rounded-full z-10 pointer-events-none" data-testid={`drop-indicator-${block.id}`} />
           )}
           <div
-            className={`group relative flex items-start rounded-md ${
+            className={`group relative flex items-start rounded-md transition-opacity duration-150 ${
               dragIdx === idx ? "opacity-30" : ""
             }`}
             onDragOver={(e) => {
@@ -1375,21 +1389,29 @@ function BlockEditor({
 
       {blocks.length === 0 ? (
         <div
-          className="text-muted-foreground/40 text-base py-2 cursor-text"
+          className="py-8 cursor-text group/empty"
           onClick={() => addBlock("text", -1)}
           data-testid="empty-editor-placeholder"
         >
-          Type '/' for commands, or click to start writing...
+          <div className="flex flex-col items-center justify-center gap-3 text-center">
+            <div className="w-12 h-12 rounded-xl bg-muted/80 flex items-center justify-center group-hover/empty:bg-primary/10 transition-colors">
+              <Type className="h-5 w-5 text-muted-foreground group-hover/empty:text-primary transition-colors" />
+            </div>
+            <div>
+              <p className="text-muted-foreground/60 text-sm font-medium">Start writing or press <kbd className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">/</kbd> for commands</p>
+              <p className="text-muted-foreground/40 text-xs mt-1">Click here to begin</p>
+            </div>
+          </div>
         </div>
       ) : (
         <div
-          className="min-h-[6rem] py-2 cursor-text group/add-end"
+          className="min-h-[4rem] py-2 cursor-text group/add-end"
           onClick={() => addBlock("text", blocks.length - 1)}
           data-testid="add-block-end"
         >
-          <div className="flex items-center gap-2 text-muted-foreground/0 group-hover/add-end:text-muted-foreground/40 transition-colors">
+          <div className="flex items-center gap-2 text-muted-foreground/0 group-hover/add-end:text-muted-foreground/30 transition-colors duration-200">
             <Plus className="h-3.5 w-3.5" />
-            <span className="text-sm">Click to add a block</span>
+            <span className="text-xs">Add a block</span>
           </div>
         </div>
       )}
@@ -2837,14 +2859,16 @@ export default function KbEditorPage() {
             />
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-4">
-            <FileText className="h-12 w-12 text-muted-foreground" />
-            <div>
-              <h3 className="font-semibold mb-1">No page selected</h3>
-              <p className="text-sm text-muted-foreground">Create a page from the sidebar to start adding content.</p>
+          <div className="flex flex-col items-center justify-center h-full text-center gap-6">
+            <div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center">
+              <FileText className="h-7 w-7 text-muted-foreground" />
             </div>
-            <Button onClick={() => createPageMutation.mutate(null)} data-testid="button-create-first-page">
-              <Plus className="mr-2 h-4 w-4" />
+            <div className="space-y-1.5">
+              <h3 className="font-semibold text-lg">No page selected</h3>
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto">Select a page from the sidebar or create a new one to start building your content.</p>
+            </div>
+            <Button onClick={() => createPageMutation.mutate(null)} className="gap-2" data-testid="button-create-first-page">
+              <Plus className="h-4 w-4" />
               Create First Page
             </Button>
           </div>
