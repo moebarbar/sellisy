@@ -6,6 +6,13 @@
   display: none;
 }
 
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground) / 0.4);
+  pointer-events: none;
+  position: absolute;
+}
+
 /* LIGHT MODE */
 :root {
   --button-outline: rgba(0,0,0, .10);
