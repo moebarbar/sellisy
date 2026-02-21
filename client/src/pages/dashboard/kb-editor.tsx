@@ -147,13 +147,16 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
   };
 
   const checkSelection = useCallback(() => {
-    if (showLinkInput || showColorPicker) return;
-
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) {
       setPos(null);
+      setShowLinkInput(false);
+      setShowColorPicker(false);
+      setLinkUrl("");
       return;
     }
+
+    if (showLinkInput || showColorPicker) return;
 
     const range = sel.getRangeAt(0);
     if (!containerRef.current?.contains(range.commonAncestorContainer)) {
