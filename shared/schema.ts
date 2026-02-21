@@ -319,6 +319,7 @@ export const knowledgeBases = pgTable("knowledge_bases", {
   coverImageUrl: text("cover_image_url"),
   priceCents: integer("price_cents").notNull().default(0),
   isPublished: boolean("is_published").notNull().default(false),
+  fontFamily: text("font_family"),
   productId: varchar("product_id", { length: 64 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -977,12 +977,14 @@ function BlockEditor({
   onRefresh,
   pageTitle,
   onPageTitleChange,
+  kbFontFamily,
 }: {
   pageId: string;
   blocks: KbBlock[];
   onRefresh: () => void;
   pageTitle: string;
   onPageTitleChange: (title: string) => void;
+  kbFontFamily?: string;
 }) {
   const { toast } = useToast();
   const [focusBlockId, setFocusBlockId] = useState<string | null>(null);
@@ -1256,7 +1258,7 @@ function BlockEditor({
   };
 
   return (
-    <div className="space-y-0 relative" ref={editorContainerRef} onPaste={handleSmartPaste}>
+    <div className="space-y-0 relative" ref={editorContainerRef} onPaste={handleSmartPaste} style={kbFontFamily ? { fontFamily: `'${kbFontFamily}', sans-serif` } : undefined}>
       <InlineFormatToolbar containerRef={editorContainerRef} />
       <div
         ref={titleRef}
@@ -2342,6 +2344,7 @@ function KbSettingsPanel({
   const [description, setDescription] = useState(kb.description || "");
   const [coverImageUrl, setCoverImageUrl] = useState(kb.coverImageUrl || "");
   const [priceCents, setPriceCents] = useState(kb.priceCents || 0);
+  const [fontFamily, setFontFamily] = useState(kb.fontFamily || "");
   const [copied, setCopied] = useState(false);
   const coverFileRef = useRef<HTMLInputElement>(null);
   const { uploadFile: uploadCoverFile, isUploading: isCoverUploading } = useUpload({
@@ -2356,6 +2359,7 @@ function KbSettingsPanel({
     setDescription(kb.description || "");
     setCoverImageUrl(kb.coverImageUrl || "");
     setPriceCents(kb.priceCents || 0);
+    setFontFamily(kb.fontFamily || "");
   }, [kb]);
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2407,7 +2411,7 @@ function KbSettingsPanel({
   });
 
   const saveSettings = () => {
-    updateMutation.mutate({ title: title.trim() || kb.title, description, coverImageUrl: coverImageUrl || null, priceCents });
+    updateMutation.mutate({ title: title.trim() || kb.title, description, coverImageUrl: coverImageUrl || null, priceCents, fontFamily: fontFamily || null });
     toast({ title: "Saved", description: "Settings updated." });
     setShowSettings(false);
   };
@@ -2555,6 +2559,47 @@ function KbSettingsPanel({
                 />
               </div>
               <p className="text-xs text-muted-foreground">Set to 0 for free access. Paid content requires purchase verification.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Font Family</Label>
+              <p className="text-xs text-muted-foreground">Choose a default font for all content in this knowledge base.</p>
+              <select
+                value={fontFamily}
+                onChange={(e) => setFontFamily(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                data-testid="select-kb-font-family"
+              >
+                <option value="">System Default</option>
+                {[
+                  { label: "Inter", value: "Inter", family: "'Inter', sans-serif" },
+                  { label: "Poppins", value: "Poppins", family: "'Poppins', sans-serif" },
+                  { label: "DM Sans", value: "DM Sans", family: "'DM Sans', sans-serif" },
+                  { label: "Nunito", value: "Nunito", family: "'Nunito', sans-serif" },
+                  { label: "Outfit", value: "Outfit", family: "'Outfit', sans-serif" },
+                  { label: "Raleway", value: "Raleway", family: "'Raleway', sans-serif" },
+                  { label: "Work Sans", value: "Work Sans", family: "'Work Sans', sans-serif" },
+                  { label: "Manrope", value: "Manrope", family: "'Manrope', sans-serif" },
+                  { label: "Sora", value: "Sora", family: "'Sora', sans-serif" },
+                  { label: "Playfair Display", value: "Playfair Display", family: "'Playfair Display', serif" },
+                  { label: "Merriweather", value: "Merriweather", family: "'Merriweather', serif" },
+                  { label: "Lora", value: "Lora", family: "'Lora', serif" },
+                  { label: "Crimson Text", value: "Crimson Text", family: "'Crimson Text', serif" },
+                  { label: "Source Serif 4", value: "Source Serif 4", family: "'Source Serif 4', serif" },
+                  { label: "Space Mono", value: "Space Mono", family: "'Space Mono', monospace" },
+                  { label: "Fira Code", value: "Fira Code", family: "'Fira Code', monospace" },
+                  { label: "JetBrains Mono", value: "JetBrains Mono", family: "'JetBrains Mono', monospace" },
+                  { label: "Dancing Script", value: "Dancing Script", family: "'Dancing Script', cursive" },
+                ].map((f) => (
+                  <option key={f.value} value={f.value} style={{ fontFamily: f.family }}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+              {fontFamily && (
+                <p className="text-xs mt-1 px-1 py-1.5 rounded bg-muted" style={{ fontFamily: `'${fontFamily}', sans-serif` }}>
+                  The quick brown fox jumps over the lazy dog.
+                </p>
+              )}
             </div>
             {kb.isPublished && (
               <div className="space-y-1.5">
@@ -2788,6 +2833,7 @@ export default function KbEditorPage() {
               onRefresh={() => refetchBlocks()}
               pageTitle={activePage.title}
               onPageTitleChange={handlePageTitleChange}
+              kbFontFamily={kb?.fontFamily || undefined}
             />
           </div>
         ) : (

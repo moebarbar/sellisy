@@ -955,6 +955,7 @@ export async function registerRoutes(
       coverImageUrl: z.string().nullable().optional(),
       priceCents: z.number().int().min(0).optional(),
       isPublished: z.boolean().optional(),
+      fontFamily: z.string().nullable().optional(),
       productId: z.string().nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -1218,6 +1219,7 @@ export async function registerRoutes(
         description: kb.description,
         coverImageUrl: kb.coverImageUrl,
         priceCents: kb.priceCents,
+        fontFamily: kb.fontFamily,
       },
       pages: hasAccess ? pages : pages.map(p => ({ ...p, locked: true })),
       hasAccess,

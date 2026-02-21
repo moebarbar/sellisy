@@ -283,7 +283,7 @@ export default function KbViewerPage() {
   const { knowledgeBase, pages, hasAccess } = data;
 
   return (
-    <div className="min-h-screen flex bg-background" data-testid="kb-viewer">
+    <div className="min-h-screen flex bg-background" data-testid="kb-viewer" style={knowledgeBase.fontFamily ? { fontFamily: `'${knowledgeBase.fontFamily}', sans-serif` } : undefined}>
       <aside className="w-64 flex-shrink-0 border-r bg-muted/30 flex flex-col">
         <div className="p-4 border-b space-y-2">
           <h2 className="font-bold text-lg leading-tight" data-testid="text-viewer-title">{knowledgeBase.title}</h2>
