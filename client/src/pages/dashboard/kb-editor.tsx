@@ -1860,6 +1860,18 @@ function parseTodoContent(content: string): { checked: boolean; text: string } {
   return { checked: false, text: content };
 }
 
+function normalizeImageUrl(url: string): string {
+  const trimmed = url.trim();
+  const ibbMatch = trimmed.match(/ibb\.co\/(?:([A-Za-z0-9]+)$)/);
+  if (ibbMatch) return trimmed;
+  if (/\.(jpg|jpeg|png|gif|webp|svg|bmp|avif)(\?.*)?$/i.test(trimmed)) return trimmed;
+  if (trimmed.includes("imgur.com") && !trimmed.includes("/a/")) {
+    const id = trimmed.split("/").pop()?.split(".")[0];
+    if (id) return `https://i.imgur.com/${id}.jpg`;
+  }
+  return trimmed;
+}
+
 function MediaUrlBlock({
   block,
   onContentChange,
@@ -1871,10 +1883,23 @@ function MediaUrlBlock({
 }) {
   const [inputVal, setInputVal] = useState(block.content || "");
   const [editing, setEditing] = useState(!block.content);
+  const [imgError, setImgError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (res) => {
+      onContentChange(block.id, res.objectPath);
+      setInputVal(res.objectPath);
+      setEditing(false);
+      setImgError(false);
+    },
+    onError: () => toast({ title: "Upload failed", description: "Could not upload image.", variant: "destructive" }),
+  });
 
   useEffect(() => {
     setInputVal(block.content || "");
+    setImgError(false);
     if (block.content) setEditing(false);
   }, [block.content]);
 
@@ -1886,21 +1911,50 @@ function MediaUrlBlock({
 
   const commit = () => {
     if (inputVal.trim() && inputVal !== block.content) {
-      onContentChange(block.id, inputVal.trim());
+      const finalUrl = type === "image" ? normalizeImageUrl(inputVal) : inputVal.trim();
+      onContentChange(block.id, finalUrl);
+      setInputVal(finalUrl);
       setEditing(false);
+      setImgError(false);
     } else if (!inputVal.trim() && block.content) {
       setInputVal(block.content);
       setEditing(false);
     }
   };
 
-  const placeholder = type === "image" ? "Paste image URL..." : type === "video" ? "Paste video URL (YouTube, Vimeo, etc.)..." : "Paste link URL...";
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+    await uploadFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const placeholder = type === "image" ? "Paste a direct image URL (ending in .jpg, .png, etc.)..." : type === "video" ? "Paste video URL (YouTube, Vimeo, etc.)..." : "Paste link URL...";
   const hasContent = !!block.content;
 
   const preview = hasContent ? (
     type === "image" ? (
       <div className="rounded-md overflow-hidden bg-muted">
-        <img src={block.content} alt="Block image" className="max-w-full h-auto" data-testid={`img-block-${block.id}`} />
+        {imgError ? (
+          <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground">
+            <ImageIcon className="h-8 w-8" />
+            <p className="text-sm">Image could not be loaded</p>
+            <p className="text-xs">Make sure the URL points directly to an image file (e.g. ending in .jpg, .png)</p>
+            <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="mt-1">Change URL</Button>
+          </div>
+        ) : (
+          <img
+            src={block.content}
+            alt="Block image"
+            className="max-w-full h-auto"
+            onError={() => setImgError(true)}
+            data-testid={`img-block-${block.id}`}
+          />
+        )}
       </div>
     ) : type === "video" ? (
       <div className="rounded-md overflow-hidden bg-muted aspect-video">
@@ -1929,18 +1983,43 @@ function MediaUrlBlock({
     <div className="space-y-2 py-1">
       {preview}
       {editing ? (
-        <Input
-          ref={inputRef}
-          placeholder={placeholder}
-          value={inputVal}
-          onChange={(e) => setInputVal(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") { e.preventDefault(); commit(); }
-            if (e.key === "Escape") { setInputVal(block.content || ""); setEditing(false); }
-          }}
-          data-testid={`input-block-${block.id}`}
-        />
+        <div className="space-y-2">
+          {type === "image" && (
+            <>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                data-testid={`button-upload-image-${block.id}`}
+              >
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {isUploading ? "Uploading..." : "Upload Image"}
+              </Button>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex-1 border-t" />
+                <span>or paste a direct image URL</span>
+                <div className="flex-1 border-t" />
+              </div>
+            </>
+          )}
+          <Input
+            ref={inputRef}
+            placeholder={placeholder}
+            value={inputVal}
+            onChange={(e) => setInputVal(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); commit(); }
+              if (e.key === "Escape") { setInputVal(block.content || ""); setEditing(false); }
+            }}
+            data-testid={`input-block-${block.id}`}
+          />
+          {type === "image" && (
+            <p className="text-[11px] text-muted-foreground">Tip: Use a direct image link ending in .jpg, .png, .gif, .webp — not a page link from image hosting sites.</p>
+          )}
+        </div>
       ) : hasContent ? (
         <Button
           variant="ghost"

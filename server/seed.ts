@@ -96,6 +96,8 @@ const strategies = [
 
 ### Why a Pre-Launch Checklist Matters
 
+
+
 Launching without preparation is like opening a restaurant without a menu. Your first visitors form lasting impressions within seconds, and you only get one chance to make that first impression count. A structured checklist ensures nothing falls through the cracks.
 
 > **Pro Tip:** Most successful digital product creators spend 2-3 weeks on pre-launch preparation. Rushing this phase is the #1 reason for underwhelming launches.
