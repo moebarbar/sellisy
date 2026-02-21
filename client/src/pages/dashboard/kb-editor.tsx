@@ -1811,8 +1811,10 @@ function BlockContent({
     return () => clearTimeout(debounceRef.current);
   }, []);
 
+  const isFirstBlockOnEmptyPage = blockIndex === 0 && blocks.length === 1 && !(block.content?.trim());
+
   const placeholders: Record<string, string> = {
-    text: "Type '/' for commands, or start writing...",
+    text: isFirstBlockOnEmptyPage ? "Type '/' for commands, or start writing..." : "",
     heading1: "Heading 1",
     heading2: "Heading 2",
     heading3: "Heading 3",
