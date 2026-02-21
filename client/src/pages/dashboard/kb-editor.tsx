@@ -148,10 +148,15 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
     return null;
   };
 
+  const lastPosRef = useRef<{ top: number; left: number } | null>(null);
+
   const checkSelection = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) {
-      setPos(null);
+      if (lastPosRef.current !== null) {
+        lastPosRef.current = null;
+        setPos(null);
+      }
       setShowLinkInput(false);
       setShowColorPicker(false);
       setShowFontPicker(false);
@@ -187,10 +192,12 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
     const spaceAbove = rect.top - containerRect.top;
     const showBelow = spaceAbove < toolbarHeight + 8;
 
-    setPos({
-      top: showBelow ? rect.bottom - containerRect.top + 8 : rect.top - containerRect.top - toolbarHeight,
-      left,
-    });
+    const newTop = showBelow ? rect.bottom - containerRect.top + 8 : rect.top - containerRect.top - toolbarHeight;
+    const newPos = { top: Math.round(newTop), left: Math.round(left) };
+    if (!lastPosRef.current || lastPosRef.current.top !== newPos.top || lastPosRef.current.left !== newPos.left) {
+      lastPosRef.current = newPos;
+      setPos(newPos);
+    }
 
     const formats = new Set<string>();
     if (document.queryCommandState("bold")) formats.add("bold");
@@ -222,9 +229,17 @@ function InlineFormatToolbar({ containerRef }: { containerRef: React.RefObject<H
     setActiveFormats(formats);
   }, [containerRef, showLinkInput, showColorPicker, showFontPicker]);
 
+  const rafRef = useRef<number | null>(null);
   useEffect(() => {
-    document.addEventListener("selectionchange", checkSelection);
-    return () => document.removeEventListener("selectionchange", checkSelection);
+    const onSelectionChange = () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(checkSelection);
+    };
+    document.addEventListener("selectionchange", onSelectionChange);
+    return () => {
+      document.removeEventListener("selectionchange", onSelectionChange);
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
   }, [checkSelection]);
 
   useEffect(() => {
@@ -1301,7 +1316,7 @@ function BlockEditor({
             <div className="absolute left-8 right-0 top-0 h-0.5 bg-primary rounded-full z-10 pointer-events-none" data-testid={`drop-indicator-${block.id}`} />
           )}
           <div
-            className={`group relative flex items-start rounded-md transition-opacity duration-150 ${
+            className={`group relative flex items-start rounded-md ${
               dragIdx === idx ? "opacity-30" : ""
             }`}
             onDragOver={(e) => {
@@ -1511,6 +1526,7 @@ function BlockContent({
     }
 
     const content = getContent();
+    if (content === lastSavedContentRef.current) return;
     debounceRef.current = setTimeout(() => saveContent(content), 500);
   };
 
@@ -1574,12 +1590,22 @@ function BlockContent({
 
   const dismissPastedUrl = () => setPastedUrl(null);
 
+  const clearSlashContent = () => {
+    if (!ref.current) return;
+    const text = ref.current.innerText.trim();
+    if (text.startsWith("/") && showSlashMenu) {
+      ref.current.innerText = "";
+      saveContent("");
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (showSlashMenu) {
       if (e.key === "Escape") {
         e.preventDefault();
         setShowSlashMenu(false);
         setSlashFilter("");
+        clearSlashContent();
         return;
       }
       if (e.key === "ArrowDown") {
@@ -1797,6 +1823,8 @@ function BlockContent({
     if (showSlashMenu) {
       setShowSlashMenu(false);
       setSlashFilter("");
+      clearSlashContent();
+      return;
     }
     const content = getContent();
     if (content !== lastSavedContentRef.current) {
@@ -1828,14 +1856,12 @@ function BlockContent({
     if (!ref.current) return;
     if (isFocusedRef.current) return;
     if (block.content === lastSavedContentRef.current) return;
+    const currentContent = isCodeBlock ? ref.current.textContent : ref.current.innerHTML;
+    if (currentContent === block.content) return;
     if (isCodeBlock) {
-      if (ref.current.textContent !== block.content) {
-        ref.current.textContent = block.content;
-      }
+      ref.current.textContent = block.content;
     } else {
-      if (ref.current.innerHTML !== block.content) {
-        ref.current.innerHTML = block.content;
-      }
+      ref.current.innerHTML = block.content;
     }
   }, [block.id, block.content, isCodeBlock]);
 
@@ -1859,7 +1885,7 @@ function BlockContent({
     callout: "Type a callout...",
   };
 
-  const baseClass = "outline-none w-full min-h-[1.5em] whitespace-pre-wrap break-words";
+  const baseClass = "outline-none w-full min-h-[24px] whitespace-pre-wrap break-words";
 
   const [hoveredLink, setHoveredLink] = useState<{ url: string; top: number; left: number } | null>(null);
   const linkTooltipTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -1931,7 +1957,7 @@ function BlockContent({
         <SlashCommandMenu
           filter={slashFilter}
           onSelect={selectSlashType}
-          onClose={() => { setShowSlashMenu(false); setSlashFilter(""); }}
+          onClose={() => { setShowSlashMenu(false); setSlashFilter(""); clearSlashContent(); }}
           selectedIndex={slashSelectedIndex}
         />
       )}
@@ -2028,7 +2054,7 @@ function BlockContent({
             <SlashCommandMenu
               filter={slashFilter}
               onSelect={selectSlashType}
-              onClose={() => { setShowSlashMenu(false); setSlashFilter(""); }}
+              onClose={() => { setShowSlashMenu(false); setSlashFilter(""); clearSlashContent(); }}
               selectedIndex={slashSelectedIndex}
             />
           )}
