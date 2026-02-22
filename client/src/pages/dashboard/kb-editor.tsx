@@ -1110,7 +1110,8 @@ function BlockEditor({
 
   useEffect(() => {
     if (focusBlockId) {
-      const timer = setTimeout(() => {
+      let attempts = 0;
+      const tryFocus = () => {
         const el = blockRefs.current[focusBlockId];
         if (el) {
           el.focus();
@@ -1120,9 +1121,15 @@ function BlockEditor({
           range.collapse(false);
           sel?.removeAllRanges();
           sel?.addRange(range);
+          setFocusBlockId(null);
+        } else if (attempts < 5) {
+          attempts++;
+          setTimeout(tryFocus, 50);
+        } else {
+          setFocusBlockId(null);
         }
-        setFocusBlockId(null);
-      }, 50);
+      };
+      const timer = setTimeout(tryFocus, 30);
       return () => clearTimeout(timer);
     }
   }, [focusBlockId]);
@@ -1496,7 +1503,7 @@ function BlockContent({
     registerRef(block.id, ref.current);
     lastSavedContentRef.current = null;
     return () => registerRef(block.id, null);
-  }, [block.id]);
+  }, [block.id, block.type]);
 
   const saveContent = useCallback((text: string) => {
     const finalContent = contentWrapper ? contentWrapper(text, block.content) : text;
@@ -1849,21 +1856,8 @@ function BlockContent({
   const selectSlashType = (type: BlockType) => {
     setShowSlashMenu(false);
     setSlashFilter("");
+    if (ref.current) ref.current.innerText = "";
     onTypeChange(block.id, type);
-    if (ref.current) {
-      ref.current.innerText = "";
-      setTimeout(() => {
-        if (ref.current) {
-          ref.current.focus();
-          const range = document.createRange();
-          const sel = window.getSelection();
-          range.selectNodeContents(ref.current);
-          range.collapse(false);
-          sel?.removeAllRanges();
-          sel?.addRange(range);
-        }
-      }, 60);
-    }
   };
 
   useEffect(() => {
