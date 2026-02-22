@@ -1134,8 +1134,12 @@ function BlockEditor({
 
   const handleContentChange = useCallback((blockId: string, content: string) => {
     localContentMapRef.current[blockId] = content;
+    queryClient.setQueryData<KbBlock[]>(
+      [`/api/kb-pages/${pageId}/blocks`],
+      (old) => old?.map((b) => b.id === blockId ? { ...b, content } : b)
+    );
     saveBlockToServer(blockId, { content });
-  }, [saveBlockToServer]);
+  }, [pageId, saveBlockToServer]);
 
   const handleTypeChange = useCallback((blockId: string, type: BlockType, preserveContent?: boolean) => {
     if (preserveContent) {
