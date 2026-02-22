@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, ArrowLeft, Tag, Sparkles, Zap, Sun, Moon, ChevronLeft, ChevronRight, Ticket, Key, Check, ExternalLink, Shield, Clock, Download, Star } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { ProtectedImage } from "@/components/protected-image";
 import type { Store, Product, ProductImage } from "@shared/schema";
 
 type ProductDetailData = {
@@ -291,7 +292,7 @@ export default function ProductDetailPage() {
             <div className="mb-8 pdp-fade-in">
               <div className="pdp-image-container relative">
                 <div className="aspect-square w-full">
-                  <img src={currentImage} alt={product.title} className="w-full h-full object-cover" loading="lazy" data-testid="img-product-main" />
+                  <ProtectedImage protected={!store.allowImageDownload} src={currentImage} alt={product.title} className="w-full h-full object-cover" loading="lazy" data-testid="img-product-main" />
                 </div>
                 {hasDiscount && (
                   <div className="absolute top-4 right-4 z-10">
@@ -345,7 +346,7 @@ export default function ProductDetailPage() {
                       }}
                       data-testid={`button-thumbnail-${idx}`}
                     >
-                      <img src={url} alt={`${product.title} ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                      <ProtectedImage protected={!store.allowImageDownload} src={url} alt={`${product.title} ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
                     </button>
                   ))}
                 </div>

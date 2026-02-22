@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User, X } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
+import { ProtectedImage } from "@/components/protected-image";
 import type { Store, Product, Bundle } from "@shared/schema";
 
 type StorefrontProduct = Product & {
@@ -277,7 +278,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                     {product.thumbnailUrl && (
                       <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden" style={{ borderRadius: "6px 0 0 6px" }}>
                         <a href={`/s/${store.slug}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
-                          <img src={product.thumbnailUrl} alt={product.title} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
+                          <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
                         </a>
                       </div>
                     )}
@@ -374,7 +375,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                   <div key={bundle.id} className="silk-card group flex flex-col md:flex-row overflow-visible" data-testid={`card-bundle-${bundle.id}`}>
                     {bundle.thumbnailUrl && (
                       <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden" style={{ borderRadius: "6px 0 0 6px" }}>
-                        <img src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
+                        <ProtectedImage protected={!store.allowImageDownload} src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
                       </div>
                     )}
                     <div className="flex-1 p-8 md:p-10 flex flex-col justify-between">

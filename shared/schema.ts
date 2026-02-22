@@ -34,6 +34,7 @@ export const PLAN_FEATURES = {
     rawFileDownload: false,
     sellSoftware: false,
     accessPremiumProducts: false,
+    allowImageDownload: false,
     maxStores: 1,
   },
   pro: {
@@ -43,6 +44,7 @@ export const PLAN_FEATURES = {
     rawFileDownload: false,
     sellSoftware: false,
     accessPremiumProducts: true,
+    allowImageDownload: true,
     maxStores: 3,
   },
   max: {
@@ -52,6 +54,7 @@ export const PLAN_FEATURES = {
     rawFileDownload: true,
     sellSoftware: true,
     accessPremiumProducts: true,
+    allowImageDownload: true,
     maxStores: 10,
   },
 } as const;
@@ -76,6 +79,7 @@ export const stores = pgTable("stores", {
   paymentProvider: paymentProviderEnum("payment_provider").notNull().default("stripe"),
   paypalClientId: text("paypal_client_id"),
   paypalClientSecret: text("paypal_client_secret"),
+  allowImageDownload: boolean("allow_image_download").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

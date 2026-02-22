@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, ArrowLeft, Package, Sparkles, Tag, Zap, Sun, Moon, Ticket } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { ProtectedImage } from "@/components/protected-image";
 import type { Store, Product, Bundle } from "@shared/schema";
 
 type BundleDetailData = {
@@ -292,7 +293,7 @@ export default function BundleDetailPage() {
         {bundle.thumbnailUrl && (
           <div className="bdp-image-container mb-8 bdp-fade-in">
             <div className="aspect-[16/9] w-full">
-              <img src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-full object-cover" loading="lazy" />
+              <ProtectedImage protected={!store.allowImageDownload} src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-full object-cover" loading="lazy" />
             </div>
           </div>
         )}
@@ -349,7 +350,7 @@ export default function BundleDetailPage() {
                     {product.thumbnailUrl && (
                       <div className="relative overflow-hidden" style={{ borderRadius: "16px 16px 0 0" }}>
                         <div className="aspect-[16/10] overflow-hidden">
-                          <img src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
+                          <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
                         </div>
                         <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />
                       </div>

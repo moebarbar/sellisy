@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift, User, X } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
+import { ProtectedImage } from "@/components/protected-image";
 import type { Store, Product, Bundle } from "@shared/schema";
 
 type StorefrontProduct = Product & {
@@ -369,7 +370,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                   {product.thumbnailUrl && (
                     <a href={"/s/" + store.slug + "/product/" + product.id} className="block relative overflow-hidden" style={{ borderRadius: "16px 16px 0 0" }}>
                       <div className="aspect-square overflow-hidden">
-                        <img src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
+                        <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
                       </div>
                       <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />
                       <div className="absolute top-3 right-3 flex items-center gap-2">
