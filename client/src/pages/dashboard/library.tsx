@@ -15,8 +15,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles, Plus, Trash2, Upload, ImagePlus, Star, X, FileIcon, Link as LinkIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { ProtectedImage } from "@/components/protected-image";
 import type { Product, PlanTier } from "@shared/schema";
-import { canAccessTier } from "@shared/schema";
+import { canAccessTier, PLAN_FEATURES } from "@shared/schema";
 
 function buildCategoryFilters(products: Product[] | undefined) {
   const cats = new Set<string>();
@@ -148,7 +149,8 @@ export default function LibraryPage() {
                 <CardContent className="p-0">
                   {product.thumbnailUrl && (
                     <div className="relative aspect-square bg-muted overflow-hidden">
-                      <img
+                      <ProtectedImage
+                        protected={!PLAN_FEATURES[userTier].allowImageDownload}
                         src={product.thumbnailUrl}
                         alt={product.title}
                         className={`w-full h-full object-cover ${isLocked ? "grayscale" : ""}`}
@@ -295,7 +297,7 @@ export default function LibraryPage() {
   );
 }
 
-function ImageCarousel({ images, isLocked, requiredTier }: { images: { url: string }[]; isLocked: boolean; requiredTier: PlanTier }) {
+function ImageCarousel({ images, isLocked, requiredTier, imageProtected }: { images: { url: string }[]; isLocked: boolean; requiredTier: PlanTier; imageProtected: boolean }) {
   const [current, setCurrent] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const total = images.length;
@@ -327,14 +329,15 @@ function ImageCarousel({ images, isLocked, requiredTier }: { images: { url: stri
         style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
       >
         {images.map((img, i) => (
-          <img
-            key={i}
-            src={img.url}
-            alt={`Image ${i + 1} of ${total}`}
-            className={`w-full h-full object-cover flex-shrink-0 snap-center ${isLocked ? "grayscale" : ""}`}
-            data-testid={i === 0 ? "img-detail-product" : `img-carousel-${i}`}
-            draggable={false}
-          />
+          <div key={i} className="w-full h-full flex-shrink-0 snap-center">
+            <ProtectedImage
+              protected={imageProtected}
+              src={img.url}
+              alt={`Image ${i + 1} of ${total}`}
+              className={`w-full h-full object-cover ${isLocked ? "grayscale" : ""}`}
+              data-testid={i === 0 ? "img-detail-product" : `img-carousel-${i}`}
+            />
+          </div>
         ))}
       </div>
       {isLocked && (
@@ -419,7 +422,7 @@ function ProductDetailDialog({
         {product && (
           <div className="flex-1 overflow-y-auto space-y-4 pr-1">
             {carouselImages.length > 0 && (
-              <ImageCarousel images={carouselImages} isLocked={isLocked} requiredTier={requiredTier} />
+              <ImageCarousel images={carouselImages} isLocked={isLocked} requiredTier={requiredTier} imageProtected={!PLAN_FEATURES[userTier].allowImageDownload} />
             )}
 
             <div className="flex items-center justify-between gap-4 flex-wrap">
