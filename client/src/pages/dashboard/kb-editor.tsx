@@ -1408,6 +1408,11 @@ function BlockEditor({
               onArrowNav={handleArrowNav}
               onDelete={(id) => deleteBlockMutation.mutate(id)}
               registerRef={(id, el) => { blockRefs.current[id] = el; }}
+              contentFilter={block.type === "toggle" ? (c: string) => c.split("\n---\n")[0] : undefined}
+              contentWrapper={block.type === "toggle" ? (edited: string, full: string) => {
+                const parts = full.split("\n---\n");
+                return parts.length > 1 ? `${edited}\n---\n${parts.slice(1).join("\n---\n")}` : edited;
+              } : undefined}
             />
           </div>
           </div>
@@ -1457,6 +1462,8 @@ function BlockContent({
   onArrowNav,
   onDelete,
   registerRef,
+  contentFilter,
+  contentWrapper,
 }: {
   block: KbBlock;
   blockIndex: number;
@@ -1468,6 +1475,8 @@ function BlockContent({
   onArrowNav: (blockIndex: number, direction: "up" | "down") => void;
   onDelete: (id: string) => void;
   registerRef: (id: string, el: HTMLDivElement | null) => void;
+  contentFilter?: (content: string) => string;
+  contentWrapper?: (editedContent: string, fullContent: string) => string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -1490,9 +1499,10 @@ function BlockContent({
   }, [block.id]);
 
   const saveContent = useCallback((text: string) => {
-    lastSavedContentRef.current = text;
-    onContentChange(block.id, text);
-  }, [block.id, onContentChange]);
+    const finalContent = contentWrapper ? contentWrapper(text, block.content) : text;
+    lastSavedContentRef.current = finalContent;
+    onContentChange(block.id, finalContent);
+  }, [block.id, onContentChange, contentWrapper, block.content]);
 
   const isCodeBlock = block.type === "code";
 
@@ -1860,14 +1870,15 @@ function BlockContent({
     if (!ref.current) return;
     if (isFocusedRef.current) return;
     if (block.content === lastSavedContentRef.current) return;
+    const displayContent = contentFilter ? contentFilter(block.content) : block.content;
     const currentContent = isCodeBlock ? ref.current.textContent : ref.current.innerHTML;
-    if (currentContent === block.content) return;
+    if (currentContent === displayContent) return;
     if (isCodeBlock) {
-      ref.current.textContent = block.content;
+      ref.current.textContent = displayContent;
     } else {
-      ref.current.innerHTML = block.content;
+      ref.current.innerHTML = displayContent;
     }
-  }, [block.id, block.content, isCodeBlock]);
+  }, [block.id, block.content, isCodeBlock, contentFilter]);
 
   useEffect(() => {
     return () => clearTimeout(debounceRef.current);
