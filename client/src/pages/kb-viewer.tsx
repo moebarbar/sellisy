@@ -14,7 +14,28 @@ import {
   Link as LinkIcon,
   Check,
   AlertCircle,
+  Copy,
 } from "lucide-react";
+
+function CodeBlockViewer({ content, id }: { content: string; id: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="rounded-md bg-muted/60 border p-3 my-1 overflow-x-auto relative group/code">
+      <button
+        className="absolute top-2 right-2 p-1.5 rounded-md bg-background/80 border text-muted-foreground hover:text-foreground opacity-0 group-hover/code:opacity-100 transition-opacity z-10"
+        onClick={() => {
+          navigator.clipboard.writeText(content);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+        data-testid={`copy-code-${id}`}
+      >
+        {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+      </button>
+      <pre className="font-mono text-sm whitespace-pre-wrap">{content}</pre>
+    </div>
+  );
+}
 
 interface KbViewPage {
   id: string;
@@ -172,11 +193,7 @@ function BlockRenderer({ block, listNumber }: { block: KbViewBlock; listNumber?:
     }
 
     case "code":
-      return (
-        <div className="rounded-md bg-muted/60 border p-3 my-1 overflow-x-auto">
-          <pre className="font-mono text-sm whitespace-pre-wrap">{block.content}</pre>
-        </div>
-      );
+      return <CodeBlockViewer content={block.content} id={block.id} />;
 
     case "quote":
       return (

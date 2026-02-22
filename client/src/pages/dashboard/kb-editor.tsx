@@ -2039,12 +2039,13 @@ function BlockContent({
 
     case "code":
       return (
-        <div className="rounded-md bg-muted/60 border overflow-visible">
+        <div className="rounded-md bg-muted/60 border overflow-visible relative group/code">
+          <CopyCodeButton getText={() => ref.current?.textContent || ""} id={block.id} />
           <div
             ref={ref}
             contentEditable
             suppressContentEditableWarning
-            className={`${baseClass} font-mono text-sm p-3 text-foreground`}
+            className={`${baseClass} font-mono text-sm p-3 pr-10 text-foreground`}
             data-placeholder={placeholders.code}
             style={{ tabSize: 2 }}
             onInput={handleInput}
@@ -2337,6 +2338,23 @@ function MediaUrlBlock({
         />
       )}
     </div>
+  );
+}
+
+function CopyCodeButton({ getText, id }: { getText: () => string; id: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      className="absolute top-2 right-2 p-1.5 rounded-md bg-background/80 border text-muted-foreground hover:text-foreground opacity-0 group-hover/code:opacity-100 transition-opacity z-10"
+      onClick={() => {
+        navigator.clipboard.writeText(getText());
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      data-testid={`copy-code-${id}`}
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
   );
 }
 
