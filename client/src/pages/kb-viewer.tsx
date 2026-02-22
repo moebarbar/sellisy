@@ -5,6 +5,7 @@ import DOMPurify from "dompurify";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   ChevronRight,
   ChevronDown,
@@ -216,7 +217,15 @@ function BlockRenderer({ block, listNumber }: { block: KbViewBlock; listNumber?:
     case "image":
       return block.content ? (
         <div className="py-2 rounded-md overflow-hidden">
-          <img src={block.content} alt="" className="max-w-full h-auto rounded-md" />
+          <img
+            src={block.content}
+            alt=""
+            className="max-w-full h-auto rounded-md"
+            onError={(e) => {
+              const container = (e.target as HTMLImageElement).parentElement;
+              if (container) container.style.display = "none";
+            }}
+          />
         </div>
       ) : null;
 
@@ -261,7 +270,7 @@ export default function KbViewerPage() {
 
   const tokenParam = accessToken ? `?token=${encodeURIComponent(accessToken)}` : "";
 
-  const { data, isLoading, error } = useQuery<{ knowledgeBase: any; pages: KbViewPage[]; hasAccess: boolean }>({
+  const { data, isLoading, error } = useQuery<{ knowledgeBase: any; pages: KbViewPage[]; hasAccess: boolean; purchaseUrl?: string | null }>({
     queryKey: ["/api/kb", kbId, "view", accessToken],
     queryFn: async () => {
       const res = await fetch(`/api/kb/${kbId}/view${tokenParam}`);
@@ -313,7 +322,7 @@ export default function KbViewerPage() {
     );
   }
 
-  const { knowledgeBase, pages, hasAccess } = data;
+  const { knowledgeBase, pages, hasAccess, purchaseUrl } = data;
 
   return (
     <div className="min-h-screen flex bg-background" data-testid="kb-viewer" style={knowledgeBase.fontFamily ? { fontFamily: `'${knowledgeBase.fontFamily}', sans-serif` } : undefined}>
@@ -350,8 +359,13 @@ export default function KbViewerPage() {
                 )}
               </p>
             </div>
+            {purchaseUrl && (
+              <Button asChild size="lg" data-testid="button-purchase-kb">
+                <a href={purchaseUrl}>Purchase Access</a>
+              </Button>
+            )}
             <p className="text-sm text-muted-foreground">
-              If you have already purchased this content, use the access link from your order confirmation.
+              {purchaseUrl ? "Or if" : "If"} you have already purchased this content, use the access link from your order confirmation.
             </p>
           </div>
         ) : activePageId && pageData ? (

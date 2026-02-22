@@ -4,7 +4,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { orders, orderItems, downloadTokens, coupons, customers, products, marketingStrategies, storeStrategyProgress, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
+import { orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { seedDatabase, seedMarketingIfNeeded } from "./seed";
 import { randomBytes, createHash } from "crypto";
@@ -1212,6 +1212,17 @@ export async function registerRoutes(
       }
     }
 
+    let purchaseUrl: string | null = null;
+    if (isPaid && !hasAccess && kb.productId) {
+      const sp = await db.select().from(storeProducts).where(eq(storeProducts.productId, kb.productId)).then(r => r[0]);
+      if (sp) {
+        const store = await storage.getStoreById(sp.storeId);
+        if (store) {
+          purchaseUrl = `/s/${store.slug}/product/${kb.productId}`;
+        }
+      }
+    }
+
     res.json({
       knowledgeBase: {
         id: kb.id,
@@ -1221,8 +1232,9 @@ export async function registerRoutes(
         priceCents: kb.priceCents,
         fontFamily: kb.fontFamily,
       },
-      pages: hasAccess ? pages : pages.map(p => ({ ...p, locked: true })),
+      pages: hasAccess ? pages : pages.map(p => ({ id: p.id, title: "Locked", parentPageId: p.parentPageId, sortOrder: p.sortOrder, locked: true })),
       hasAccess,
+      purchaseUrl,
     });
   });
 
