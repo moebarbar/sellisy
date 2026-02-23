@@ -137,6 +137,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
           box-shadow: ${c.cardShadow};
           border-radius: 6px;
           transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+          overflow: hidden;
         }
         .silk-card:hover {
           border-color: ${c.cardBorderHover};
@@ -274,9 +275,9 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
 
               return (
                 <div key={product.id}>
-                  <div className="silk-card group flex flex-col md:flex-row overflow-visible" data-testid={`card-product-${product.id}`}>
+                  <div className="silk-card group flex flex-col md:flex-row" data-testid={`card-product-${product.id}`}>
                     {product.thumbnailUrl && (
-                      <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden" style={{ borderRadius: "6px 0 0 6px" }}>
+                      <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden">
                         <a href={`/s/${store.slug}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
                           <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
                         </a>
@@ -372,9 +373,9 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                 const totalValue = bundle.products.reduce((sum, p) => sum + p.priceCents, 0);
                 const savePct = totalValue > bundle.priceCents ? Math.round(((totalValue - bundle.priceCents) / totalValue) * 100) : 0;
                 return (
-                  <div key={bundle.id} className="silk-card group flex flex-col md:flex-row overflow-visible" data-testid={`card-bundle-${bundle.id}`}>
+                  <div key={bundle.id} className="silk-card group flex flex-col md:flex-row" data-testid={`card-bundle-${bundle.id}`}>
                     {bundle.thumbnailUrl && (
-                      <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden" style={{ borderRadius: "6px 0 0 6px" }}>
+                      <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden">
                         <ProtectedImage protected={!store.allowImageDownload} src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
                       </div>
                     )}

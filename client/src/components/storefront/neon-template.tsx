@@ -158,10 +158,10 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
           border: 1px solid ${c.border};
           border-radius: 16px;
           transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-          overflow: visible;
+          overflow: hidden;
         }
         .neon-card::before {
-          content: ''; position: absolute; inset: -1px; border-radius: 17px; padding: 1px;
+          content: ''; position: absolute; inset: 0; border-radius: 16px; padding: 1px;
           background: linear-gradient(135deg, ${c.accent}30, ${c.accentAlt}15, ${c.cyan}30);
           -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
           -webkit-mask-composite: xor; mask-composite: exclude;
@@ -368,7 +368,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                   <div className="neon-holo-stripe" />
                   <div className="neon-card-line-scan" />
                   {product.thumbnailUrl && (
-                    <a href={"/s/" + store.slug + "/product/" + product.id} className="block relative overflow-hidden" style={{ borderRadius: "16px 16px 0 0" }}>
+                    <a href={"/s/" + store.slug + "/product/" + product.id} className="block relative overflow-hidden">
                       <div className="aspect-square overflow-hidden">
                         <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
                       </div>
