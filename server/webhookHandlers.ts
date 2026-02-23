@@ -1,4 +1,5 @@
-import { getStripeSync } from './stripeClient';
+import Stripe from 'stripe';
+import { getUncachableStripeClient } from './stripeClient';
 import { storage } from './storage';
 import { randomBytes } from 'crypto';
 
@@ -12,10 +13,11 @@ export class WebhookHandlers {
       );
     }
 
-    const sync = await getStripeSync();
-    // processWebhook validates the Stripe signature — throws if invalid.
-    // Only after successful verification do we parse the event for our handler.
-    await sync.processWebhook(payload, signature);
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const stripe = await getUncachableStripeClient();
+      stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    }
 
     const event = JSON.parse(payload.toString());
     await WebhookHandlers.handleEvent(event);
