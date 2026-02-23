@@ -49,3 +49,12 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 *   **Tailwind CSS**: Utility-first CSS framework.
 *   **TanStack Query**: Data fetching and caching library for React.
 *   **bcryptjs**: Password hashing for local authentication.
+
+## Integration Notes
+*   **Stripe**: Configured manually via `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` secrets (user dismissed Replit Stripe connector — keys are managed directly as secrets).
+
+## Template Standards
+*   **Color Tokens**: All storefront templates use a centralized color object (`c`) that adapts to light/dark mode. Store `accentColor` (6-digit hex from color picker) is respected across storefronts and detail pages.
+*   **Mode-Aware Badges**: Discount and savings badges must use `isDark` ternary for background, border, and text color — never hardcode dark-mode-only values.
+*   **Bundle Thumbnails**: Both Neon and Silk templates render bundle thumbnail images when available.
+*   **Protected Images**: All storefront images use `<ProtectedImage>` component, gated by `store.allowImageDownload`.

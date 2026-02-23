@@ -241,12 +241,13 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
         }
         .neon-glow-icon { animation: neon-glow-breathe 3s ease-in-out infinite; }
         .neon-discount {
-          background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.25));
-          border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7;
+          background: ${isDark ? "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.25))" : "linear-gradient(135deg, rgba(16,185,129,0.1), rgba(5,150,105,0.15))"};
+          border: 1px solid ${isDark ? "rgba(16,185,129,0.3)" : "rgba(16,185,129,0.2)"};
+          color: ${isDark ? "#6ee7b7" : "#059669"};
         }
         .neon-savings-glow {
-          background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.15));
-          border: 1px solid rgba(16,185,129,0.2);
+          background: ${isDark ? "linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.15))" : "linear-gradient(135deg, rgba(16,185,129,0.06), rgba(5,150,105,0.1))"};
+          border: 1px solid ${isDark ? "rgba(16,185,129,0.2)" : "rgba(16,185,129,0.15)"};
         }
       `}</style>
 
@@ -467,6 +468,14 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                   <div key={bundle.id} className="neon-card group" data-testid={`card-bundle-${bundle.id}`}>
                     <div className="neon-holo-stripe" />
                     <div className="neon-card-line-scan" />
+                    {bundle.thumbnailUrl && (
+                      <a href={`/s/${store.slug}/bundle/${bundle.id}`} className="block relative overflow-hidden">
+                        <div className="aspect-square overflow-hidden">
+                          <ProtectedImage protected={!store.allowImageDownload} src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
+                        </div>
+                        <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />
+                      </a>
+                    )}
                     <div className="p-6 relative z-10">
                       <div className="flex items-center gap-2 mb-4">
                         <div className="flex items-center justify-center w-8 h-8 rounded-lg" style={{ background: `${c.accentAlt}18`, border: `1px solid ${c.accentAlt}25` }}>
@@ -474,7 +483,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                         </div>
                         <span className="text-xs font-medium tracking-wider uppercase" style={{ color: `${c.accentAlt}cc` }}>{bundle.products.length} products</span>
                         {savePct > 0 && (
-                          <div className="neon-savings-glow ml-auto px-2.5 py-1 rounded-full text-xs font-bold text-emerald-400">
+                          <div className="neon-savings-glow ml-auto px-2.5 py-1 rounded-full text-xs font-bold" style={{ color: isDark ? "#6ee7b7" : "#059669" }}>
                             Save {savePct}%
                           </div>
                         )}

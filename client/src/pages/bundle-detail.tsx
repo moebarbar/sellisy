@@ -78,22 +78,24 @@ export default function BundleDetailPage() {
 
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
+  const customAccent = data?.store?.accentColor || null;
+
   const c = isDark ? {
     bg: "#030308",
     text: "#ffffff",
     textSec: "rgba(255,255,255,0.5)",
     textTer: "rgba(255,255,255,0.25)",
-    accent: "#60a5fa",
+    accent: customAccent || "#60a5fa",
     accentAlt: "#a78bfa",
     cyan: "#06b6d4",
     price: "#67e8f9",
     cardBg: "rgba(255,255,255,0.03)",
-    cardBorder: "rgba(96,165,250,0.1)",
-    cardBorderHover: "rgba(96,165,250,0.35)",
-    gridLine: "rgba(96,165,250,0.04)",
-    gridDot: "rgba(96,165,250,0.15)",
-    sepGrad: "transparent, rgba(96,165,250,0.3), rgba(167,139,250,0.3), rgba(6,182,212,0.3), transparent",
-    orbA: "rgba(59,130,246,0.10)",
+    cardBorder: `${customAccent || "#60a5fa"}1a`,
+    cardBorderHover: `${customAccent || "#60a5fa"}59`,
+    gridLine: `${customAccent || "#60a5fa"}0a`,
+    gridDot: `${customAccent || "#60a5fa"}26`,
+    sepGrad: `transparent, ${customAccent || "#60a5fa"}4d, #a78bfa4d, #06b6d44d, transparent`,
+    orbA: `${customAccent || "#3b82f6"}1a`,
     orbB: "rgba(124,58,237,0.06)",
     orbC: "rgba(6,182,212,0.07)",
     shadow: "rgba(0,0,0,0.5)",
@@ -102,20 +104,20 @@ export default function BundleDetailPage() {
     text: "#0f172a",
     textSec: "rgba(15,23,42,0.55)",
     textTer: "rgba(15,23,42,0.3)",
-    accent: "#3b82f6",
+    accent: customAccent || "#3b82f6",
     accentAlt: "#7c3aed",
     cyan: "#0891b2",
     price: "#0e7490",
     cardBg: "rgba(255,255,255,0.8)",
-    cardBorder: "rgba(96,165,250,0.18)",
-    cardBorderHover: "rgba(96,165,250,0.4)",
-    gridLine: "rgba(96,165,250,0.06)",
-    gridDot: "rgba(96,165,250,0.12)",
-    sepGrad: "transparent, rgba(96,165,250,0.2), rgba(167,139,250,0.2), rgba(6,182,212,0.2), transparent",
-    orbA: "rgba(59,130,246,0.08)",
+    cardBorder: `${customAccent || "#60a5fa"}2e`,
+    cardBorderHover: `${customAccent || "#60a5fa"}66`,
+    gridLine: `${customAccent || "#60a5fa"}0f`,
+    gridDot: `${customAccent || "#60a5fa"}1f`,
+    sepGrad: `transparent, ${customAccent || "#60a5fa"}33, #7c3aed33, #0891b233, transparent`,
+    orbA: `${customAccent || "#3b82f6"}14`,
     orbB: "rgba(124,58,237,0.05)",
     orbC: "rgba(6,182,212,0.06)",
-    shadow: "rgba(96,165,250,0.12)",
+    shadow: `${customAccent || "#60a5fa"}1f`,
   };
 
   if (isLoading) {
@@ -253,7 +255,7 @@ export default function BundleDetailPage() {
           pointer-events: none;
         }
         .bdp-bundle-badge { background: linear-gradient(135deg, ${c.accentAlt}20, ${c.accent}20); border: 1px solid ${c.accentAlt}30; }
-        .bdp-savings-badge { background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.25)); border: 1px solid rgba(16,185,129,0.3); color: ${isDark ? "#6ee7b7" : "#059669"}; }
+        .bdp-savings-badge { background: ${isDark ? "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.25))" : "linear-gradient(135deg, rgba(16,185,129,0.1), rgba(5,150,105,0.15))"}; border: 1px solid ${isDark ? "rgba(16,185,129,0.3)" : "rgba(16,185,129,0.2)"}; color: ${isDark ? "#6ee7b7" : "#059669"}; }
         .bdp-category-badge { background: ${c.accent}15; border: 1px solid ${c.accent}25; }
         .bdp-mode-btn {
           background: ${isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)"};
