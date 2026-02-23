@@ -1,4 +1,3 @@
-import Stripe from 'stripe';
 import { getUncachableStripeClient } from './stripeClient';
 import { storage } from './storage';
 import { randomBytes } from 'crypto';
@@ -14,12 +13,17 @@ export class WebhookHandlers {
     }
 
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const stripe = getUncachableStripeClient();
+
+    let event: any;
     if (webhookSecret) {
-      const stripe = await getUncachableStripeClient();
-      stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+      const verified = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+      event = verified;
+    } else {
+      console.warn('STRIPE_WEBHOOK_SECRET not set — webhook signature verification is disabled. Set it for production security.');
+      event = JSON.parse(payload.toString());
     }
 
-    const event = JSON.parse(payload.toString());
     await WebhookHandlers.handleEvent(event);
   }
 

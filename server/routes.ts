@@ -1342,7 +1342,7 @@ export async function registerRoutes(
 
   app.get("/api/stripe/publishable-key", async (_req, res) => {
     try {
-      const key = await getStripePublishableKey();
+      const key = getStripePublishableKey();
       res.json({ publishableKey: key });
     } catch {
       res.json({ publishableKey: null });
@@ -1498,7 +1498,7 @@ export async function registerRoutes(
       }
     } else {
       try {
-        const stripe = await getUncachableStripeClient();
+        const stripe = getUncachableStripeClient();
 
         const productData: any = { name: itemName };
         if (itemDescription) productData.description = itemDescription.substring(0, 500);
@@ -1649,7 +1649,7 @@ export async function registerRoutes(
 
     if (order.status === "PENDING" && order.stripeSessionId) {
       try {
-        const stripe = await getUncachableStripeClient();
+        const stripe = getUncachableStripeClient();
         const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId);
         if (session.payment_status === "paid") {
           await storage.updateOrderStatus(order.id, "COMPLETED");
