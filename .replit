@@ -44,5 +44,5 @@ integrations = ["javascript_log_in_with_replit:2.0.0", "javascript_object_storag
 [userenv]
 
 [userenv.shared]
-ADMIN_EMAIL = "admin@digitalvault.com"
+ADMIN_EMAIL = "admin@sellisy.com"
 ADMIN_PASSWORD = "admin123456"
