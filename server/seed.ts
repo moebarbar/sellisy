@@ -1,7 +1,9 @@
 import { storage } from "./storage";
 import { db } from "./db";
 import { products, marketingStrategies } from "@shared/schema";
+import { users } from "@shared/models/auth";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 const platformProducts = [
   {
@@ -68,6 +70,36 @@ export async function seedDatabase() {
   }
 
   console.log("Seeded 6 platform products");
+}
+
+export async function seedAdminUser() {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword) {
+    return;
+  }
+
+  const [existing] = await db.select().from(users).where(eq(users.email, adminEmail));
+  if (existing) {
+    const profile = await storage.getUserProfile(existing.id);
+    if (!profile?.isAdmin) {
+      await storage.setUserAdmin(existing.id, true);
+      console.log("Existing admin user promoted to admin:", adminEmail);
+    }
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
+  const [admin] = await db.insert(users).values({
+    email: adminEmail,
+    passwordHash,
+    firstName: "Admin",
+    lastName: "User",
+  }).returning();
+
+  await storage.upsertUserProfile({ userId: admin.id, planTier: "max", isAdmin: true });
+  console.log("Admin user created:", adminEmail);
 }
 
 export async function seedMarketingIfNeeded() {

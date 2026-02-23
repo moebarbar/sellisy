@@ -31,6 +31,7 @@ const StrategyDetailPage = lazy(() => import("@/pages/dashboard/strategy-detail"
 const KnowledgeBasesPage = lazy(() => import("@/pages/dashboard/knowledge-bases"));
 const KbEditorPage = lazy(() => import("@/pages/dashboard/kb-editor"));
 
+const AuthPage = lazy(() => import("@/pages/auth"));
 const AccountLoginPage = lazy(() => import("@/pages/account/login"));
 const AccountVerifyPage = lazy(() => import("@/pages/account/verify"));
 const AccountPurchasesPage = lazy(() => import("@/pages/account/purchases"));
@@ -90,6 +91,7 @@ function Router() {
         <Route path="/dashboard/content-creator">
           <DashboardLayout><KnowledgeBasesPage /></DashboardLayout>
         </Route>
+        <Route path="/auth" component={AuthPage} />
         <Route path="/account" component={AccountLoginPage} />
         <Route path="/account/verify" component={AccountVerifyPage} />
         <Route path="/account/purchases" component={AccountPurchasesPage} />

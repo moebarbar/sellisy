@@ -36,7 +36,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    window.location.href = "/api/login";
+    window.location.href = "/auth";
     return null;
   }
 

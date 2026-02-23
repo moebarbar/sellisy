@@ -13,7 +13,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 
 **Core Features & Design Patterns:**
 
-*   **Authentication**: Replit Auth (OIDC via passport.js) handles user authentication and session management, ensuring secure access with user IDs from `req.user.claims.sub`.
+*   **Authentication**: Local email/password authentication with bcrypt hashing and session management via `connect-pg-simple`. Users register/login at `/auth`. Admin account seeded via `ADMIN_EMAIL`/`ADMIN_PASSWORD` env vars. User IDs read from `req.session.userId`.
 *   **Multi-tenancy**: All data operations (stores, products, orders, etc.) are strictly scoped by `ownerId` to ensure data isolation between different store owners.
 *   **Frontend**: Built with React, leveraging `shadcn/ui` for components and `Tailwind CSS` for styling to achieve a premium, customizable UI. `TanStack Query` manages server state.
 *   **Storefronts**: Two primary templates, 'Neon' (dark, bold) and 'Silk' (elegant, minimal), are available, fully customizable with store logos, banners, and themes. Each store has a branded customer portal.
@@ -36,7 +36,6 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 *   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) are implemented using a `usePageMeta` hook.
 
 ## External Dependencies
-*   **Replit Auth**: For user authentication and authorization.
 *   **Replit Object Storage**: For storing product images, deliverable files, store logos, and banners.
 *   **PostgreSQL**: The primary database for all application data, managed via Drizzle ORM.
 *   **Stripe**: For payment processing via Stripe Checkout Sessions and webhooks.
@@ -49,4 +48,4 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 *   **shadcn/ui**: UI component library.
 *   **Tailwind CSS**: Utility-first CSS framework.
 *   **TanStack Query**: Data fetching and caching library for React.
-*   **passport.js**: Middleware for authentication in Node.js applications.
+*   **bcryptjs**: Password hashing for local authentication.

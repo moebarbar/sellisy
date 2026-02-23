@@ -6,14 +6,14 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { seedDatabase, seedMarketingIfNeeded } from "./seed";
+import { seedDatabase, seedMarketingIfNeeded, seedAdminUser } from "./seed";
 import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import cookieParser from "cookie-parser";
 
 function getUserId(req: Request): string {
-  return (req.user as any)?.claims?.sub;
+  return (req as any).session?.userId;
 }
 
 function sanitizeStore(store: any) {
@@ -117,6 +117,7 @@ export async function registerRoutes(
 
   await seedDatabase();
   await seedMarketingIfNeeded();
+  await seedAdminUser();
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });

@@ -129,7 +129,7 @@ export function AppSidebar() {
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => { window.location.href = "/api/logout"; }}
+            onClick={async () => { await fetch("/api/auth/logout", { method: "POST", credentials: "include" }); window.location.href = "/auth"; }}
             data-testid="button-logout"
           >
             <LogOut className="h-4 w-4" />
