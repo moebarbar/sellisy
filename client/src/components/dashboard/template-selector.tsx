@@ -293,7 +293,7 @@ function FullPreview({ t, storeName }: { t: TemplateOption; storeName?: string }
         style={{ borderTop: `1px solid ${p.cardBorder}` }}
       >
         <p className="text-[9px]" style={{ color: p.textMuted }}>
-          Powered by DigitalVault
+          Powered by Sellisy
         </p>
       </div>
     </div>

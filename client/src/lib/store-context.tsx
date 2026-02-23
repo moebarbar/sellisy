@@ -18,7 +18,7 @@ const StoreContext = createContext<StoreContextValue>({
   setActiveStoreId: () => {},
 });
 
-const STORAGE_KEY = "digitalvault_active_store";
+const STORAGE_KEY = "sellisy_active_store";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { data: stores, isLoading } = useQuery<Store[]>({

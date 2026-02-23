@@ -1,7 +1,7 @@
-# DigitalVault
+# Sellisy
 
 ## Overview
-DigitalVault is a multi-tenant platform enabling users to create, customize, and manage their own digital product storefronts. It allows them to import products from a central library or create their own, publish them, and accept payments with secure download delivery. The platform also offers tools for content creation (knowledge bases), marketing, and customer management, aiming to provide a comprehensive solution for digital entrepreneurs.
+Sellisy is a multi-tenant platform enabling users to create, customize, and manage their own digital product storefronts. It allows them to import products from a central library or create their own, publish them, and accept payments with secure download delivery. The platform also offers tools for content creation (knowledge bases), marketing, and customer management, aiming to provide a comprehensive solution for digital entrepreneurs.
 
 ## User Preferences
 - Clean, minimal code

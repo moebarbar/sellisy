@@ -83,7 +83,7 @@ export default function ProductDetailPage() {
   });
 
   usePageMeta({
-    title: data?.product ? `${data.product.title} - ${data.store.name} | DigitalVault` : undefined,
+    title: data?.product ? `${data.product.title} - ${data.store.name} | Sellisy` : undefined,
     description: data?.product ? (data.product.description || `Get ${data.product.title} from ${data.store.name}`) : undefined,
     ogImage: data?.product?.thumbnailUrl || undefined,
     ogType: "product",
@@ -626,7 +626,7 @@ export default function ProductDetailPage() {
         <div className="pdp-separator mb-8" />
         <div className="mx-auto max-w-3xl px-6 flex items-center justify-center gap-3">
           <Zap className="h-3 w-3" style={{ color: c.textTer }} />
-          <span className="text-sm tracking-wide" style={{ color: c.textTer }}>Powered by DigitalVault</span>
+          <span className="text-sm tracking-wide" style={{ color: c.textTer }}>Powered by Sellisy</span>
         </div>
       </footer>
     </div>

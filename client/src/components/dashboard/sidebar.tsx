@@ -78,7 +78,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <Link href="/">
           <span className="text-lg font-bold tracking-tight cursor-pointer" data-testid="link-sidebar-home">
-            DigitalVault
+            Sellisy
           </span>
         </Link>
       </SidebarHeader>

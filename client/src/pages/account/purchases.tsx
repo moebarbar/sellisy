@@ -80,7 +80,7 @@ export default function PurchasesPage() {
         <div className="mx-auto max-w-4xl flex items-center justify-between gap-4 flex-wrap px-6 py-3">
           <Link href="/">
             <span className="text-lg font-bold tracking-tight" data-testid="link-home">
-              DigitalVault
+              Sellisy
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -136,7 +136,7 @@ export default function PurchasesPage() {
               </div>
               <h3 className="text-lg font-semibold mb-1">No purchases yet</h3>
               <p className="text-sm text-muted-foreground max-w-xs">
-                Your digital product purchases will appear here after you buy from any DigitalVault store.
+                Your digital product purchases will appear here after you buy from any Sellisy store.
               </p>
             </CardContent>
           </Card>

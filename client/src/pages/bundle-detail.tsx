@@ -43,7 +43,7 @@ export default function BundleDetailPage() {
   });
 
   usePageMeta({
-    title: data?.bundle ? `${data.bundle.name} - ${data.store.name} | DigitalVault` : undefined,
+    title: data?.bundle ? `${data.bundle.name} - ${data.store.name} | Sellisy` : undefined,
     description: data?.bundle ? `${data.bundle.name} bundle from ${data.store.name} — ${data.products?.length || 0} products` : undefined,
     ogImage: data?.bundle?.thumbnailUrl || undefined,
     ogType: "product",
@@ -450,7 +450,7 @@ export default function BundleDetailPage() {
         <div className="bdp-separator mb-8" />
         <div className="mx-auto max-w-4xl px-6 flex items-center justify-center gap-3">
           <Zap className="h-3 w-3" style={{ color: c.textTer }} />
-          <span className="text-sm tracking-wide" style={{ color: c.textTer }}>Powered by DigitalVault</span>
+          <span className="text-sm tracking-wide" style={{ color: c.textTer }}>Powered by Sellisy</span>
         </div>
       </footer>
     </div>

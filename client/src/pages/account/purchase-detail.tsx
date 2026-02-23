@@ -94,7 +94,7 @@ export default function PurchaseDetailPage() {
         <div className="mx-auto max-w-4xl flex items-center justify-between gap-4 flex-wrap px-6 py-3">
           <Link href="/">
             <span className="text-lg font-bold tracking-tight" data-testid="link-home">
-              DigitalVault
+              Sellisy
             </span>
           </Link>
           <div className="flex items-center gap-2">

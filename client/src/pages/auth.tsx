@@ -76,8 +76,8 @@ export default function AuthPage() {
           </CardTitle>
           <CardDescription data-testid="text-auth-description">
             {mode === "login"
-              ? "Sign in to your DigitalVault account"
-              : "Get started with your DigitalVault store"}
+              ? "Sign in to your Sellisy account"
+              : "Get started with your Sellisy store"}
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -22,7 +22,7 @@ export default function StorefrontPage() {
   });
 
   usePageMeta({
-    title: data?.store ? `${data.store.name} | DigitalVault` : undefined,
+    title: data?.store ? `${data.store.name} | Sellisy` : undefined,
     description: data?.store ? (data.store.tagline || `Shop digital products from ${data.store.name}`) : undefined,
     ogImage: data?.store?.logoUrl || undefined,
     ogType: "website",

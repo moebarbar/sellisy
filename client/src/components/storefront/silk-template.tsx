@@ -433,7 +433,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
         <div className="mx-auto max-w-5xl px-6 text-center">
           <GoldDivider isDark={isDark} />
           <p className="mt-4 text-xs tracking-[0.2em] uppercase" style={{ color: c.textTertiary }}>
-            Powered by DigitalVault
+            Powered by Sellisy
           </p>
         </div>
       </footer>

@@ -510,7 +510,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
         <div className="neon-separator mb-8" />
         <div className="mx-auto max-w-6xl px-6 flex items-center justify-center gap-3">
           <Zap className="h-3 w-3" style={{ color: c.textTertiary }} />
-          <span className="text-sm tracking-wide" style={{ color: c.textTertiary }}>Powered by DigitalVault</span>
+          <span className="text-sm tracking-wide" style={{ color: c.textTertiary }}>Powered by Sellisy</span>
         </div>
       </footer>
 

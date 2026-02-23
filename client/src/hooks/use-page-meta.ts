@@ -20,8 +20,8 @@ function setMeta(name: string, content: string, property = false) {
   el.content = content;
 }
 
-const DEFAULT_TITLE = "DigitalVault - Create & Sell Digital Products";
-const DEFAULT_DESC = "Build your own digital storefront, sell products, and grow your business with DigitalVault.";
+const DEFAULT_TITLE = "Sellisy - Create & Sell Digital Products";
+const DEFAULT_DESC = "Build your own digital storefront, sell products, and grow your business with Sellisy.";
 
 export function usePageMeta(meta: PageMeta) {
   useEffect(() => {

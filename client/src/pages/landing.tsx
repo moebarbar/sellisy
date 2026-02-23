@@ -34,7 +34,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl flex items-center justify-between gap-4 flex-wrap px-6 py-3">
           <Link href="/">
             <span className="text-lg font-bold tracking-tight" data-testid="link-home">
-              DigitalVault
+              Sellisy
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
@@ -127,7 +127,7 @@ export default function LandingPage() {
                         <div className="w-2.5 h-2.5 rounded-full bg-green-400/60" />
                       </div>
                       <div className="flex-1 h-5 rounded-md bg-white/5 flex items-center justify-center">
-                        <span className="text-[10px] text-white/30 tracking-wider">mystore.digitalvault.app</span>
+                        <span className="text-[10px] text-white/30 tracking-wider">mystore.sellisy.com</span>
                       </div>
                     </div>
 
@@ -232,7 +232,7 @@ export default function LandingPage() {
                 Browse Live Stores
               </h2>
               <p className="text-muted-foreground max-w-lg mx-auto text-lg">
-                Discover stores built by creators on DigitalVault.
+                Discover stores built by creators on Sellisy.
               </p>
             </div>
 
@@ -531,7 +531,7 @@ export default function LandingPage() {
               Ready to Start Selling?
             </h2>
             <p className="text-lg text-muted-foreground mb-8">
-              Join creators who are already monetizing their digital products with DigitalVault. Set up your store in minutes.
+              Join creators who are already monetizing their digital products with Sellisy. Set up your store in minutes.
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
               <Button
@@ -549,7 +549,7 @@ export default function LandingPage() {
 
       <footer className="border-t py-8">
         <div className="mx-auto max-w-6xl px-6 flex items-center justify-between gap-4 flex-wrap text-sm text-muted-foreground">
-          <span data-testid="text-footer-brand">DigitalVault — Sell digital products with ease.</span>
+          <span data-testid="text-footer-brand">Sellisy — Sell digital products with ease.</span>
           <div className="flex items-center gap-4 flex-wrap">
             <a href="#features" className="transition-colors" data-testid="link-footer-features">Features</a>
             <a href="#pricing" className="transition-colors" data-testid="link-footer-pricing">Pricing</a>
