@@ -15,8 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign, Pencil, Loader2 } from "lucide-react";
+import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign, Pencil, Loader2, Code } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { EmbedDialog } from "@/components/dashboard/embed-dialog";
 import type { StoreProduct, Product, Bundle } from "@shared/schema";
 
 type StoreProductWithProduct = StoreProduct & { product: Product };
@@ -102,6 +103,7 @@ export default function StoreProductsPage() {
                 key={sp.id}
                 storeProduct={sp}
                 storeId={activeStoreId}
+                storeSlug={activeStore?.slug || ""}
                 allProducts={storeProducts}
                 bundles={bundles || []}
                 onEdit={() => setEditingSp(sp)}
@@ -150,12 +152,14 @@ export default function StoreProductsPage() {
 function StoreProductRow({
   storeProduct,
   storeId,
+  storeSlug,
   allProducts,
   bundles,
   onEdit,
 }: {
   storeProduct: StoreProductWithProduct;
   storeId: string;
+  storeSlug: string;
   allProducts: StoreProductWithProduct[];
   bundles: BundleWithProducts[];
   onEdit: () => void;
@@ -163,6 +167,7 @@ function StoreProductRow({
   const { toast } = useToast();
   const product = storeProduct.product;
   const [expanded, setExpanded] = useState(false);
+  const [embedOpen, setEmbedOpen] = useState(false);
 
   const toggleMutation = useMutation({
     mutationFn: async (data: Record<string, unknown>) => {
@@ -239,6 +244,21 @@ function StoreProductRow({
               disabled={toggleMutation.isPending}
               data-testid={`switch-publish-${storeProduct.id}`}
             />
+            {storeProduct.isPublished && storeSlug && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setEmbedOpen(true)}
+                    data-testid={`button-embed-sp-${storeProduct.id}`}
+                  >
+                    <Code className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Embed</TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -266,6 +286,16 @@ function StoreProductRow({
               <TooltipContent>{expanded ? "Collapse" : "Expand"}</TooltipContent>
             </Tooltip>
           </div>
+          {embedOpen && (
+            <EmbedDialog
+              open={embedOpen}
+              onOpenChange={setEmbedOpen}
+              storeSlug={storeSlug}
+              itemType="product"
+              itemId={product.id}
+              itemName={storeProduct.customTitle || product.title}
+            />
+          )}
         </div>
 
         {expanded && (

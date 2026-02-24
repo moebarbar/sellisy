@@ -34,6 +34,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 *   **Analytics**: Deep per-store analytics dashboard at `/dashboard/analytics` with 5 tabs (Revenue, Products, Customers, Coupons, Traffic). Uses real data from orders, order items, coupons, customers, and a `store_events` tracking table. Public storefront pages fire lightweight tracking events (page_view, product_view, bundle_view, checkout_start) via `POST /api/store-events`. Backend aggregation in `server/analytics.ts` uses SQL group-by queries. Frontend tracking utility in `client/src/lib/tracking.ts` uses `navigator.sendBeacon` for non-blocking event capture.
 *   **Dashboard**: A fully store-dedicated dashboard with a store switcher, unified navigation, analytics, order management, and settings.
 *   **File Storage**: Integration with Replit Object Storage for handling product images, deliverable files, logos, and banners via presigned URLs.
+*   **Embed Widgets**: Store owners can embed any published product or bundle on external websites via iframe. Dashboard provides a code generator with live preview, light/dark theme toggle, and copy-to-clipboard. Embed endpoints: `GET /api/embed/:slug/product/:productId` and `/api/embed/:slug/bundle/:bundleId`. Widget pages at `/embed/:slug/product/:productId` and `/embed/:slug/bundle/:bundleId` render compact, styled cards with "Buy Now" links back to the storefront.
 *   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) are implemented using a `usePageMeta` hook.
 
 ## External Dependencies

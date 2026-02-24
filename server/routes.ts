@@ -1666,6 +1666,59 @@ export async function registerRoutes(
     res.json({ store: sanitizeStore(store), bundle: data.bundle, products: data.products });
   });
 
+  // --- Embed endpoints ---
+
+  app.get("/api/embed/:slug/product/:productId", async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("X-Frame-Options", "ALLOWALL");
+    const store = await storage.getStoreBySlug(req.params.slug as string);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+
+    const sp = await storage.getStoreProductByStoreAndProduct(store.id, req.params.productId as string);
+    if (!sp || !sp.isPublished) return res.status(404).json({ message: "Product not found" });
+
+    const product = await storage.getProductById(req.params.productId as string);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    res.json({
+      type: "product",
+      store: { name: store.name, slug: store.slug, accentColor: store.accentColor, templateKey: store.templateKey },
+      item: {
+        id: product.id,
+        title: sp.customTitle || product.title,
+        description: sp.customDescription || product.description,
+        priceCents: sp.customPriceCents ?? product.priceCents,
+        originalPriceCents: sp.customPriceCents != null && sp.customPriceCents !== product.priceCents ? product.priceCents : product.originalPriceCents,
+        thumbnailUrl: product.thumbnailUrl,
+        isLeadMagnet: sp.isLeadMagnet,
+      },
+    });
+  });
+
+  app.get("/api/embed/:slug/bundle/:bundleId", async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("X-Frame-Options", "ALLOWALL");
+    const store = await storage.getStoreBySlug(req.params.slug as string);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+
+    const data = await storage.getBundleWithProducts(req.params.bundleId as string);
+    if (!data || data.bundle.storeId !== store.id || !data.bundle.isPublished)
+      return res.status(404).json({ message: "Bundle not found" });
+
+    res.json({
+      type: "bundle",
+      store: { name: store.name, slug: store.slug, accentColor: store.accentColor, templateKey: store.templateKey },
+      item: {
+        id: data.bundle.id,
+        name: data.bundle.name,
+        description: data.bundle.description,
+        priceCents: data.bundle.priceCents,
+        thumbnailUrl: data.bundle.thumbnailUrl,
+        productCount: data.products.length,
+      },
+    });
+  });
+
   app.get("/api/stripe/publishable-key", async (_req, res) => {
     try {
       const key = await getStripePublishableKey();

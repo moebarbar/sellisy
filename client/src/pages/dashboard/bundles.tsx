@@ -14,7 +14,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Layers, Plus, Trash2, Store } from "lucide-react";
+import { Layers, Plus, Trash2, Store, Code } from "lucide-react";
+import { EmbedDialog } from "@/components/dashboard/embed-dialog";
 import type { StoreProduct, Product } from "@shared/schema";
 
 type StoreProductWithProduct = StoreProduct & { product: Product };
@@ -23,6 +24,7 @@ export default function BundlesPage() {
   const { activeStore, activeStoreId, storesLoading } = useActiveStore();
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [embedBundle, setEmbedBundle] = useState<{ id: string; name: string } | null>(null);
   const [bundleName, setBundleName] = useState("");
   const [bundleDescription, setBundleDescription] = useState("");
   const [bundlePrice, setBundlePrice] = useState("");
@@ -273,6 +275,21 @@ export default function BundlesPage() {
                     disabled={togglePublishMutation.isPending}
                     data-testid={`switch-bundle-publish-${bundle.id}`}
                   />
+                  {bundle.isPublished && activeStore?.slug && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEmbedBundle({ id: bundle.id, name: bundle.name })}
+                          data-testid={`button-embed-bundle-${bundle.id}`}
+                        >
+                          <Code className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Embed</TooltipContent>
+                    </Tooltip>
+                  )}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -291,6 +308,16 @@ export default function BundlesPage() {
               </CardContent>
             </Card>
           ))}
+          {embedBundle && activeStore?.slug && (
+            <EmbedDialog
+              open={!!embedBundle}
+              onOpenChange={(open) => { if (!open) setEmbedBundle(null); }}
+              storeSlug={activeStore.slug}
+              itemType="bundle"
+              itemId={embedBundle.id}
+              itemName={embedBundle.name}
+            />
+          )}
         </div>
       ) : (
         <Card className="dv-fade-in">

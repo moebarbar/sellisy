@@ -41,6 +41,8 @@ const StorePortalPage = lazy(() => import("@/pages/store-portal"));
 const KbViewerPage = lazy(() => import("@/pages/kb-viewer"));
 const BlogListingPage = lazy(() => import("@/pages/blog-listing"));
 const BlogPostPage = lazy(() => import("@/pages/blog-post"));
+const EmbedProductWidget = lazy(() => import("@/pages/embed-widget"));
+const EmbedBundleWidget = lazy(() => import("@/pages/embed-widget").then(m => ({ default: m.EmbedBundleWidget })));
 
 function PageFallback() {
   return (
@@ -131,6 +133,8 @@ function Router() {
             <Route path="/account/purchase/:orderId" component={AccountPurchaseDetailPage} />
             <Route path="/s/:slug/portal/:orderId" component={StorePortalPage} />
             <Route path="/s/:slug/portal" component={StorePortalPage} />
+            <Route path="/embed/:slug/product/:productId" component={EmbedProductWidget} />
+            <Route path="/embed/:slug/bundle/:bundleId" component={EmbedBundleWidget} />
             <Route path="/s/:slug/blog/:postSlug" component={BlogPostPage} />
             <Route path="/s/:slug/blog" component={BlogListingPage} />
             <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
