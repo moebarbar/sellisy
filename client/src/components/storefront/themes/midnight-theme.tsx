@@ -172,6 +172,20 @@ function midnightCss(c: ThemeColors, mode: ThemeMode): string {
       opacity: ${isDark ? 0.06 : 0.04};
       filter: blur(60px);
     }
+    .midnight-grid {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        radial-gradient(circle 1px, ${c.accent}${isDark ? "14" : "0a"} 100%, transparent 100%);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 25%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 25%, transparent 70%);
+      animation: midnight-glow 6s ease-in-out infinite;
+    }
+    .midnight-constellation-line {
+      position: absolute; pointer-events: none; height: 1px;
+      opacity: ${isDark ? 0.12 : 0.06};
+      transform-origin: left center;
+    }
     .midnight-card-shimmer {
       position: absolute; inset: 0; pointer-events: none; border-radius: inherit; overflow: hidden;
     }
@@ -187,6 +201,14 @@ function midnightCss(c: ThemeColors, mode: ThemeMode): string {
       background-size: 250% 250%;
       animation: midnight-gradient 8s ease infinite;
     }
+    .midnight-scanline {
+      position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+    }
+    .midnight-scanline::after {
+      content: ''; position: absolute; left: 0; right: 0; height: 200px;
+      background: linear-gradient(to bottom, transparent, ${c.accent}04, transparent);
+      animation: midnight-twinkle 8s linear infinite;
+    }
     .sf-reveal-item { opacity: 0; transform: translateY(24px); transition: opacity 0.5s ease, transform 0.5s ease; }
     .sf-reveal-item.sf-revealed { opacity: 1; transform: translateY(0); }
   `;
@@ -194,7 +216,7 @@ function midnightCss(c: ThemeColors, mode: ThemeMode): string {
 
 function MidnightBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeMode }) {
   const isDark = mode === "dark";
-  const stars = Array.from({ length: 60 }, (_, i) => {
+  const stars = Array.from({ length: 70 }, (_, i) => {
     const sizeClass = i % 7 === 0 ? "lg" : i % 3 === 0 ? "md" : "sm";
     const sizePx = sizeClass === "lg" ? 3 : sizeClass === "md" ? 2 : 1;
     return {
@@ -208,28 +230,34 @@ function MidnightBackground({ colors, mode }: { colors: ThemeColors; mode: Theme
     };
   });
 
+  const constellations = [
+    { x: 12, y: 8, angle: 35, len: 80 },
+    { x: 25, y: 15, angle: -20, len: 60 },
+    { x: 55, y: 5, angle: 15, len: 90 },
+    { x: 70, y: 12, angle: -40, len: 70 },
+    { x: 40, y: 22, angle: 50, len: 50 },
+    { x: 82, y: 8, angle: -15, len: 65 },
+  ];
+
   return (
     <>
+      <div className="midnight-grid" />
       <div className="midnight-nebula" />
-      <div className="midnight-nebula-cloud" style={{ width: 500, height: 300, top: "5%", left: "10%", background: `radial-gradient(ellipse, ${colors.accent}, transparent)` }} />
-      <div className="midnight-nebula-cloud" style={{ width: 600, height: 350, top: "30%", right: "5%", background: `radial-gradient(ellipse, ${colors.accentAlt}, transparent)`, opacity: isDark ? 0.04 : 0.03 }} />
-      <div className="midnight-nebula-cloud" style={{ width: 400, height: 250, bottom: "15%", left: "30%", background: `radial-gradient(ellipse, ${isDark ? "#c4b5fd" : "#6366f1"}, transparent)`, opacity: isDark ? 0.05 : 0.03 }} />
-      <div className="midnight-orb absolute top-[-200px] left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full" style={{ background: `radial-gradient(circle, ${colors.accent}12 0%, ${colors.accentAlt}06 40%, transparent 70%)` }} />
-      <div className="midnight-orb absolute top-[500px] right-[-150px] w-[500px] h-[500px] rounded-full" style={{ background: `radial-gradient(circle, ${colors.accentAlt}08 0%, transparent 60%)`, animationDelay: "2.5s" }} />
-      <div className="midnight-orb absolute bottom-[-80px] left-[-150px] w-[400px] h-[400px] rounded-full" style={{ background: `radial-gradient(circle, ${colors.accent}0a 0%, transparent 60%)`, animationDelay: "4s" }} />
+      <div className="midnight-scanline" />
+      <div className="midnight-nebula-cloud" style={{ width: 600, height: 350, top: "2%", left: "5%", background: `radial-gradient(ellipse, ${colors.accent}, transparent)` }} />
+      <div className="midnight-nebula-cloud" style={{ width: 700, height: 400, top: "25%", right: "0%", background: `radial-gradient(ellipse, ${colors.accentAlt}, transparent)`, opacity: isDark ? 0.05 : 0.03 }} />
+      <div className="midnight-nebula-cloud" style={{ width: 500, height: 300, bottom: "10%", left: "25%", background: `radial-gradient(ellipse, ${isDark ? "#c4b5fd" : "#6366f1"}, transparent)`, opacity: isDark ? 0.04 : 0.025 }} />
+      <div className="midnight-orb absolute top-[-200px] left-1/2 -translate-x-1/2 w-[900px] h-[700px] rounded-full" style={{ background: `radial-gradient(ellipse at center, ${colors.accent}14 0%, ${colors.accentAlt}08 40%, transparent 70%)`, filter: "blur(30px)" }} />
+      <div className="midnight-orb absolute top-[400px] right-[-150px] w-[500px] h-[500px] rounded-full" style={{ background: `radial-gradient(circle, ${colors.accentAlt}08 0%, transparent 60%)`, filter: "blur(40px)", animationDelay: "2.5s" }} />
+      {constellations.map((c, i) => (
+        <div key={`const-${i}`} className="midnight-constellation-line" style={{
+          left: `${c.x}%`, top: `${c.y}%`, width: `${c.len}px`,
+          background: `linear-gradient(90deg, ${colors.accent}30, ${colors.accentAlt}20, transparent)`,
+          transform: `rotate(${c.angle}deg)`,
+        }} />
+      ))}
       {stars.map((s) => (
-        <div
-          key={s.id}
-          className={`midnight-star midnight-star-${s.sizeClass}`}
-          style={{
-            left: s.left,
-            top: s.top,
-            width: s.size,
-            height: s.size,
-            animationDelay: s.delay,
-            animationDuration: s.duration,
-          }}
-        />
+        <div key={s.id} className={`midnight-star midnight-star-${s.sizeClass}`} style={{ left: s.left, top: s.top, width: s.size, height: s.size, animationDelay: s.delay, animationDuration: s.duration }} />
       ))}
     </>
   );

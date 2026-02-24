@@ -136,6 +136,32 @@ function emberCss(c: ThemeColors, mode: ThemeMode): string {
       background: ${c.accent}; pointer-events: none;
       animation: ember-rise 5s ease-in-out infinite;
     }
+    .ember-lattice {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        linear-gradient(45deg, ${c.accent}${isDark ? "08" : "05"} 1px, transparent 1px),
+        linear-gradient(-45deg, ${c.accent}${isDark ? "08" : "05"} 1px, transparent 1px);
+      background-size: 40px 40px;
+      mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 25%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 25%, transparent 70%);
+    }
+    .ember-warmth {
+      position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 100% 60% at 50% -5%, ${c.accent}${isDark ? "12" : "08"} 0%, transparent 65%),
+        radial-gradient(circle at 15% 25%, ${isDark ? "#f0a04b" : "#e67e22"}${isDark ? "0a" : "05"} 0%, transparent 50%),
+        radial-gradient(circle at 85% 20%, ${isDark ? "#d35400" : "#c04800"}${isDark ? "08" : "04"} 0%, transparent 50%);
+    }
+    .ember-heat-line {
+      position: absolute; pointer-events: none; height: 1px;
+      background: linear-gradient(90deg, transparent, ${c.accent}${isDark ? "20" : "12"}, ${isDark ? "#f0a04b" : "#e67e22"}${isDark ? "18" : "0a"}, transparent);
+      animation: ember-shimmer 10s linear infinite;
+    }
+    .ember-glow-spot {
+      position: absolute; border-radius: 50%; pointer-events: none;
+      animation: ember-pulse 6s ease-in-out infinite;
+      filter: blur(50px);
+    }
     .sf-reveal-item { opacity: 0; transform: translateY(24px); transition: opacity 0.5s ease, transform 0.5s ease; }
     .sf-reveal-item.sf-revealed { opacity: 1; transform: translateY(0); }
   `;
@@ -154,12 +180,19 @@ function EmberDivider({ isDark }: { isDark: boolean }) {
 function EmberBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeMode }) {
   const isDark = mode === "dark";
   return (
-    <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
-      <div className="absolute top-0 left-0 w-80 h-80" style={{ background: `radial-gradient(circle at 0% 0%, ${colors.accent}${isDark ? "0a" : "06"}, transparent 70%)` }} />
-      <div className="absolute top-0 right-0 w-96 h-96" style={{ background: `radial-gradient(circle at 100% 0%, ${isDark ? "#f0a04b" : "#e67e22"}${isDark ? "08" : "05"}, transparent 70%)` }} />
-      <div className="absolute bottom-0 left-0 w-72 h-72" style={{ background: `radial-gradient(circle at 0% 100%, ${isDark ? "#d35400" : "#c04800"}${isDark ? "08" : "04"}, transparent 70%)` }} />
-      <div className="absolute bottom-0 right-0 w-80 h-80" style={{ background: `radial-gradient(circle at 100% 100%, ${colors.accent}${isDark ? "06" : "04"}, transparent 70%)` }} />
-    </div>
+    <>
+      <div className="ember-lattice" />
+      <div className="ember-warmth" />
+      <div className="ember-glow-spot" style={{ top: "-150px", left: "30%", width: "400px", height: "400px", background: `radial-gradient(circle, ${colors.accent}${isDark ? "14" : "08"} 0%, transparent 70%)` }} />
+      <div className="ember-glow-spot" style={{ top: "200px", right: "-100px", width: "350px", height: "350px", background: `radial-gradient(circle, ${isDark ? "#f0a04b" : "#e67e22"}${isDark ? "0c" : "06"} 0%, transparent 70%)`, animationDelay: "3s" }} />
+      <div className="ember-glow-spot" style={{ bottom: "50px", left: "-80px", width: "300px", height: "300px", background: `radial-gradient(circle, ${isDark ? "#d35400" : "#c04800"}${isDark ? "0a" : "05"} 0%, transparent 65%)`, animationDelay: "5s" }} />
+      {[0,1,2].map(i => (
+        <div key={`heat-${i}`} className="ember-heat-line" style={{ top: `${10 + i * 8}%`, width: `${50 + i * 15}%`, left: `${5 + i * 12}%`, animationDelay: `${i * 3}s` }} />
+      ))}
+      {isDark && [0,1,2,3,4,5,6,7].map(i => (
+        <div key={i} className="ember-particle" style={{ left: `${8 + i * 12}%`, bottom: `${5 + (i % 3) * 10}%`, animationDelay: `${i * 0.8}s`, animationDuration: `${4 + i * 0.6}s`, opacity: 0.4 + (i % 3) * 0.15 }} />
+      ))}
+    </>
   );
 }
 

@@ -180,6 +180,39 @@ function auroraCss(c: ThemeColors, mode: ThemeMode): string {
       background: ${c.accent}; pointer-events: none;
       animation: aurora-sparkle 4s ease-in-out infinite;
     }
+    .aurora-curtain {
+      position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(180deg,
+        ${c.accent}${isDark ? "0c" : "06"} 0%,
+        ${c.accentAlt}${isDark ? "08" : "04"} 20%,
+        transparent 50%
+      );
+      mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, black 20%, transparent 75%);
+      -webkit-mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, black 20%, transparent 75%);
+    }
+    .aurora-wave-band {
+      position: absolute; pointer-events: none;
+      height: 200px; width: 200%;
+      left: -50%;
+      animation: aurora-wave 12s ease-in-out infinite;
+      filter: blur(40px);
+      opacity: ${isDark ? 0.15 : 0.08};
+    }
+    .aurora-mesh {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        radial-gradient(circle 1px, ${c.accent}${isDark ? "18" : "10"} 100%, transparent 100%);
+      background-size: 50px 50px;
+      mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 20%, transparent 70%);
+      opacity: ${isDark ? 0.6 : 0.4};
+    }
+    .aurora-streak {
+      position: absolute; pointer-events: none;
+      background: linear-gradient(90deg, transparent, ${c.accent}${isDark ? "12" : "08"}, ${c.accentAlt}${isDark ? "0a" : "05"}, transparent);
+      height: 1px;
+      animation: aurora-shimmer 8s linear infinite;
+    }
     .sf-reveal-item { opacity: 0; transform: translateY(24px); transition: opacity 0.5s ease, transform 0.5s ease; }
     .sf-reveal-item.sf-revealed { opacity: 1; transform: translateY(0); }
   `;
@@ -189,90 +222,20 @@ function AuroraBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeMo
   const isDark = mode === "dark";
   return (
     <>
-      <div
-        className="aurora-orb absolute top-[-350px] left-1/2 -translate-x-1/2 w-[1200px] h-[700px]"
-        style={{
-          background: `radial-gradient(ellipse at center, ${colors.accent}${isDark ? "1a" : "12"} 0%, transparent 65%)`,
-          filter: "blur(60px)",
-        }}
-      />
-      <div
-        className="aurora-orb absolute top-[-200px] left-[15%] w-[800px] h-[550px]"
-        style={{
-          background: `radial-gradient(ellipse at center, ${colors.accentAlt}${isDark ? "14" : "0a"} 0%, transparent 65%)`,
-          filter: "blur(80px)",
-          animationDelay: "1.5s",
-          animationDuration: "7s",
-        }}
-      />
-      <div
-        className="aurora-orb absolute top-[80px] right-[-150px] w-[700px] h-[500px]"
-        style={{
-          background: `radial-gradient(ellipse at center, rgba(34,211,238,${isDark ? "0.1" : "0.06"}) 0%, transparent 65%)`,
-          filter: "blur(70px)",
-          animationDelay: "3s",
-          animationDuration: "9s",
-        }}
-      />
-      <div
-        className="aurora-orb absolute top-[300px] left-[-100px] w-[500px] h-[400px]"
-        style={{
-          background: `radial-gradient(ellipse at center, rgba(16,185,129,${isDark ? "0.08" : "0.05"}) 0%, transparent 65%)`,
-          filter: "blur(90px)",
-          animationDelay: "2s",
-          animationDuration: "8s",
-        }}
-      />
-      <div
-        className="aurora-orb absolute top-[500px] right-[10%] w-[600px] h-[350px]"
-        style={{
-          background: `radial-gradient(ellipse at center, ${colors.accent}${isDark ? "0c" : "08"} 0%, transparent 60%)`,
-          filter: "blur(100px)",
-          animationDelay: "4s",
-          animationDuration: "10s",
-        }}
-      />
-      <div
-        className="aurora-orb absolute bottom-[200px] left-[30%] w-[500px] h-[300px]"
-        style={{
-          background: `radial-gradient(ellipse at center, ${colors.accentAlt}${isDark ? "0a" : "06"} 0%, transparent 60%)`,
-          filter: "blur(85px)",
-          animationDelay: "5s",
-          animationDuration: "11s",
-        }}
-      />
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: isDark
-            ? `linear-gradient(180deg, transparent 0%, ${colors.bg}80 40%, ${colors.bg} 100%)`
-            : `linear-gradient(180deg, transparent 0%, ${colors.bg}60 50%, ${colors.bg} 100%)`,
-        }}
-      />
-      {isDark && (
-        <div
-          className="absolute top-0 left-0 w-full h-[600px] pointer-events-none"
-          style={{
-            background: `
-              radial-gradient(ellipse 120% 60% at 50% -10%, ${colors.accent}10 0%, transparent 70%),
-              radial-gradient(ellipse 80% 40% at 25% 15%, ${colors.accentAlt}0a 0%, transparent 60%),
-              radial-gradient(ellipse 80% 40% at 75% 10%, rgba(34,211,238,0.06) 0%, transparent 60%),
-              radial-gradient(ellipse 60% 30% at 50% 30%, rgba(16,185,129,0.04) 0%, transparent 50%)
-            `,
-          }}
-        />
-      )}
-      {isDark && [0,1,2,3,4,5,6].map(i => (
-        <div
-          key={i}
-          className="aurora-sparkle-dot"
-          style={{
-            left: `${8 + i * 13}%`,
-            top: `${12 + (i % 4) * 18}%`,
-            animationDelay: `${i * 0.7}s`,
-            animationDuration: `${3 + i * 1.1}s`,
-          }}
-        />
+      <div className="aurora-curtain" />
+      <div className="aurora-mesh" />
+      <div className="aurora-wave-band" style={{ top: "5%", background: `linear-gradient(90deg, transparent, ${colors.accent}, ${colors.accentAlt}, rgba(34,211,238,0.8), transparent)`, animationDelay: "0s" }} />
+      <div className="aurora-wave-band" style={{ top: "12%", background: `linear-gradient(90deg, transparent, ${colors.accentAlt}, rgba(16,185,129,0.7), ${colors.accent}, transparent)`, animationDelay: "4s", animationDuration: "15s" }} />
+      <div className="aurora-wave-band" style={{ top: "20%", background: `linear-gradient(90deg, transparent, rgba(34,211,238,0.6), ${colors.accent}, ${colors.accentAlt}, transparent)`, animationDelay: "8s", animationDuration: "18s" }} />
+      <div className="aurora-orb absolute top-[-300px] left-1/2 -translate-x-1/2 w-[1000px] h-[600px]" style={{ background: `radial-gradient(ellipse at center, ${colors.accent}${isDark ? "14" : "0a"} 0%, transparent 65%)`, filter: "blur(60px)" }} />
+      <div className="aurora-orb absolute top-[200px] right-[-100px] w-[600px] h-[400px]" style={{ background: `radial-gradient(ellipse at center, ${colors.accentAlt}${isDark ? "0c" : "06"} 0%, transparent 65%)`, filter: "blur(80px)", animationDelay: "2.5s" }} />
+      <div className="aurora-orb absolute bottom-[100px] left-[-80px] w-[500px] h-[350px]" style={{ background: `radial-gradient(ellipse at center, rgba(34,211,238,${isDark ? "0.07" : "0.04"}) 0%, transparent 60%)`, filter: "blur(70px)", animationDelay: "4s" }} />
+      {[0,1,2,3,4].map(i => (
+        <div key={`streak-${i}`} className="aurora-streak" style={{ top: `${8 + i * 5}%`, width: `${40 + i * 10}%`, left: `${10 + i * 8}%`, animationDelay: `${i * 2}s`, animationDuration: `${6 + i * 2}s` }} />
+      ))}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: isDark ? `linear-gradient(180deg, transparent 0%, ${colors.bg}80 50%, ${colors.bg} 100%)` : `linear-gradient(180deg, transparent 0%, ${colors.bg}60 50%, ${colors.bg} 100%)` }} />
+      {isDark && [0,1,2,3,4,5,6,7,8].map(i => (
+        <div key={i} className="aurora-sparkle-dot" style={{ left: `${5 + i * 11}%`, top: `${8 + (i % 5) * 16}%`, animationDelay: `${i * 0.6}s`, animationDuration: `${2.5 + i * 0.8}s` }} />
       ))}
     </>
   );

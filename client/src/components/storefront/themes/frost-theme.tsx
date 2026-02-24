@@ -158,6 +158,45 @@ function frostCss(c: ThemeColors, mode: ThemeMode): string {
     .frost-orb {
       animation: frost-breathe 6s ease-in-out infinite; pointer-events: none;
     }
+    .frost-hex-grid {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        linear-gradient(60deg, ${c.accent}${isDark ? "0a" : "06"} 1px, transparent 1px),
+        linear-gradient(-60deg, ${c.accent}${isDark ? "0a" : "06"} 1px, transparent 1px),
+        linear-gradient(0deg, ${c.accent}${isDark ? "06" : "04"} 1px, transparent 1px);
+      background-size: 50px 86.6px;
+      mask-image: radial-gradient(ellipse 85% 55% at 50% 0%, black 20%, transparent 72%);
+      -webkit-mask-image: radial-gradient(ellipse 85% 55% at 50% 0%, black 20%, transparent 72%);
+    }
+    .frost-crystal-dots {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image: radial-gradient(circle 1.2px, ${c.accent}${isDark ? "20" : "14"} 100%, transparent 100%);
+      background-size: 50px 86.6px;
+      mask-image: radial-gradient(ellipse 85% 55% at 50% 0%, black 20%, transparent 72%);
+      -webkit-mask-image: radial-gradient(ellipse 85% 55% at 50% 0%, black 20%, transparent 72%);
+      animation: frost-breathe 5s ease-in-out infinite;
+    }
+    .frost-aurora {
+      position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 100% 50% at 50% -10%, ${c.accent}${isDark ? "10" : "08"} 0%, transparent 60%),
+        radial-gradient(circle at 20% 20%, ${isDark ? "rgba(186,230,253,0.06)" : "rgba(147,197,253,0.04)"} 0%, transparent 50%),
+        radial-gradient(circle at 80% 15%, ${isDark ? "rgba(96,165,250,0.05)" : "rgba(59,130,246,0.03)"} 0%, transparent 50%);
+    }
+    .frost-shard {
+      position: absolute; pointer-events: none; border-radius: 2px;
+      background: linear-gradient(135deg, ${c.accent}${isDark ? "12" : "08"}, transparent);
+      border: 1px solid ${c.accent}${isDark ? "0a" : "06"};
+      animation: frost-drift 12s ease-in-out infinite;
+    }
+    .frost-scanline {
+      position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+    }
+    .frost-scanline::after {
+      content: ''; position: absolute; left: 0; right: 0; height: 150px;
+      background: linear-gradient(to bottom, transparent, ${c.accent}${isDark ? "04" : "03"}, transparent);
+      animation: frost-drift 10s linear infinite;
+    }
     .sf-reveal-item { opacity: 0; transform: translateY(24px); transition: opacity 0.5s ease, transform 0.5s ease; }
     .sf-reveal-item.sf-revealed { opacity: 1; transform: translateY(0); }
   `;
@@ -165,21 +204,25 @@ function frostCss(c: ThemeColors, mode: ThemeMode): string {
 
 function FrostBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeMode }) {
   const isDark = mode === "dark";
-  const orbA = isDark ? `${colors.accent}12` : `${colors.accent}0a`;
-  const orbB = isDark ? "rgba(186,230,253,0.06)" : "rgba(147,197,253,0.08)";
-  const orbC = isDark ? "rgba(96,165,250,0.05)" : "rgba(96,165,250,0.06)";
-  const glassA = isDark ? "rgba(147,197,253,0.03)" : "rgba(147,197,253,0.05)";
-  const glassB = isDark ? "rgba(186,230,253,0.02)" : "rgba(186,230,253,0.04)";
   return (
     <>
-      <div className="frost-orb absolute top-[-200px] left-1/3 w-[700px] h-[700px] rounded-full" style={{ background: `radial-gradient(circle, ${orbA} 0%, transparent 70%)` }} />
-      <div className="frost-orb absolute top-[300px] right-[-150px] w-[500px] h-[500px] rounded-full" style={{ background: `radial-gradient(circle, ${orbB} 0%, transparent 65%)`, animationDelay: "2s" }} />
-      <div className="frost-orb absolute bottom-[-100px] left-[-100px] w-[400px] h-[400px] rounded-full" style={{ background: `radial-gradient(circle, ${orbC} 0%, transparent 60%)`, animationDelay: "4s" }} />
-      <div className="absolute top-[10%] right-[15%] w-[280px] h-[280px] rounded-[40%_60%_55%_45%] rotate-12" style={{ background: `linear-gradient(135deg, ${glassA}, transparent)`, backdropFilter: "blur(1px)", border: `1px solid ${isDark ? "rgba(147,197,253,0.04)" : "rgba(147,197,253,0.06)"}` }} />
-      <div className="absolute top-[55%] left-[8%] w-[200px] h-[200px] rounded-[55%_45%_50%_50%] -rotate-6" style={{ background: `linear-gradient(160deg, ${glassB}, transparent)`, backdropFilter: "blur(1px)", border: `1px solid ${isDark ? "rgba(186,230,253,0.03)" : "rgba(186,230,253,0.05)"}` }} />
-      <div className="absolute bottom-[15%] right-[20%] w-[160px] h-[160px] rounded-[45%_55%_60%_40%] rotate-45" style={{ background: `linear-gradient(120deg, ${glassA}, transparent)`, border: `1px solid ${isDark ? "rgba(147,197,253,0.03)" : "rgba(147,197,253,0.04)"}` }} />
-      {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
-        <div key={i} className="frost-particle" style={{ left: `${10 + i * 12}%`, top: `${15 + (i % 4) * 20}%`, animationDelay: `${i * 0.7}s`, animationDuration: `${3 + i * 0.5}s`, opacity: isDark ? 0.5 : 0.3 }} />
+      <div className="frost-hex-grid" />
+      <div className="frost-crystal-dots" />
+      <div className="frost-aurora" />
+      <div className="frost-scanline" />
+      <div className="frost-orb absolute top-[-250px] left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full" style={{ background: `radial-gradient(ellipse at center, ${colors.accent}${isDark ? "12" : "0a"} 0%, transparent 65%)`, filter: "blur(40px)" }} />
+      <div className="frost-orb absolute top-[300px] right-[-120px] w-[500px] h-[400px] rounded-full" style={{ background: `radial-gradient(circle, ${isDark ? "rgba(186,230,253,0.06)" : "rgba(147,197,253,0.05)"} 0%, transparent 65%)`, filter: "blur(50px)", animationDelay: "2s" }} />
+      <div className="frost-orb absolute bottom-[-80px] left-[-80px] w-[400px] h-[350px] rounded-full" style={{ background: `radial-gradient(circle, ${isDark ? "rgba(96,165,250,0.05)" : "rgba(59,130,246,0.04)"} 0%, transparent 60%)`, filter: "blur(45px)", animationDelay: "4s" }} />
+      {[0,1,2,3].map(i => (
+        <div key={`shard-${i}`} className="frost-shard" style={{
+          width: `${20 + i * 8}px`, height: `${60 + i * 15}px`,
+          left: `${15 + i * 22}%`, top: `${5 + (i % 2) * 12}%`,
+          transform: `rotate(${30 + i * 25}deg)`,
+          animationDelay: `${i * 3}s`, animationDuration: `${10 + i * 2}s`,
+        }} />
+      ))}
+      {[0,1,2,3,4,5,6,7,8,9].map(i => (
+        <div key={i} className="frost-particle" style={{ left: `${5 + i * 10}%`, top: `${10 + (i % 5) * 17}%`, animationDelay: `${i * 0.5}s`, animationDuration: `${2.5 + i * 0.4}s`, opacity: isDark ? 0.5 : 0.3 }} />
       ))}
     </>
   );
