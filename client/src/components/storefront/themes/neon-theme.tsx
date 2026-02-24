@@ -227,9 +227,9 @@ function NeonBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeMode
 
 function NeonHeaderLogo({ store, colors }: { store: { name: string; logoUrl: string | null }; colors: ThemeColors }) {
   return store.logoUrl ? (
-    <img src={store.logoUrl} alt={store.name} className="h-9 w-9 rounded-lg object-cover" loading="lazy" style={{ boxShadow: `0 0 12px ${colors.accent}30` }} data-testid="img-store-logo" />
+    <img src={store.logoUrl} alt={store.name} className="h-10 w-10 rounded-lg object-cover" loading="lazy" style={{ boxShadow: `0 0 12px ${colors.accent}30` }} data-testid="img-store-logo" />
   ) : (
-    <div className="neon-glow-icon relative flex items-center justify-center w-9 h-9 rounded-lg" style={{ background: `linear-gradient(135deg, ${colors.accent}20, ${colors.accentAlt}20)`, border: `1px solid ${colors.accent}25` }}>
+    <div className="neon-glow-icon relative flex items-center justify-center w-10 h-10 rounded-lg" style={{ background: `linear-gradient(135deg, ${colors.accent}20, ${colors.accentAlt}20)`, border: `1px solid ${colors.accent}25` }}>
       <Zap className="h-4 w-4" style={{ color: colors.accent }} />
     </div>
   );

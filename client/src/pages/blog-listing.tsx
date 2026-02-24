@@ -133,6 +133,7 @@ export default function BlogListingPage() {
   usePageMeta({
     title: data ? `Blog - ${data.store.name}` : "Blog",
     description: data ? `Read the latest articles from ${data.store.name}` : undefined,
+    favicon: data?.store?.faviconUrl || data?.store?.logoUrl || undefined,
   });
 
   const filteredPosts = useMemo(() => {

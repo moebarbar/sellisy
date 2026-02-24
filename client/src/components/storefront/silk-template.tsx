@@ -272,7 +272,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
           <div className="flex items-center gap-3">
             {store.logoUrl ? (
               <>
-                <img src={store.logoUrl} alt={store.name} className="h-8 w-8 rounded-full object-cover" loading="lazy" style={{ border: `1px solid ${c.goldBorder}` }} data-testid="img-silk-logo" />
+                <img src={store.logoUrl} alt={store.name} className="h-10 w-10 rounded-full object-cover" loading="lazy" style={{ border: `1px solid ${c.goldBorder}` }} data-testid="img-silk-logo" />
                 <span className="text-sm font-serif tracking-[0.3em] uppercase" style={{ color: c.goldMuted }} data-testid="text-silk-store-name">
                   {store.name}
                 </span>
@@ -647,7 +647,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-4">
                 {store.logoUrl ? (
-                  <img src={store.logoUrl} alt={store.name} className="h-8 w-8 rounded-full object-cover" loading="lazy" style={{ border: `1px solid ${c.goldBorder}` }} />
+                  <img src={store.logoUrl} alt={store.name} className="h-10 w-10 rounded-full object-cover" loading="lazy" style={{ border: `1px solid ${c.goldBorder}` }} />
                 ) : (
                   <>
                     <div className="h-px w-6" style={{ backgroundColor: c.gold }} />

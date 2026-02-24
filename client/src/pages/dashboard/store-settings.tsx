@@ -144,6 +144,9 @@ export default function StoreSettingsPage() {
   const [socialYoutube, setSocialYoutube] = useState("");
   const [socialTiktok, setSocialTiktok] = useState("");
   const [socialWebsite, setSocialWebsite] = useState("");
+  const [faviconUrl, setFaviconUrl] = useState("");
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
 
   useEffect(() => {
     if (activeStore) {
@@ -162,6 +165,9 @@ export default function StoreSettingsPage() {
       setSocialYoutube(activeStore.socialYoutube || "");
       setSocialTiktok(activeStore.socialTiktok || "");
       setSocialWebsite(activeStore.socialWebsite || "");
+      setFaviconUrl(activeStore.faviconUrl || "");
+      setSeoTitle(activeStore.seoTitle || "");
+      setSeoDescription(activeStore.seoDescription || "");
     }
   }, [activeStore]);
 
@@ -184,6 +190,9 @@ export default function StoreSettingsPage() {
       if (socialYoutube !== (activeStore.socialYoutube || "")) updates.socialYoutube = socialYoutube || null;
       if (socialTiktok !== (activeStore.socialTiktok || "")) updates.socialTiktok = socialTiktok || null;
       if (socialWebsite !== (activeStore.socialWebsite || "")) updates.socialWebsite = socialWebsite || null;
+      if (faviconUrl !== (activeStore.faviconUrl || "")) updates.faviconUrl = faviconUrl || null;
+      if (seoTitle !== (activeStore.seoTitle || "")) updates.seoTitle = seoTitle || null;
+      if (seoDescription !== (activeStore.seoDescription || "")) updates.seoDescription = seoDescription || null;
       if (Object.keys(updates).length === 0) return;
       await apiRequest("PATCH", `/api/stores/${activeStore.id}`, updates);
     },
@@ -244,6 +253,8 @@ export default function StoreSettingsPage() {
     || footerText !== (activeStore.footerText || "") || socialTwitter !== (activeStore.socialTwitter || "")
     || socialInstagram !== (activeStore.socialInstagram || "") || socialYoutube !== (activeStore.socialYoutube || "")
     || socialTiktok !== (activeStore.socialTiktok || "") || socialWebsite !== (activeStore.socialWebsite || "")
+    || faviconUrl !== (activeStore.faviconUrl || "") || seoTitle !== (activeStore.seoTitle || "")
+    || seoDescription !== (activeStore.seoDescription || "")
   );
 
   return (
@@ -328,9 +339,25 @@ export default function StoreSettingsPage() {
                 label="Logo"
                 value={logoUrl}
                 onChange={setLogoUrl}
-                aspectHint="Square image recommended (e.g. 256x256px). Shown in storefront header."
-                previewClass="w-24 h-24"
+                aspectHint="Square image, 512×512px recommended. Displayed in your storefront header and used as social sharing image."
+                previewClass="w-28 h-28"
                 testIdPrefix="logo"
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Favicon</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ImageUploadField
+                label="Favicon"
+                value={faviconUrl}
+                onChange={setFaviconUrl}
+                aspectHint="Square icon, 32×32px or 64×64px. Shown in the browser tab. Falls back to your store logo if not set."
+                previewClass="w-16 h-16"
+                testIdPrefix="favicon"
               />
             </CardContent>
           </Card>
@@ -352,6 +379,40 @@ export default function StoreSettingsPage() {
           </Card>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Globe className="h-4 w-4" /> SEO
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">Control how your store appears in search engines and social media. These override defaults when set.</p>
+          <div className="space-y-2">
+            <Label htmlFor="settings-seo-title">Page Title</Label>
+            <Input
+              id="settings-seo-title"
+              placeholder={activeStore?.name || "Your Store Name"}
+              value={seoTitle}
+              onChange={(e) => setSeoTitle(e.target.value)}
+              data-testid="input-settings-seo-title"
+            />
+            <p className="text-xs text-muted-foreground">Shown in the browser tab and search results. Defaults to your store name.</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="settings-seo-description">Meta Description</Label>
+            <Textarea
+              id="settings-seo-description"
+              placeholder="e.g. Premium digital products for creators and entrepreneurs"
+              value={seoDescription}
+              onChange={(e) => setSeoDescription(e.target.value)}
+              rows={3}
+              data-testid="input-settings-seo-description"
+            />
+            <p className="text-xs text-muted-foreground">Shown in search results and social media previews. Falls back to your tagline.</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

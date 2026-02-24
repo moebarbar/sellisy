@@ -28,10 +28,11 @@ export default function StorefrontPage() {
   });
 
   usePageMeta({
-    title: data?.store ? `${data.store.name} | Sellisy` : undefined,
-    description: data?.store ? (data.store.tagline || `Shop digital products from ${data.store.name}`) : undefined,
+    title: data?.store ? (data.store.seoTitle || data.store.name) : undefined,
+    description: data?.store ? (data.store.seoDescription || data.store.tagline || `Shop digital products from ${data.store.name}`) : undefined,
     ogImage: data?.store?.logoUrl || undefined,
     ogType: "website",
+    favicon: data?.store?.faviconUrl || data?.store?.logoUrl || undefined,
   });
 
   useEffect(() => {

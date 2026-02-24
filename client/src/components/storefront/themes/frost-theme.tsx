@@ -241,9 +241,9 @@ function FrostDivider({ isDark }: { isDark: boolean }) {
 
 function FrostHeaderLogo({ store, colors }: { store: { name: string; logoUrl: string | null }; colors: ThemeColors }) {
   return store.logoUrl ? (
-    <img src={store.logoUrl} alt={store.name} className="h-9 w-9 rounded-lg object-cover" loading="lazy" style={{ border: `1px solid ${colors.accent}20`, boxShadow: `0 0 8px ${colors.accent}15` }} data-testid="img-store-logo" />
+    <img src={store.logoUrl} alt={store.name} className="h-10 w-10 rounded-lg object-cover" loading="lazy" style={{ border: `1px solid ${colors.accent}20`, boxShadow: `0 0 8px ${colors.accent}15` }} data-testid="img-store-logo" />
   ) : (
-    <div className="frost-glow-icon relative flex items-center justify-center w-9 h-9 rounded-lg" style={{ background: `linear-gradient(135deg, ${colors.accent}18, ${colors.accentAlt}18)`, border: `1px solid ${colors.accent}20` }}>
+    <div className="frost-glow-icon relative flex items-center justify-center w-10 h-10 rounded-lg" style={{ background: `linear-gradient(135deg, ${colors.accent}18, ${colors.accentAlt}18)`, border: `1px solid ${colors.accent}20` }}>
       <Snowflake className="h-4 w-4" style={{ color: colors.accent }} />
     </div>
   );

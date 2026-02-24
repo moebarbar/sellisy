@@ -90,10 +90,11 @@ export default function ProductDetailPage() {
   }, [data?.store?.id, data?.product?.id]);
 
   usePageMeta({
-    title: data?.product ? `${data.product.title} - ${data.store.name} | Sellisy` : undefined,
+    title: data?.product ? `${data.product.title} - ${data.store.name}` : undefined,
     description: data?.product ? (data.product.description || `Get ${data.product.title} from ${data.store.name}`) : undefined,
     ogImage: data?.product?.thumbnailUrl || undefined,
     ogType: "product",
+    favicon: data?.store?.faviconUrl || data?.store?.logoUrl || undefined,
   });
 
   const handleBuy = async () => {

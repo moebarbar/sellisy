@@ -50,10 +50,11 @@ export default function BundleDetailPage() {
   }, [data?.store?.id, data?.bundle?.id]);
 
   usePageMeta({
-    title: data?.bundle ? `${data.bundle.name} - ${data.store.name} | Sellisy` : undefined,
+    title: data?.bundle ? `${data.bundle.name} - ${data.store.name}` : undefined,
     description: data?.bundle ? `${data.bundle.name} bundle from ${data.store.name} — ${data.products?.length || 0} products` : undefined,
     ogImage: data?.bundle?.thumbnailUrl || undefined,
     ogType: "product",
+    favicon: data?.store?.faviconUrl || data?.store?.logoUrl || undefined,
   });
 
   const handleBuy = async () => {

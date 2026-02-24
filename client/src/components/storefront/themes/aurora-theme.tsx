@@ -248,14 +248,14 @@ function AuroraHeaderLogo({ store, colors }: { store: { name: string; logoUrl: s
     <img
       src={store.logoUrl}
       alt={store.name}
-      className="h-9 w-9 rounded-lg object-cover"
+      className="h-10 w-10 rounded-lg object-cover"
       loading="lazy"
       style={{ boxShadow: `0 0 14px ${colors.accent}28` }}
       data-testid="img-store-logo"
     />
   ) : (
     <div
-      className="aurora-glow-icon relative flex items-center justify-center w-9 h-9 rounded-lg"
+      className="aurora-glow-icon relative flex items-center justify-center w-10 h-10 rounded-lg"
       style={{
         background: `linear-gradient(135deg, ${colors.accent}22, ${colors.accentAlt}18)`,
         border: `1px solid ${colors.accent}28`,

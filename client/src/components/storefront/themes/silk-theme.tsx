@@ -145,7 +145,7 @@ function silkCss(c: ThemeColors, mode: ThemeMode): string {
 function SilkHeaderLogo({ store, colors }: { store: { name: string; logoUrl: string | null }; colors: ThemeColors }) {
   return store.logoUrl ? (
     <>
-      <img src={store.logoUrl} alt={store.name} className="h-8 w-8 rounded-full object-cover" loading="lazy" style={{ border: `1px solid ${colors.accent}26` }} data-testid="img-store-logo" />
+      <img src={store.logoUrl} alt={store.name} className="h-10 w-10 rounded-full object-cover" loading="lazy" style={{ border: `1px solid ${colors.accent}26` }} data-testid="img-store-logo" />
       <span className="text-sm font-serif tracking-[0.3em] uppercase" style={{ color: colors.accentAlt }} data-testid="text-store-name">{store.name}</span>
     </>
   ) : (

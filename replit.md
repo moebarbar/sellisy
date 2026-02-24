@@ -43,7 +43,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
     *   **Schema**: `customDomain`, `domainStatus`, `domainSource`, `domainVerifiedAt` fields on `stores` table. Separate `store_domains` table tracks purchased domains.
     *   **API**: `server/namecheapClient.ts` wraps Namecheap API. Domain routes at `/api/domains/*`.
     *   **UI**: `DomainSettings` component in `client/src/components/dashboard/domain-settings.tsx`, integrated into store settings page.
-*   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) are implemented using a `usePageMeta` hook.
+*   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) are implemented using a `usePageMeta` hook. Storefront pages show the store's SEO title (or store name) in the browser tab — no platform branding. Custom `faviconUrl` per store, falling back to store logo. Store owners set SEO title, meta description, and favicon from dashboard settings.
 
 ## External Dependencies
 *   **Replit Object Storage**: For storing product images, deliverable files, store logos, and banners.

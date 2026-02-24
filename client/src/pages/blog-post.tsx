@@ -227,6 +227,7 @@ export default function BlogPostPage() {
   usePageMeta({
     title: data ? `${data.post.title} - ${data.store.name}` : "Blog Post",
     description: data?.post.excerpt || undefined,
+    favicon: data?.store?.faviconUrl || data?.store?.logoUrl || undefined,
   });
 
   if (isLoading) {
