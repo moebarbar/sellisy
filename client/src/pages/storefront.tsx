@@ -4,6 +4,8 @@ import { useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NeonTemplate } from "@/components/storefront/neon-template";
 import { SilkTemplate } from "@/components/storefront/silk-template";
+import { BaseTemplate } from "@/components/storefront/base-template";
+import { getTheme } from "@/components/storefront/themes";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { trackEvent } from "@/lib/tracking";
 import type { Store, Product, Bundle } from "@shared/schema";
@@ -15,6 +17,8 @@ type StorefrontData = {
   products: Product[];
   bundles?: BundleWithProducts[];
 };
+
+const legacyTemplates = ["neon", "silk"];
 
 export default function StorefrontPage() {
   const params = useParams<{ slug: string }>();
@@ -63,8 +67,18 @@ export default function StorefrontPage() {
     );
   }
 
-  if (data.store.templateKey === "silk") {
-    return <SilkTemplate store={data.store} products={data.products} bundles={data.bundles || []} />;
+  const templateKey = data.store.templateKey;
+
+  if (legacyTemplates.includes(templateKey)) {
+    if (templateKey === "silk") {
+      return <SilkTemplate store={data.store} products={data.products} bundles={data.bundles || []} />;
+    }
+    return <NeonTemplate store={data.store} products={data.products} bundles={data.bundles || []} />;
+  }
+
+  const theme = getTheme(templateKey);
+  if (theme) {
+    return <BaseTemplate store={data.store} products={data.products} bundles={data.bundles || []} theme={theme} />;
   }
 
   return <NeonTemplate store={data.store} products={data.products} bundles={data.bundles || []} />;
