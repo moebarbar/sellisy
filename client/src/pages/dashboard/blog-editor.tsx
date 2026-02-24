@@ -2207,6 +2207,14 @@ export default function BlogEditorPage() {
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [fontFamily, setFontFamily] = useState("");
   const [category, setCategory] = useState("General");
+  const coverFileRef = useRef<HTMLInputElement>(null);
+  const { uploadFile: uploadCoverFile, isUploading: isCoverUploading } = useUpload({
+    onSuccess: (res) => {
+      setCoverImageUrl(res.objectPath);
+      toast({ title: "Cover image uploaded" });
+    },
+    onError: () => toast({ title: "Upload failed", description: "Could not upload cover image.", variant: "destructive" }),
+  });
 
   const { data: post, isLoading: postLoading } = useQuery<BlogPost>({
     queryKey: ["/api/blog-posts", postId],
@@ -2364,16 +2372,57 @@ export default function BlogEditorPage() {
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label>Cover Image URL</Label>
-              <Input
-                placeholder="https://example.com/image.jpg"
-                value={coverImageUrl}
-                onChange={(e) => setCoverImageUrl(e.target.value)}
-                data-testid="input-blog-cover-url"
-              />
+              <Label>Cover Image</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="https://example.com/image.jpg"
+                  value={coverImageUrl}
+                  onChange={(e) => setCoverImageUrl(e.target.value)}
+                  className="flex-1"
+                  data-testid="input-blog-cover-url"
+                />
+                <input
+                  ref={coverFileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (!file.type.startsWith("image/")) {
+                      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+                      return;
+                    }
+                    await uploadCoverFile(file);
+                    if (coverFileRef.current) coverFileRef.current.value = "";
+                  }}
+                  data-testid="input-blog-cover-file"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isCoverUploading}
+                  onClick={() => coverFileRef.current?.click()}
+                  data-testid="button-upload-cover"
+                >
+                  {isCoverUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Paste a URL or upload an image file.</p>
               {coverImageUrl && (
-                <div className="rounded-md overflow-hidden bg-muted max-w-[256px]">
+                <div className="rounded-md overflow-hidden bg-muted max-w-[256px] relative group">
                   <img src={coverImageUrl} alt="Cover preview" className="w-full h-auto object-cover" data-testid="img-blog-cover-preview" />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-1.5 right-1.5 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setCoverImageUrl("")}
+                    data-testid="button-remove-cover"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
               )}
             </div>
