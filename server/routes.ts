@@ -1443,6 +1443,140 @@ export async function registerRoutes(
     res.json({ page, blocks });
   });
 
+  // --- Blog routes (dashboard) ---
+
+  app.get("/api/blog-posts", isAuthenticated, async (req, res) => {
+    const storeId = req.query.storeId as string;
+    if (!storeId) return res.status(400).json({ message: "storeId required" });
+    const store = await storage.getStoreById(storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+    const posts = await storage.getBlogPostsByStore(storeId);
+    res.json(posts);
+  });
+
+  app.post("/api/blog-posts", isAuthenticated, async (req, res) => {
+    const { storeId, title } = req.body;
+    if (!storeId) return res.status(400).json({ message: "storeId required" });
+    const store = await storage.getStoreById(storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+    const postTitle = title || "Untitled";
+    const baseSlug = postTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "untitled";
+    let slug = baseSlug;
+    let counter = 1;
+    while (await storage.getBlogPostBySlug(storeId, slug)) {
+      slug = `${baseSlug}-${counter++}`;
+    }
+    const post = await storage.createBlogPost({ storeId, title: postTitle, slug });
+    res.json(post);
+  });
+
+  app.get("/api/blog-posts/:id", isAuthenticated, async (req, res) => {
+    const post = await storage.getBlogPostById(req.params.id as string);
+    if (!post) return res.status(404).json({ message: "Not found" });
+    const store = await storage.getStoreById(post.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+    res.json(post);
+  });
+
+  app.patch("/api/blog-posts/:id", isAuthenticated, async (req, res) => {
+    const post = await storage.getBlogPostById(req.params.id as string);
+    if (!post) return res.status(404).json({ message: "Not found" });
+    const store = await storage.getStoreById(post.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+    const allowed = ["title", "slug", "excerpt", "coverImageUrl", "fontFamily", "isPublished", "publishedAt"] as const;
+    const data: any = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) data[key] = req.body[key];
+    }
+    if (data.isPublished === true && !post.publishedAt) {
+      data.publishedAt = new Date();
+    }
+    const updated = await storage.updateBlogPost(post.id, data);
+    res.json(updated);
+  });
+
+  app.delete("/api/blog-posts/:id", isAuthenticated, async (req, res) => {
+    const post = await storage.getBlogPostById(req.params.id as string);
+    if (!post) return res.status(404).json({ message: "Not found" });
+    const store = await storage.getStoreById(post.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+    await storage.deleteBlogPost(post.id);
+    res.json({ success: true });
+  });
+
+  app.get("/api/blog-posts/:id/blocks", isAuthenticated, async (req, res) => {
+    const post = await storage.getBlogPostById(req.params.id as string);
+    if (!post) return res.status(404).json({ message: "Not found" });
+    const store = await storage.getStoreById(post.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+    const blocks = await storage.getBlogBlocksByPost(post.id);
+    res.json(blocks);
+  });
+
+  app.post("/api/blog-posts/:id/blocks", isAuthenticated, async (req, res) => {
+    const post = await storage.getBlogPostById(req.params.id as string);
+    if (!post) return res.status(404).json({ message: "Not found" });
+    const store = await storage.getStoreById(post.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+    const block = await storage.createBlogBlock({ postId: post.id, ...req.body });
+    res.json(block);
+  });
+
+  app.post("/api/blog-posts/:id/blocks/bulk", isAuthenticated, async (req, res) => {
+    const post = await storage.getBlogPostById(req.params.id as string);
+    if (!post) return res.status(404).json({ message: "Not found" });
+    const store = await storage.getStoreById(post.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+    const blocks = req.body.blocks as Array<{ type: string; content: string; sortOrder: number }>;
+    if (!Array.isArray(blocks)) return res.status(400).json({ message: "blocks array required" });
+    const created = [];
+    for (const b of blocks) {
+      const block = await storage.createBlogBlock({ postId: post.id, type: b.type as any, content: b.content, sortOrder: b.sortOrder });
+      created.push(block);
+    }
+    res.json(created);
+  });
+
+  app.patch("/api/blog-blocks/:id", isAuthenticated, async (req, res) => {
+    const updated = await storage.updateBlogBlock(req.params.id as string, req.body);
+    if (!updated) return res.status(404).json({ message: "Not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/blog-blocks/:id", isAuthenticated, async (req, res) => {
+    await storage.deleteBlogBlock(req.params.id as string);
+    res.json({ success: true });
+  });
+
+  app.put("/api/blog-posts/:id/blocks/reorder", isAuthenticated, async (req, res) => {
+    const post = await storage.getBlogPostById(req.params.id as string);
+    if (!post) return res.status(404).json({ message: "Not found" });
+    const store = await storage.getStoreById(post.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
+    const { blockIds } = req.body;
+    if (!Array.isArray(blockIds)) return res.status(400).json({ message: "blockIds array required" });
+    await storage.reorderBlogBlocks(post.id, blockIds);
+    res.json({ success: true });
+  });
+
+  // --- Public blog routes ---
+
+  app.get("/api/storefront/:slug/blog", async (req, res) => {
+    const store = await storage.getStoreBySlug(req.params.slug as string);
+    if (!store || !store.blogEnabled) return res.status(404).json({ message: "Blog not found" });
+    const posts = await storage.getPublishedBlogPostsByStore(store.id);
+    res.json({ store: sanitizeStore(store), posts });
+  });
+
+  app.get("/api/storefront/:slug/blog/:postSlug", async (req, res) => {
+    const store = await storage.getStoreBySlug(req.params.slug as string);
+    if (!store || !store.blogEnabled) return res.status(404).json({ message: "Blog not found" });
+    const post = await storage.getBlogPostBySlug(store.id, req.params.postSlug as string);
+    if (!post || !post.isPublished) return res.status(404).json({ message: "Post not found" });
+    const blocks = await storage.getBlogBlocksByPost(post.id);
+    res.json({ store: sanitizeStore(store), post, blocks });
+  });
+
   // --- Public storefront ---
 
   app.get("/api/storefront/:slug", async (req, res) => {
