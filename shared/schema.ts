@@ -89,12 +89,33 @@ export const stores = pgTable("stores", {
   socialYoutube: text("social_youtube"),
   socialTiktok: text("social_tiktok"),
   socialWebsite: text("social_website"),
+  customDomain: text("custom_domain"),
+  domainStatus: text("domain_status"),
+  domainSource: text("domain_source"),
+  domainVerifiedAt: timestamp("domain_verified_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertStoreSchema = createInsertSchema(stores).omit({ id: true, createdAt: true });
 export type InsertStore = z.infer<typeof insertStoreSchema>;
 export type Store = typeof stores.$inferSelect;
+
+export const storeDomains = pgTable("store_domains", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  domain: text("domain").notNull(),
+  registrar: text("registrar").notNull().default("namecheap"),
+  namecheapOrderId: text("namecheap_order_id"),
+  registrationDate: timestamp("registration_date"),
+  expirationDate: timestamp("expiration_date"),
+  autoRenew: boolean("auto_renew").notNull().default(true),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertStoreDomainSchema = createInsertSchema(storeDomains).omit({ id: true, createdAt: true });
+export type InsertStoreDomain = z.infer<typeof insertStoreDomainSchema>;
+export type StoreDomain = typeof storeDomains.$inferSelect;
 
 export const products = pgTable("products", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),

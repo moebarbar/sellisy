@@ -35,6 +35,14 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 *   **Dashboard**: A fully store-dedicated dashboard with a store switcher, unified navigation, analytics, order management, and settings.
 *   **File Storage**: Integration with Replit Object Storage for handling product images, deliverable files, logos, and banners via presigned URLs.
 *   **Embed Widgets**: Store owners can embed any published product or bundle on external websites via iframe. Dashboard provides a code generator with live preview, light/dark theme toggle, and copy-to-clipboard. Embed endpoints: `GET /api/embed/:slug/product/:productId` and `/api/embed/:slug/bundle/:bundleId`. Widget pages at `/embed/:slug/product/:productId` and `/embed/:slug/bundle/:bundleId` render compact, styled cards with "Buy Now" links back to the storefront.
+*   **Custom Domains**: Store owners can connect custom domains to their storefronts. Two flows:
+    *   **Buy a Domain**: Purchase domains through Sellisy via Namecheap API. Handles registration, DNS configuration, and linking to the store automatically.
+    *   **Bring Your Own Domain**: Connect an existing domain with guided DNS setup instructions (CNAME records). Replit-style DNS instruction panel with copy buttons and verification status.
+    *   **Domain Verification**: DNS verification checks whether the domain's CNAME/A records point to the app. Status progression: `pending_dns` → `active`.
+    *   **Host-Based Routing**: Middleware resolves custom domains to their storefronts automatically (rewrites root domain requests to `/s/{slug}`).
+    *   **Schema**: `customDomain`, `domainStatus`, `domainSource`, `domainVerifiedAt` fields on `stores` table. Separate `store_domains` table tracks purchased domains.
+    *   **API**: `server/namecheapClient.ts` wraps Namecheap API. Domain routes at `/api/domains/*`.
+    *   **UI**: `DomainSettings` component in `client/src/components/dashboard/domain-settings.tsx`, integrated into store settings page.
 *   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) are implemented using a `usePageMeta` hook.
 
 ## External Dependencies
@@ -51,6 +59,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 *   **Tailwind CSS**: Utility-first CSS framework.
 *   **TanStack Query**: Data fetching and caching library for React.
 *   **bcryptjs**: Password hashing for local authentication.
+*   **Namecheap API**: For domain registration and DNS management (via `server/namecheapClient.ts`).
 
 ## Integration Notes
 *   **Stripe**: Connected via Replit Stripe connector. Credentials are fetched from the Replit connection API (`server/stripeClient.ts`). Functions are async. Replit handles sandbox/live key management and deployment transitions automatically.

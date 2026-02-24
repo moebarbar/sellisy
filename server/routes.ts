@@ -4,8 +4,10 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
+import { orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, storeDomains, stores, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { checkDomainAvailability, getDomainPrice, purchaseDomain, setDomainDns, isNamecheapConfigured } from "./namecheapClient";
+import dns from "dns";
 import { seedDatabase, seedMarketingIfNeeded, seedAdminUser } from "./seed";
 import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
@@ -120,6 +122,23 @@ export async function registerRoutes(
   registerAuthRoutes(app);
   registerObjectStorageRoutes(app);
   app.use(cookieParser());
+
+  app.use(async (req, res, next) => {
+    const hostname = req.hostname;
+    if (!hostname || hostname === "localhost" || hostname.includes("replit") || /^\d+\./.test(hostname)) {
+      return next();
+    }
+    try {
+      const [store] = await db.select().from(stores).where(and(eq(stores.customDomain, hostname), eq(stores.domainStatus, "active"))).limit(1);
+      if (store) {
+        if (req.path === "/" || req.path === "") {
+          req.url = "/s/" + store.slug;
+        }
+      }
+    } catch (err) {
+    }
+    next();
+  });
 
   setEmailLogger(async (to, subject, status, error) => {
     await db.insert(emailLogs).values({
@@ -2631,6 +2650,218 @@ export async function registerRoutes(
     }
 
     res.json({ success: true });
+  });
+
+  // Domain API routes
+  app.get("/api/domains/check", isAuthenticated, async (req, res) => {
+    try {
+      if (!isNamecheapConfigured()) {
+        return res.json({ configured: false });
+      }
+      const domain = req.query.domain as string;
+      if (!domain) return res.status(400).json({ message: "Domain parameter required" });
+
+      const availability = await checkDomainAvailability(domain);
+      const pricing = await getDomainPrice(domain);
+      res.json({
+        available: availability.available,
+        domain: availability.domain,
+        premium: availability.premium,
+        registerPrice: pricing.registerPrice,
+        renewPrice: pricing.renewPrice,
+        currency: pricing.currency,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/domains/purchase", isAuthenticated, async (req, res) => {
+    try {
+      const schema = z.object({
+        storeId: z.string().min(1),
+        domain: z.string().min(1),
+        contact: z.object({
+          firstName: z.string().min(1),
+          lastName: z.string().min(1),
+          address: z.string().min(1),
+          city: z.string().min(1),
+          state: z.string().min(1),
+          postalCode: z.string().min(1),
+          country: z.string().min(1),
+          phone: z.string().min(1),
+          email: z.string().email(),
+        }),
+        years: z.number().int().min(1).max(10).optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+
+      const store = await storage.getStoreById(parsed.data.storeId);
+      if (!store || store.ownerId !== getUserId(req)) {
+        return res.status(404).json({ message: "Store not found" });
+      }
+
+      const result = await purchaseDomain(parsed.data.domain, parsed.data.contact, parsed.data.years || 1);
+      if (!result.success) {
+        return res.status(400).json({ message: result.error || "Domain purchase failed" });
+      }
+
+      const appHostname = req.get("host") || "";
+      await setDomainDns(parsed.data.domain, appHostname);
+
+      await db.insert(storeDomains).values({
+        storeId: store.id,
+        domain: parsed.data.domain,
+        registrar: "namecheap",
+        namecheapOrderId: result.orderId,
+        registrationDate: new Date(),
+        status: "active",
+      });
+
+      await db.update(stores).set({
+        customDomain: parsed.data.domain,
+        domainStatus: "active",
+        domainSource: "namecheap",
+      }).where(eq(stores.id, store.id));
+
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/domains/connect", isAuthenticated, async (req, res) => {
+    try {
+      const schema = z.object({
+        storeId: z.string().min(1),
+        domain: z.string().min(1),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+
+      const store = await storage.getStoreById(parsed.data.storeId);
+      if (!store || store.ownerId !== getUserId(req)) {
+        return res.status(404).json({ message: "Store not found" });
+      }
+
+      await db.update(stores).set({
+        customDomain: parsed.data.domain,
+        domainStatus: "pending_dns",
+        domainSource: "own",
+      }).where(eq(stores.id, store.id));
+
+      const appHostname = req.get("host") || "";
+      res.json({
+        success: true,
+        dnsInstructions: {
+          type: "CNAME",
+          name: parsed.data.domain,
+          value: appHostname,
+          instructions: `Add a CNAME record pointing ${parsed.data.domain} to ${appHostname}. DNS changes may take up to 48 hours to propagate.`,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/domains/verify/:storeId", isAuthenticated, async (req, res) => {
+    try {
+      const storeId = req.params.storeId as string;
+      const store = await storage.getStoreById(storeId);
+      if (!store || store.ownerId !== getUserId(req)) {
+        return res.status(404).json({ message: "Store not found" });
+      }
+
+      if (!store.customDomain) {
+        return res.status(400).json({ message: "No custom domain configured" });
+      }
+
+      const appHostname = (req.get("host") || "").replace(/:\d+$/, "");
+      let verified = false;
+      let currentRecords: string[] = [];
+
+      try {
+        const cnameRecords = await dns.promises.resolveCname(store.customDomain);
+        currentRecords = cnameRecords;
+        verified = cnameRecords.some((r) => r.toLowerCase().replace(/\.$/, "") === appHostname.toLowerCase());
+      } catch (cnameErr) {
+        try {
+          const aRecords = await dns.promises.resolve4(store.customDomain);
+          currentRecords = aRecords;
+        } catch (aErr) {
+        }
+      }
+
+      if (verified) {
+        await db.update(stores).set({
+          domainStatus: "active",
+          domainVerifiedAt: new Date(),
+        }).where(eq(stores.id, store.id));
+      } else {
+        await db.update(stores).set({
+          domainStatus: "pending_dns",
+        }).where(eq(stores.id, store.id));
+      }
+
+      res.json({
+        verified,
+        currentRecords,
+        expectedValue: appHostname,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/domains/:storeId", isAuthenticated, async (req, res) => {
+    try {
+      const storeId = req.params.storeId as string;
+      const store = await storage.getStoreById(storeId);
+      if (!store || store.ownerId !== getUserId(req)) {
+        return res.status(404).json({ message: "Store not found" });
+      }
+
+      await db.update(stores).set({
+        customDomain: null,
+        domainStatus: null,
+        domainSource: null,
+        domainVerifiedAt: null,
+      }).where(eq(stores.id, store.id));
+
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get("/api/domains/:storeId", isAuthenticated, async (req, res) => {
+    try {
+      const storeId = req.params.storeId as string;
+      const store = await storage.getStoreById(storeId);
+      if (!store || store.ownerId !== getUserId(req)) {
+        return res.status(404).json({ message: "Store not found" });
+      }
+
+      const domainRecords = await db.select().from(storeDomains).where(eq(storeDomains.storeId, storeId));
+      const purchasedDomain = domainRecords.length > 0 ? domainRecords[0] : null;
+
+      res.json({
+        domain: store.customDomain,
+        status: store.domainStatus,
+        source: store.domainSource,
+        verifiedAt: store.domainVerifiedAt,
+        purchasedDomain: purchasedDomain ? {
+          registrationDate: purchasedDomain.registrationDate,
+          expirationDate: purchasedDomain.expirationDate,
+          autoRenew: purchasedDomain.autoRenew,
+          registrar: purchasedDomain.registrar,
+        } : null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   app.post("/api/admin/test-emails", async (req, res) => {

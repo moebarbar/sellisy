@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TemplateSelector } from "@/components/dashboard/template-selector";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { DomainSettings } from "@/components/dashboard/domain-settings";
 import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon, CreditCard, CheckCircle2, XCircle, FileText, Megaphone, Globe, ExternalLink } from "lucide-react";
 
 function ImageUploadField({
@@ -253,6 +254,8 @@ export default function StoreSettingsPage() {
       </div>
 
       <PaymentsCard />
+
+      <DomainSettings />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
