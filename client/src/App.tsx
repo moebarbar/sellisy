@@ -32,6 +32,8 @@ const KnowledgeBasesPage = lazy(() => import("@/pages/dashboard/knowledge-bases"
 const KbEditorPage = lazy(() => import("@/pages/dashboard/kb-editor"));
 const AnalyticsPage = lazy(() => import("@/pages/dashboard/analytics"));
 const CustomersPage = lazy(() => import("@/pages/dashboard/customers"));
+const BlogPostsPage = lazy(() => import("@/pages/dashboard/blog-posts"));
+const BlogEditorPage = lazy(() => import("@/pages/dashboard/blog-editor"));
 
 const AuthPage = lazy(() => import("@/pages/auth"));
 const AccountLoginPage = lazy(() => import("@/pages/account/login"));
@@ -40,6 +42,8 @@ const AccountPurchasesPage = lazy(() => import("@/pages/account/purchases"));
 const AccountPurchaseDetailPage = lazy(() => import("@/pages/account/purchase-detail"));
 const StorePortalPage = lazy(() => import("@/pages/store-portal"));
 const KbViewerPage = lazy(() => import("@/pages/kb-viewer"));
+const BlogListingPage = lazy(() => import("@/pages/blog-listing"));
+const BlogPostPage = lazy(() => import("@/pages/blog-post"));
 
 function PageFallback() {
   return (
@@ -99,6 +103,12 @@ function Router() {
         <Route path="/dashboard/content-creator">
           <DashboardLayout><KnowledgeBasesPage /></DashboardLayout>
         </Route>
+        <Route path="/dashboard/blog/:id">
+          <DashboardLayout><BlogEditorPage /></DashboardLayout>
+        </Route>
+        <Route path="/dashboard/blog">
+          <DashboardLayout><BlogPostsPage /></DashboardLayout>
+        </Route>
         <Route path="/auth" component={AuthPage} />
         <Route path="/account" component={AccountLoginPage} />
         <Route path="/account/verify" component={AccountVerifyPage} />
@@ -106,6 +116,8 @@ function Router() {
         <Route path="/account/purchase/:orderId" component={AccountPurchaseDetailPage} />
         <Route path="/s/:slug/portal/:orderId" component={StorePortalPage} />
         <Route path="/s/:slug/portal" component={StorePortalPage} />
+        <Route path="/s/:slug/blog/:postSlug" component={BlogPostPage} />
+        <Route path="/s/:slug/blog" component={BlogListingPage} />
         <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
         <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
         <Route path="/s/:slug" component={StorefrontPage} />

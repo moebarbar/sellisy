@@ -41,6 +41,7 @@ import {
   PenTool,
   BarChart3,
   Users,
+  FileText,
 } from "lucide-react";
 
 const navItems = [
@@ -50,6 +51,7 @@ const navItems = [
   { title: "My Products", url: "/dashboard/my-products", icon: Sparkles },
   { title: "Products Library", url: "/dashboard/library", icon: ShoppingBag },
   { title: "Content Creator", url: "/dashboard/content-creator", icon: PenTool },
+  { title: "Blog", url: "/dashboard/blog", icon: FileText },
   { title: "Bundles", url: "/dashboard/bundles", icon: Layers },
   { title: "Marketing", url: "/dashboard/marketing", icon: BookOpen },
   { title: "Coupons", url: "/dashboard/coupons", icon: Ticket },

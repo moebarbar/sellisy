@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateSelector } from "@/components/dashboard/template-selector";
-import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon, CreditCard, CheckCircle2, XCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon, CreditCard, CheckCircle2, XCircle, FileText } from "lucide-react";
 
 function ImageUploadField({
   label,
@@ -319,6 +320,36 @@ export default function StoreSettingsPage() {
           </Card>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4" /> Blog
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Enable Blog</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Show a blog section on your storefront and allow visitors to read your articles.</p>
+            </div>
+            <Switch
+              checked={activeStore?.blogEnabled ?? false}
+              onCheckedChange={async (checked) => {
+                if (!activeStore) return;
+                try {
+                  await apiRequest("PATCH", `/api/stores/${activeStore.id}`, { blogEnabled: checked });
+                  queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
+                  toast({ title: checked ? "Blog enabled" : "Blog disabled" });
+                } catch {
+                  toast({ title: "Failed to update blog setting", variant: "destructive" });
+                }
+              }}
+              data-testid="switch-blog-enabled"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <Button
