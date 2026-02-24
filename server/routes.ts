@@ -11,7 +11,9 @@ import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendAllTestEmails } from "./emails";
+import { setEmailLogger } from "./sendgridClient";
 import { users } from "@shared/models/auth";
+import { emailLogs } from "@shared/schema";
 import cookieParser from "cookie-parser";
 
 function getUserId(req: Request): string {
@@ -116,6 +118,15 @@ export async function registerRoutes(
   registerAuthRoutes(app);
   registerObjectStorageRoutes(app);
   app.use(cookieParser());
+
+  setEmailLogger(async (to, subject, status, error) => {
+    await db.insert(emailLogs).values({
+      toEmail: to,
+      subject,
+      status: status as "sent" | "failed",
+      error: error || null,
+    });
+  });
 
   await seedDatabase();
   await seedMarketingIfNeeded();
@@ -2241,6 +2252,19 @@ export async function registerRoutes(
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     const results = await sendAllTestEmails(email, baseUrl);
     res.json({ results });
+  });
+
+  app.get("/api/admin/email-logs", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const profile = await storage.getUserProfile(userId);
+    if (!profile?.isAdmin) return res.status(403).json({ message: "Admin access required" });
+
+    const logs = await db
+      .select()
+      .from(emailLogs)
+      .orderBy(sql`${emailLogs.sentAt} DESC`)
+      .limit(100);
+    res.json(logs);
   });
 
   return httpServer;

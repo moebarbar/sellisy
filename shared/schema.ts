@@ -356,3 +356,16 @@ export const kbBlocks = pgTable("kb_blocks", {
 export const insertKbBlockSchema = createInsertSchema(kbBlocks).omit({ id: true });
 export type InsertKbBlock = z.infer<typeof insertKbBlockSchema>;
 export type KbBlock = typeof kbBlocks.$inferSelect;
+
+export const emailStatusEnum = pgEnum("email_status", ["sent", "failed"]);
+
+export const emailLogs = pgTable("email_logs", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  toEmail: varchar("to_email", { length: 255 }).notNull(),
+  subject: varchar("subject", { length: 500 }).notNull(),
+  status: emailStatusEnum("status").notNull(),
+  error: text("error"),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+});
+
+export type EmailLog = typeof emailLogs.$inferSelect;
