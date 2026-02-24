@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift, User, X } from "lucide-react";
+import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import { ProtectedImage } from "@/components/protected-image";
-import type { Store, Product, Bundle } from "@shared/schema";
+import type { Store, Product, Bundle, BlogPost } from "@shared/schema";
 
 type StorefrontProduct = Product & {
   isLeadMagnet?: boolean;
@@ -28,6 +29,17 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
 
   const isDark = mode === "dark";
   const [leadModalProduct, setLeadModalProduct] = useState<StorefrontProduct | null>(null);
+
+  const { data: blogData } = useQuery<{ posts: BlogPost[] }>({
+    queryKey: ["/api/storefront", store.slug, "blog"],
+    queryFn: async () => {
+      const res = await fetch(`/api/storefront/${store.slug}/blog`);
+      if (!res.ok) return { posts: [] };
+      return res.json();
+    },
+    enabled: !!store.blogEnabled,
+  });
+  const blogPosts = store.blogEnabled ? (blogData?.posts || []).slice(0, 3) : [];
 
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
@@ -510,6 +522,45 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                   </div>
                 );
               })}
+            </div>
+          </>
+        )}
+        {blogPosts.length > 0 && (
+          <>
+            <div className="neon-separator mb-8" />
+            <h2 className="text-2xl font-bold tracking-tight mb-6" style={{ color: c.text }}>
+              <FileText className="inline h-5 w-5 mr-2" style={{ color: c.accent }} />
+              From the Blog
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {blogPosts.map((post) => (
+                <a
+                  key={post.id}
+                  href={`/s/${store.slug}/blog/${post.slug}`}
+                  className="group rounded-xl overflow-hidden transition-transform hover:scale-[1.02]"
+                  style={{ background: c.card, border: `1px solid ${c.border}` }}
+                  data-testid={`link-blog-${post.id}`}
+                >
+                  {post.coverImageUrl && (
+                    <div className="aspect-video overflow-hidden">
+                      <img src={post.coverImageUrl} alt={post.title} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <h3 className="font-semibold mb-1 group-hover:underline" style={{ color: c.text }}>{post.title}</h3>
+                    {post.excerpt && <p className="text-sm line-clamp-2 mb-2" style={{ color: c.textSecondary }}>{post.excerpt}</p>}
+                    <div className="flex items-center gap-1 text-xs" style={{ color: c.textTertiary }}>
+                      <Calendar className="h-3 w-3" />
+                      {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+            <div className="mt-4 text-center">
+              <a href={`/s/${store.slug}/blog`} className="inline-flex items-center gap-1 text-sm font-medium hover:underline" style={{ color: c.accent }}>
+                View all articles <ArrowRight className="h-3 w-3" />
+              </a>
             </div>
           </>
         )}

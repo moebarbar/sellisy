@@ -2,34 +2,39 @@ import { useQuery } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Calendar } from "lucide-react";
+import DOMPurify from "dompurify";
 import type { Store, BlogPost, BlogBlock } from "@shared/schema";
 import { usePageMeta } from "@/hooks/use-page-meta";
+
+function sanitize(html: string) {
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS: ["b", "i", "u", "s", "em", "strong", "a", "br", "span", "code", "mark", "sub", "sup"], ALLOWED_ATTR: ["href", "target", "rel", "class", "style"] });
+}
 
 function BlogBlockRenderer({ block }: { block: BlogBlock }) {
   const content = block.content || "";
 
   switch (block.type) {
     case "heading1":
-      return <h2 className="text-3xl font-bold mt-8 mb-4" dangerouslySetInnerHTML={{ __html: content }} />;
+      return <h2 className="text-3xl font-bold mt-8 mb-4" dangerouslySetInnerHTML={{ __html: sanitize(content) }} />;
     case "heading2":
-      return <h3 className="text-2xl font-semibold mt-6 mb-3" dangerouslySetInnerHTML={{ __html: content }} />;
+      return <h3 className="text-2xl font-semibold mt-6 mb-3" dangerouslySetInnerHTML={{ __html: sanitize(content) }} />;
     case "heading3":
-      return <h4 className="text-xl font-semibold mt-5 mb-2" dangerouslySetInnerHTML={{ __html: content }} />;
+      return <h4 className="text-xl font-semibold mt-5 mb-2" dangerouslySetInnerHTML={{ __html: sanitize(content) }} />;
     case "text":
       if (!content.trim()) return <div className="h-4" />;
-      return <p className="text-base leading-relaxed mb-4" dangerouslySetInnerHTML={{ __html: content }} />;
+      return <p className="text-base leading-relaxed mb-4" dangerouslySetInnerHTML={{ __html: sanitize(content) }} />;
     case "bullet_list":
       return (
         <div className="flex gap-3 mb-1">
           <span className="text-muted-foreground mt-1.5 text-xs">•</span>
-          <div className="flex-1" dangerouslySetInnerHTML={{ __html: content }} />
+          <div className="flex-1" dangerouslySetInnerHTML={{ __html: sanitize(content) }} />
         </div>
       );
     case "numbered_list":
       return (
         <div className="flex gap-3 mb-1">
           <span className="text-muted-foreground text-sm font-medium min-w-[1.5em] text-right">{(block.sortOrder || 0) + 1}.</span>
-          <div className="flex-1" dangerouslySetInnerHTML={{ __html: content }} />
+          <div className="flex-1" dangerouslySetInnerHTML={{ __html: sanitize(content) }} />
         </div>
       );
     case "todo": {
@@ -38,20 +43,20 @@ function BlogBlockRenderer({ block }: { block: BlogBlock }) {
       return (
         <div className="flex gap-3 mb-1 items-start">
           <input type="checkbox" checked={isChecked} readOnly className="mt-1.5 rounded" />
-          <span className={isChecked ? "line-through text-muted-foreground" : ""} dangerouslySetInnerHTML={{ __html: text }} />
+          <span className={isChecked ? "line-through text-muted-foreground" : ""} dangerouslySetInnerHTML={{ __html: sanitize(text) }} />
         </div>
       );
     }
     case "quote":
       return (
         <blockquote className="border-l-4 border-primary/30 pl-4 py-1 my-4 italic text-muted-foreground">
-          <span dangerouslySetInnerHTML={{ __html: content }} />
+          <span dangerouslySetInnerHTML={{ __html: sanitize(content) }} />
         </blockquote>
       );
     case "callout":
       return (
         <div className="bg-muted/50 border rounded-lg p-4 my-4">
-          <span dangerouslySetInnerHTML={{ __html: content }} />
+          <span dangerouslySetInnerHTML={{ __html: sanitize(content) }} />
         </div>
       );
     case "code":
@@ -108,14 +113,14 @@ function BlogBlockRenderer({ block }: { block: BlogBlock }) {
       const body = parts.slice(1).join("\n---\n");
       return (
         <details className="my-4 border rounded-lg">
-          <summary className="p-3 cursor-pointer font-medium" dangerouslySetInnerHTML={{ __html: title }} />
-          {body && <div className="px-3 pb-3 text-sm" dangerouslySetInnerHTML={{ __html: body }} />}
+          <summary className="p-3 cursor-pointer font-medium" dangerouslySetInnerHTML={{ __html: sanitize(title) }} />
+          {body && <div className="px-3 pb-3 text-sm" dangerouslySetInnerHTML={{ __html: sanitize(body) }} />}
         </details>
       );
     }
     default:
       if (!content.trim()) return null;
-      return <p className="mb-4" dangerouslySetInnerHTML={{ __html: content }} />;
+      return <p className="mb-4" dangerouslySetInnerHTML={{ __html: sanitize(content) }} />;
   }
 }
 

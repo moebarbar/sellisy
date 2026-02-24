@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User, X } from "lucide-react";
+import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import { ProtectedImage } from "@/components/protected-image";
-import type { Store, Product, Bundle } from "@shared/schema";
+import type { Store, Product, Bundle, BlogPost } from "@shared/schema";
 
 type StorefrontProduct = Product & {
   isLeadMagnet?: boolean;
@@ -39,6 +40,17 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
   }, [mode]);
 
   const isDark = mode === "dark";
+
+  const { data: blogData } = useQuery<{ posts: BlogPost[] }>({
+    queryKey: ["/api/storefront", store.slug, "blog"],
+    queryFn: async () => {
+      const res = await fetch(`/api/storefront/${store.slug}/blog`);
+      if (!res.ok) return { posts: [] };
+      return res.json();
+    },
+    enabled: !!store.blogEnabled,
+  });
+  const blogPosts = store.blogEnabled ? (blogData?.posts || []).slice(0, 3) : [];
 
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
@@ -425,6 +437,44 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+        {blogPosts.length > 0 && (
+          <div className="mx-auto max-w-5xl px-6 mt-16">
+            <GoldDivider isDark={isDark} />
+            <h2 className="text-center text-2xl font-serif tracking-wide mt-8 mb-8" style={{ color: c.text }}>
+              From the Blog
+            </h2>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {blogPosts.map((post) => (
+                <a
+                  key={post.id}
+                  href={`/s/${store.slug}/blog/${post.slug}`}
+                  className="group rounded-xl overflow-hidden transition-all hover:shadow-lg"
+                  style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}
+                  data-testid={`link-blog-${post.id}`}
+                >
+                  {post.coverImageUrl && (
+                    <div className="aspect-video overflow-hidden">
+                      <img src={post.coverImageUrl} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    </div>
+                  )}
+                  <div className="p-5">
+                    <h3 className="font-serif font-semibold mb-1 group-hover:underline" style={{ color: c.text }}>{post.title}</h3>
+                    {post.excerpt && <p className="text-sm line-clamp-2 mb-3" style={{ color: c.textSecondary }}>{post.excerpt}</p>}
+                    <div className="flex items-center gap-1 text-xs" style={{ color: c.textTertiary }}>
+                      <Calendar className="h-3 w-3" />
+                      {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : ""}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+            <div className="mt-6 text-center">
+              <a href={`/s/${store.slug}/blog`} className="inline-flex items-center gap-1 text-sm font-serif tracking-wide hover:underline" style={{ color: c.gold }}>
+                View all articles <ArrowRight className="h-3 w-3" />
+              </a>
             </div>
           </div>
         )}
