@@ -4,6 +4,7 @@ import connectPg from "connect-pg-simple";
 import bcrypt from "bcryptjs";
 import { authStorage } from "./storage";
 import { z } from "zod";
+import { sendWelcomeEmail } from "../../emails";
 
 declare module "express-session" {
   interface SessionData {
@@ -73,6 +74,9 @@ export async function setupAuth(app: Express) {
       });
 
       req.session.userId = user.id;
+
+      sendWelcomeEmail({ email, firstName });
+
       res.json({ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName });
     } catch (error) {
       console.error("Registration error:", error);

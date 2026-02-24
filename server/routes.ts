@@ -10,6 +10,8 @@ import { seedDatabase, seedMarketingIfNeeded, seedAdminUser } from "./seed";
 import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
+import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail } from "./emails";
+import { users } from "@shared/models/auth";
 import cookieParser from "cookie-parser";
 
 function getUserId(req: Request): string {
@@ -1697,6 +1699,40 @@ export async function registerRoutes(
       }
     }
 
+    const emailItems = await Promise.all(items.map(async (i) => {
+      const sp = await storage.getStoreProductByStoreAndProduct(order.storeId, i.productId);
+      return { title: sp?.customTitle || i.product.title, priceCents: i.priceCents };
+    }));
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+    if (order.status === "COMPLETED" && order.buyerEmail && order.buyerEmail !== "pending@checkout.com") {
+      sendOrderConfirmationEmail({
+        buyerEmail: order.buyerEmail,
+        storeName: store?.name || "Store",
+        storeSlug: store?.slug || "",
+        orderId: order.id,
+        totalCents: order.totalCents,
+        items: emailItems,
+        downloadToken: tokenHash,
+        baseUrl,
+      });
+
+      if (store) {
+        const [owner] = await db.select().from(users).where(eq(users.id, store.ownerId));
+        if (owner?.email) {
+          sendNewOrderNotificationEmail({
+            ownerEmail: owner.email,
+            storeName: store.name,
+            buyerEmail: order.buyerEmail,
+            orderId: order.id,
+            totalCents: order.totalCents,
+            items: emailItems,
+          });
+        }
+      }
+    }
+
     res.json({
       order: {
         id: order.id,
@@ -1706,13 +1742,7 @@ export async function registerRoutes(
       },
       downloadToken: tokenHash,
       store: store ? { name: store.name, slug: store.slug } : null,
-      items: await Promise.all(items.map(async (i) => {
-        const sp = await storage.getStoreProductByStoreAndProduct(order.storeId, i.productId);
-        return {
-          title: sp?.customTitle || i.product.title,
-          priceCents: i.priceCents,
-        };
-      })),
+      items: emailItems,
       fileCount,
     });
   });
@@ -1796,6 +1826,15 @@ export async function registerRoutes(
       sameSite: "lax",
       maxAge: 30 * 24 * 60 * 60 * 1000,
       path: "/",
+    });
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    sendLeadMagnetEmail({
+      buyerEmail: email,
+      storeName: store.name,
+      productTitle: sp.customTitle || product.title,
+      downloadToken: result.downloadToken,
+      baseUrl,
     });
 
     res.json({
