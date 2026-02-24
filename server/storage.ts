@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
   bundles, bundleItems, coupons, productImages, categories, userProfiles,
-  customers, customerSessions, knowledgeBases, kbPages, kbBlocks, storeEvents,
+  customers, customerSessions, knowledgeBases, kbPages, kbBlocks, storeEvents, blogPosts, blogBlocks,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -24,6 +24,8 @@ import {
   type KbBlock, type InsertKbBlock,
   type PlanTier,
   type StoreEvent, type InsertStoreEvent,
+  type BlogPost, type InsertBlogPost,
+  type BlogBlock, type InsertBlogBlock,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -32,7 +34,7 @@ export interface IStorage {
   getStoreById(id: string): Promise<Store | undefined>;
   getStoreBySlug(slug: string): Promise<Store | undefined>;
   createStore(store: InsertStore): Promise<Store>;
-  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl">>): Promise<Store | undefined>;
+  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "blogEnabled">>): Promise<Store | undefined>;
   deleteStore(id: string): Promise<void>;
 
   getLibraryProducts(): Promise<Product[]>;
@@ -131,6 +133,20 @@ export interface IStorage {
   createStoreEvent(event: InsertStoreEvent): Promise<StoreEvent>;
   getStoreCustomers(storeId: string): Promise<{ id: string; email: string; name: string | null; createdAt: Date; totalSpent: number; orderCount: number; lastOrderDate: Date | null; products: string[] }[]>;
   updateCustomerName(customerId: string, name: string): Promise<void>;
+
+  getBlogPostsByStore(storeId: string): Promise<BlogPost[]>;
+  getPublishedBlogPostsByStore(storeId: string): Promise<BlogPost[]>;
+  getBlogPostById(id: string): Promise<BlogPost | undefined>;
+  getBlogPostBySlug(storeId: string, slug: string): Promise<BlogPost | undefined>;
+  createBlogPost(data: InsertBlogPost): Promise<BlogPost>;
+  updateBlogPost(id: string, data: Partial<Pick<BlogPost, "title" | "slug" | "excerpt" | "coverImageUrl" | "fontFamily" | "isPublished" | "publishedAt">>): Promise<BlogPost | undefined>;
+  deleteBlogPost(id: string): Promise<void>;
+
+  getBlogBlocksByPost(postId: string): Promise<BlogBlock[]>;
+  createBlogBlock(data: InsertBlogBlock): Promise<BlogBlock>;
+  updateBlogBlock(id: string, data: Partial<Pick<BlogBlock, "type" | "content" | "sortOrder">>): Promise<BlogBlock | undefined>;
+  deleteBlogBlock(id: string): Promise<void>;
+  reorderBlogBlocks(postId: string, blockIds: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -157,7 +173,7 @@ export class DatabaseStorage implements IStorage {
     return store;
   }
 
-  async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret">>) {
+  async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "blogEnabled">>) {
     const [store] = await db.update(stores).set(data).where(eq(stores.id, id)).returning();
     return store;
   }
@@ -176,6 +192,11 @@ export class DatabaseStorage implements IStorage {
     await db.delete(bundles).where(eq(bundles.storeId, id));
     await db.delete(coupons).where(eq(coupons.storeId, id));
     await db.delete(storeProducts).where(eq(storeProducts.storeId, id));
+    const storePosts = await db.select({ id: blogPosts.id }).from(blogPosts).where(eq(blogPosts.storeId, id));
+    for (const p of storePosts) {
+      await db.delete(blogBlocks).where(eq(blogBlocks.postId, p.id));
+    }
+    await db.delete(blogPosts).where(eq(blogPosts.storeId, id));
     await db.delete(stores).where(eq(stores.id, id));
   }
 
@@ -663,6 +684,63 @@ export class DatabaseStorage implements IStorage {
 
   async updateCustomerName(customerId: string, name: string) {
     await db.update(customers).set({ name }).where(eq(customers.id, customerId));
+  }
+
+  async getBlogPostsByStore(storeId: string) {
+    return db.select().from(blogPosts).where(eq(blogPosts.storeId, storeId)).orderBy(desc(blogPosts.createdAt));
+  }
+
+  async getPublishedBlogPostsByStore(storeId: string) {
+    return db.select().from(blogPosts).where(and(eq(blogPosts.storeId, storeId), eq(blogPosts.isPublished, true))).orderBy(desc(blogPosts.publishedAt));
+  }
+
+  async getBlogPostById(id: string) {
+    const [post] = await db.select().from(blogPosts).where(eq(blogPosts.id, id));
+    return post;
+  }
+
+  async getBlogPostBySlug(storeId: string, slug: string) {
+    const [post] = await db.select().from(blogPosts).where(and(eq(blogPosts.storeId, storeId), eq(blogPosts.slug, slug)));
+    return post;
+  }
+
+  async createBlogPost(data: InsertBlogPost) {
+    const [post] = await db.insert(blogPosts).values(data).returning();
+    return post;
+  }
+
+  async updateBlogPost(id: string, data: Partial<Pick<BlogPost, "title" | "slug" | "excerpt" | "coverImageUrl" | "fontFamily" | "isPublished" | "publishedAt">>) {
+    const [post] = await db.update(blogPosts).set(data).where(eq(blogPosts.id, id)).returning();
+    return post;
+  }
+
+  async deleteBlogPost(id: string) {
+    await db.delete(blogBlocks).where(eq(blogBlocks.postId, id));
+    await db.delete(blogPosts).where(eq(blogPosts.id, id));
+  }
+
+  async getBlogBlocksByPost(postId: string) {
+    return db.select().from(blogBlocks).where(eq(blogBlocks.postId, postId)).orderBy(blogBlocks.sortOrder);
+  }
+
+  async createBlogBlock(data: InsertBlogBlock) {
+    const [block] = await db.insert(blogBlocks).values(data).returning();
+    return block;
+  }
+
+  async updateBlogBlock(id: string, data: Partial<Pick<BlogBlock, "type" | "content" | "sortOrder">>) {
+    const [block] = await db.update(blogBlocks).set(data).where(eq(blogBlocks.id, id)).returning();
+    return block;
+  }
+
+  async deleteBlogBlock(id: string) {
+    await db.delete(blogBlocks).where(eq(blogBlocks.id, id));
+  }
+
+  async reorderBlogBlocks(postId: string, blockIds: string[]) {
+    for (let i = 0; i < blockIds.length; i++) {
+      await db.update(blogBlocks).set({ sortOrder: i }).where(and(eq(blogBlocks.id, blockIds[i]), eq(blogBlocks.postId, postId)));
+    }
   }
 }
 
