@@ -17,6 +17,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -70,6 +71,7 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   const { tier } = useUserProfile();
+  const { setOpenMobile } = useSidebar();
 
   const displayName = user?.firstName
     ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ""}`
@@ -105,7 +107,7 @@ export function AppSidebar() {
                           : location.startsWith(item.url)
                     }
                   >
-                    <Link href={item.url}>
+                    <Link href={item.url} onClick={() => setOpenMobile(false)}>
                       <item.icon className="h-4 w-4" />
                       <span data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>{item.title}</span>
                     </Link>

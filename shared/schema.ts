@@ -81,6 +81,14 @@ export const stores = pgTable("stores", {
   paypalClientSecret: text("paypal_client_secret"),
   allowImageDownload: boolean("allow_image_download").notNull().default(false),
   blogEnabled: boolean("blog_enabled").notNull().default(false),
+  announcementText: text("announcement_text"),
+  announcementLink: text("announcement_link"),
+  footerText: text("footer_text"),
+  socialTwitter: text("social_twitter"),
+  socialInstagram: text("social_instagram"),
+  socialYoutube: text("social_youtube"),
+  socialTiktok: text("social_tiktok"),
+  socialWebsite: text("social_website"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

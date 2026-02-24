@@ -239,6 +239,14 @@ export async function registerRoutes(
       paypalClientId: z.string().optional().nullable(),
       paypalClientSecret: z.string().optional().nullable(),
       blogEnabled: z.boolean().optional(),
+      announcementText: z.string().optional().nullable(),
+      announcementLink: z.string().optional().nullable(),
+      footerText: z.string().optional().nullable(),
+      socialTwitter: z.string().optional().nullable(),
+      socialInstagram: z.string().optional().nullable(),
+      socialYoutube: z.string().optional().nullable(),
+      socialTiktok: z.string().optional().nullable(),
+      socialWebsite: z.string().optional().nullable(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });

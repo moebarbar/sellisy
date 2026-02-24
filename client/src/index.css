@@ -419,3 +419,13 @@
   z-index: 9999;
   animation: dv-confetti-fall 2.5s ease-in forwards;
 }
+
+.sf-reveal-item {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+.sf-reveal-item.sf-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}

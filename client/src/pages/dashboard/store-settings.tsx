@@ -14,7 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from "@/hooks/use-toast";
 import { TemplateSelector } from "@/components/dashboard/template-selector";
 import { Switch } from "@/components/ui/switch";
-import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon, CreditCard, CheckCircle2, XCircle, FileText } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon, CreditCard, CheckCircle2, XCircle, FileText, Megaphone, Globe, ExternalLink } from "lucide-react";
 
 function ImageUploadField({
   label,
@@ -134,6 +135,14 @@ export default function StoreSettingsPage() {
   const [logoUrl, setLogoUrl] = useState("");
   const [accentColor, setAccentColor] = useState("");
   const [heroBannerUrl, setHeroBannerUrl] = useState("");
+  const [announcementText, setAnnouncementText] = useState("");
+  const [announcementLink, setAnnouncementLink] = useState("");
+  const [footerText, setFooterText] = useState("");
+  const [socialTwitter, setSocialTwitter] = useState("");
+  const [socialInstagram, setSocialInstagram] = useState("");
+  const [socialYoutube, setSocialYoutube] = useState("");
+  const [socialTiktok, setSocialTiktok] = useState("");
+  const [socialWebsite, setSocialWebsite] = useState("");
 
   useEffect(() => {
     if (activeStore) {
@@ -144,6 +153,14 @@ export default function StoreSettingsPage() {
       setLogoUrl(activeStore.logoUrl || "");
       setAccentColor(activeStore.accentColor || "");
       setHeroBannerUrl(activeStore.heroBannerUrl || "");
+      setAnnouncementText(activeStore.announcementText || "");
+      setAnnouncementLink(activeStore.announcementLink || "");
+      setFooterText(activeStore.footerText || "");
+      setSocialTwitter(activeStore.socialTwitter || "");
+      setSocialInstagram(activeStore.socialInstagram || "");
+      setSocialYoutube(activeStore.socialYoutube || "");
+      setSocialTiktok(activeStore.socialTiktok || "");
+      setSocialWebsite(activeStore.socialWebsite || "");
     }
   }, [activeStore]);
 
@@ -158,6 +175,14 @@ export default function StoreSettingsPage() {
       if (logoUrl !== (activeStore.logoUrl || "")) updates.logoUrl = logoUrl || null;
       if (accentColor !== (activeStore.accentColor || "")) updates.accentColor = accentColor || null;
       if (heroBannerUrl !== (activeStore.heroBannerUrl || "")) updates.heroBannerUrl = heroBannerUrl || null;
+      if (announcementText !== (activeStore.announcementText || "")) updates.announcementText = announcementText || null;
+      if (announcementLink !== (activeStore.announcementLink || "")) updates.announcementLink = announcementLink || null;
+      if (footerText !== (activeStore.footerText || "")) updates.footerText = footerText || null;
+      if (socialTwitter !== (activeStore.socialTwitter || "")) updates.socialTwitter = socialTwitter || null;
+      if (socialInstagram !== (activeStore.socialInstagram || "")) updates.socialInstagram = socialInstagram || null;
+      if (socialYoutube !== (activeStore.socialYoutube || "")) updates.socialYoutube = socialYoutube || null;
+      if (socialTiktok !== (activeStore.socialTiktok || "")) updates.socialTiktok = socialTiktok || null;
+      if (socialWebsite !== (activeStore.socialWebsite || "")) updates.socialWebsite = socialWebsite || null;
       if (Object.keys(updates).length === 0) return;
       await apiRequest("PATCH", `/api/stores/${activeStore.id}`, updates);
     },
@@ -214,6 +239,10 @@ export default function StoreSettingsPage() {
     name !== activeStore.name || slug !== activeStore.slug || templateKey !== activeStore.templateKey
     || tagline !== (activeStore.tagline || "") || logoUrl !== (activeStore.logoUrl || "")
     || accentColor !== (activeStore.accentColor || "") || heroBannerUrl !== (activeStore.heroBannerUrl || "")
+    || announcementText !== (activeStore.announcementText || "") || announcementLink !== (activeStore.announcementLink || "")
+    || footerText !== (activeStore.footerText || "") || socialTwitter !== (activeStore.socialTwitter || "")
+    || socialInstagram !== (activeStore.socialInstagram || "") || socialYoutube !== (activeStore.socialYoutube || "")
+    || socialTiktok !== (activeStore.socialTiktok || "") || socialWebsite !== (activeStore.socialWebsite || "")
   );
 
   return (
@@ -347,6 +376,81 @@ export default function StoreSettingsPage() {
               }}
               data-testid="switch-blog-enabled"
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Megaphone className="h-4 w-4" /> Announcement Bar
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">Show a dismissible banner at the top of your storefront for sales, launches, or important news.</p>
+          <div className="space-y-2">
+            <Label htmlFor="settings-announcement">Announcement Text</Label>
+            <Input
+              id="settings-announcement"
+              placeholder="e.g. 🔥 Summer Sale — 30% off everything!"
+              value={announcementText}
+              onChange={(e) => setAnnouncementText(e.target.value)}
+              data-testid="input-settings-announcement"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="settings-announcement-link">Link URL (optional)</Label>
+            <Input
+              id="settings-announcement-link"
+              placeholder="https://..."
+              value={announcementLink}
+              onChange={(e) => setAnnouncementLink(e.target.value)}
+              data-testid="input-settings-announcement-link"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Globe className="h-4 w-4" /> Footer & Social Links
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">Customize the footer shown at the bottom of your storefront.</p>
+          <div className="space-y-2">
+            <Label htmlFor="settings-footer">Footer Text</Label>
+            <Textarea
+              id="settings-footer"
+              placeholder="About your store, contact info, or a short bio..."
+              value={footerText}
+              onChange={(e) => setFooterText(e.target.value)}
+              rows={3}
+              data-testid="input-settings-footer"
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="settings-twitter">Twitter / X</Label>
+              <Input id="settings-twitter" placeholder="https://x.com/yourhandle" value={socialTwitter} onChange={(e) => setSocialTwitter(e.target.value)} data-testid="input-settings-twitter" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="settings-instagram">Instagram</Label>
+              <Input id="settings-instagram" placeholder="https://instagram.com/yourhandle" value={socialInstagram} onChange={(e) => setSocialInstagram(e.target.value)} data-testid="input-settings-instagram" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="settings-youtube">YouTube</Label>
+              <Input id="settings-youtube" placeholder="https://youtube.com/@yourchannel" value={socialYoutube} onChange={(e) => setSocialYoutube(e.target.value)} data-testid="input-settings-youtube" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="settings-tiktok">TikTok</Label>
+              <Input id="settings-tiktok" placeholder="https://tiktok.com/@yourhandle" value={socialTiktok} onChange={(e) => setSocialTiktok(e.target.value)} data-testid="input-settings-tiktok" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="settings-website">Website</Label>
+            <Input id="settings-website" placeholder="https://yourwebsite.com" value={socialWebsite} onChange={(e) => setSocialWebsite(e.target.value)} data-testid="input-settings-website" />
           </div>
         </CardContent>
       </Card>
