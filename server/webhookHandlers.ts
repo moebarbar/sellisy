@@ -13,7 +13,7 @@ export class WebhookHandlers {
     }
 
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    const stripe = getUncachableStripeClient();
+    const stripe = await getUncachableStripeClient();
 
     let event: any;
     if (webhookSecret) {

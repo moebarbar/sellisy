@@ -51,7 +51,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 *   **bcryptjs**: Password hashing for local authentication.
 
 ## Integration Notes
-*   **Stripe**: Configured manually via `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` secrets (user dismissed Replit Stripe connector — keys are managed directly as secrets).
+*   **Stripe**: Connected via Replit Stripe connector. Credentials are fetched from the Replit connection API (`server/stripeClient.ts`). Functions are async. Replit handles sandbox/live key management and deployment transitions automatically.
 
 ## Template Standards
 *   **Color Tokens**: All storefront templates use a centralized color object (`c`) that adapts to light/dark mode. Store `accentColor` (6-digit hex from color picker) is respected across storefronts and detail pages.
