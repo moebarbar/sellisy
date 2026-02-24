@@ -238,6 +238,7 @@ export async function registerRoutes(
       paymentProvider: z.enum(["stripe", "paypal"]).optional(),
       paypalClientId: z.string().optional().nullable(),
       paypalClientSecret: z.string().optional().nullable(),
+      blogEnabled: z.boolean().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
