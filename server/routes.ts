@@ -10,7 +10,7 @@ import { seedDatabase, seedMarketingIfNeeded, seedAdminUser } from "./seed";
 import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail } from "./emails";
+import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendAllTestEmails } from "./emails";
 import { users } from "@shared/models/auth";
 import cookieParser from "cookie-parser";
 
@@ -2225,6 +2225,22 @@ export async function registerRoutes(
     }
 
     res.json({ success: true });
+  });
+
+  app.post("/api/admin/test-emails", async (req, res) => {
+    const userId = getUserId(req);
+    const user = await db.select().from(users).where(eq(users.id, userId)).then(r => r[0]);
+    if (!user) return res.status(401).json({ message: "Unauthorized" });
+
+    const profile = await storage.getUserProfile(userId);
+    if (!profile?.isAdmin) return res.status(403).json({ message: "Admin access required" });
+
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email address required" });
+
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const results = await sendAllTestEmails(email, baseUrl);
+    res.json({ results });
   });
 
   return httpServer;
