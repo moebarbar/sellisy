@@ -129,6 +129,8 @@ export interface IStorage {
   reorderKbBlocks(pageId: string, blockIds: string[]): Promise<void>;
 
   createStoreEvent(event: InsertStoreEvent): Promise<StoreEvent>;
+  getStoreCustomers(storeId: string): Promise<{ id: string; email: string; name: string | null; createdAt: Date; totalSpent: number; orderCount: number; lastOrderDate: Date | null; products: string[] }[]>;
+  updateCustomerName(customerId: string, name: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -632,6 +634,35 @@ export class DatabaseStorage implements IStorage {
   async createStoreEvent(event: InsertStoreEvent) {
     const [row] = await db.insert(storeEvents).values(event).returning();
     return row;
+  }
+
+  async getStoreCustomers(storeId: string) {
+    const rows = await db.execute(sql`
+      SELECT
+        c.id,
+        c.email,
+        c.name,
+        c.created_at AS "createdAt",
+        COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN o.total_cents ELSE 0 END), 0)::int AS "totalSpent",
+        COUNT(CASE WHEN o.status = 'COMPLETED' THEN 1 END)::int AS "orderCount",
+        MAX(CASE WHEN o.status = 'COMPLETED' THEN o.created_at END) AS "lastOrderDate",
+        COALESCE(
+          ARRAY_AGG(DISTINCT p.title) FILTER (WHERE p.title IS NOT NULL),
+          ARRAY[]::text[]
+        ) AS "products"
+      FROM customers c
+      JOIN orders o ON (o.customer_id = c.id OR LOWER(o.buyer_email) = LOWER(c.email))
+      LEFT JOIN order_items oi ON oi.order_id = o.id AND o.status = 'COMPLETED'
+      LEFT JOIN products p ON p.id = oi.product_id
+      WHERE o.store_id = ${storeId}
+      GROUP BY c.id, c.email, c.name, c.created_at
+      ORDER BY "totalSpent" DESC
+    `);
+    return rows.rows as any;
+  }
+
+  async updateCustomerName(customerId: string, name: string) {
+    await db.update(customers).set({ name }).where(eq(customers.id, customerId));
   }
 }
 

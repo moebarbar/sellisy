@@ -80,6 +80,7 @@ export const stores = pgTable("stores", {
   paypalClientId: text("paypal_client_id"),
   paypalClientSecret: text("paypal_client_secret"),
   allowImageDownload: boolean("allow_image_download").notNull().default(false),
+  blogEnabled: boolean("blog_enabled").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -389,3 +390,32 @@ export const emailLogs = pgTable("email_logs", {
 });
 
 export type EmailLog = typeof emailLogs.$inferSelect;
+
+export const blogPosts = pgTable("blog_posts", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  title: text("title").notNull().default("Untitled"),
+  slug: text("slug").notNull(),
+  excerpt: text("excerpt"),
+  coverImageUrl: text("cover_image_url"),
+  fontFamily: text("font_family"),
+  isPublished: boolean("is_published").notNull().default(false),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: true, createdAt: true });
+export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
+export type BlogPost = typeof blogPosts.$inferSelect;
+
+export const blogBlocks = pgTable("blog_blocks", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id", { length: 64 }).notNull(),
+  type: blockTypeEnum("type").notNull().default("text"),
+  content: text("content").notNull().default(""),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertBlogBlockSchema = createInsertSchema(blogBlocks).omit({ id: true });
+export type InsertBlogBlock = z.infer<typeof insertBlogBlockSchema>;
+export type BlogBlock = typeof blogBlocks.$inferSelect;

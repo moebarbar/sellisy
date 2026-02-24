@@ -955,6 +955,99 @@ export async function registerRoutes(
     }
   });
 
+  // --- Store Customers ---
+
+  app.get("/api/stores/:storeId/customers", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const { storeId } = req.params;
+    const userStores = await storage.getStoresByOwner(userId);
+    if (!userStores.some((s) => s.id === storeId)) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+    try {
+      const customerData = await storage.getStoreCustomers(storeId);
+      return res.json(customerData);
+    } catch (err) {
+      console.error("Get store customers error:", err);
+      return res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+
+  app.patch("/api/customers/:customerId", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const { customerId } = req.params;
+    const schema = z.object({ name: z.string().min(1).max(200) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid name" });
+
+    const customer = await storage.getCustomerById(customerId);
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+
+    const userStores = await storage.getStoresByOwner(userId);
+    const storeIds = userStores.map((s) => s.id);
+    const storeOrders = await db.select().from(orders).where(
+      and(
+        sql`${orders.storeId} = ANY(${storeIds})`,
+        sql`(${orders.customerId} = ${customerId} OR LOWER(${orders.buyerEmail}) = LOWER(${customer.email}))`
+      )
+    );
+    if (storeOrders.length === 0) return res.status(403).json({ message: "Not your customer" });
+
+    await storage.updateCustomerName(customerId, parsed.data.name);
+    return res.json({ ok: true });
+  });
+
+  app.get("/api/stores/:storeId/customers/export", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const { storeId } = req.params;
+    const userStores = await storage.getStoresByOwner(userId);
+    if (!userStores.some((s) => s.id === storeId)) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const customerData = await storage.getStoreCustomers(storeId);
+
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Customers");
+
+      sheet.columns = [
+        { header: "Name", key: "name", width: 25 },
+        { header: "Email", key: "email", width: 35 },
+        { header: "Total Spent", key: "totalSpent", width: 15 },
+        { header: "Orders", key: "orderCount", width: 10 },
+        { header: "Last Purchase", key: "lastOrderDate", width: 20 },
+        { header: "Products Purchased", key: "products", width: 50 },
+        { header: "Customer Since", key: "createdAt", width: 20 },
+      ];
+
+      sheet.getRow(1).font = { bold: true };
+      sheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } };
+      sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+
+      for (const c of customerData) {
+        sheet.addRow({
+          name: c.name || "",
+          email: c.email,
+          totalSpent: `$${(c.totalSpent / 100).toFixed(2)}`,
+          orderCount: c.orderCount,
+          lastOrderDate: c.lastOrderDate ? new Date(c.lastOrderDate).toLocaleDateString() : "N/A",
+          products: (c.products || []).join(", "),
+          createdAt: new Date(c.createdAt).toLocaleDateString(),
+        });
+      }
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", "attachment; filename=customers.xlsx");
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (err) {
+      console.error("Customer export error:", err);
+      return res.status(500).json({ message: "Failed to export customers" });
+    }
+  });
+
   // --- Public Event Tracking ---
 
   app.post("/api/store-events", async (req, res) => {
