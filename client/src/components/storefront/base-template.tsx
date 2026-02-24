@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, ArrowUpDown, ExternalLink } from "lucide-react";
+import { ShoppingBag, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, ArrowUpDown, ExternalLink } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import { ProtectedImage } from "@/components/protected-image";
+import { StorefrontProductPlaceholder } from "@/components/product-placeholder";
 import { useStorefrontFilters } from "@/hooks/use-storefront-filters";
 import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 import type { Store, Product, Bundle, BlogPost } from "@shared/schema";
@@ -362,9 +363,7 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
                         {product.thumbnailUrl ? (
                           <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full aspect-square object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
                         ) : (
-                          <div className="w-full aspect-square flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${c.accent}15, ${c.accent}05)` }}>
-                            <Package className="h-10 w-10" style={{ color: `${c.accent}40` }} />
-                          </div>
+                          <StorefrontProductPlaceholder productType={product.productType} accentColor={store.accentColor || undefined} title={product.title} className="aspect-square" />
                         )}
                       </a>
                       {hasDiscount && (

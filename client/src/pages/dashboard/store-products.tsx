@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign, Pencil, Loader2, Code } from "lucide-react";
+import { ProductPlaceholder } from "@/components/product-placeholder";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EmbedDialog } from "@/components/dashboard/embed-dialog";
 import type { StoreProduct, Product, Bundle } from "@shared/schema";
@@ -201,8 +202,8 @@ function StoreProductRow({
               className="h-14 w-14 rounded-md object-cover"
             />
           ) : (
-            <div className="h-14 w-14 rounded-md bg-muted flex items-center justify-center">
-              <Package className="h-5 w-5 text-muted-foreground" />
+            <div className="h-14 w-14 rounded-md overflow-hidden">
+              <ProductPlaceholder productType={product.productType} title={product.title} className="rounded-md" />
             </div>
           )}
           <div className="flex-1 min-w-0">

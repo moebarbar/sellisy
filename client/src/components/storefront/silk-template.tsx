@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, ArrowUpDown, ExternalLink } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import { ProtectedImage } from "@/components/protected-image";
+import { StorefrontProductPlaceholder } from "@/components/product-placeholder";
 import { useStorefrontFilters } from "@/hooks/use-storefront-filters";
 import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 import type { Store, Product, Bundle, BlogPost } from "@shared/schema";
@@ -449,13 +450,15 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
               return (
                 <div key={product.id} className="sf-reveal-item">
                   <div className="silk-card group flex flex-col md:flex-row" data-testid={`card-product-${product.id}`}>
-                    {product.thumbnailUrl && (
-                      <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden">
-                        <a href={`/s/${store.slug}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
+                    <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden">
+                      <a href={`/s/${store.slug}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
+                        {product.thumbnailUrl ? (
                           <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
-                        </a>
-                      </div>
-                    )}
+                        ) : (
+                          <StorefrontProductPlaceholder productType={product.productType} accentColor={store.accentColor || undefined} title={product.title} className="h-56 md:h-full" />
+                        )}
+                      </a>
+                    </div>
                     <div className="flex-1 p-8 md:p-10 flex flex-col justify-between">
                       <div>
                         <div className="flex items-center gap-3 mb-4">

@@ -13,7 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useUpload } from "@/hooks/use-upload";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Package, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download, Star, X, ArrowUpToLine } from "lucide-react";
+import { Plus, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download, Star, X, ArrowUpToLine, Package } from "lucide-react";
+import { ProductPlaceholder } from "@/components/product-placeholder";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import type { Product, Store, ProductImage, Category } from "@shared/schema";
 
@@ -407,9 +408,7 @@ function ProductCardImage({ product }: { product: Product }) {
           data-testid={`img-my-product-${product.id}`}
         />
       ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <Package className="h-12 w-12 text-muted-foreground/40" />
-        </div>
+        <ProductPlaceholder productType={product.productType} title={product.title} />
       )}
       <div className="absolute top-2 right-2 flex items-center gap-1.5">
         {imageCount > 1 && (

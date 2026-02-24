@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles, Plus, Trash2, Upload, ImagePlus, Star, X, FileIcon, Link as LinkIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { ProductPlaceholder } from "@/components/product-placeholder";
 import { ProtectedImage } from "@/components/protected-image";
 import type { Product, PlanTier } from "@shared/schema";
 import { canAccessTier, PLAN_FEATURES } from "@shared/schema";
@@ -147,8 +148,8 @@ export default function LibraryPage() {
             return (
               <Card key={product.id} className={`overflow-hidden cursor-pointer ${isLocked ? "opacity-75" : "hover-elevate"}`} onClick={() => setDetailProduct(product)}>
                 <CardContent className="p-0">
-                  {product.thumbnailUrl && (
-                    <div className="relative aspect-square bg-muted overflow-hidden">
+                  <div className="relative aspect-square bg-muted overflow-hidden">
+                    {product.thumbnailUrl ? (
                       <ProtectedImage
                         protected={!PLAN_FEATURES[userTier].allowImageDownload}
                         src={product.thumbnailUrl}
@@ -156,6 +157,9 @@ export default function LibraryPage() {
                         className={`w-full h-full object-cover ${isLocked ? "grayscale" : ""}`}
                         data-testid={`img-product-${product.id}`}
                       />
+                    ) : (
+                      <ProductPlaceholder productType={product.productType} title={product.title} />
+                    )}
                       <div className="absolute top-2 right-2 flex gap-1.5">
                         {isImported && (
                           <Badge variant="default" className="gap-1" data-testid={`badge-imported-${product.id}`}>
@@ -181,7 +185,6 @@ export default function LibraryPage() {
                         </div>
                       )}
                     </div>
-                  )}
                   <div className="p-4">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <h3 className="font-semibold leading-tight" data-testid={`text-product-title-${product.id}`}>

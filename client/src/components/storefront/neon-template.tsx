@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, SlidersHorizontal, ArrowUpDown, ChevronRight, ExternalLink } from "lucide-react";
+import { ShoppingBag, Zap, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, SlidersHorizontal, ArrowUpDown, ChevronRight, ExternalLink } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import { ProtectedImage } from "@/components/protected-image";
+import { StorefrontProductPlaceholder } from "@/components/product-placeholder";
 import { useStorefrontFilters } from "@/hooks/use-storefront-filters";
 import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 import type { Store, Product, Bundle, BlogPost } from "@shared/schema";
@@ -544,24 +545,26 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                 <div key={product.id} className="neon-card group sf-reveal-item">
                   <div className="neon-holo-stripe" />
                   <div className="neon-card-line-scan" />
-                  {product.thumbnailUrl && (
-                    <a href={"/s/" + store.slug + "/product/" + product.id} className="block relative overflow-hidden">
-                      <div className="aspect-square overflow-hidden">
+                  <a href={"/s/" + store.slug + "/product/" + product.id} className="block relative overflow-hidden">
+                    <div className="aspect-square overflow-hidden">
+                      {product.thumbnailUrl ? (
                         <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
-                      </div>
-                      <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />
-                      <div className="absolute top-3 right-3 flex items-center gap-2">
-                        {hasDiscount && (
-                          <div className="neon-discount px-2.5 py-1 rounded-full text-xs font-bold backdrop-blur-md">
-                            -{discountPct}%
-                          </div>
-                        )}
-                        <div className="neon-price px-3 py-1 rounded-full text-sm font-bold backdrop-blur-md" style={{ background: `${c.bg}b3`, border: `1px solid ${c.cyan}25` }}>
-                          {product.isLeadMagnet ? "Free" : `$${(product.priceCents / 100).toFixed(2)}`}
+                      ) : (
+                        <StorefrontProductPlaceholder productType={product.productType} accentColor={store.accentColor || c.cyan} title={product.title} className="aspect-square" />
+                      )}
+                    </div>
+                    <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />
+                    <div className="absolute top-3 right-3 flex items-center gap-2">
+                      {hasDiscount && (
+                        <div className="neon-discount px-2.5 py-1 rounded-full text-xs font-bold backdrop-blur-md">
+                          -{discountPct}%
                         </div>
+                      )}
+                      <div className="neon-price px-3 py-1 rounded-full text-sm font-bold backdrop-blur-md" style={{ background: `${c.bg}b3`, border: `1px solid ${c.cyan}25` }}>
+                        {product.isLeadMagnet ? "Free" : `$${(product.priceCents / 100).toFixed(2)}`}
                       </div>
-                    </a>
-                  )}
+                    </div>
+                  </a>
                   <div className="p-6 relative z-10">
                     {!product.thumbnailUrl && (
                       <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
