@@ -250,6 +250,7 @@ export type Coupon = typeof coupons.$inferSelect;
 export const customers = pgTable("customers", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
+  name: text("name"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
