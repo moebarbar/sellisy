@@ -1,11 +1,11 @@
-import { lazy, Suspense } from "react";
-import { Switch, Route } from "wouter";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DashboardLayout } from "@/components/dashboard/layout";
 
 const LandingPage = lazy(() => import("@/pages/landing"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -15,9 +15,6 @@ const BundleDetailPage = lazy(() => import("@/pages/bundle-detail"));
 const CheckoutSuccessPage = lazy(() => import("@/pages/checkout-success"));
 const ClaimSuccessPage = lazy(() => import("@/pages/claim-success"));
 
-const DashboardLayout = lazy(() =>
-  import("@/components/dashboard/layout").then((m) => ({ default: m.DashboardLayout }))
-);
 const OverviewPage = lazy(() => import("@/pages/dashboard/overview"));
 const StoreProductsPage = lazy(() => import("@/pages/dashboard/store-products"));
 const BundlesPage = lazy(() => import("@/pages/dashboard/bundles"));
@@ -48,85 +45,105 @@ const BlogPostPage = lazy(() => import("@/pages/blog-post"));
 function PageFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="space-y-3 text-center">
-        <Skeleton className="h-6 w-32 mx-auto" />
-        <Skeleton className="h-4 w-24 mx-auto" />
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+        <span className="text-sm">Loading...</span>
       </div>
     </div>
   );
 }
 
-function Router() {
+function DashboardFallback() {
   return (
-    <Suspense fallback={<PageFallback />}>
-      <Switch>
-        <Route path="/" component={LandingPage} />
-        <Route path="/dashboard">
-          <DashboardLayout><OverviewPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/products">
-          <DashboardLayout><StoreProductsPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/bundles">
-          <DashboardLayout><BundlesPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/coupons">
-          <DashboardLayout><CouponsPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/orders">
-          <DashboardLayout><OrdersPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/library">
-          <DashboardLayout><LibraryPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/my-products">
-          <DashboardLayout><MyProductsPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/settings">
-          <DashboardLayout><StoreSettingsPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/marketing/:strategyId">
-          <DashboardLayout><StrategyDetailPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/marketing">
-          <DashboardLayout><MarketingPlaybookPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/kb/:id">
-          <DashboardLayout><KbEditorPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/analytics">
-          <DashboardLayout><AnalyticsPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/customers">
-          <DashboardLayout><CustomersPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/content-creator">
-          <DashboardLayout><KnowledgeBasesPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/blog/:id">
-          <DashboardLayout><BlogEditorPage /></DashboardLayout>
-        </Route>
-        <Route path="/dashboard/blog">
-          <DashboardLayout><BlogPostsPage /></DashboardLayout>
-        </Route>
-        <Route path="/auth" component={AuthPage} />
-        <Route path="/account" component={AccountLoginPage} />
-        <Route path="/account/verify" component={AccountVerifyPage} />
-        <Route path="/account/purchases" component={AccountPurchasesPage} />
-        <Route path="/account/purchase/:orderId" component={AccountPurchaseDetailPage} />
-        <Route path="/s/:slug/portal/:orderId" component={StorePortalPage} />
-        <Route path="/s/:slug/portal" component={StorePortalPage} />
-        <Route path="/s/:slug/blog/:postSlug" component={BlogPostPage} />
-        <Route path="/s/:slug/blog" component={BlogListingPage} />
-        <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
-        <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
-        <Route path="/s/:slug" component={StorefrontPage} />
-        <Route path="/kb/:id" component={KbViewerPage} />
-        <Route path="/checkout/success" component={CheckoutSuccessPage} />
-        <Route path="/claim/success" component={ClaimSuccessPage} />
-        <Route component={NotFound} />
-      </Switch>
+    <div className="flex items-center justify-center py-20">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+        <span className="text-sm">Loading...</span>
+      </div>
+    </div>
+  );
+}
+
+function FadeIn({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (el) {
+      el.style.opacity = "0";
+      el.style.transform = "translateY(4px)";
+      requestAnimationFrame(() => {
+        el.style.transition = "opacity 0.15s ease, transform 0.15s ease";
+        el.style.opacity = "1";
+        el.style.transform = "translateY(0)";
+      });
+    }
+  }, []);
+  return <div ref={ref}>{children}</div>;
+}
+
+function DashboardRouter() {
+  const [location] = useLocation();
+
+  return (
+    <Suspense fallback={<DashboardFallback />}>
+      <FadeIn key={location}>
+        <Switch>
+          <Route path="/dashboard" component={OverviewPage} />
+          <Route path="/dashboard/products" component={StoreProductsPage} />
+          <Route path="/dashboard/bundles" component={BundlesPage} />
+          <Route path="/dashboard/coupons" component={CouponsPage} />
+          <Route path="/dashboard/orders" component={OrdersPage} />
+          <Route path="/dashboard/library" component={LibraryPage} />
+          <Route path="/dashboard/my-products" component={MyProductsPage} />
+          <Route path="/dashboard/settings" component={StoreSettingsPage} />
+          <Route path="/dashboard/marketing/:strategyId" component={StrategyDetailPage} />
+          <Route path="/dashboard/marketing" component={MarketingPlaybookPage} />
+          <Route path="/dashboard/kb/:id" component={KbEditorPage} />
+          <Route path="/dashboard/analytics" component={AnalyticsPage} />
+          <Route path="/dashboard/customers" component={CustomersPage} />
+          <Route path="/dashboard/content-creator" component={KnowledgeBasesPage} />
+          <Route path="/dashboard/blog/:id" component={BlogEditorPage} />
+          <Route path="/dashboard/blog" component={BlogPostsPage} />
+        </Switch>
+      </FadeIn>
     </Suspense>
+  );
+}
+
+function Router() {
+  const [location] = useLocation();
+  const isDashboard = location.startsWith("/dashboard");
+
+  return (
+    <>
+      {isDashboard ? (
+        <DashboardLayout>
+          <DashboardRouter />
+        </DashboardLayout>
+      ) : (
+        <Suspense fallback={<PageFallback />}>
+          <Switch>
+            <Route path="/" component={LandingPage} />
+            <Route path="/auth" component={AuthPage} />
+            <Route path="/account" component={AccountLoginPage} />
+            <Route path="/account/verify" component={AccountVerifyPage} />
+            <Route path="/account/purchases" component={AccountPurchasesPage} />
+            <Route path="/account/purchase/:orderId" component={AccountPurchaseDetailPage} />
+            <Route path="/s/:slug/portal/:orderId" component={StorePortalPage} />
+            <Route path="/s/:slug/portal" component={StorePortalPage} />
+            <Route path="/s/:slug/blog/:postSlug" component={BlogPostPage} />
+            <Route path="/s/:slug/blog" component={BlogListingPage} />
+            <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
+            <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
+            <Route path="/s/:slug" component={StorefrontPage} />
+            <Route path="/kb/:id" component={KbViewerPage} />
+            <Route path="/checkout/success" component={CheckoutSuccessPage} />
+            <Route path="/claim/success" component={ClaimSuccessPage} />
+            <Route component={NotFound} />
+          </Switch>
+        </Suspense>
+      )}
+    </>
   );
 }
 
