@@ -150,40 +150,49 @@ function midnightCss(c: ThemeColors, mode: ThemeMode): string {
       animation: midnight-twinkle 3s ease-in-out infinite;
     }
     .midnight-star-sm {
-      background: ${isDark ? "rgba(238,240,255,0.4)" : "rgba(99,102,241,0.2)"};
+      background: ${isDark ? "rgba(238,240,255,0.55)" : "rgba(99,102,241,0.25)"};
     }
     .midnight-star-md {
-      background: ${isDark ? "rgba(238,240,255,0.6)" : "rgba(99,102,241,0.3)"};
-      box-shadow: 0 0 3px ${isDark ? "rgba(238,240,255,0.3)" : "rgba(99,102,241,0.15)"};
+      background: ${isDark ? "rgba(238,240,255,0.75)" : "rgba(99,102,241,0.35)"};
+      box-shadow: 0 0 4px ${isDark ? "rgba(238,240,255,0.4)" : "rgba(99,102,241,0.2)"};
     }
     .midnight-star-lg {
-      background: ${isDark ? "rgba(200,180,255,0.7)" : "rgba(124,58,237,0.35)"};
-      box-shadow: 0 0 6px ${isDark ? "rgba(200,180,255,0.4)" : "rgba(124,58,237,0.2)"}, 0 0 12px ${isDark ? "rgba(200,180,255,0.15)" : "rgba(124,58,237,0.08)"};
+      background: ${isDark ? "rgba(200,180,255,0.85)" : "rgba(124,58,237,0.4)"};
+      box-shadow: 0 0 8px ${isDark ? "rgba(200,180,255,0.5)" : "rgba(124,58,237,0.25)"}, 0 0 16px ${isDark ? "rgba(200,180,255,0.2)" : "rgba(124,58,237,0.1)"};
     }
     .midnight-orb { animation: midnight-glow 5s ease-in-out infinite; pointer-events: none; }
     .midnight-float { animation: midnight-drift 7s ease-in-out infinite; }
     .midnight-pulse-icon { animation: midnight-pulse 4s ease-in-out infinite; }
     .midnight-nebula {
       position: absolute; inset: 0; pointer-events: none;
-      background: radial-gradient(ellipse 70% 40% at 50% 0%, ${c.accent}08 0%, transparent 70%);
+      background: radial-gradient(ellipse 75% 45% at 50% 0%, ${c.accent}${isDark ? "14" : "0a"} 0%, transparent 70%);
     }
     .midnight-nebula-cloud {
       position: absolute; pointer-events: none; border-radius: 50%;
-      opacity: ${isDark ? 0.06 : 0.04};
-      filter: blur(60px);
+      opacity: ${isDark ? 0.1 : 0.06};
+      filter: blur(55px);
     }
     .midnight-grid {
       position: absolute; inset: 0; pointer-events: none;
       background-image:
-        radial-gradient(circle 1px, ${c.accent}${isDark ? "14" : "0a"} 100%, transparent 100%);
-      background-size: 60px 60px;
-      mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 25%, transparent 70%);
-      -webkit-mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 25%, transparent 70%);
+        radial-gradient(circle 1.2px, ${c.accent}${isDark ? "22" : "12"} 100%, transparent 100%);
+      background-size: 55px 55px;
+      mask-image: radial-gradient(ellipse 85% 55% at 50% 0%, black 30%, transparent 75%);
+      -webkit-mask-image: radial-gradient(ellipse 85% 55% at 50% 0%, black 30%, transparent 75%);
       animation: midnight-glow 6s ease-in-out infinite;
+    }
+    .midnight-grid-lines {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        linear-gradient(${c.accent}${isDark ? "0a" : "06"} 1px, transparent 1px),
+        linear-gradient(90deg, ${c.accent}${isDark ? "0a" : "06"} 1px, transparent 1px);
+      background-size: 55px 55px;
+      mask-image: radial-gradient(ellipse 85% 55% at 50% 0%, black 25%, transparent 72%);
+      -webkit-mask-image: radial-gradient(ellipse 85% 55% at 50% 0%, black 25%, transparent 72%);
     }
     .midnight-constellation-line {
       position: absolute; pointer-events: none; height: 1px;
-      opacity: ${isDark ? 0.12 : 0.06};
+      opacity: ${isDark ? 0.2 : 0.1};
       transform-origin: left center;
     }
     .midnight-card-shimmer {
@@ -216,43 +225,48 @@ function midnightCss(c: ThemeColors, mode: ThemeMode): string {
 
 function MidnightBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeMode }) {
   const isDark = mode === "dark";
-  const stars = Array.from({ length: 70 }, (_, i) => {
+  const stars = Array.from({ length: 90 }, (_, i) => {
     const sizeClass = i % 7 === 0 ? "lg" : i % 3 === 0 ? "md" : "sm";
-    const sizePx = sizeClass === "lg" ? 3 : sizeClass === "md" ? 2 : 1;
+    const sizePx = sizeClass === "lg" ? 3.5 : sizeClass === "md" ? 2.5 : 1.5;
     return {
       id: i,
       left: `${(i * 17 + 7) % 100}%`,
       top: `${(i * 13 + 3) % 100}%`,
       size: sizePx,
       sizeClass,
-      delay: `${(i * 0.7) % 5}s`,
-      duration: `${2.5 + (i % 4) * 1.2}s`,
+      delay: `${(i * 0.6) % 5}s`,
+      duration: `${2 + (i % 4) * 1}s`,
     };
   });
 
   const constellations = [
-    { x: 12, y: 8, angle: 35, len: 80 },
-    { x: 25, y: 15, angle: -20, len: 60 },
-    { x: 55, y: 5, angle: 15, len: 90 },
-    { x: 70, y: 12, angle: -40, len: 70 },
-    { x: 40, y: 22, angle: 50, len: 50 },
-    { x: 82, y: 8, angle: -15, len: 65 },
+    { x: 10, y: 6, angle: 35, len: 90 },
+    { x: 22, y: 14, angle: -20, len: 70 },
+    { x: 50, y: 4, angle: 15, len: 100 },
+    { x: 68, y: 10, angle: -40, len: 80 },
+    { x: 38, y: 20, angle: 50, len: 60 },
+    { x: 80, y: 7, angle: -15, len: 75 },
+    { x: 15, y: 25, angle: 30, len: 55 },
+    { x: 60, y: 18, angle: -35, len: 65 },
+    { x: 90, y: 14, angle: 20, len: 50 },
   ];
 
   return (
     <>
+      <div className="midnight-grid-lines" />
       <div className="midnight-grid" />
       <div className="midnight-nebula" />
       <div className="midnight-scanline" />
-      <div className="midnight-nebula-cloud" style={{ width: 600, height: 350, top: "2%", left: "5%", background: `radial-gradient(ellipse, ${colors.accent}, transparent)` }} />
-      <div className="midnight-nebula-cloud" style={{ width: 700, height: 400, top: "25%", right: "0%", background: `radial-gradient(ellipse, ${colors.accentAlt}, transparent)`, opacity: isDark ? 0.05 : 0.03 }} />
-      <div className="midnight-nebula-cloud" style={{ width: 500, height: 300, bottom: "10%", left: "25%", background: `radial-gradient(ellipse, ${isDark ? "#c4b5fd" : "#6366f1"}, transparent)`, opacity: isDark ? 0.04 : 0.025 }} />
-      <div className="midnight-orb absolute top-[-200px] left-1/2 -translate-x-1/2 w-[900px] h-[700px] rounded-full" style={{ background: `radial-gradient(ellipse at center, ${colors.accent}14 0%, ${colors.accentAlt}08 40%, transparent 70%)`, filter: "blur(30px)" }} />
-      <div className="midnight-orb absolute top-[400px] right-[-150px] w-[500px] h-[500px] rounded-full" style={{ background: `radial-gradient(circle, ${colors.accentAlt}08 0%, transparent 60%)`, filter: "blur(40px)", animationDelay: "2.5s" }} />
+      <div className="midnight-nebula-cloud" style={{ width: 700, height: 400, top: "0%", left: "5%", background: `radial-gradient(ellipse, ${colors.accent}, transparent)` }} />
+      <div className="midnight-nebula-cloud" style={{ width: 800, height: 450, top: "20%", right: "-5%", background: `radial-gradient(ellipse, ${colors.accentAlt}, transparent)` }} />
+      <div className="midnight-nebula-cloud" style={{ width: 600, height: 350, bottom: "5%", left: "20%", background: `radial-gradient(ellipse, ${isDark ? "#c4b5fd" : "#6366f1"}, transparent)`, opacity: isDark ? 0.07 : 0.04 }} />
+      <div className="midnight-orb absolute top-[-200px] left-1/2 -translate-x-1/2 w-[1000px] h-[800px] rounded-full" style={{ background: `radial-gradient(ellipse at center, ${colors.accent}${isDark ? "1c" : "10"} 0%, ${colors.accentAlt}${isDark ? "0c" : "06"} 40%, transparent 65%)`, filter: "blur(30px)" }} />
+      <div className="midnight-orb absolute top-[300px] right-[-150px] w-[600px] h-[600px] rounded-full" style={{ background: `radial-gradient(circle, ${colors.accentAlt}${isDark ? "12" : "08"} 0%, transparent 55%)`, filter: "blur(35px)", animationDelay: "2.5s" }} />
+      <div className="midnight-orb absolute bottom-[-100px] left-[-100px] w-[500px] h-[500px] rounded-full" style={{ background: `radial-gradient(circle, ${isDark ? "#c4b5fd14" : "#6366f108"} 0%, transparent 55%)`, filter: "blur(40px)", animationDelay: "4s" }} />
       {constellations.map((c, i) => (
         <div key={`const-${i}`} className="midnight-constellation-line" style={{
           left: `${c.x}%`, top: `${c.y}%`, width: `${c.len}px`,
-          background: `linear-gradient(90deg, ${colors.accent}30, ${colors.accentAlt}20, transparent)`,
+          background: `linear-gradient(90deg, ${colors.accent}40, ${colors.accentAlt}28, transparent)`,
           transform: `rotate(${c.angle}deg)`,
         }} />
       ))}
