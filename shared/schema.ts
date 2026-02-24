@@ -399,6 +399,8 @@ export const blogPosts = pgTable("blog_posts", {
   excerpt: text("excerpt"),
   coverImageUrl: text("cover_image_url"),
   fontFamily: text("font_family"),
+  category: text("category").notNull().default("General"),
+  readingTimeMinutes: integer("reading_time_minutes").notNull().default(1),
   isPublished: boolean("is_published").notNull().default(false),
   publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -139,7 +139,9 @@ export interface IStorage {
   getBlogPostById(id: string): Promise<BlogPost | undefined>;
   getBlogPostBySlug(storeId: string, slug: string): Promise<BlogPost | undefined>;
   createBlogPost(data: InsertBlogPost): Promise<BlogPost>;
-  updateBlogPost(id: string, data: Partial<Pick<BlogPost, "title" | "slug" | "excerpt" | "coverImageUrl" | "fontFamily" | "isPublished" | "publishedAt">>): Promise<BlogPost | undefined>;
+  updateBlogPost(id: string, data: Partial<Pick<BlogPost, "title" | "slug" | "excerpt" | "coverImageUrl" | "fontFamily" | "category" | "readingTimeMinutes" | "isPublished" | "publishedAt">>): Promise<BlogPost | undefined>;
+  getRelatedBlogPosts(storeId: string, postId: string, category: string, limit?: number): Promise<BlogPost[]>;
+  getBlogCategories(storeId: string): Promise<string[]>;
   deleteBlogPost(id: string): Promise<void>;
 
   getBlogBlocksByPost(postId: string): Promise<BlogBlock[]>;
@@ -709,9 +711,27 @@ export class DatabaseStorage implements IStorage {
     return post;
   }
 
-  async updateBlogPost(id: string, data: Partial<Pick<BlogPost, "title" | "slug" | "excerpt" | "coverImageUrl" | "fontFamily" | "isPublished" | "publishedAt">>) {
+  async updateBlogPost(id: string, data: Partial<Pick<BlogPost, "title" | "slug" | "excerpt" | "coverImageUrl" | "fontFamily" | "category" | "readingTimeMinutes" | "isPublished" | "publishedAt">>) {
     const [post] = await db.update(blogPosts).set(data).where(eq(blogPosts.id, id)).returning();
     return post;
+  }
+
+  async getRelatedBlogPosts(storeId: string, postId: string, category: string, limit = 3) {
+    return db.select().from(blogPosts).where(
+      and(
+        eq(blogPosts.storeId, storeId),
+        eq(blogPosts.isPublished, true),
+        eq(blogPosts.category, category),
+        sql`${blogPosts.id} != ${postId}`
+      )
+    ).orderBy(desc(blogPosts.publishedAt)).limit(limit);
+  }
+
+  async getBlogCategories(storeId: string) {
+    const rows = await db.selectDistinct({ category: blogPosts.category })
+      .from(blogPosts)
+      .where(and(eq(blogPosts.storeId, storeId), eq(blogPosts.isPublished, true)));
+    return rows.map(r => r.category);
   }
 
   async deleteBlogPost(id: string) {

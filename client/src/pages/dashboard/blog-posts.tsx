@@ -141,6 +141,7 @@ export default function BlogPostsPage() {
                 <div className="flex-1 min-w-0" onClick={() => navigate(`/dashboard/blog/${post.id}`)}>
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-semibold truncate">{post.title}</h3>
+                    <Badge variant="outline" className="text-[10px] flex-shrink-0">{post.category}</Badge>
                     <Badge variant={post.isPublished ? "default" : "secondary"} className="text-xs flex-shrink-0">
                       {post.isPublished ? "Published" : "Draft"}
                     </Badge>

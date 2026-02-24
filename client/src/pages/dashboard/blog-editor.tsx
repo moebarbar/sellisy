@@ -2206,6 +2206,7 @@ export default function BlogEditorPage() {
   const [excerpt, setExcerpt] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [fontFamily, setFontFamily] = useState("");
+  const [category, setCategory] = useState("General");
 
   const { data: post, isLoading: postLoading } = useQuery<BlogPost>({
     queryKey: ["/api/blog-posts", postId],
@@ -2224,6 +2225,7 @@ export default function BlogEditorPage() {
       setExcerpt(post.excerpt || "");
       setCoverImageUrl(post.coverImageUrl || "");
       setFontFamily(post.fontFamily || "");
+      setCategory(post.category || "General");
     }
   }, [post]);
 
@@ -2251,7 +2253,9 @@ export default function BlogEditorPage() {
       return;
     }
     const publishedAt = !post.isPublished ? new Date().toISOString() : post.publishedAt;
-    updatePostMutation.mutate({ isPublished: !post.isPublished, publishedAt: publishedAt as any });
+    const wordCount = blocks.reduce((acc, b) => acc + (b.content || "").split(/\s+/).filter(Boolean).length, 0);
+    const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
+    updatePostMutation.mutate({ isPublished: !post.isPublished, publishedAt: publishedAt as any, readingTimeMinutes });
     if (!post.isPublished) {
       toast({ title: "Published!", description: "Your blog post is now live." });
     } else {
@@ -2260,10 +2264,14 @@ export default function BlogEditorPage() {
   };
 
   const saveSettings = () => {
+    const wordCount = blocks.reduce((acc, b) => acc + (b.content || "").split(/\s+/).filter(Boolean).length, 0);
+    const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
     updatePostMutation.mutate({
       excerpt: excerpt || null,
       coverImageUrl: coverImageUrl || null,
       fontFamily: fontFamily || null,
+      category: category || "General",
+      readingTimeMinutes,
     });
     toast({ title: "Saved", description: "Post settings updated." });
     setShowSettings(false);
@@ -2341,6 +2349,19 @@ export default function BlogEditorPage() {
                 rows={3}
                 data-testid="input-blog-excerpt"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Category</Label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                data-testid="select-blog-category"
+              >
+                {["General", "News", "Tutorial", "Guide", "Review", "Case Study", "Announcement", "Tips & Tricks", "Industry", "Behind the Scenes"].map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1.5">
               <Label>Cover Image URL</Label>

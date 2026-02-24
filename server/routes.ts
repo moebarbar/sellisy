@@ -1484,7 +1484,7 @@ export async function registerRoutes(
     if (!post) return res.status(404).json({ message: "Not found" });
     const store = await storage.getStoreById(post.storeId);
     if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
-    const allowed = ["title", "slug", "excerpt", "coverImageUrl", "fontFamily", "isPublished", "publishedAt"] as const;
+    const allowed = ["title", "slug", "excerpt", "coverImageUrl", "fontFamily", "category", "readingTimeMinutes", "isPublished", "publishedAt"] as const;
     const data: any = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) data[key] = req.body[key];
@@ -1565,8 +1565,11 @@ export async function registerRoutes(
   app.get("/api/storefront/:slug/blog", async (req, res) => {
     const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store || !store.blogEnabled) return res.status(404).json({ message: "Blog not found" });
-    const posts = await storage.getPublishedBlogPostsByStore(store.id);
-    res.json({ store: sanitizeStore(store), posts });
+    const [posts, categories] = await Promise.all([
+      storage.getPublishedBlogPostsByStore(store.id),
+      storage.getBlogCategories(store.id),
+    ]);
+    res.json({ store: sanitizeStore(store), posts, categories });
   });
 
   app.get("/api/storefront/:slug/blog/:postSlug", async (req, res) => {
@@ -1574,8 +1577,11 @@ export async function registerRoutes(
     if (!store || !store.blogEnabled) return res.status(404).json({ message: "Blog not found" });
     const post = await storage.getBlogPostBySlug(store.id, req.params.postSlug as string);
     if (!post || !post.isPublished) return res.status(404).json({ message: "Post not found" });
-    const blocks = await storage.getBlogBlocksByPost(post.id);
-    res.json({ store: sanitizeStore(store), post, blocks });
+    const [blocks, relatedPosts] = await Promise.all([
+      storage.getBlogBlocksByPost(post.id),
+      storage.getRelatedBlogPosts(store.id, post.id, post.category, 3),
+    ]);
+    res.json({ store: sanitizeStore(store), post, blocks, relatedPosts });
   });
 
   // --- Public storefront ---
