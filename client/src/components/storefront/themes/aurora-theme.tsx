@@ -190,28 +190,55 @@ function AuroraBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeMo
   return (
     <>
       <div
-        className="aurora-orb absolute top-[-300px] left-1/2 -translate-x-1/2 w-[1000px] h-[600px]"
+        className="aurora-orb absolute top-[-350px] left-1/2 -translate-x-1/2 w-[1200px] h-[700px]"
         style={{
-          background: `radial-gradient(ellipse at center, ${colors.accent}${isDark ? "18" : "10"} 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse at center, ${colors.accent}${isDark ? "1a" : "12"} 0%, transparent 65%)`,
           filter: "blur(60px)",
         }}
       />
       <div
-        className="aurora-orb absolute top-[-200px] left-[20%] w-[700px] h-[500px]"
+        className="aurora-orb absolute top-[-200px] left-[15%] w-[800px] h-[550px]"
         style={{
-          background: `radial-gradient(ellipse at center, ${colors.accentAlt}${isDark ? "12" : "08"} 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse at center, ${colors.accentAlt}${isDark ? "14" : "0a"} 0%, transparent 65%)`,
           filter: "blur(80px)",
           animationDelay: "1.5s",
           animationDuration: "7s",
         }}
       />
       <div
-        className="aurora-orb absolute top-[100px] right-[-100px] w-[600px] h-[400px]"
+        className="aurora-orb absolute top-[80px] right-[-150px] w-[700px] h-[500px]"
         style={{
-          background: `radial-gradient(ellipse at center, rgba(34,211,238,${isDark ? "0.08" : "0.05"}) 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse at center, rgba(34,211,238,${isDark ? "0.1" : "0.06"}) 0%, transparent 65%)`,
           filter: "blur(70px)",
           animationDelay: "3s",
           animationDuration: "9s",
+        }}
+      />
+      <div
+        className="aurora-orb absolute top-[300px] left-[-100px] w-[500px] h-[400px]"
+        style={{
+          background: `radial-gradient(ellipse at center, rgba(16,185,129,${isDark ? "0.08" : "0.05"}) 0%, transparent 65%)`,
+          filter: "blur(90px)",
+          animationDelay: "2s",
+          animationDuration: "8s",
+        }}
+      />
+      <div
+        className="aurora-orb absolute top-[500px] right-[10%] w-[600px] h-[350px]"
+        style={{
+          background: `radial-gradient(ellipse at center, ${colors.accent}${isDark ? "0c" : "08"} 0%, transparent 60%)`,
+          filter: "blur(100px)",
+          animationDelay: "4s",
+          animationDuration: "10s",
+        }}
+      />
+      <div
+        className="aurora-orb absolute bottom-[200px] left-[30%] w-[500px] h-[300px]"
+        style={{
+          background: `radial-gradient(ellipse at center, ${colors.accentAlt}${isDark ? "0a" : "06"} 0%, transparent 60%)`,
+          filter: "blur(85px)",
+          animationDelay: "5s",
+          animationDuration: "11s",
         }}
       />
       <div
@@ -224,25 +251,26 @@ function AuroraBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeMo
       />
       {isDark && (
         <div
-          className="absolute top-0 left-0 w-full h-[500px] pointer-events-none"
+          className="absolute top-0 left-0 w-full h-[600px] pointer-events-none"
           style={{
             background: `
-              radial-gradient(ellipse 120% 60% at 50% -10%, ${colors.accent}0d 0%, transparent 70%),
-              radial-gradient(ellipse 80% 40% at 30% 10%, ${colors.accentAlt}08 0%, transparent 60%),
-              radial-gradient(ellipse 80% 40% at 70% 10%, rgba(34,211,238,0.05) 0%, transparent 60%)
+              radial-gradient(ellipse 120% 60% at 50% -10%, ${colors.accent}10 0%, transparent 70%),
+              radial-gradient(ellipse 80% 40% at 25% 15%, ${colors.accentAlt}0a 0%, transparent 60%),
+              radial-gradient(ellipse 80% 40% at 75% 10%, rgba(34,211,238,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse 60% 30% at 50% 30%, rgba(16,185,129,0.04) 0%, transparent 50%)
             `,
           }}
         />
       )}
-      {isDark && [0,1,2,3,4].map(i => (
+      {isDark && [0,1,2,3,4,5,6].map(i => (
         <div
           key={i}
           className="aurora-sparkle-dot"
           style={{
-            left: `${12 + i * 18}%`,
-            top: `${15 + (i % 3) * 20}%`,
-            animationDelay: `${i * 0.9}s`,
-            animationDuration: `${3 + i * 1.2}s`,
+            left: `${8 + i * 13}%`,
+            top: `${12 + (i % 4) * 18}%`,
+            animationDelay: `${i * 0.7}s`,
+            animationDuration: `${3 + i * 1.1}s`,
           }}
         />
       ))}
@@ -306,11 +334,13 @@ export const auroraTheme: StorefrontTheme = {
   renderBackground: (colors, mode) => <AuroraBackground colors={colors} mode={mode} />,
   renderHeroBadge: (colors) => (
     <div
-      className="aurora-float inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8"
+      className="aurora-float inline-flex items-center gap-2 px-5 py-2.5 rounded-full mb-8"
       style={{
-        background: colors.badgeBg,
+        background: `linear-gradient(135deg, ${colors.accent}14, ${colors.accentAlt}10, rgba(34,211,238,0.06))`,
         border: `1px solid ${colors.badgeBorder}`,
-        backdropFilter: "blur(12px)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        boxShadow: `0 0 20px ${colors.accent}10, inset 0 1px 0 rgba(255,255,255,0.08)`,
       }}
     >
       <Sparkles className="h-3.5 w-3.5" style={{ color: colors.accent }} />
@@ -319,6 +349,43 @@ export const auroraTheme: StorefrontTheme = {
       </span>
     </div>
   ),
+  renderDivider: (isDark: boolean) => (
+    <div className="relative w-full" style={{ height: "2px" }}>
+      <div
+        className="absolute inset-0"
+        style={{
+          background: isDark
+            ? "linear-gradient(90deg, transparent 0%, #2dd4bf40 20%, #a78bfa50 50%, #22d3ee40 80%, transparent 100%)"
+            : "linear-gradient(90deg, transparent 0%, #0d948830 20%, #7c3aed30 50%, #0891b230 80%, transparent 100%)",
+          boxShadow: isDark
+            ? "0 0 12px rgba(45,212,191,0.15), 0 0 24px rgba(167,139,250,0.1)"
+            : "0 0 8px rgba(13,148,136,0.1)",
+        }}
+      />
+    </div>
+  ),
+  renderFooterDecoration: (colors: ThemeColors, isDark: boolean) => (
+    <div className="w-full" style={{ height: "3px" }}>
+      <div
+        className="w-full h-full"
+        style={{
+          background: isDark
+            ? `linear-gradient(90deg, ${colors.accent}60, ${colors.accentAlt}50, #22d3ee60, ${colors.accent}60)`
+            : `linear-gradient(90deg, ${colors.accent}40, ${colors.accentAlt}30, #0891b240, ${colors.accent}40)`,
+          backgroundSize: "300% 100%",
+          animation: "aurora-gradient 8s ease infinite",
+          boxShadow: isDark
+            ? `0 0 16px ${colors.accent}25, 0 0 32px ${colors.accentAlt}15`
+            : `0 0 8px ${colors.accent}15`,
+        }}
+      />
+    </div>
+  ),
+  renderAnnouncementStyle: (colors: ThemeColors, _mode: ThemeMode) => ({
+    background: `linear-gradient(135deg, ${colors.accent}, ${colors.accentAlt}, #22d3ee)`,
+    backgroundSize: "200% 200%",
+    animation: "aurora-gradient 6s ease infinite",
+  }),
   renderCardOverlay: (colors) => (
     <div
       className="absolute inset-0 pointer-events-none rounded-[inherit]"

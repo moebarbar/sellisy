@@ -168,15 +168,31 @@ function FrostBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeMod
   const orbA = isDark ? `${colors.accent}12` : `${colors.accent}0a`;
   const orbB = isDark ? "rgba(186,230,253,0.06)" : "rgba(147,197,253,0.08)";
   const orbC = isDark ? "rgba(96,165,250,0.05)" : "rgba(96,165,250,0.06)";
+  const glassA = isDark ? "rgba(147,197,253,0.03)" : "rgba(147,197,253,0.05)";
+  const glassB = isDark ? "rgba(186,230,253,0.02)" : "rgba(186,230,253,0.04)";
   return (
     <>
       <div className="frost-orb absolute top-[-200px] left-1/3 w-[700px] h-[700px] rounded-full" style={{ background: `radial-gradient(circle, ${orbA} 0%, transparent 70%)` }} />
       <div className="frost-orb absolute top-[300px] right-[-150px] w-[500px] h-[500px] rounded-full" style={{ background: `radial-gradient(circle, ${orbB} 0%, transparent 65%)`, animationDelay: "2s" }} />
       <div className="frost-orb absolute bottom-[-100px] left-[-100px] w-[400px] h-[400px] rounded-full" style={{ background: `radial-gradient(circle, ${orbC} 0%, transparent 60%)`, animationDelay: "4s" }} />
+      <div className="absolute top-[10%] right-[15%] w-[280px] h-[280px] rounded-[40%_60%_55%_45%] rotate-12" style={{ background: `linear-gradient(135deg, ${glassA}, transparent)`, backdropFilter: "blur(1px)", border: `1px solid ${isDark ? "rgba(147,197,253,0.04)" : "rgba(147,197,253,0.06)"}` }} />
+      <div className="absolute top-[55%] left-[8%] w-[200px] h-[200px] rounded-[55%_45%_50%_50%] -rotate-6" style={{ background: `linear-gradient(160deg, ${glassB}, transparent)`, backdropFilter: "blur(1px)", border: `1px solid ${isDark ? "rgba(186,230,253,0.03)" : "rgba(186,230,253,0.05)"}` }} />
+      <div className="absolute bottom-[15%] right-[20%] w-[160px] h-[160px] rounded-[45%_55%_60%_40%] rotate-45" style={{ background: `linear-gradient(120deg, ${glassA}, transparent)`, border: `1px solid ${isDark ? "rgba(147,197,253,0.03)" : "rgba(147,197,253,0.04)"}` }} />
       {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
         <div key={i} className="frost-particle" style={{ left: `${10 + i * 12}%`, top: `${15 + (i % 4) * 20}%`, animationDelay: `${i * 0.7}s`, animationDuration: `${3 + i * 0.5}s`, opacity: isDark ? 0.5 : 0.3 }} />
       ))}
     </>
+  );
+}
+
+function FrostDivider({ isDark }: { isDark: boolean }) {
+  const icyBlue = isDark ? "#93c5fd" : "#3b82f6";
+  return (
+    <div className="flex items-center justify-center gap-3 py-2">
+      <div className="h-px flex-1 max-w-24" style={{ background: `linear-gradient(to right, transparent, ${icyBlue}40)` }} />
+      <Snowflake className="h-3 w-3" style={{ color: `${icyBlue}60`, filter: `drop-shadow(0 0 3px ${icyBlue}30)` }} />
+      <div className="h-px flex-1 max-w-24" style={{ background: `linear-gradient(to left, transparent, ${icyBlue}40)` }} />
+    </div>
   );
 }
 
@@ -221,10 +237,33 @@ export const frostTheme: StorefrontTheme = {
   },
   css: frostCss,
   renderBackground: (colors, mode) => <FrostBackground colors={colors} mode={mode} />,
+  renderDivider: (isDark) => <FrostDivider isDark={isDark} />,
   renderHeroBadge: (colors) => (
     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8" style={{ background: colors.badgeBg, border: `1px solid ${colors.badgeBorder}` }}>
       <Snowflake className="h-3.5 w-3.5" style={{ color: colors.accent }} />
       <span className="text-xs font-medium tracking-wider uppercase" style={{ color: `${colors.accent}cc` }}>Crystal Clear Quality</span>
+    </div>
+  ),
+  renderCardOverlay: (colors) => (
+    <div
+      className="absolute inset-0 pointer-events-none"
+      style={{
+        background: `linear-gradient(180deg, ${colors.accent}05 0%, transparent 40%, ${colors.accent}03 100%)`,
+        borderRadius: "inherit",
+      }}
+    />
+  ),
+  renderAnnouncementStyle: (colors, mode) => ({
+    background: mode === "dark"
+      ? `linear-gradient(135deg, ${colors.accent}14, rgba(96,165,250,0.06), ${colors.accent}0d)`
+      : `linear-gradient(135deg, ${colors.accent}10, rgba(59,130,246,0.04), ${colors.accent}08)`,
+    borderBottom: `1px solid ${colors.accent}20`,
+    backdropFilter: "blur(8px)",
+  }),
+  renderFooterDecoration: (colors, isDark) => (
+    <div className="w-full flex flex-col items-center gap-2 pt-2">
+      <div className="w-full max-w-xs h-px" style={{ background: `linear-gradient(90deg, transparent, ${isDark ? "#93c5fd" : "#3b82f6"}30, transparent)` }} />
+      <Snowflake className="h-3 w-3" style={{ color: `${colors.accent}40` }} />
     </div>
   ),
   renderHeaderLogo: (store, colors) => <FrostHeaderLogo store={store} colors={colors} />,

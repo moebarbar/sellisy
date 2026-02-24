@@ -183,7 +183,7 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
         </div>
       </header>
 
-      <section className={`relative z-10 mx-auto ${theme.layout.maxWidth} px-6 pt-20 pb-24 text-center`}>
+      <section className={`relative z-10 mx-auto ${theme.layout.maxWidth} px-6 pt-16 pb-20 text-center`}>
         {store.heroBannerUrl && (
           <div className="absolute inset-0 z-0 overflow-hidden rounded-b-2xl" style={{ margin: "0 24px" }}>
             <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover" loading="lazy" style={{ opacity: isDark ? 0.25 : 0.18 }} data-testid="img-hero-banner" />
@@ -194,14 +194,14 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
           {theme.renderHeroBadge?.(c)}
 
           <h1
-            className={`${theme.effects.heroTitleClass} text-4xl md:text-5xl lg:text-7xl tracking-tight mb-6 leading-tight`}
+            className={`${theme.effects.heroTitleClass} text-4xl md:text-5xl lg:text-6xl tracking-tight mb-5 leading-tight`}
             style={{ fontFamily: theme.typography.headingFamily, fontWeight: theme.typography.headingWeight }}
           >
             {store.name}
           </h1>
 
           <p
-            className={`${theme.effects.heroSubtitleClass} text-lg md:text-xl max-w-lg mx-auto font-light leading-relaxed`}
+            className={`${theme.effects.heroSubtitleClass} text-base md:text-lg max-w-md mx-auto font-light leading-relaxed`}
             style={{ fontFamily: theme.typography.bodyFamily }}
             data-testid="text-tagline"
           >
@@ -209,14 +209,14 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
           </p>
 
           {theme.renderDivider ? (
-            <div className="mt-10">
+            <div className="mt-8">
               {theme.renderDivider(isDark)}
             </div>
           ) : (
-            <div className="mt-10 flex items-center justify-center gap-8 flex-wrap">
+            <div className="mt-8 flex items-center justify-center gap-6 flex-wrap">
               {["Instant Delivery", "Secure Checkout", "Premium Quality"].map((label, i) => (
-                <div key={label} className="flex items-center gap-2 text-sm" style={{ color: c.textTertiary }}>
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: [c.price, c.accentAlt, c.accent][i] }} />
+                <div key={label} className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide" style={{ color: c.textTertiary }}>
+                  <div className="w-1 h-1 rounded-full" style={{ background: [c.price, c.accentAlt, c.accent][i] }} />
                   {label}
                 </div>
               ))}
@@ -273,57 +273,61 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
         )}
 
         {products.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6 mt-8">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: c.textTertiary }} />
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                data-testid="input-storefront-search"
-                className="w-full pl-10 pr-4 py-2.5 text-sm outline-none transition-all duration-300"
-                style={{
-                  background: c.card,
-                  border: `1px solid ${c.cardBorder}`,
-                  color: c.text,
-                  borderRadius: theme.layout.buttonBorderRadius,
-                  fontFamily: theme.typography.bodyFamily,
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = c.accent; e.currentTarget.style.boxShadow = `0 0 12px ${c.accent}15`; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = c.cardBorder; e.currentTarget.style.boxShadow = "none"; }}
-              />
+          <div className="mt-6 mb-8">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-xl font-bold" style={{ color: c.text, fontFamily: theme.typography.headingFamily }}>
+                Products
+              </h2>
+              <span className="text-xs font-medium px-3 py-1 rounded-full" style={{ color: c.textSecondary, background: `${c.accent}10`, border: `1px solid ${c.accent}15` }} data-testid="text-product-count">
+                {filtered.length} item{filtered.length !== 1 ? "s" : ""}
+              </span>
             </div>
-            <div className="relative shrink-0">
-              <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: c.textTertiary }} />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                data-testid="select-storefront-sort"
-                className="appearance-none pl-10 pr-8 py-2.5 text-sm outline-none cursor-pointer transition-all duration-300"
-                style={{
-                  background: c.card,
-                  border: `1px solid ${c.cardBorder}`,
-                  color: c.text,
-                  borderRadius: theme.layout.buttonBorderRadius,
-                  fontFamily: theme.typography.bodyFamily,
-                  minWidth: "180px",
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = c.accent; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = c.cardBorder; }}
-              >
-                <option value="newest">Newest</option>
-                <option value="price-asc">Price: Low to High</option>
-                <option value="price-desc">Price: High to Low</option>
-                <option value="name-az">Name A-Z</option>
-              </select>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: c.textTertiary }} />
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  data-testid="input-storefront-search"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm outline-none transition-all duration-300"
+                  style={{
+                    background: c.card,
+                    border: `1px solid ${c.cardBorder}`,
+                    color: c.text,
+                    borderRadius: theme.layout.buttonBorderRadius,
+                    fontFamily: theme.typography.bodyFamily,
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = c.accent; e.currentTarget.style.boxShadow = `0 0 12px ${c.accent}15`; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = c.cardBorder; e.currentTarget.style.boxShadow = "none"; }}
+                />
+              </div>
+              <div className="relative shrink-0">
+                <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: c.textTertiary }} />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  data-testid="select-storefront-sort"
+                  className="appearance-none pl-10 pr-8 py-2.5 text-sm outline-none cursor-pointer transition-all duration-300"
+                  style={{
+                    background: c.card,
+                    border: `1px solid ${c.cardBorder}`,
+                    color: c.text,
+                    borderRadius: theme.layout.buttonBorderRadius,
+                    fontFamily: theme.typography.bodyFamily,
+                    minWidth: "180px",
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = c.accent; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = c.cardBorder; }}
+                >
+                  <option value="newest">Newest</option>
+                  <option value="price-asc">Price: Low to High</option>
+                  <option value="price-desc">Price: High to Low</option>
+                  <option value="name-az">Name A-Z</option>
+                </select>
+              </div>
             </div>
-          </div>
-        )}
-
-        {products.length > 0 && (
-          <div className="mb-6 text-sm" style={{ color: c.textSecondary, fontFamily: theme.typography.bodyFamily }} data-testid="text-product-count">
-            Showing {filtered.length} of {products.length} product{products.length !== 1 ? "s" : ""}
           </div>
         )}
 
@@ -338,37 +342,44 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
             </p>
           </div>
         ) : isGrid ? (
-          <div ref={revealRef} className={`grid gap-6 ${theme.layout.gridColumns}`}>
+          <div ref={revealRef} className={`grid gap-6 ${theme.layout.gridColumns}`} style={{ alignItems: "stretch" }}>
             {filtered.map((product) => {
               const hasDiscount = product.originalPriceCents != null && product.originalPriceCents > product.priceCents;
               const discountPct = hasDiscount ? Math.round(((product.originalPriceCents! - product.priceCents) / product.originalPriceCents!) * 100) : 0;
+              const truncatedDesc = product.description
+                ? product.description.length > 80 ? product.description.slice(0, 80).trimEnd() + "..." : product.description
+                : null;
 
               return (
-                <div key={product.id} className="sf-reveal-item">
-                  <div className={`${theme.effects.cardClass} group`} data-testid={`card-product-${product.id}`}>
+                <div key={product.id} className="sf-reveal-item flex">
+                  <div className={`${theme.effects.cardClass} group flex flex-col w-full`} data-testid={`card-product-${product.id}`}>
                     {theme.renderCardOverlay?.(c)}
                     <div className="t-card-line-scan" />
                     <div className="t-holo-stripe" />
 
-                    {product.thumbnailUrl && (
-                      <div className="relative overflow-hidden" style={{ borderRadius: `${theme.layout.cardBorderRadius} ${theme.layout.cardBorderRadius} 0 0` }}>
-                        <a href={`/s/${store.slug}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
-                          <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full aspect-square object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
-                        </a>
-                        {hasDiscount && (
-                          <div className="absolute top-3 right-3 t-discount px-2.5 py-1 text-xs font-bold rounded-full" data-testid={`badge-discount-${product.id}`}>
-                            -{discountPct}%
+                    <div className="relative overflow-hidden" style={{ borderRadius: `${theme.layout.cardBorderRadius} ${theme.layout.cardBorderRadius} 0 0` }}>
+                      <a href={`/s/${store.slug}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
+                        {product.thumbnailUrl ? (
+                          <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full aspect-[4/3] object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
+                        ) : (
+                          <div className="w-full aspect-[4/3] flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${c.accent}15, ${c.accent}05)` }}>
+                            <Package className="h-10 w-10" style={{ color: `${c.accent}40` }} />
                           </div>
                         )}
-                        {product.isLeadMagnet && (
-                          <div className="absolute top-3 left-3 px-2.5 py-1 text-xs font-bold rounded-full" style={{ background: c.btnGradient, color: c.btnText }}>
-                            <Gift className="h-3 w-3 inline mr-1" />FREE
-                          </div>
-                        )}
-                      </div>
-                    )}
+                      </a>
+                      {hasDiscount && (
+                        <div className="absolute top-3 right-3 t-discount px-2.5 py-1 text-xs font-bold rounded-full" data-testid={`badge-discount-${product.id}`}>
+                          -{discountPct}%
+                        </div>
+                      )}
+                      {product.isLeadMagnet && (
+                        <div className="absolute top-3 left-3 px-2.5 py-1 text-xs font-bold rounded-full" style={{ background: c.btnGradient, color: c.btnText }}>
+                          <Gift className="h-3 w-3 inline mr-1" />FREE
+                        </div>
+                      )}
+                    </div>
 
-                    <div className="p-5 relative z-10">
+                    <div className="p-5 relative z-10 flex flex-col flex-1">
                       {product.tags && product.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mb-3">
                           {product.tags.slice(0, 3).map((tag) => (
@@ -378,14 +389,14 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
                       )}
 
                       <a href={`/s/${store.slug}/product/${product.id}`} className="block" data-testid={`link-product-title-${product.id}`}>
-                        <h3 className="font-bold text-base mb-2 line-clamp-2 transition-colors" style={{ color: c.text, fontFamily: theme.typography.headingFamily }} data-testid={`text-product-title-${product.id}`}>
+                        <h3 className="font-bold text-base mb-2 transition-colors" style={{ color: c.text, fontFamily: theme.typography.headingFamily, minHeight: "2.5em", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }} data-testid={`text-product-title-${product.id}`}>
                           {product.title}
                         </h3>
                       </a>
 
-                      {product.description && (
-                        <p className="text-xs line-clamp-2 mb-4" style={{ color: c.textSecondary }}>{product.description}</p>
-                      )}
+                      <p className="text-xs mb-4" style={{ color: c.textSecondary, minHeight: "2.25em" }}>
+                        {truncatedDesc || "\u00A0"}
+                      </p>
 
                       <div className="flex items-center justify-between gap-3 mt-auto pt-3" style={{ borderTop: `1px solid ${c.divider}` }}>
                         <div>

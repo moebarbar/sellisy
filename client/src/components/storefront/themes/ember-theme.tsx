@@ -141,6 +141,42 @@ function emberCss(c: ThemeColors, mode: ThemeMode): string {
   `;
 }
 
+function EmberDivider({ isDark }: { isDark: boolean }) {
+  const amber = isDark ? "#e67e22" : "#d35400";
+  const orange = isDark ? "#f0a04b" : "#e67e22";
+  return (
+    <div className="flex items-center justify-center py-3">
+      <div className="w-full max-w-md h-px" style={{ background: `linear-gradient(90deg, transparent, ${amber}60, ${orange}80, ${amber}60, transparent)` }} />
+    </div>
+  );
+}
+
+function EmberBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeMode }) {
+  const isDark = mode === "dark";
+  return (
+    <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
+      <div className="absolute top-0 left-0 w-80 h-80" style={{ background: `radial-gradient(circle at 0% 0%, ${colors.accent}${isDark ? "0a" : "06"}, transparent 70%)` }} />
+      <div className="absolute top-0 right-0 w-96 h-96" style={{ background: `radial-gradient(circle at 100% 0%, ${isDark ? "#f0a04b" : "#e67e22"}${isDark ? "08" : "05"}, transparent 70%)` }} />
+      <div className="absolute bottom-0 left-0 w-72 h-72" style={{ background: `radial-gradient(circle at 0% 100%, ${isDark ? "#d35400" : "#c04800"}${isDark ? "08" : "04"}, transparent 70%)` }} />
+      <div className="absolute bottom-0 right-0 w-80 h-80" style={{ background: `radial-gradient(circle at 100% 100%, ${colors.accent}${isDark ? "06" : "04"}, transparent 70%)` }} />
+    </div>
+  );
+}
+
+function EmberCardOverlay({ colors }: { colors: ThemeColors }) {
+  return (
+    <div className="absolute inset-0 pointer-events-none rounded-[10px]" style={{ background: `linear-gradient(135deg, ${colors.accent}06, transparent 60%, ${colors.accent}04)`, zIndex: 1 }} />
+  );
+}
+
+function EmberFooterDecoration({ colors, isDark }: { colors: ThemeColors; isDark: boolean }) {
+  return (
+    <div className="w-full flex justify-center pt-2 pb-4">
+      <div className="w-full max-w-xs h-px ember-glow" style={{ background: `linear-gradient(90deg, transparent, ${colors.accent}${isDark ? "40" : "30"}, ${isDark ? "#f0a04b" : "#e67e22"}${isDark ? "50" : "35"}, ${colors.accent}${isDark ? "40" : "30"}, transparent)` }} />
+    </div>
+  );
+}
+
 function EmberHeaderLogo({ store, colors }: { store: { name: string; logoUrl: string | null }; colors: ThemeColors }) {
   return store.logoUrl ? (
     <img src={store.logoUrl} alt={store.name} className="h-9 w-9 rounded-lg object-cover" loading="lazy" style={{ boxShadow: `0 0 10px ${colors.accent}20` }} data-testid="img-store-logo" />
@@ -181,10 +217,14 @@ export const emberTheme: StorefrontTheme = {
     buyBtnClass: "t-buy-btn",
   },
   css: emberCss,
+  renderDivider: (isDark) => <EmberDivider isDark={isDark} />,
+  renderBackground: (colors, mode) => <EmberBackground colors={colors} mode={mode} />,
+  renderCardOverlay: (colors) => <EmberCardOverlay colors={colors} />,
+  renderFooterDecoration: (colors, isDark) => <EmberFooterDecoration colors={colors} isDark={isDark} />,
   renderHeroBadge: (colors) => (
-    <div className="ember-warm-drift inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8" style={{ background: colors.badgeBg, border: `1px solid ${colors.badgeBorder}` }}>
-      <Flame className="h-3.5 w-3.5" style={{ color: colors.accent }} />
-      <span className="text-xs font-bold tracking-wider uppercase" style={{ color: `${colors.accent}cc` }}>Handcrafted Digital Goods</span>
+    <div className="ember-warm-drift inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full mb-8" style={{ background: `linear-gradient(135deg, ${colors.accent}18, ${colors.accent}10)`, border: `1px solid ${colors.accent}30`, boxShadow: `0 0 20px ${colors.accent}10` }}>
+      <Flame className="h-4 w-4" style={{ color: colors.accent, filter: `drop-shadow(0 0 4px ${colors.accent}60)` }} />
+      <span className="text-xs font-bold tracking-wider uppercase" style={{ color: colors.accent }}>Handcrafted Digital Goods</span>
     </div>
   ),
   renderAnnouncementStyle: (colors, mode) => ({

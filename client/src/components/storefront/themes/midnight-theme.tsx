@@ -146,9 +146,19 @@ function midnightCss(c: ThemeColors, mode: ThemeMode): string {
     }
     .midnight-star {
       position: absolute; border-radius: 50%;
-      background: ${isDark ? "rgba(238,240,255,0.6)" : "rgba(99,102,241,0.3)"};
       pointer-events: none;
       animation: midnight-twinkle 3s ease-in-out infinite;
+    }
+    .midnight-star-sm {
+      background: ${isDark ? "rgba(238,240,255,0.4)" : "rgba(99,102,241,0.2)"};
+    }
+    .midnight-star-md {
+      background: ${isDark ? "rgba(238,240,255,0.6)" : "rgba(99,102,241,0.3)"};
+      box-shadow: 0 0 3px ${isDark ? "rgba(238,240,255,0.3)" : "rgba(99,102,241,0.15)"};
+    }
+    .midnight-star-lg {
+      background: ${isDark ? "rgba(200,180,255,0.7)" : "rgba(124,58,237,0.35)"};
+      box-shadow: 0 0 6px ${isDark ? "rgba(200,180,255,0.4)" : "rgba(124,58,237,0.2)"}, 0 0 12px ${isDark ? "rgba(200,180,255,0.15)" : "rgba(124,58,237,0.08)"};
     }
     .midnight-orb { animation: midnight-glow 5s ease-in-out infinite; pointer-events: none; }
     .midnight-float { animation: midnight-drift 7s ease-in-out infinite; }
@@ -157,6 +167,26 @@ function midnightCss(c: ThemeColors, mode: ThemeMode): string {
       position: absolute; inset: 0; pointer-events: none;
       background: radial-gradient(ellipse 70% 40% at 50% 0%, ${c.accent}08 0%, transparent 70%);
     }
+    .midnight-nebula-cloud {
+      position: absolute; pointer-events: none; border-radius: 50%;
+      opacity: ${isDark ? 0.06 : 0.04};
+      filter: blur(60px);
+    }
+    .midnight-card-shimmer {
+      position: absolute; inset: 0; pointer-events: none; border-radius: inherit; overflow: hidden;
+    }
+    .midnight-card-shimmer::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(
+        135deg,
+        transparent 30%,
+        ${isDark ? `${c.accent}08` : `${c.accent}05`} 45%,
+        ${isDark ? `${c.accentAlt}06` : `${c.accentAlt}04`} 55%,
+        transparent 70%
+      );
+      background-size: 250% 250%;
+      animation: midnight-gradient 8s ease infinite;
+    }
     .sf-reveal-item { opacity: 0; transform: translateY(24px); transition: opacity 0.5s ease, transform 0.5s ease; }
     .sf-reveal-item.sf-revealed { opacity: 1; transform: translateY(0); }
   `;
@@ -164,27 +194,33 @@ function midnightCss(c: ThemeColors, mode: ThemeMode): string {
 
 function MidnightBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeMode }) {
   const isDark = mode === "dark";
-  const stars = isDark
-    ? Array.from({ length: 40 }, (_, i) => ({
-        id: i,
-        left: `${(i * 17 + 7) % 100}%`,
-        top: `${(i * 13 + 3) % 100}%`,
-        size: i % 3 === 0 ? 2 : 1,
-        delay: `${(i * 0.7) % 5}s`,
-        duration: `${2.5 + (i % 4) * 1.2}s`,
-      }))
-    : [];
+  const stars = Array.from({ length: 60 }, (_, i) => {
+    const sizeClass = i % 7 === 0 ? "lg" : i % 3 === 0 ? "md" : "sm";
+    const sizePx = sizeClass === "lg" ? 3 : sizeClass === "md" ? 2 : 1;
+    return {
+      id: i,
+      left: `${(i * 17 + 7) % 100}%`,
+      top: `${(i * 13 + 3) % 100}%`,
+      size: sizePx,
+      sizeClass,
+      delay: `${(i * 0.7) % 5}s`,
+      duration: `${2.5 + (i % 4) * 1.2}s`,
+    };
+  });
 
   return (
     <>
       <div className="midnight-nebula" />
+      <div className="midnight-nebula-cloud" style={{ width: 500, height: 300, top: "5%", left: "10%", background: `radial-gradient(ellipse, ${colors.accent}, transparent)` }} />
+      <div className="midnight-nebula-cloud" style={{ width: 600, height: 350, top: "30%", right: "5%", background: `radial-gradient(ellipse, ${colors.accentAlt}, transparent)`, opacity: isDark ? 0.04 : 0.03 }} />
+      <div className="midnight-nebula-cloud" style={{ width: 400, height: 250, bottom: "15%", left: "30%", background: `radial-gradient(ellipse, ${isDark ? "#c4b5fd" : "#6366f1"}, transparent)`, opacity: isDark ? 0.05 : 0.03 }} />
       <div className="midnight-orb absolute top-[-200px] left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full" style={{ background: `radial-gradient(circle, ${colors.accent}12 0%, ${colors.accentAlt}06 40%, transparent 70%)` }} />
       <div className="midnight-orb absolute top-[500px] right-[-150px] w-[500px] h-[500px] rounded-full" style={{ background: `radial-gradient(circle, ${colors.accentAlt}08 0%, transparent 60%)`, animationDelay: "2.5s" }} />
       <div className="midnight-orb absolute bottom-[-80px] left-[-150px] w-[400px] h-[400px] rounded-full" style={{ background: `radial-gradient(circle, ${colors.accent}0a 0%, transparent 60%)`, animationDelay: "4s" }} />
       {stars.map((s) => (
         <div
           key={s.id}
-          className="midnight-star"
+          className={`midnight-star midnight-star-${s.sizeClass}`}
           style={{
             left: s.left,
             top: s.top,
@@ -196,6 +232,23 @@ function MidnightBackground({ colors, mode }: { colors: ThemeColors; mode: Theme
         />
       ))}
     </>
+  );
+}
+
+function MidnightDivider({ isDark }: { isDark: boolean }) {
+  const dotColor = isDark ? "rgba(167,139,250,0.5)" : "rgba(99,102,241,0.35)";
+  const lineColor = isDark
+    ? "linear-gradient(90deg, transparent, rgba(129,140,248,0.3), rgba(167,139,250,0.25), transparent)"
+    : "linear-gradient(90deg, transparent, rgba(99,102,241,0.2), rgba(124,58,237,0.15), transparent)";
+  return (
+    <div className="relative flex items-center justify-center py-1">
+      <div style={{ position: "absolute", inset: "0", top: "50%", height: 1, background: lineColor }} />
+      <div className="relative flex items-center gap-3">
+        <div style={{ width: 3, height: 3, borderRadius: "50%", background: dotColor }} />
+        <div style={{ width: 4, height: 4, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}` }} />
+        <div style={{ width: 3, height: 3, borderRadius: "50%", background: dotColor }} />
+      </div>
+    </div>
   );
 }
 
@@ -246,11 +299,22 @@ export const midnightTheme: StorefrontTheme = {
       <span className="text-xs font-medium tracking-wider uppercase" style={{ color: `${colors.accent}cc` }}>Midnight Collection</span>
     </div>
   ),
+  renderDivider: (isDark) => <MidnightDivider isDark={isDark} />,
+  renderCardOverlay: () => <div className="midnight-card-shimmer" />,
   renderAnnouncementStyle: (colors) => ({
-    background: colors.btnGradient,
+    background: "linear-gradient(135deg, #312e81, #5b21b6, #4c1d95)",
     backgroundSize: "200% 200%",
     animation: "midnight-gradient 5s ease infinite",
   }),
+  renderFooterDecoration: (colors, isDark) => (
+    <div style={{
+      height: 2,
+      background: isDark
+        ? `linear-gradient(90deg, transparent, ${colors.accent}30, ${colors.accentAlt}25, rgba(196,181,253,0.15), transparent)`
+        : `linear-gradient(90deg, transparent, ${colors.accent}20, ${colors.accentAlt}18, transparent)`,
+      marginBottom: 8,
+    }} />
+  ),
   renderHeaderLogo: (store, colors) => <MidnightHeaderLogo store={store} colors={colors} />,
   heroSubtitleFallback: "Exclusive digital products designed for the discerning creator.",
   heroBadgeText: "Midnight Collection",
