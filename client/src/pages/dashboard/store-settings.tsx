@@ -447,6 +447,36 @@ export default function StoreSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
+            <ImageIcon className="h-4 w-4" /> Image Protection
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Allow Image Download</p>
+              <p className="text-xs text-muted-foreground mt-0.5">When disabled, product images on your storefront are protected from right-click saving.</p>
+            </div>
+            <Switch
+              checked={activeStore?.allowImageDownload ?? false}
+              onCheckedChange={async (checked) => {
+                if (!activeStore) return;
+                try {
+                  await apiRequest("PATCH", `/api/stores/${activeStore.id}`, { allowImageDownload: checked });
+                  queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
+                  toast({ title: checked ? "Image download enabled" : "Image download disabled" });
+                } catch {
+                  toast({ title: "Failed to update setting", variant: "destructive" });
+                }
+              }}
+              data-testid="switch-allow-image-download"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
             <Megaphone className="h-4 w-4" /> Announcement Bar
           </CardTitle>
         </CardHeader>

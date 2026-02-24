@@ -29,6 +29,11 @@ function sanitizeStore(store: any) {
   return { ...safe, paypalClientId: paypalClientId ? "***configured***" : null };
 }
 
+function sanitizeProductForStorefront(product: any) {
+  const { fileUrl, redemptionCode, deliveryInstructions, ...safe } = product;
+  return safe;
+}
+
 async function getPayPalAccessToken(clientId: string, clientSecret: string): Promise<string> {
   const isLive = clientId.startsWith("A") && clientId.length > 50;
   const baseUrl = isLive ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
@@ -266,6 +271,10 @@ export async function registerRoutes(
       socialYoutube: z.string().optional().nullable(),
       socialTiktok: z.string().optional().nullable(),
       socialWebsite: z.string().optional().nullable(),
+      faviconUrl: z.string().optional().nullable(),
+      seoTitle: z.string().optional().nullable(),
+      seoDescription: z.string().optional().nullable(),
+      allowImageDownload: z.boolean().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -993,7 +1002,7 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Store not found" });
     }
     try {
-      const customerData = await storage.getStoreCustomers(storeId);
+      const customerData = await storage.getStoreCustomers(storeId as string);
       return res.json(customerData);
     } catch (err) {
       console.error("Get store customers error:", err);
@@ -1003,7 +1012,7 @@ export async function registerRoutes(
 
   app.patch("/api/customers/:customerId", isAuthenticated, async (req, res) => {
     const userId = getUserId(req);
-    const { customerId } = req.params;
+    const customerId = req.params.customerId as string;
     const schema = z.object({ name: z.string().min(1).max(200) });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid name" });
@@ -1035,7 +1044,7 @@ export async function registerRoutes(
 
     try {
       const ExcelJS = (await import("exceljs")).default;
-      const customerData = await storage.getStoreCustomers(storeId);
+      const customerData = await storage.getStoreCustomers(storeId as string);
 
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Customers");
@@ -1622,14 +1631,12 @@ export async function registerRoutes(
       storage.getPublishedBundlesByStore(store.id),
     ]);
     const publishedRows = storeProductRows.filter((sp) => sp.isPublished);
-    const productsWithMeta = publishedRows.map((sp) => ({
+    const productsWithMeta = publishedRows.map((sp) => sanitizeProductForStorefront({
       ...sp.product,
       title: sp.customTitle || sp.product.title,
       description: sp.customDescription || sp.product.description,
       tags: sp.customTags || sp.product.tags,
       accessUrl: sp.customAccessUrl || sp.product.accessUrl,
-      redemptionCode: sp.customRedemptionCode || sp.product.redemptionCode,
-      deliveryInstructions: sp.customDeliveryInstructions || sp.product.deliveryInstructions,
       priceCents: sp.customPriceCents ?? sp.product.priceCents,
       originalPriceCents: sp.customPriceCents != null && sp.customPriceCents !== sp.product.priceCents ? sp.product.priceCents : sp.product.originalPriceCents,
       isLeadMagnet: sp.isLeadMagnet,
@@ -1643,7 +1650,7 @@ export async function registerRoutes(
     );
     const bundlesWithProducts = publishedBundles.map((b, i) => ({
       ...b,
-      products: allBundleItems[i].map((item) => item.product),
+      products: allBundleItems[i].map((item) => sanitizeProductForStorefront(item.product)),
     }));
     res.json({ store: sanitizeStore(store), products: productsWithMeta, bundles: bundlesWithProducts });
   });
@@ -1659,19 +1666,17 @@ export async function registerRoutes(
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     const images = await storage.getProductImages(product.id);
-    const effectiveProduct = {
+    const effectiveProduct = sanitizeProductForStorefront({
       ...product,
       title: sp.customTitle || product.title,
       description: sp.customDescription || product.description,
       tags: sp.customTags || product.tags,
       accessUrl: sp.customAccessUrl || product.accessUrl,
-      redemptionCode: sp.customRedemptionCode || product.redemptionCode,
-      deliveryInstructions: sp.customDeliveryInstructions || product.deliveryInstructions,
       priceCents: sp.customPriceCents ?? product.priceCents,
       originalPriceCents: sp.customPriceCents != null && sp.customPriceCents !== product.priceCents ? product.priceCents : product.originalPriceCents,
       isLeadMagnet: sp.isLeadMagnet,
       storeProductId: sp.id,
-    };
+    });
     res.json({ store: sanitizeStore(store), product: effectiveProduct, images });
   });
 
@@ -1682,7 +1687,7 @@ export async function registerRoutes(
     const data = await storage.getBundleWithProducts(req.params.bundleId as string);
     if (!data || data.bundle.storeId !== store.id || !data.bundle.isPublished) return res.status(404).json({ message: "Bundle not found" });
 
-    res.json({ store: sanitizeStore(store), bundle: data.bundle, products: data.products });
+    res.json({ store: sanitizeStore(store), bundle: data.bundle, products: data.products.map(sanitizeProductForStorefront) });
   });
 
   // --- Embed endpoints ---
@@ -2735,7 +2740,7 @@ export async function registerRoutes(
     try {
       const schema = z.object({
         storeId: z.string().min(1),
-        domain: z.string().min(1),
+        domain: z.string().min(1).regex(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i, "Invalid domain format"),
       });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
