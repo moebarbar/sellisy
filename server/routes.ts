@@ -197,7 +197,7 @@ export async function registerRoutes(
     const schema = z.object({
       name: z.string().min(1),
       slug: z.string().min(1).regex(/^[a-z0-9-]+$/),
-      templateKey: z.enum(["neon", "silk"]),
+      templateKey: z.enum(["neon", "silk", "aurora", "ember", "frost", "midnight"]),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid store data" });
@@ -230,7 +230,7 @@ export async function registerRoutes(
     const schema = z.object({
       name: z.string().min(1).optional(),
       slug: z.string().min(1).regex(/^[a-z0-9-]+$/).optional(),
-      templateKey: z.enum(["neon", "silk"]).optional(),
+      templateKey: z.enum(["neon", "silk", "aurora", "ember", "frost", "midnight"]).optional(),
       tagline: z.string().optional().nullable(),
       logoUrl: z.string().optional().nullable(),
       accentColor: z.string().optional().nullable(),
