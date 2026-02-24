@@ -53,6 +53,7 @@ export interface IStorage {
   getOrderById(id: string): Promise<Order | undefined>;
   getOrderByStripeSession(sessionId: string): Promise<Order | undefined>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
+  updateOrderBuyerEmail(id: string, email: string): Promise<void>;
   createOrderItem(item: InsertOrderItem): Promise<OrderItem>;
 
   createDownloadToken(token: InsertDownloadToken): Promise<DownloadToken>;
@@ -266,6 +267,10 @@ export class DatabaseStorage implements IStorage {
   async updateOrderStatus(id: string, status: string) {
     const [order] = await db.update(orders).set({ status: status as any }).where(eq(orders.id, id)).returning();
     return order;
+  }
+
+  async updateOrderBuyerEmail(id: string, email: string) {
+    await db.update(orders).set({ buyerEmail: email }).where(eq(orders.id, id));
   }
 
   async createOrderItem(data: InsertOrderItem) {

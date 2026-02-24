@@ -172,6 +172,7 @@ export const orders = pgTable("orders", {
   paypalOrderId: text("paypal_order_id"),
   couponId: varchar("coupon_id", { length: 64 }),
   status: orderStatusEnum("status").notNull().default("PENDING"),
+  emailSent: boolean("email_sent").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

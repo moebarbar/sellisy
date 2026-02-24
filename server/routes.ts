@@ -11,6 +11,7 @@ import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendAllTestEmails } from "./emails";
+import { sendOrderCompletionEmails } from "./orderEmailHelper";
 import { setEmailLogger } from "./sendgridClient";
 import { users } from "@shared/models/auth";
 import { emailLogs } from "@shared/schema";
@@ -1638,6 +1639,9 @@ export async function registerRoutes(
           await storage.linkOrdersByEmail(payerEmail, customer.id);
         }
 
+        const baseUrl = `${req.protocol}://${req.get("host")}`;
+        sendOrderCompletionEmails(order.id, baseUrl);
+
         return res.redirect(`/checkout/success?order_id=${order.id}`);
       } else {
         console.error("PayPal capture status not COMPLETED:", captureStatus);
@@ -1717,31 +1721,8 @@ export async function registerRoutes(
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
 
-    if (order.status === "COMPLETED" && order.buyerEmail && order.buyerEmail !== "pending@checkout.com") {
-      sendOrderConfirmationEmail({
-        buyerEmail: order.buyerEmail,
-        storeName: store?.name || "Store",
-        storeSlug: store?.slug || "",
-        orderId: order.id,
-        totalCents: order.totalCents,
-        items: emailItems,
-        downloadToken: tokenHash,
-        baseUrl,
-      });
-
-      if (store) {
-        const [owner] = await db.select().from(users).where(eq(users.id, store.ownerId));
-        if (owner?.email) {
-          sendNewOrderNotificationEmail({
-            ownerEmail: owner.email,
-            storeName: store.name,
-            buyerEmail: order.buyerEmail,
-            orderId: order.id,
-            totalCents: order.totalCents,
-            items: emailItems,
-          });
-        }
-      }
+    if (order.status === "COMPLETED") {
+      sendOrderCompletionEmails(order.id, baseUrl);
     }
 
     res.json({
@@ -1761,6 +1742,56 @@ export async function registerRoutes(
   function hashToken(token: string): string {
     return createHash("sha256").update(token).digest("hex");
   }
+
+  // ========== RESEND DOWNLOAD LINK ==========
+
+  app.post("/api/resend-download", async (req, res) => {
+    const schema = z.object({
+      email: z.string().email(),
+      orderId: z.string(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Please provide a valid email and order ID" });
+
+    const { email, orderId } = parsed.data;
+
+    const order = await storage.getOrderById(orderId);
+    if (!order || order.status !== "COMPLETED") {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (!order.buyerEmail || order.buyerEmail === "pending@checkout.com") {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (order.buyerEmail.toLowerCase() !== email.toLowerCase()) {
+      return res.status(403).json({ message: "Email does not match this order" });
+    }
+
+    const tokenRows = await db.select().from(downloadTokens).where(eq(downloadTokens.orderId, orderId));
+    let tokenHash: string;
+
+    if (tokenRows.length > 0 && new Date() < tokenRows[0].expiresAt) {
+      tokenHash = tokenRows[0].tokenHash;
+    } else {
+      const hash = randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const token = await storage.createDownloadToken({ orderId, tokenHash: hash, expiresAt });
+      tokenHash = token.tokenHash;
+    }
+
+    const store = await storage.getStoreById(order.storeId);
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+    sendDownloadLinkEmail({
+      buyerEmail: email,
+      storeName: store?.name || "Store",
+      downloadToken: tokenHash,
+      baseUrl,
+    });
+
+    res.json({ message: "Download link has been sent to your email" });
+  });
 
   // ========== FREE PRODUCT CLAIM (Lead Magnet) ==========
 

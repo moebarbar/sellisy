@@ -1,6 +1,7 @@
 import { getUncachableStripeClient } from './stripeClient';
 import { storage } from './storage';
 import { randomBytes } from 'crypto';
+import { sendOrderCompletionEmails } from './orderEmailHelper';
 
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
@@ -50,15 +51,43 @@ export class WebhookHandlers {
 
     if (order.status === 'COMPLETED') {
       console.log('Webhook: order already completed:', orderId);
+      if (!order.emailSent) {
+        const baseUrl = process.env.REPLIT_DEV_DOMAIN
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+          : process.env.REPL_SLUG
+            ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+            : 'https://sellisy.com';
+        await sendOrderCompletionEmails(orderId, baseUrl);
+      }
       return;
     }
 
+    const buyerEmail = session.customer_details?.email || order.buyerEmail;
+
     await storage.updateOrderStatus(orderId, 'COMPLETED');
+
+    if (buyerEmail && buyerEmail !== 'pending@checkout.com' && buyerEmail !== order.buyerEmail) {
+      await storage.updateOrderBuyerEmail(orderId, buyerEmail);
+    }
 
     const tokenHash = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await storage.createDownloadToken({ orderId, tokenHash, expiresAt });
 
-    console.log('Webhook: order completed, download token generated:', orderId);
+    if (buyerEmail && buyerEmail !== 'pending@checkout.com') {
+      const customer = await storage.findOrCreateCustomer(buyerEmail);
+      await storage.setOrderCustomerId(orderId, customer.id);
+      await storage.linkOrdersByEmail(buyerEmail, customer.id);
+    }
+
+    const baseUrl = process.env.REPLIT_DEV_DOMAIN
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+      : process.env.REPL_SLUG
+        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+        : 'https://sellisy.com';
+
+    await sendOrderCompletionEmails(orderId, baseUrl);
+
+    console.log('Webhook: order completed, emails triggered:', orderId);
   }
 }
