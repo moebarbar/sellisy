@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NeonTemplate } from "@/components/storefront/neon-template";
 import { SilkTemplate } from "@/components/storefront/silk-template";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { trackEvent } from "@/lib/tracking";
 import type { Store, Product, Bundle } from "@shared/schema";
 
 type BundleWithProducts = Bundle & { products: Product[] };
@@ -27,6 +29,12 @@ export default function StorefrontPage() {
     ogImage: data?.store?.logoUrl || undefined,
     ogType: "website",
   });
+
+  useEffect(() => {
+    if (data?.store?.id) {
+      trackEvent(data.store.id, "page_view");
+    }
+  }, [data?.store?.id]);
 
   if (isLoading) {
     return (

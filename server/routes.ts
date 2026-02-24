@@ -13,6 +13,7 @@ import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClie
 import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendAllTestEmails } from "./emails";
 import { sendOrderCompletionEmails } from "./orderEmailHelper";
 import { setEmailLogger } from "./sendgridClient";
+import { getRevenueAnalytics, getProductAnalytics, getCustomerAnalytics, getCouponAnalytics, getTrafficAnalytics } from "./analytics";
 import { users } from "@shared/models/auth";
 import { emailLogs } from "@shared/schema";
 import cookieParser from "cookie-parser";
@@ -908,6 +909,74 @@ export async function registerRoutes(
       topProducts: topProducts.slice(0, 5),
       revenueByDate,
     });
+  });
+
+  // --- Deep Store Analytics ---
+
+  app.get("/api/store-analytics", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const storeId = req.query.storeId as string;
+    const range = (req.query.range as string) || "30d";
+    const section = req.query.section as string;
+
+    if (!storeId) return res.status(400).json({ message: "storeId is required" });
+
+    const userStores = await storage.getStoresByOwner(userId);
+    if (!userStores.some((s) => s.id === storeId)) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+
+    try {
+      switch (section) {
+        case "revenue":
+          return res.json(await getRevenueAnalytics(storeId, range));
+        case "products":
+          return res.json(await getProductAnalytics(storeId, range));
+        case "customers":
+          return res.json(await getCustomerAnalytics(storeId, range));
+        case "coupons":
+          return res.json(await getCouponAnalytics(storeId, range));
+        case "traffic":
+          return res.json(await getTrafficAnalytics(storeId, range));
+        default: {
+          const [revenue, productsData, customersData, couponsData, traffic] = await Promise.all([
+            getRevenueAnalytics(storeId, range),
+            getProductAnalytics(storeId, range),
+            getCustomerAnalytics(storeId, range),
+            getCouponAnalytics(storeId, range),
+            getTrafficAnalytics(storeId, range),
+          ]);
+          return res.json({ revenue, products: productsData, customers: customersData, coupons: couponsData, traffic });
+        }
+      }
+    } catch (err) {
+      console.error("Store analytics error:", err);
+      return res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // --- Public Event Tracking ---
+
+  app.post("/api/store-events", async (req, res) => {
+    const schema = z.object({
+      storeId: z.string().min(1),
+      sessionId: z.string().min(1),
+      eventType: z.enum(["page_view", "product_view", "bundle_view", "checkout_start", "add_to_cart"]),
+      productId: z.string().optional(),
+      bundleId: z.string().optional(),
+      path: z.string().optional(),
+      referrer: z.string().optional(),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ ok: false });
+
+    try {
+      await storage.createStoreEvent(parsed.data);
+      return res.json({ ok: true });
+    } catch {
+      return res.status(500).json({ ok: false });
+    }
   });
 
   // --- Public discover ---

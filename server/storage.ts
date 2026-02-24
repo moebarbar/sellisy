@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
   bundles, bundleItems, coupons, productImages, categories, userProfiles,
-  customers, customerSessions, knowledgeBases, kbPages, kbBlocks,
+  customers, customerSessions, knowledgeBases, kbPages, kbBlocks, storeEvents,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -23,6 +23,7 @@ import {
   type KbPage, type InsertKbPage,
   type KbBlock, type InsertKbBlock,
   type PlanTier,
+  type StoreEvent, type InsertStoreEvent,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -126,6 +127,8 @@ export interface IStorage {
   updateKbBlock(id: string, data: Partial<Pick<KbBlock, "type" | "content" | "sortOrder">>): Promise<KbBlock | undefined>;
   deleteKbBlock(id: string): Promise<void>;
   reorderKbBlocks(pageId: string, blockIds: string[]): Promise<void>;
+
+  createStoreEvent(event: InsertStoreEvent): Promise<StoreEvent>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -624,6 +627,11 @@ export class DatabaseStorage implements IStorage {
     for (let i = 0; i < blockIds.length; i++) {
       await db.update(kbBlocks).set({ sortOrder: i }).where(and(eq(kbBlocks.id, blockIds[i]), eq(kbBlocks.pageId, pageId)));
     }
+  }
+
+  async createStoreEvent(event: InsertStoreEvent) {
+    const [row] = await db.insert(storeEvents).values(event).returning();
+    return row;
   }
 }
 

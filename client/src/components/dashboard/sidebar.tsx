@@ -39,10 +39,12 @@ import {
   Crown,
   BookOpen,
   PenTool,
+  BarChart3,
 } from "lucide-react";
 
 const navItems = [
   { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
   { title: "Products", url: "/dashboard/products", icon: Package },
   { title: "My Products", url: "/dashboard/my-products", icon: Sparkles },
   { title: "Products Library", url: "/dashboard/library", icon: ShoppingBag },

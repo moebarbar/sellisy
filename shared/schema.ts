@@ -358,6 +358,24 @@ export const insertKbBlockSchema = createInsertSchema(kbBlocks).omit({ id: true 
 export type InsertKbBlock = z.infer<typeof insertKbBlockSchema>;
 export type KbBlock = typeof kbBlocks.$inferSelect;
 
+export const storeEventTypeEnum = pgEnum("store_event_type", ["page_view", "product_view", "bundle_view", "checkout_start", "add_to_cart"]);
+
+export const storeEvents = pgTable("store_events", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  sessionId: varchar("session_id", { length: 64 }).notNull(),
+  eventType: storeEventTypeEnum("event_type").notNull(),
+  productId: varchar("product_id", { length: 64 }),
+  bundleId: varchar("bundle_id", { length: 64 }),
+  path: text("path"),
+  referrer: text("referrer"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertStoreEventSchema = createInsertSchema(storeEvents).omit({ id: true, createdAt: true });
+export type InsertStoreEvent = z.infer<typeof insertStoreEventSchema>;
+export type StoreEvent = typeof storeEvents.$inferSelect;
+
 export const emailStatusEnum = pgEnum("email_status", ["sent", "failed"]);
 
 export const emailLogs = pgTable("email_logs", {

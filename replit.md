@@ -31,6 +31,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
     *   **Transactional Safety**: Checkout processes wrap all database writes in transactions for atomicity.
 *   **Content Creation**: A Notion-style block editor for building Knowledge Bases (courses, guides, SOPs) with nested pages, various block types (text, headings, image, video, link), drag-and-drop reordering, and a slash command interface.
 *   **Marketing Tools**: A curated 'Marketing Playbook' dashboard section with actionable strategies, progress tracking, and rich content guides.
+*   **Analytics**: Deep per-store analytics dashboard at `/dashboard/analytics` with 5 tabs (Revenue, Products, Customers, Coupons, Traffic). Uses real data from orders, order items, coupons, customers, and a `store_events` tracking table. Public storefront pages fire lightweight tracking events (page_view, product_view, bundle_view, checkout_start) via `POST /api/store-events`. Backend aggregation in `server/analytics.ts` uses SQL group-by queries. Frontend tracking utility in `client/src/lib/tracking.ts` uses `navigator.sendBeacon` for non-blocking event capture.
 *   **Dashboard**: A fully store-dedicated dashboard with a store switcher, unified navigation, analytics, order management, and settings.
 *   **File Storage**: Integration with Replit Object Storage for handling product images, deliverable files, logos, and banners via presigned URLs.
 *   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) are implemented using a `usePageMeta` hook.

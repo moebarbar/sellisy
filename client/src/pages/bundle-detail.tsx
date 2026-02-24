@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ShoppingBag, ArrowLeft, Package, Sparkles, Tag, Zap, Sun, Moon, Ticket } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { ProtectedImage } from "@/components/protected-image";
+import { trackEvent } from "@/lib/tracking";
 import type { Store, Product, Bundle } from "@shared/schema";
 
 type BundleDetailData = {
@@ -42,6 +43,12 @@ export default function BundleDetailPage() {
     queryKey: ["/api/storefront", slug, "bundle", bundleId],
   });
 
+  useEffect(() => {
+    if (data?.store?.id && data?.bundle?.id) {
+      trackEvent(data.store.id, "bundle_view", { bundleId: data.bundle.id });
+    }
+  }, [data?.store?.id, data?.bundle?.id]);
+
   usePageMeta({
     title: data?.bundle ? `${data.bundle.name} - ${data.store.name} | Sellisy` : undefined,
     description: data?.bundle ? `${data.bundle.name} bundle from ${data.store.name} — ${data.products?.length || 0} products` : undefined,
@@ -53,6 +60,7 @@ export default function BundleDetailPage() {
     if (!data) return;
     setBuying(true);
     setCouponError("");
+    trackEvent(data.store.id, "checkout_start", { bundleId: data.bundle.id });
     try {
       const body: any = { storeId: data.store.id, bundleId: data.bundle.id };
       if (couponCode.trim()) body.couponCode = couponCode.trim();

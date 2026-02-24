@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ShoppingBag, ArrowLeft, Tag, Sparkles, Zap, Sun, Moon, ChevronLeft, ChevronRight, Ticket, Key, Check, ExternalLink, Shield, Clock, Download, Star } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { ProtectedImage } from "@/components/protected-image";
+import { trackEvent } from "@/lib/tracking";
 import type { Store, Product, ProductImage } from "@shared/schema";
 
 type ProductDetailData = {
@@ -82,6 +83,12 @@ export default function ProductDetailPage() {
     queryKey: ["/api/storefront", slug, "product", productId],
   });
 
+  useEffect(() => {
+    if (data?.store?.id && data?.product?.id) {
+      trackEvent(data.store.id, "product_view", { productId: data.product.id });
+    }
+  }, [data?.store?.id, data?.product?.id]);
+
   usePageMeta({
     title: data?.product ? `${data.product.title} - ${data.store.name} | Sellisy` : undefined,
     description: data?.product ? (data.product.description || `Get ${data.product.title} from ${data.store.name}`) : undefined,
@@ -91,6 +98,7 @@ export default function ProductDetailPage() {
 
   const handleBuy = async () => {
     if (!data) return;
+    trackEvent(data.store.id, "checkout_start", { productId: data.product.id });
     setBuying(true);
     setCouponError("");
     try {
