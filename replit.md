@@ -52,6 +52,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 
 ## Integration Notes
 *   **Stripe**: Connected via Replit Stripe connector. Credentials are fetched from the Replit connection API (`server/stripeClient.ts`). Functions are async. Replit handles sandbox/live key management and deployment transitions automatically.
+*   **SendGrid**: Connected via Replit SendGrid connector. Client in `server/sendgridClient.ts`. Use `sendEmail(to, subject, html)` for transactional emails. From-email configured in the connector.
 
 ## Template Standards
 *   **Color Tokens**: All storefront templates use a centralized color object (`c`) that adapts to light/dark mode. Store `accentColor` (6-digit hex from color picker) is respected across storefronts and detail pages.
