@@ -149,7 +149,7 @@ export default function LandingPage() {
                         { name: "Template Kit", price: "$59", color: "from-orange-500/30 to-amber-500/30", icon: Package },
                       ].map((product) => (
                         <div key={product.name} className="rounded-md border border-white/10 bg-white/[0.03] p-3 space-y-2">
-                          <div className={`aspect-[4/3] rounded-md bg-gradient-to-br ${product.color} flex items-center justify-center`}>
+                          <div className={`aspect-square rounded-md bg-gradient-to-br ${product.color} flex items-center justify-center`}>
                             <product.icon className="w-6 h-6 text-white/40" />
                           </div>
                           <div>

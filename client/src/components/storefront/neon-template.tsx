@@ -546,11 +546,11 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                   <div className="neon-holo-stripe" />
                   <div className="neon-card-line-scan" />
                   <a href={"/s/" + store.slug + "/product/" + product.id} className="block relative overflow-hidden">
-                    <div className="aspect-[4/3] overflow-hidden">
+                    <div className="aspect-square overflow-hidden">
                       {product.thumbnailUrl ? (
                         <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
                       ) : (
-                        <StorefrontProductPlaceholder productType={product.productType} accentColor={store.accentColor || c.cyan} title={product.title} className="aspect-[4/3]" />
+                        <StorefrontProductPlaceholder productType={product.productType} accentColor={store.accentColor || c.cyan} title={product.title} className="aspect-square" />
                       )}
                     </div>
                     <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />
@@ -649,7 +649,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                     <div className="neon-card-line-scan" />
                     {bundle.thumbnailUrl && (
                       <a href={`/s/${store.slug}/bundle/${bundle.id}`} className="block relative overflow-hidden">
-                        <div className="aspect-[4/3] overflow-hidden">
+                        <div className="aspect-square overflow-hidden">
                           <ProtectedImage protected={!store.allowImageDownload} src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
                         </div>
                         <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />

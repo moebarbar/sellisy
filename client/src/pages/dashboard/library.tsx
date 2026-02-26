@@ -214,7 +214,7 @@ export default function LibraryPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="p-0">
-                <Skeleton className="aspect-[4/3] w-full rounded-t-md" />
+                <Skeleton className="aspect-square w-full rounded-t-md" />
                 <div className="p-4 space-y-2">
                   <Skeleton className="h-5 w-32" />
                   <Skeleton className="h-4 w-full" />
@@ -235,7 +235,7 @@ export default function LibraryPage() {
             return (
               <Card key={product.id} className={`overflow-hidden cursor-pointer ${isLocked ? "opacity-75" : "hover-elevate"}`} onClick={() => setDetailProduct(product)}>
                 <CardContent className="p-0">
-                  <div className="relative aspect-[4/3] bg-muted overflow-hidden">
+                  <div className="relative aspect-square bg-muted overflow-hidden">
                     {isAdmin && (
                       <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
                         <Checkbox

@@ -131,7 +131,7 @@ export default function MyProductsPage() {
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="p-0">
-                <Skeleton className="aspect-[4/3] w-full rounded-t-md" />
+                <Skeleton className="aspect-square w-full rounded-t-md" />
                 <div className="p-4 space-y-2">
                   <Skeleton className="h-5 w-32" />
                   <Skeleton className="h-4 w-full" />
@@ -418,7 +418,7 @@ function ProductCardImage({ product }: { product: Product }) {
   const displayUrl = product.thumbnailUrl;
 
   return (
-    <div className="relative aspect-[4/3] bg-muted overflow-hidden rounded-t-md">
+    <div className="relative aspect-square bg-muted overflow-hidden rounded-t-md">
       {displayUrl ? (
         <img
           src={displayUrl}

@@ -43,7 +43,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
     *   **What's Next? Section**: Rotating marketing action prompts shown as 3 colorful gradient cards on each page load. Pool of 15 prompts linking to marketing strategies, knowledge base, settings, analytics, and coupons. Includes "Copy Link" for store sharing and "See all strategies" link to marketing playbook.
     *   **Motivational Quotes**: 24 rotating entrepreneurship quotes displayed in the welcome banner.
     *   **Quick Import**: Library product cards support one-click import (no confirmation dialog). Shows spinner during import, updates to "Imported" badge on success.
-    *   **Compact Cards**: Dashboard product cards (library, my-products) use `aspect-[4/3]` images and `xl:grid-cols-4` grids. Storefront cards remain `aspect-square`.
+    *   **Square Images (Platform Standard)**: ALL product card images across the entire platform use `aspect-square` (1:1 ratio). This is a platform-wide standard — never use `aspect-[4/3]` or any other ratio for product thumbnails. Dashboard grids use `xl:grid-cols-4`.
     *   **Store Product Management**: Products page shows imported products with publish toggle, edit, embed, expand, and remove (delete) buttons. Remove confirms via browser dialog before deleting.
     *   **Consistent Layout**: All dashboard pages use `p-6 space-y-6` full-width containers — no `max-w-*` constraints on content pages. Only centered forms (e.g., inline store creation) use `max-w-2xl mx-auto`.
 *   **File Storage**: Integration with Replit Object Storage for handling product images, deliverable files, logos, and banners via presigned URLs.
