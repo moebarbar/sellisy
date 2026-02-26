@@ -360,6 +360,10 @@ export default function LandingPage() {
                 <div className="flex gap-2 flex-wrap">
                   <Badge variant="outline">Neon</Badge>
                   <Badge variant="outline">Silk</Badge>
+                  <Badge variant="outline">Aurora</Badge>
+                  <Badge variant="outline">Ember</Badge>
+                  <Badge variant="outline">Frost</Badge>
+                  <Badge variant="outline">Midnight</Badge>
                 </div>
               </CardContent>
             </Card>
@@ -473,7 +477,7 @@ export default function LandingPage() {
                   <span className="text-muted-foreground">/month</span>
                 </div>
                 <ul className="space-y-3 mb-8 text-sm">
-                  {["1 store", "Import from library", "Neon & Silk templates", "Secure file delivery", "Unlimited products"].map((item) => (
+                  {["1 store", "Import from library", "6 storefront templates", "Secure file delivery", "Unlimited products"].map((item) => (
                     <li key={item} className="flex items-center gap-2">
                       <Check className="h-4 w-4 text-primary shrink-0" />
                       <span>{item}</span>
