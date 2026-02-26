@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, isNull, isNotNull } from "drizzle-orm";
 import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
@@ -35,14 +35,20 @@ export interface IStorage {
   getStoreBySlug(slug: string): Promise<Store | undefined>;
   createStore(store: InsertStore): Promise<Store>;
   updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite">>): Promise<Store | undefined>;
-  deleteStore(id: string): Promise<void>;
+  deleteStore(id: string, callerOwnerId?: string): Promise<void>;
+  hardDeleteStore(id: string): Promise<void>;
+  restoreStore(id: string): Promise<Store | undefined>;
+  getDeletedStores(): Promise<Store[]>;
 
   getLibraryProducts(): Promise<Product[]>;
   getProductsByOwner(ownerId: string): Promise<Product[]>;
   getProductById(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, data: Partial<Pick<Product, "title" | "description" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier">>): Promise<Product | undefined>;
-  deleteProduct(id: string): Promise<void>;
+  deleteProduct(id: string, callerOwnerId?: string): Promise<void>;
+  hardDeleteProduct(id: string): Promise<void>;
+  restoreProduct(id: string): Promise<Product | undefined>;
+  getDeletedProducts(): Promise<Product[]>;
 
   getStoreProducts(storeId: string): Promise<(StoreProduct & { product: Product })[]>;
   getPublishedStoreProducts(storeId: string): Promise<Product[]>;
@@ -154,20 +160,20 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getStoresByOwner(ownerId: string) {
-    return db.select().from(stores).where(eq(stores.ownerId, ownerId)).orderBy(desc(stores.createdAt));
+    return db.select().from(stores).where(and(eq(stores.ownerId, ownerId), isNull(stores.deletedAt))).orderBy(desc(stores.createdAt));
   }
 
   async getAllPublicStores() {
-    return db.select().from(stores).orderBy(desc(stores.createdAt));
+    return db.select().from(stores).where(isNull(stores.deletedAt)).orderBy(desc(stores.createdAt));
   }
 
   async getStoreById(id: string) {
-    const [store] = await db.select().from(stores).where(eq(stores.id, id));
+    const [store] = await db.select().from(stores).where(and(eq(stores.id, id), isNull(stores.deletedAt)));
     return store;
   }
 
   async getStoreBySlug(slug: string) {
-    const [store] = await db.select().from(stores).where(eq(stores.slug, slug.toLowerCase()));
+    const [store] = await db.select().from(stores).where(and(eq(stores.slug, slug.toLowerCase()), isNull(stores.deletedAt)));
     return store;
   }
 
@@ -181,7 +187,15 @@ export class DatabaseStorage implements IStorage {
     return store;
   }
 
-  async deleteStore(id: string) {
+  async deleteStore(id: string, callerOwnerId?: string) {
+    if (callerOwnerId) {
+      const [store] = await db.select().from(stores).where(and(eq(stores.id, id), eq(stores.ownerId, callerOwnerId)));
+      if (!store) throw new Error("Store not found or not owned by caller");
+    }
+    await db.update(stores).set({ deletedAt: new Date() }).where(eq(stores.id, id));
+  }
+
+  async hardDeleteStore(id: string) {
     const storeOrders = await db.select({ id: orders.id }).from(orders).where(eq(orders.storeId, id));
     for (const o of storeOrders) {
       await db.delete(downloadTokens).where(eq(downloadTokens.orderId, o.id));
@@ -203,16 +217,25 @@ export class DatabaseStorage implements IStorage {
     await db.delete(stores).where(eq(stores.id, id));
   }
 
+  async restoreStore(id: string) {
+    const [store] = await db.update(stores).set({ deletedAt: null }).where(eq(stores.id, id)).returning();
+    return store;
+  }
+
+  async getDeletedStores() {
+    return db.select().from(stores).where(isNotNull(stores.deletedAt)).orderBy(desc(stores.deletedAt));
+  }
+
   async getLibraryProducts() {
-    return db.select().from(products).where(eq(products.source, "PLATFORM"));
+    return db.select().from(products).where(and(eq(products.source, "PLATFORM"), isNull(products.deletedAt)));
   }
 
   async getProductsByOwner(ownerId: string) {
-    return db.select().from(products).where(eq(products.ownerId, ownerId)).orderBy(desc(products.createdAt));
+    return db.select().from(products).where(and(eq(products.ownerId, ownerId), isNull(products.deletedAt))).orderBy(desc(products.createdAt));
   }
 
   async getProductById(id: string) {
-    const [product] = await db.select().from(products).where(eq(products.id, id));
+    const [product] = await db.select().from(products).where(and(eq(products.id, id), isNull(products.deletedAt)));
     return product;
   }
 
@@ -226,11 +249,28 @@ export class DatabaseStorage implements IStorage {
     return product;
   }
 
-  async deleteProduct(id: string) {
+  async deleteProduct(id: string, callerOwnerId?: string) {
+    if (callerOwnerId) {
+      const [product] = await db.select().from(products).where(and(eq(products.id, id), eq(products.ownerId, callerOwnerId)));
+      if (!product) throw new Error("Product not found or not owned by caller");
+    }
+    await db.update(products).set({ deletedAt: new Date() }).where(eq(products.id, id));
+  }
+
+  async hardDeleteProduct(id: string) {
     await db.delete(storeProducts).where(eq(storeProducts.productId, id));
     await db.delete(fileAssets).where(eq(fileAssets.productId, id));
     await db.delete(productImages).where(eq(productImages.productId, id));
     await db.delete(products).where(eq(products.id, id));
+  }
+
+  async restoreProduct(id: string) {
+    const [product] = await db.update(products).set({ deletedAt: null }).where(eq(products.id, id)).returning();
+    return product;
+  }
+
+  async getDeletedProducts() {
+    return db.select().from(products).where(isNotNull(products.deletedAt)).orderBy(desc(products.deletedAt));
   }
 
   async getStoreProducts(storeId: string) {
@@ -238,7 +278,7 @@ export class DatabaseStorage implements IStorage {
       .select({ sp: storeProducts, product: products })
       .from(storeProducts)
       .innerJoin(products, eq(storeProducts.productId, products.id))
-      .where(eq(storeProducts.storeId, storeId));
+      .where(and(eq(storeProducts.storeId, storeId), isNull(products.deletedAt)));
     return rows.map((r) => ({ ...r.sp, product: r.product }));
   }
 
@@ -247,7 +287,7 @@ export class DatabaseStorage implements IStorage {
       .select({ product: products })
       .from(storeProducts)
       .innerJoin(products, eq(storeProducts.productId, products.id))
-      .where(and(eq(storeProducts.storeId, storeId), eq(storeProducts.isPublished, true)));
+      .where(and(eq(storeProducts.storeId, storeId), eq(storeProducts.isPublished, true), isNull(products.deletedAt)));
     return rows.map((r) => r.product);
   }
 

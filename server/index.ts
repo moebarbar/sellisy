@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { WebhookHandlers } from './webhookHandlers';
+import { runStartupCheck } from "./integrity";
 
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err);
@@ -123,6 +124,9 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      runStartupCheck().catch(err => {
+        console.error("[integrity] Startup check failed:", err);
+      });
     },
   );
 })();

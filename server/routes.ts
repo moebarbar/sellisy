@@ -5,7 +5,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { storage } from "./storage";
 import { db } from "./db";
 import { orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, stores, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, isNull } from "drizzle-orm";
 import { createCustomHostname, getCustomHostname, deleteCustomHostname, isCloudflareConfigured } from "./cloudflareClient";
 import { seedDatabase, seedMarketingIfNeeded, seedAdminUser } from "./seed";
 import { randomBytes, createHash } from "crypto";
@@ -15,6 +15,7 @@ import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClie
 import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendAllTestEmails } from "./emails";
 import { sendOrderCompletionEmails } from "./orderEmailHelper";
 import { setEmailLogger } from "./sendgridClient";
+import { runHealthCheck, runRepair } from "./integrity";
 import { getRevenueAnalytics, getProductAnalytics, getCustomerAnalytics, getCouponAnalytics, getTrafficAnalytics } from "./analytics";
 import { users } from "@shared/models/auth";
 import { emailLogs } from "@shared/schema";
@@ -299,7 +300,7 @@ export async function registerRoutes(
     if (!store || store.ownerId !== getUserId(req)) {
       return res.status(404).json({ message: "Store not found" });
     }
-    await storage.deleteStore(store.id);
+    await storage.deleteStore(store.id, getUserId(req));
     res.json({ success: true });
   });
 
@@ -372,6 +373,10 @@ export async function registerRoutes(
 
     await db.update(products).set({ source: "PLATFORM" }).where(eq(products.id, productId));
     const updated = await storage.getProductById(productId);
+    if (updated && !updated.ownerId) {
+      console.error(`[GUARD] Promote route stripped ownerId from product ${productId} — reverting`);
+      await db.update(products).set({ ownerId: product.ownerId }).where(eq(products.id, productId));
+    }
     res.json(updated);
   });
 
@@ -448,13 +453,17 @@ export async function registerRoutes(
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
     let deleted = 0;
+    const skipped: string[] = [];
     for (const id of parsed.data.ids) {
       try {
+        const product = await storage.getProductById(id);
+        if (!product) { skipped.push(id); continue; }
         await storage.deleteProduct(id);
         deleted++;
-      } catch {}
+      } catch { skipped.push(id); }
     }
-    res.json({ deleted });
+    if (skipped.length > 0) console.warn(`[GUARD] Bulk delete skipped ${skipped.length} product(s): not found or error`);
+    res.json({ deleted, skipped: skipped.length });
   });
 
   app.patch("/api/products/bulk-status", isAuthenticated, async (req, res) => {
@@ -469,7 +478,9 @@ export async function registerRoutes(
     let updated = 0;
     for (const id of parsed.data.ids) {
       try {
-        await db.update(products).set({ status: parsed.data.status }).where(eq(products.id, id));
+        const product = await storage.getProductById(id);
+        if (!product) continue;
+        await db.update(products).set({ status: parsed.data.status }).where(and(eq(products.id, id), isNull(products.deletedAt)));
         updated++;
       } catch {}
     }
@@ -606,7 +617,7 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Product not found" });
     }
 
-    await storage.deleteProduct(product.id);
+    await storage.deleteProduct(product.id, getUserId(req));
     res.json({ ok: true });
   });
 
@@ -2914,6 +2925,50 @@ export async function registerRoutes(
       .orderBy(sql`${emailLogs.sentAt} DESC`)
       .limit(100);
     res.json(logs);
+  });
+
+  app.get("/api/admin/health-check", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const report = await runHealthCheck();
+    res.json(report);
+  });
+
+  app.post("/api/admin/repair", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const result = await runRepair();
+    res.json(result);
+  });
+
+  app.get("/api/admin/deleted-products", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const deleted = await storage.getDeletedProducts();
+    res.json(deleted);
+  });
+
+  app.get("/api/admin/deleted-stores", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const deleted = await storage.getDeletedStores();
+    res.json(deleted);
+  });
+
+  app.post("/api/admin/restore-product/:id", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const product = await storage.restoreProduct(req.params.id as string);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    res.json(product);
+  });
+
+  app.post("/api/admin/restore-store/:id", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const store = await storage.restoreStore(req.params.id as string);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+    res.json(store);
   });
 
   return httpServer;

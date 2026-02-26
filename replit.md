@@ -39,6 +39,12 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
 *   **Embed Widgets**: Store owners can generate embeddable iframes for products or bundles on external websites, with live preview and theme toggles.
 *   **Custom Domains**: Integration with Cloudflare for SaaS to allow store owners to connect custom domains with automatic SSL provisioning and host-based routing.
 *   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) for storefronts, knowledge bases, and product pages, configurable by store owners.
+*   **Data Protection System**:
+    *   **Soft Deletes**: Products and stores use a `deletedAt` timestamp instead of hard deletes. All queries filter out soft-deleted records (`WHERE deletedAt IS NULL`). Hard delete methods exist but are only used for full cleanup operations.
+    *   **Integrity Checks**: `server/integrity.ts` provides `runHealthCheck()` (detect orphaned records, null owners) and `runRepair()` (auto-fix issues). Health check runs automatically on every server startup via `runStartupCheck()`.
+    *   **Admin Data Health Dashboard**: `/dashboard/data-health` (admin-only) shows platform health stats, lists soft-deleted products/stores with restore buttons, and provides manual health check and repair controls.
+    *   **Admin Endpoints**: `GET /api/admin/health-check`, `POST /api/admin/repair`, `GET /api/admin/deleted-products`, `GET /api/admin/deleted-stores`, `POST /api/admin/restore-product/:id`, `POST /api/admin/restore-store/:id`.
+    *   **Protective Guards**: Defense-in-depth ownership verification in `storage.ts` (`deleteProduct`/`deleteStore` accept optional `callerOwnerId`). Promote route has a post-update guard preventing `ownerId` from being nulled. `updateProduct` uses TypeScript `Pick` to restrict updatable fields (excludes `ownerId`). Bulk operations verify product existence before modifying.
 
 ## External Dependencies
 *   **Replit Object Storage**: For asset and file storage.

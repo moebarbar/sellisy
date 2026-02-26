@@ -43,6 +43,7 @@ import {
   BarChart3,
   Users,
   FileText,
+  ShieldCheck,
 } from "lucide-react";
 
 const navItems = [
@@ -70,7 +71,7 @@ const TIER_BADGE_STYLES: Record<string, string> = {
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
-  const { tier } = useUserProfile();
+  const { tier, isAdmin } = useUserProfile();
   const { setOpenMobile } = useSidebar();
 
   const displayName = user?.firstName
@@ -114,6 +115,16 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location.startsWith("/dashboard/data-health")}>
+                    <Link href="/dashboard/data-health" onClick={() => setOpenMobile(false)}>
+                      <ShieldCheck className="h-4 w-4" />
+                      <span data-testid="link-nav-data-health">Data Health</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

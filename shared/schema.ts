@@ -99,10 +99,11 @@ export const stores = pgTable("stores", {
   domainSource: text("domain_source"),
   domainVerifiedAt: timestamp("domain_verified_at"),
   cloudflareHostnameId: text("cloudflare_hostname_id"),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertStoreSchema = createInsertSchema(stores).omit({ id: true, createdAt: true });
+export const insertStoreSchema = createInsertSchema(stores).omit({ id: true, createdAt: true, deletedAt: true });
 export type InsertStore = z.infer<typeof insertStoreSchema>;
 export type Store = typeof stores.$inferSelect;
 
@@ -145,10 +146,11 @@ export const products = pgTable("products", {
   highlights: text("highlights").array(),
   version: text("version"),
   fileSize: text("file_size"),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
+export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, deletedAt: true });
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 
