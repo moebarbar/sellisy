@@ -584,9 +584,9 @@ export default function StoreSettingsPage() {
 function PaymentsCard() {
   const { activeStore, activeStoreId } = useActiveStore();
   const { toast } = useToast();
-  const { data: stripeData, isLoading: stripeLoading } = useQuery<{ publishableKey: string | null }>({
+  const { data: stripeData, isLoading: stripeLoading, isError: stripeError } = useQuery<{ publishableKey: string | null }>({
     queryKey: ["/api/stripe/publishable-key"],
-    retry: 2,
+    retry: 3,
     staleTime: 60000,
   });
 
@@ -621,6 +621,7 @@ function PaymentsCard() {
   });
 
   const stripeConnected = !!stripeData?.publishableKey;
+  const stripeExplicitlyNull = stripeData !== undefined && stripeData.publishableKey === null;
   const isSandbox = stripeData?.publishableKey?.startsWith("pk_test_");
   const paypalConfigured = !!(paypalClientId && paypalClientSecret);
   const hasChanges = activeStore && (
@@ -674,13 +675,23 @@ function PaymentsCard() {
                   {isSandbox ? "Test Mode" : "Live"}
                 </Badge>
               </div>
-            ) : (
+            ) : stripeExplicitlyNull ? (
               <div className="flex items-center gap-3">
-                <XCircle className="h-5 w-5 text-destructive" />
+                <XCircle className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Unavailable</p>
+                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Setup Required</p>
                   <p className="text-xs text-muted-foreground">
-                    Stripe payments are not available at the moment. Please contact support or try again later.
+                    Stripe needs to be configured for your platform. Contact the platform administrator.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 flex-wrap">
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <div>
+                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Active</p>
+                  <p className="text-xs text-muted-foreground">
+                    Stripe is your active payment processor. Your customers can pay securely at checkout.
                   </p>
                 </div>
               </div>
