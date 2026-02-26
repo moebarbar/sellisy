@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
@@ -48,6 +49,7 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 export default function LibraryPage() {
+  const [, setLocation] = useLocation();
   const { activeStore, activeStoreId, storesLoading } = useActiveStore();
   const { tier: userTier, canAccess, isAdmin } = useUserProfile();
 
@@ -160,10 +162,14 @@ export default function LibraryPage() {
             <div className="flex items-center justify-center h-14 w-14 rounded-full bg-muted mb-4">
               <Store className="h-6 w-6 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold mb-1">No store selected</h3>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              Use the store switcher at the top to select or create a store.
+            <h3 className="text-lg font-semibold mb-1" data-testid="text-no-store">Create a store to get started</h3>
+            <p className="text-sm text-muted-foreground max-w-xs mb-4">
+              You need to create a store before you can browse and import products from the library.
             </p>
+            <Button onClick={() => setLocation("/dashboard/store-settings")} data-testid="button-create-store">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your Store
+            </Button>
           </CardContent>
         </Card>
       </div>

@@ -1958,11 +1958,19 @@ export async function registerRoutes(
       await db.insert(orderItems).values({ orderId: order.id, ...item });
     }
 
-    if (store.paymentProvider === "paypal" && store.paypalClientId && store.paypalClientSecret) {
+    const hasPayPal = store.paymentProvider === "paypal" && store.paypalClientId && store.paypalClientSecret;
+    const hasStripe = store.paymentProvider === "stripe" && store.stripeSecretKey;
+
+    if (!hasPayPal && !hasStripe) {
+      await db.update(orders).set({ status: "FAILED" }).where(eq(orders.id, order.id));
+      return res.status(400).json({ message: "This store hasn't set up payment processing yet. Please contact the store owner." });
+    }
+
+    if (hasPayPal) {
       try {
         const { approveUrl, paypalOrderId } = await createPayPalOrder(
-          store.paypalClientId,
-          store.paypalClientSecret,
+          store.paypalClientId!,
+          store.paypalClientSecret!,
           finalTotalCents,
           itemName,
           order.id,
@@ -1979,12 +1987,7 @@ export async function registerRoutes(
       }
     } else {
       try {
-        let stripe;
-        if (store.stripeSecretKey) {
-          stripe = new Stripe(store.stripeSecretKey, { apiVersion: '2025-11-17.clover' as any });
-        } else {
-          stripe = await getUncachableStripeClient();
-        }
+        const stripe = new Stripe(store.stripeSecretKey!, { apiVersion: '2025-11-17.clover' as any });
 
         const productData: any = { name: itemName };
         if (itemDescription) productData.description = itemDescription.substring(0, 500);
