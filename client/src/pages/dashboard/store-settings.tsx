@@ -694,7 +694,7 @@ function PaymentsCard() {
                 id="stripe-publishable-key"
                 value={stripePublishableKey}
                 onChange={(e) => setStripePublishableKey(e.target.value)}
-                placeholder="pk_test_... or pk_live_..."
+                placeholder="Your Stripe Publishable Key"
                 data-testid="input-stripe-publishable-key"
               />
             </div>
@@ -705,7 +705,7 @@ function PaymentsCard() {
                 type="password"
                 value={stripeSecretDisplay}
                 onChange={(e) => setStripeSecretKey(e.target.value)}
-                placeholder={stripeConfigured ? "Secret key is set — enter a new one to replace" : "sk_test_... or sk_live_..."}
+                placeholder={stripeConfigured ? "Secret key is set — enter a new one to replace" : "Your Stripe Secret Key"}
                 data-testid="input-stripe-secret-key"
               />
             </div>
