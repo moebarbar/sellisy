@@ -586,6 +586,8 @@ function PaymentsCard() {
   const { toast } = useToast();
   const { data: stripeData, isLoading: stripeLoading } = useQuery<{ publishableKey: string | null }>({
     queryKey: ["/api/stripe/publishable-key"],
+    retry: 2,
+    staleTime: 60000,
   });
 
   const [provider, setProvider] = useState<"stripe" | "paypal">("stripe");
@@ -663,22 +665,22 @@ function PaymentsCard() {
               <div className="flex items-center gap-3 flex-wrap">
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                 <div>
-                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Connected</p>
+                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Ready</p>
                   <p className="text-xs text-muted-foreground">
-                    {isSandbox ? "Running in sandbox/test mode" : "Ready to accept live payments"}
+                    {isSandbox ? "Running in test mode — no real charges will be made" : "Ready to accept live payments from your customers"}
                   </p>
                 </div>
                 <Badge variant="secondary" className="ml-auto" data-testid="badge-stripe-mode">
-                  {isSandbox ? "Sandbox" : "Live"}
+                  {isSandbox ? "Test Mode" : "Live"}
                 </Badge>
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <XCircle className="h-5 w-5 text-muted-foreground" />
+                <XCircle className="h-5 w-5 text-destructive" />
                 <div>
-                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Not Connected</p>
+                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Unavailable</p>
                   <p className="text-xs text-muted-foreground">
-                    Connect Stripe in your project's Integrations tab to accept payments.
+                    Stripe payments are not available at the moment. Please contact support or try again later.
                   </p>
                 </div>
               </div>
