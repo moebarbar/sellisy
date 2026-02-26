@@ -27,7 +27,7 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
 *   **E-commerce & Payments**:
     *   **Payment Gateways**: Integration with Stripe and PayPal. Store owners can configure one or both processors simultaneously. When both are configured, customers see a payment method selection modal at checkout to choose between card (Stripe) or PayPal. The checkout API accepts an optional `paymentMethod` field ("stripe" or "paypal"). If no payment keys are configured, checkout returns a clear error instead of falling back to platform keys.
     *   **Coupon System**: Flexible coupon codes with various discount types, usage limits, and expiration dates.
-    *   **Email System**: SendGrid integration for transactional emails (welcome, order confirmation, sale notifications, download links) using consistent HTML templates.
+    *   **Email System**: SendGrid integration for transactional emails (welcome, order confirmation, sale notifications, download links, magic link login) using consistent HTML templates. All buyer-facing emails include a junk/spam folder check note for deliverability awareness.
     *   **Lead Magnets**: Free product offerings in exchange for email sign-ups, integrating with customer accounts.
     *   **Secure Downloads**: Token-based system for digital product delivery from Object Storage.
     *   **Transactional Safety**: All checkout-related database writes are wrapped in transactions for atomicity.

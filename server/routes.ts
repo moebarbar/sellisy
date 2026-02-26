@@ -12,7 +12,7 @@ import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import Stripe from 'stripe';
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendAllTestEmails } from "./emails";
+import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendMagicLinkEmail, sendAllTestEmails } from "./emails";
 import { sendOrderCompletionEmails } from "./orderEmailHelper";
 import { setEmailLogger } from "./sendgridClient";
 import { runHealthCheck, runRepair } from "./integrity";
@@ -2495,11 +2495,16 @@ export async function registerRoutes(
     const redirectParam = storeSlug ? `&redirect=${encodeURIComponent(`/s/${storeSlug}/portal`)}` : "";
     const magicLink = `${appUrl}/account/verify?token=${rawToken}${redirectParam}`;
 
-    console.log(`[DEV MODE] Magic link for ${email}: ${magicLink}`);
+    let storeName: string | undefined;
+    if (storeSlug) {
+      const store = await storage.getStoreBySlug(storeSlug);
+      storeName = store?.name;
+    }
+
+    await sendMagicLinkEmail({ email, magicLink, storeName });
 
     res.json({
-      message: "Login link generated",
-      devModeLink: magicLink,
+      message: "A login link has been sent to your email address. Please check your inbox (and spam folder).",
     });
   });
 

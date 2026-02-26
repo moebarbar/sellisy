@@ -51,6 +51,12 @@ function divider(): string {
   return `<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">`;
 }
 
+function junkFolderNote(): string {
+  return `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-bottom:24px;">
+    <p style="margin:0;color:#92400e;font-size:13px;line-height:1.5;">&#128233; <strong>Don't see this email in your inbox?</strong> Check your Spam or Junk folder. If you find it there, please move it to your inbox and mark it as "Not Spam" so you don't miss future emails from us.</p>
+  </div>`;
+}
+
 // ─── 1. ORDER CONFIRMATION ───────────────────────────────────────────
 
 export async function sendOrderConfirmationEmail(params: {
@@ -73,6 +79,7 @@ export async function sendOrderConfirmationEmail(params: {
   const downloadUrl = `${baseUrl}/download/${downloadToken}`;
 
   const content = `
+    ${junkFolderNote()}
     ${sectionHeading('Your order is confirmed')}
     ${bodyText(`Thanks for your purchase from <strong>${storeName}</strong>. Your digital products are ready for download right now.`)}
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:24px;">
@@ -119,6 +126,7 @@ export async function sendDownloadLinkEmail(params: {
   const downloadUrl = `${baseUrl}/download/${downloadToken}`;
 
   const content = `
+    ${junkFolderNote()}
     ${sectionHeading('Your download is ready')}
     ${bodyText(`Here is the download link for your purchase from <strong>${storeName}</strong>. Click the button below to access your files instantly.`)}
     ${ctaButton('Download Now', downloadUrl)}
@@ -152,6 +160,7 @@ export async function sendLeadMagnetEmail(params: {
   const downloadUrl = `${baseUrl}/download/${downloadToken}`;
 
   const content = `
+    ${junkFolderNote()}
     ${sectionHeading('Your free download is ready')}
     ${bodyText(`Great news! You have successfully claimed <strong>${productTitle}</strong> from <strong>${storeName}</strong>. Your file is ready to download right now.`)}
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px 20px;margin-bottom:8px;text-align:center;">
@@ -223,6 +232,7 @@ export async function sendWelcomeEmail(params: {
   const { email, firstName } = params;
 
   const content = `
+    ${junkFolderNote()}
     ${sectionHeading(`Welcome to ${BRAND_NAME}, ${firstName}`)}
     ${bodyText(`Thanks for creating your account. ${BRAND_NAME} gives you everything you need to sell digital products online — storefronts, payments, content creation, and more. Here is what you can do right away:`)}
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
@@ -265,6 +275,38 @@ export async function sendWelcomeEmail(params: {
     );
   } catch (err) {
     console.error('Failed to send welcome email:', err);
+  }
+}
+
+// ─── 6. MAGIC LINK ───────────────────────────────────────────────────
+
+export async function sendMagicLinkEmail(params: {
+  email: string;
+  magicLink: string;
+  storeName?: string;
+}) {
+  const { email, magicLink, storeName } = params;
+  const context = storeName ? ` for <strong>${storeName}</strong>` : '';
+
+  const content = `
+    ${junkFolderNote()}
+    ${sectionHeading('Your login link')}
+    ${bodyText(`Someone requested access to the customer portal${context} using this email address. Click the button below to sign in and view your purchases.`)}
+    ${ctaButton('Sign In to Your Portal', magicLink)}
+    ${divider()}
+    <p style="margin:0 0 4px;color:#6b7280;font-size:13px;"><strong>Having trouble?</strong></p>
+    <p style="margin:0 0 4px;color:#9ca3af;font-size:12px;">Copy and paste this link into your browser:</p>
+    <p style="margin:0;color:${BRAND_COLOR};font-size:12px;word-break:break-all;">${magicLink}</p>
+    <p style="margin:16px 0 0;color:#9ca3af;font-size:12px;text-align:center;">This link expires in 15 minutes. If you didn't request this, you can safely ignore this email.</p>`;
+
+  try {
+    await sendEmail(
+      email,
+      `Your Login Link${storeName ? ` - ${storeName}` : ''}`,
+      baseLayout(content, `Sign in to access your purchases${storeName ? ` from ${storeName}` : ''}.`)
+    );
+  } catch (err) {
+    console.error('Failed to send magic link email:', err);
   }
 }
 
