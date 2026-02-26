@@ -183,7 +183,11 @@ export default function LibraryPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight" data-testid="text-library-title">Products Library</h1>
             <p className="text-muted-foreground mt-1">
-              Browse and import platform products into {activeStore?.name}.
+              {filteredProducts.length > 0 ? (
+                <span data-testid="text-product-count">{filteredProducts.length} product{filteredProducts.length !== 1 ? "s" : ""} available</span>
+              ) : (
+                <>Browse and import platform products into {activeStore?.name}.</>
+              )}
             </p>
           </div>
         </div>
