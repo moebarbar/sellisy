@@ -536,7 +536,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
             </p>
           </div>
         ) : (
-          <div ref={revealRef} className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <div ref={revealRef} className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((product) => {
               const hasDiscount = product.originalPriceCents != null && product.originalPriceCents > product.priceCents;
               const discountPct = hasDiscount ? Math.round(((product.originalPriceCents! - product.priceCents) / product.originalPriceCents!) * 100) : 0;
@@ -546,11 +546,11 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                   <div className="neon-holo-stripe" />
                   <div className="neon-card-line-scan" />
                   <a href={"/s/" + store.slug + "/product/" + product.id} className="block relative overflow-hidden">
-                    <div className="aspect-square overflow-hidden">
+                    <div className="aspect-[4/3] overflow-hidden">
                       {product.thumbnailUrl ? (
                         <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
                       ) : (
-                        <StorefrontProductPlaceholder productType={product.productType} accentColor={store.accentColor || c.cyan} title={product.title} className="aspect-square" />
+                        <StorefrontProductPlaceholder productType={product.productType} accentColor={store.accentColor || c.cyan} title={product.title} className="aspect-[4/3]" />
                       )}
                     </div>
                     <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />
@@ -639,7 +639,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
               <h2 className="neon-hero-text text-3xl md:text-4xl font-extrabold tracking-tight mb-3">Bundles</h2>
               <p className="text-sm" style={{ color: c.textTertiary }}>Get more for less with curated product bundles</p>
             </div>
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {bundles.map((bundle) => {
                 const totalValue = bundle.products.reduce((sum, p) => sum + p.priceCents, 0);
                 const savePct = totalValue > bundle.priceCents ? Math.round(((totalValue - bundle.priceCents) / totalValue) * 100) : 0;
@@ -649,7 +649,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                     <div className="neon-card-line-scan" />
                     {bundle.thumbnailUrl && (
                       <a href={`/s/${store.slug}/bundle/${bundle.id}`} className="block relative overflow-hidden">
-                        <div className="aspect-square overflow-hidden">
+                        <div className="aspect-[4/3] overflow-hidden">
                           <ProtectedImage protected={!store.allowImageDownload} src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
                         </div>
                         <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${c.bg} 0%, ${c.bg}66 40%, transparent 100%)` }} />

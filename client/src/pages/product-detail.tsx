@@ -302,7 +302,7 @@ export default function ProductDetailPage() {
           return (
             <div className="mb-8 pdp-fade-in">
               <div className="pdp-image-container relative">
-                <div className="aspect-square w-full">
+                <div className="aspect-[4/3] w-full">
                   <ProtectedImage protected={!store.allowImageDownload} src={currentImage} alt={product.title} className="w-full h-full object-cover" loading="lazy" data-testid="img-product-main" />
                 </div>
                 {hasDiscount && (

@@ -441,7 +441,7 @@ export function TemplateSelector({
 
   return (
     <>
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3" data-testid="template-selector">
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3" data-testid="template-selector">
         {TEMPLATES.map((t) => {
           const selected = value === t.key;
           const Icon = t.icon;
