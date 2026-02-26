@@ -18,6 +18,8 @@ import {
   Users, Rocket, Zap, Star, ArrowRight, Sparkles, Target,
   Coffee, Flame, Moon as MoonIcon, Sun as SunIcon,
   CheckCircle2, Circle, Palette, Share2, Loader2, ExternalLink,
+  CreditCard, Instagram, PenLine, Globe, Mail, Gift, Tag,
+  BarChart2, Megaphone, Search, Heart, Video, Lightbulb, Copy,
 } from "lucide-react";
 
 interface Analytics {
@@ -45,6 +47,25 @@ const motivations = [
   "The best time to launch was yesterday. The second best time is now.",
   "Small stores become empires. Keep building.",
   "Your next customer could be browsing right now.",
+  "Success is not final, failure is not fatal — it's the courage to continue that counts.",
+  "Small daily improvements lead to staggering long-term results.",
+  "Don't watch the clock; do what it does — keep going.",
+  "The secret to getting ahead is getting started.",
+  "Revenue is a byproduct of value. Focus on value.",
+  "You don't need a million customers. You need customers who feel like a million.",
+  "Build something people want, then tell them about it.",
+  "Consistency beats talent when talent doesn't show up.",
+  "Your store works while you sleep. Make sure it's stocked.",
+  "One product away from your first sale. Keep building.",
+  "The comeback is always stronger than the setback.",
+  "Progress, not perfection. Ship it.",
+  "Entrepreneurs are the only people who work 80 hours to avoid working 40.",
+  "Your next customer is out there searching for exactly what you sell.",
+  "Dream big. Start small. Act now.",
+  "The only limit to your impact is your imagination and commitment.",
+  "Done is better than perfect. Launch and iterate.",
+  "Every expert was once a beginner. Keep going.",
+  "Your digital empire starts with one product and one customer.",
 ];
 
 function useCountUp(target: number, duration = 1200, enabled = true): number {
@@ -252,6 +273,7 @@ function GettingStartedChecklist({ activeStore, storeProducts }: {
   const hasProducts = (storeProducts?.length ?? 0) > 0;
   const hasPublished = storeProducts?.some((sp: any) => sp.isPublished) ?? false;
   const hasCustomization = !!(activeStore?.logoUrl || activeStore?.accentColor || (activeStore?.templateKey && activeStore.templateKey !== "neon"));
+  const hasPayments = !!(activeStore?.stripePublishableKey || activeStore?.paypalClientId);
 
   const items: ChecklistItem[] = [
     {
@@ -291,6 +313,15 @@ function GettingStartedChecklist({ activeStore, storeProducts }: {
       actionLabel: "Store Settings",
     },
     {
+      id: "payments",
+      label: "Connect payments",
+      description: "Set up Stripe or PayPal so you can start accepting money",
+      done: hasPayments,
+      icon: CreditCard,
+      href: "/dashboard/settings",
+      actionLabel: "Payment Settings",
+    },
+    {
       id: "share",
       label: "Share your store link",
       description: "Visit your live storefront and share it with the world",
@@ -302,7 +333,7 @@ function GettingStartedChecklist({ activeStore, storeProducts }: {
   ];
 
   const completedCount = items.filter((i) => i.done).length;
-  const allDone = completedCount >= items.length - 1;
+  const allDone = completedCount === items.length;
   const progress = Math.round((completedCount / items.length) * 100);
 
   if (dismissed) return null;
@@ -384,6 +415,106 @@ function GettingStartedChecklist({ activeStore, storeProducts }: {
   );
 }
 
+interface ActionPrompt {
+  id: string;
+  title: string;
+  description: string;
+  icon: typeof Rocket;
+  href: string;
+  gradient: string;
+  iconColor: string;
+}
+
+const actionPrompts: ActionPrompt[] = [
+  { id: "instagram", title: "Post on Instagram today?", description: "Your products deserve the spotlight. Show them off!", icon: Instagram, href: "/dashboard/marketing/instagram-strategy", gradient: "from-pink-500/10 to-purple-500/10", iconColor: "text-pink-500" },
+  { id: "share", title: "Share your store link", description: "Your store is live 24/7. Let people know!", icon: Globe, href: "", gradient: "from-blue-500/10 to-cyan-500/10", iconColor: "text-blue-500" },
+  { id: "blog", title: "Write a blog post", description: "Content is king. Share your expertise!", icon: PenLine, href: "/dashboard/knowledge-base", gradient: "from-emerald-500/10 to-teal-500/10", iconColor: "text-emerald-500" },
+  { id: "pinterest", title: "Pin it on Pinterest", description: "Your audience hangs out there. Meet them!", icon: Heart, href: "/dashboard/marketing/pinterest-strategy", gradient: "from-red-500/10 to-orange-500/10", iconColor: "text-red-500" },
+  { id: "email", title: "Launch an email campaign", description: "Your subscribers are waiting to hear from you", icon: Mail, href: "/dashboard/marketing/email-list-building", gradient: "from-violet-500/10 to-indigo-500/10", iconColor: "text-violet-500" },
+  { id: "bundle", title: "Create a bundle deal", description: "Bundles boost your average order value by 30%", icon: Gift, href: "/dashboard/marketing/bundle-strategy", gradient: "from-amber-500/10 to-yellow-500/10", iconColor: "text-amber-500" },
+  { id: "coupon", title: "Set up a coupon", description: "Everyone loves a good deal. Create urgency!", icon: Tag, href: "/dashboard/coupons", gradient: "from-green-500/10 to-emerald-500/10", iconColor: "text-green-500" },
+  { id: "analytics", title: "Check your analytics", description: "Data-driven decisions = more sales", icon: BarChart2, href: "/dashboard/analytics", gradient: "from-sky-500/10 to-blue-500/10", iconColor: "text-sky-500" },
+  { id: "leadmagnet", title: "Try a lead magnet", description: "Give away something valuable. Grow your list!", icon: Megaphone, href: "/dashboard/marketing/lead-magnet-strategy", gradient: "from-fuchsia-500/10 to-pink-500/10", iconColor: "text-fuchsia-500" },
+  { id: "tiktok", title: "Post on TikTok", description: "Short videos sell. Show your product in action!", icon: Video, href: "/dashboard/marketing/tiktok-strategy", gradient: "from-cyan-500/10 to-sky-500/10", iconColor: "text-cyan-500" },
+  { id: "seo", title: "Optimize your SEO", description: "Get found by the right people on Google", icon: Search, href: "/dashboard/marketing/seo-basics", gradient: "from-orange-500/10 to-amber-500/10", iconColor: "text-orange-500" },
+  { id: "social-proof", title: "Add social proof", description: "Reviews and testimonials build trust fast", icon: Star, href: "/dashboard/marketing/social-proof", gradient: "from-yellow-500/10 to-orange-500/10", iconColor: "text-yellow-500" },
+  { id: "paid-ads", title: "Try paid ads", description: "A small budget can go a long way", icon: Zap, href: "/dashboard/marketing/paid-ads-getting-started", gradient: "from-indigo-500/10 to-violet-500/10", iconColor: "text-indigo-500" },
+  { id: "storefront", title: "Update your storefront", description: "Fresh look = fresh sales. Try a new template!", icon: Palette, href: "/dashboard/settings", gradient: "from-teal-500/10 to-green-500/10", iconColor: "text-teal-500" },
+  { id: "cross-promote", title: "Cross-promote everywhere", description: "Leverage multiple platforms for maximum reach", icon: Lightbulb, href: "/dashboard/marketing/cross-platform-strategy", gradient: "from-rose-500/10 to-red-500/10", iconColor: "text-rose-500" },
+];
+
+function WhatsNextSection({ storeSlug }: { storeSlug?: string }) {
+  const { toast } = useToast();
+  const prompts = useMemo(() => {
+    const shuffled = [...actionPrompts].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 3);
+  }, []);
+
+  const handleCopyLink = async () => {
+    if (!storeSlug) return;
+    const url = `${window.location.origin}/s/${storeSlug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Link copied!", description: "Share it with the world." });
+    } catch {
+      toast({ title: "Couldn't copy", description: url, variant: "destructive" });
+    }
+  };
+
+  return (
+    <div data-testid="whats-next-section">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Rocket className="h-[18px] w-[18px] text-primary" />
+          <h2 className="text-base font-semibold">What's Next?</h2>
+        </div>
+        <Link href="/dashboard/marketing">
+          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" data-testid="link-all-strategies">
+            See all strategies <ArrowRight className="ml-1 h-3 w-3" />
+          </Button>
+        </Link>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {prompts.map((prompt, i) => {
+          const Icon = prompt.icon;
+          const isShareCard = prompt.id === "share";
+          return (
+            <Card
+              key={prompt.id}
+              className={`group overflow-hidden border transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 dv-fade-in`}
+              style={{ animationDelay: `${i * 100}ms` }}
+            >
+              <div className={`bg-gradient-to-br ${prompt.gradient} p-4`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className={`flex items-center justify-center h-10 w-10 rounded-xl bg-background/80 backdrop-blur-sm ${prompt.iconColor} shrink-0`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                </div>
+                <h3 className="text-sm font-semibold mt-3">{prompt.title}</h3>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{prompt.description}</p>
+                <div className="mt-3">
+                  {isShareCard ? (
+                    <Button variant="secondary" size="sm" className="h-7 text-xs" onClick={handleCopyLink} data-testid={`button-action-${prompt.id}`}>
+                      <Copy className="h-3 w-3 mr-1" />
+                      Copy Link
+                    </Button>
+                  ) : (
+                    <Link href={prompt.href}>
+                      <Button variant="secondary" size="sm" className="h-7 text-xs" data-testid={`button-action-${prompt.id}`}>
+                        Let's Go <ArrowRight className="ml-1 h-3 w-3" />
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function OverviewPage() {
   const { activeStore, activeStoreId, storesLoading } = useActiveStore();
   const { user } = useAuth();
@@ -415,8 +546,6 @@ export default function OverviewPage() {
   const avgOrder = analytics && analytics.totalOrders > 0 ? analytics.totalRevenue / analytics.totalOrders / 100 : 0;
   const avgWhole = Math.floor(avgOrder);
   const avgCents = Math.round((avgOrder - avgWhole) * 100);
-
-  const isNewStore = activeStore && !hasAnyProducts && analytics?.totalOrders === 0;
 
   if (!storesLoading && !activeStoreId) {
     return <InlineStoreCreation />;
@@ -450,9 +579,9 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {isNewStore && (
-        <GettingStartedChecklist activeStore={activeStore} storeProducts={storeProducts} />
-      )}
+      <GettingStartedChecklist activeStore={activeStore} storeProducts={storeProducts} />
+
+      <WhatsNextSection storeSlug={activeStore?.slug} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
