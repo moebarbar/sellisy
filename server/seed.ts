@@ -82,11 +82,14 @@ export async function seedAdminUser() {
 
   const [existing] = await db.select().from(users).where(eq(users.email, adminEmail));
   if (existing) {
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
+    await db.update(users).set({ passwordHash }).where(eq(users.id, existing.id));
     const profile = await storage.getUserProfile(existing.id);
     if (!profile?.isAdmin) {
       await storage.setUserAdmin(existing.id, true);
       console.log("Existing admin user promoted to admin:", adminEmail);
     }
+    console.log("Admin password synced from env var:", adminEmail);
     return;
   }
 

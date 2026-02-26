@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
@@ -11,7 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 
 export default function AuthPage() {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const searchString = useSearch();
+  const params = new URLSearchParams(searchString);
+  const initialMode = params.get("mode") === "signup" ? "signup" : "login";
+  const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();

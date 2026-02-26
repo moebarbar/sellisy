@@ -53,7 +53,7 @@ export default function LandingPage() {
             ) : (
               <>
                 <Button variant="ghost" data-testid="link-login" onClick={() => { window.location.href = "/auth"; }}>Sign In</Button>
-                <Button data-testid="link-register" onClick={() => { window.location.href = "/auth"; }}>Get Started</Button>
+                <Button data-testid="link-register" onClick={() => { window.location.href = "/auth?mode=signup"; }}>Get Started</Button>
               </>
             )}
           </div>
@@ -84,7 +84,7 @@ export default function LandingPage() {
                 <Button
                   size="lg"
                   data-testid="button-hero-cta"
-                  onClick={() => { window.location.href = "/auth"; }}
+                  onClick={() => { window.location.href = "/auth?mode=signup"; }}
                 >
                   Start Selling Free
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -487,7 +487,7 @@ export default function LandingPage() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => { window.location.href = "/auth"; }}
+                  onClick={() => { window.location.href = "/auth?mode=signup"; }}
                   data-testid="button-pricing-starter"
                 >
                   Get Started
@@ -516,7 +516,7 @@ export default function LandingPage() {
                 </ul>
                 <Button
                   className="w-full"
-                  onClick={() => { window.location.href = "/auth"; }}
+                  onClick={() => { window.location.href = "/auth?mode=signup"; }}
                   data-testid="button-pricing-pro"
                 >
                   Start Free Trial
@@ -540,7 +540,7 @@ export default function LandingPage() {
             <div className="flex items-center justify-center gap-3 flex-wrap">
               <Button
                 size="lg"
-                onClick={() => { window.location.href = "/auth"; }}
+                onClick={() => { window.location.href = "/auth?mode=signup"; }}
                 data-testid="button-cta-final"
               >
                 Create Your Store

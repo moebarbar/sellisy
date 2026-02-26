@@ -184,7 +184,7 @@ export function CreateStoreDialog({ open, onClose }: { open: boolean; onClose: (
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Create New Store</DialogTitle>
           <DialogDescription>Set up your storefront in seconds.</DialogDescription>

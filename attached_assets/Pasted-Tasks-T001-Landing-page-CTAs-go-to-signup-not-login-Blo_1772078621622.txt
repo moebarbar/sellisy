@@ -1,0 +1,46 @@
+Tasks
+T001: Landing page CTAs go to signup, not login
+Blocked By: []
+Details:
+"Start Selling Free", "Get Started", "Create Your Store", and pricing CTAs all navigate to /auth which defaults to login mode
+New users clicking these should land on the signup form, not login
+Add ?mode=signup to CTA links, update auth page to read the URL param and default to signup when present
+Keep "Sign In" button going to /auth (login mode)
+Files: client/src/pages/landing.tsx, client/src/pages/auth.tsx
+Acceptance: Clicking "Start Selling Free" or "Get Started" opens the signup form; "Sign In" opens the login form
+T002: Clean up error messages — no raw JSON in toasts
+Blocked By: []
+Details:
+throwIfResNotOk in client/src/lib/queryClient.ts throws new Error(\${res.status}: ${text}`)which includes raw JSON like401: {"message":"Invalid email or password"}`
+Parse the JSON response and extract the message field for clean error text
+This affects ALL error toasts across the entire app (login, register, mutations, etc.)
+Files: client/src/lib/queryClient.ts
+Acceptance: Error toasts show clean messages like "Invalid email or password" instead of raw JSON
+T003: Widen store creation dialog to show all 6 templates
+Blocked By: []
+Details:
+The CreateStoreDialog in sidebar.tsx uses <DialogContent> with default width — too narrow for 6 templates
+Add className="max-w-3xl" to the DialogContent so the template grid renders properly
+Files: client/src/components/dashboard/sidebar.tsx
+Acceptance: "Create New Store" dialog shows all 6 templates in a readable grid (3 per row minimum)
+T004: Sync admin password on every startup
+Blocked By: []
+Details:
+seedAdminUser() in server/seed.ts never updates the password hash if the admin already exists
+When admin exists, re-hash ADMIN_PASSWORD and update the password in DB so it always matches the env var
+Files: server/seed.ts
+Acceptance: Admin login always works with current env var values, even after DB restores
+T005: Full end-to-end test as a regular user (not admin)
+Blocked By: [T001, T002, T003, T004]
+Details:
+Start at landing page, click "Get Started" → should open signup form
+Register a new user with random email
+Verify dashboard overview shows inline store creation form (not "Ready for liftoff?")
+Create a store selecting one of the 6 templates
+Verify getting-started checklist appears
+Navigate through every sidebar page: Products, My Products, Library, Content Creator, Bundles, Marketing, Coupons, Orders, Settings
+Verify all pages have consistent full-width layout (no max-w constraints)
+Try an invalid login to verify clean error message (no raw JSON)
+Test on mobile viewport (400px) for responsiveness
+Files: all pages
+Acceptance: Complete new-user journey works perfectly with clean UI, proper errors, and consistent layout
