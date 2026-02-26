@@ -694,6 +694,23 @@ export async function registerRoutes(
     res.json(sp);
   });
 
+  app.delete("/api/store-products/:id", isAuthenticated, async (req, res) => {
+    try {
+      const spData = await storage.getStoreProductById(req.params.id as string);
+      if (!spData) return res.status(404).json({ message: "Not found" });
+
+      const store = await storage.getStoreById(spData.storeId);
+      if (!store || store.ownerId !== getUserId(req)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      await storage.deleteStoreProduct(req.params.id as string);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Failed to remove product" });
+    }
+  });
+
   // --- Bundle CRUD (authenticated) ---
 
   app.get("/api/bundles/:storeId", isAuthenticated, async (req, res) => {

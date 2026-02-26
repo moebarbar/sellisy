@@ -86,7 +86,7 @@ export default function KnowledgeBasesPage() {
   });
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-kb-heading">Content Creator</h1>
@@ -121,7 +121,7 @@ export default function KnowledgeBasesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {knowledgeBases.map((kb) => (
             <Card
               key={kb.id}

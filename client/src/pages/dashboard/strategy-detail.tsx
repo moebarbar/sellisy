@@ -278,7 +278,7 @@ export default function StrategyDetailPage() {
 
   if (loadingStrategies) {
     return (
-      <div className="p-6 max-w-4xl space-y-4">
+      <div className="p-6 space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-96" />
         <Skeleton className="h-64 w-full" />
@@ -288,7 +288,7 @@ export default function StrategyDetailPage() {
 
   if (!strategy) {
     return (
-      <div className="p-6 max-w-4xl">
+      <div className="p-6">
         <Link href="/dashboard/marketing">
           <Button variant="ghost" size="sm" className="gap-1.5 mb-4" data-testid="button-back-to-playbook">
             <ArrowLeft className="h-4 w-4" />
@@ -306,7 +306,7 @@ export default function StrategyDetailPage() {
   const imp = IMPACT_LABELS[strategy.impact];
 
   return (
-    <div ref={containerRef} className="p-6 max-w-4xl mx-auto" data-testid="strategy-detail-page">
+    <div ref={containerRef} className="p-6" data-testid="strategy-detail-page">
       <Link href="/dashboard/marketing">
         <Button variant="ghost" size="sm" className="gap-1.5 mb-6 text-muted-foreground" data-testid="button-back-to-playbook">
           <ArrowLeft className="h-4 w-4" />

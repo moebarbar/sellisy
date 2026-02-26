@@ -322,7 +322,7 @@ export default function MarketingPlaybookPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl">
+    <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Marketing Playbook</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -404,7 +404,7 @@ export default function MarketingPlaybookPage() {
                       {catCompleted}/{group.items.length}
                     </span>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {group.items.map((strategy) => (
                       <StrategyCard
                         key={strategy.id}

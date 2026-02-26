@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign, Pencil, Loader2, Code } from "lucide-react";
+import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign, Pencil, Loader2, Code, Trash2 } from "lucide-react";
 import { ProductPlaceholder } from "@/components/product-placeholder";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EmbedDialog } from "@/components/dashboard/embed-dialog";
@@ -182,6 +182,19 @@ function StoreProductRow({
     },
   });
 
+  const removeMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/store-products/${storeProduct.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store-products", storeId] });
+      toast({ title: "Product removed from store" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to remove", description: err.message, variant: "destructive" });
+    },
+  });
+
   const effectivePrice = storeProduct.customPriceCents ?? product.priceCents;
   const isFree = effectivePrice === 0;
   const hasCustomPrice = storeProduct.customPriceCents != null;
@@ -194,15 +207,15 @@ function StoreProductRow({
   return (
     <Card>
       <CardContent className="p-4 space-y-0">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
           {product.thumbnailUrl ? (
             <img
               src={product.thumbnailUrl}
               alt={product.title}
-              className="h-14 w-14 rounded-md object-cover"
+              className="h-12 w-12 sm:h-14 sm:w-14 rounded-md object-cover shrink-0"
             />
           ) : (
-            <div className="h-14 w-14 rounded-md overflow-hidden">
+            <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-md overflow-hidden shrink-0">
               <ProductPlaceholder productType={product.productType} title={product.title} className="rounded-md" />
             </div>
           )}
@@ -235,7 +248,7 @@ function StoreProductRow({
               )}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-3 shrink-0">
             <Badge variant={storeProduct.isPublished ? "default" : "secondary"}>
               {storeProduct.isPublished ? "Published" : "Draft"}
             </Badge>
@@ -285,6 +298,25 @@ function StoreProductRow({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{expanded ? "Collapse" : "Expand"}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={() => {
+                    if (window.confirm(`Remove "${storeProduct.customTitle || product.title}" from this store?`)) {
+                      removeMutation.mutate();
+                    }
+                  }}
+                  disabled={removeMutation.isPending}
+                  data-testid={`button-remove-sp-${storeProduct.id}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Remove from store</TooltipContent>
             </Tooltip>
           </div>
           {embedOpen && (

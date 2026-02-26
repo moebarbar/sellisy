@@ -51,6 +51,7 @@ export interface IStorage {
   createStoreProduct(sp: InsertStoreProduct): Promise<StoreProduct>;
   updateStoreProductPublish(id: string, isPublished: boolean): Promise<StoreProduct | undefined>;
   updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "customPriceCents" | "customTitle" | "customDescription" | "customTags" | "customAccessUrl" | "customRedemptionCode" | "customDeliveryInstructions" | "isPublished" | "isLeadMagnet" | "upsellProductId" | "upsellBundleId">>): Promise<StoreProduct | undefined>;
+  deleteStoreProduct(id: string): Promise<void>;
 
   createOrder(order: InsertOrder): Promise<Order>;
   getOrderById(id: string): Promise<Order | undefined>;
@@ -275,6 +276,10 @@ export class DatabaseStorage implements IStorage {
   async updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "customPriceCents" | "customTitle" | "customDescription" | "customTags" | "customAccessUrl" | "customRedemptionCode" | "customDeliveryInstructions" | "isPublished" | "isLeadMagnet" | "upsellProductId" | "upsellBundleId">>) {
     const [sp] = await db.update(storeProducts).set(data).where(eq(storeProducts.id, id)).returning();
     return sp;
+  }
+
+  async deleteStoreProduct(id: string) {
+    await db.delete(storeProducts).where(eq(storeProducts.id, id));
   }
 
   async createOrder(data: InsertOrder) {
