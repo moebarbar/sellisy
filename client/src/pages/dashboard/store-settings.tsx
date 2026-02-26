@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
@@ -584,19 +584,18 @@ export default function StoreSettingsPage() {
 function PaymentsCard() {
   const { activeStore, activeStoreId } = useActiveStore();
   const { toast } = useToast();
-  const { data: stripeData, isLoading: stripeLoading, isError: stripeError } = useQuery<{ publishableKey: string | null }>({
-    queryKey: ["/api/stripe/publishable-key"],
-    retry: 3,
-    staleTime: 60000,
-  });
 
   const [provider, setProvider] = useState<"stripe" | "paypal">("stripe");
+  const [stripePublishableKey, setStripePublishableKey] = useState("");
+  const [stripeSecretKey, setStripeSecretKey] = useState("");
   const [paypalClientId, setPaypalClientId] = useState("");
   const [paypalClientSecret, setPaypalClientSecret] = useState("");
 
   useEffect(() => {
     if (activeStore) {
       setProvider((activeStore as any).paymentProvider || "stripe");
+      setStripePublishableKey((activeStore as any).stripePublishableKey || "");
+      setStripeSecretKey((activeStore as any).stripeSecretKey || "");
       setPaypalClientId((activeStore as any).paypalClientId || "");
       setPaypalClientSecret((activeStore as any).paypalClientSecret || "");
     }
@@ -605,11 +604,22 @@ function PaymentsCard() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!activeStoreId) return;
-      await apiRequest("PATCH", `/api/stores/${activeStoreId}`, {
+      const body: Record<string, string | null> = {
         paymentProvider: provider,
-        paypalClientId: provider === "paypal" ? paypalClientId : null,
-        paypalClientSecret: provider === "paypal" ? paypalClientSecret : null,
-      });
+      };
+      if (provider === "stripe") {
+        body.stripePublishableKey = stripePublishableKey || null;
+        body.stripeSecretKey = stripeSecretKey && stripeSecretKey !== "***configured***" ? stripeSecretKey : undefined as any;
+        body.paypalClientId = null;
+        body.paypalClientSecret = null;
+      } else {
+        body.stripePublishableKey = null;
+        body.stripeSecretKey = null;
+        body.paypalClientId = paypalClientId || null;
+        body.paypalClientSecret = paypalClientSecret && paypalClientSecret !== "***configured***" ? paypalClientSecret : undefined as any;
+      }
+      Object.keys(body).forEach((k) => { if (body[k] === undefined) delete body[k]; });
+      await apiRequest("PATCH", `/api/stores/${activeStoreId}`, body);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
@@ -620,15 +630,18 @@ function PaymentsCard() {
     },
   });
 
-  const stripeConnected = !!stripeData?.publishableKey;
-  const stripeExplicitlyNull = stripeData !== undefined && stripeData.publishableKey === null;
-  const isSandbox = stripeData?.publishableKey?.startsWith("pk_test_");
+  const stripeConfigured = !!(activeStore && (activeStore as any).stripePublishableKey && (activeStore as any).stripeSecretKey === "***configured***");
+  const stripeIsTestMode = (activeStore as any)?.stripePublishableKey?.startsWith("pk_test_");
   const paypalConfigured = !!(paypalClientId && paypalClientSecret);
   const hasChanges = activeStore && (
     provider !== ((activeStore as any).paymentProvider || "stripe") ||
+    stripePublishableKey !== ((activeStore as any).stripePublishableKey || "") ||
+    stripeSecretKey !== ((activeStore as any).stripeSecretKey || "") ||
     paypalClientId !== ((activeStore as any).paypalClientId || "") ||
     paypalClientSecret !== ((activeStore as any).paypalClientSecret || "")
   );
+
+  const stripeSecretDisplay = stripeSecretKey === "***configured***" ? "" : stripeSecretKey;
 
   return (
     <Card>
@@ -656,46 +669,49 @@ function PaymentsCard() {
         </div>
 
         {provider === "stripe" && (
-          <div className="rounded-md border border-border p-4 space-y-2">
-            {stripeLoading ? (
-              <div className="flex items-center gap-3">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Checking Stripe status...</span>
-              </div>
-            ) : stripeConnected ? (
+          <div className="rounded-md border border-border p-4 space-y-4">
+            {stripeConfigured ? (
               <div className="flex items-center gap-3 flex-wrap">
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                 <div>
-                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Ready</p>
-                  <p className="text-xs text-muted-foreground">
-                    {isSandbox ? "Running in test mode — no real charges will be made" : "Ready to accept live payments from your customers"}
-                  </p>
+                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Configured</p>
                 </div>
                 <Badge variant="secondary" className="ml-auto" data-testid="badge-stripe-mode">
-                  {isSandbox ? "Test Mode" : "Live"}
+                  {stripeIsTestMode ? "Test Mode" : "Live"}
                 </Badge>
-              </div>
-            ) : stripeExplicitlyNull ? (
-              <div className="flex items-center gap-3">
-                <XCircle className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Setup Required</p>
-                  <p className="text-xs text-muted-foreground">
-                    Stripe needs to be configured for your platform. Contact the platform administrator.
-                  </p>
-                </div>
               </div>
             ) : (
               <div className="flex items-center gap-3 flex-wrap">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-                <div>
-                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Active</p>
-                  <p className="text-xs text-muted-foreground">
-                    Stripe is your active payment processor. Your customers can pay securely at checkout.
-                  </p>
-                </div>
+                <XCircle className="h-5 w-5 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground" data-testid="text-stripe-status">
+                  Enter your Stripe API keys to accept payments
+                </p>
               </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="stripe-publishable-key">Stripe Publishable Key</Label>
+              <Input
+                id="stripe-publishable-key"
+                value={stripePublishableKey}
+                onChange={(e) => setStripePublishableKey(e.target.value)}
+                placeholder="pk_test_... or pk_live_..."
+                data-testid="input-stripe-publishable-key"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="stripe-secret-key">Stripe Secret Key</Label>
+              <Input
+                id="stripe-secret-key"
+                type="password"
+                value={stripeSecretDisplay}
+                onChange={(e) => setStripeSecretKey(e.target.value)}
+                placeholder={stripeConfigured ? "Secret key is set — enter a new one to replace" : "sk_test_... or sk_live_..."}
+                data-testid="input-stripe-secret-key"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground" data-testid="text-stripe-help">
+              Get these from your Stripe Dashboard at dashboard.stripe.com/apikeys. Payments go directly to your Stripe account.
+            </p>
           </div>
         )}
 
@@ -739,7 +755,7 @@ function PaymentsCard() {
         )}
 
         <Button
-          disabled={!hasChanges || saveMutation.isPending || (provider === "paypal" && !paypalConfigured)}
+          disabled={!hasChanges || saveMutation.isPending}
           onClick={() => saveMutation.mutate()}
           data-testid="button-save-payment-settings"
         >

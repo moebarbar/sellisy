@@ -79,6 +79,8 @@ export const stores = pgTable("stores", {
   paymentProvider: paymentProviderEnum("payment_provider").notNull().default("stripe"),
   paypalClientId: text("paypal_client_id"),
   paypalClientSecret: text("paypal_client_secret"),
+  stripePublishableKey: text("stripe_publishable_key"),
+  stripeSecretKey: text("stripe_secret_key"),
   allowImageDownload: boolean("allow_image_download").notNull().default(false),
   blogEnabled: boolean("blog_enabled").notNull().default(false),
   announcementText: text("announcement_text"),

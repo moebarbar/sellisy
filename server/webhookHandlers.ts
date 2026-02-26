@@ -17,6 +17,10 @@ export class WebhookHandlers {
     }
 
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    // NOTE: This webhook handler uses the platform-level Stripe client.
+    // For stores with their own Stripe keys, order completion is handled
+    // by the checkout success endpoint polling (GET /api/checkout/success/:id)
+    // which uses the store's own Stripe client to verify payment status.
     const stripe = await getUncachableStripeClient();
 
     let event: any;

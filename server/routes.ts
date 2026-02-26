@@ -11,6 +11,7 @@ import dns from "dns";
 import { seedDatabase, seedMarketingIfNeeded, seedAdminUser } from "./seed";
 import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
+import Stripe from 'stripe';
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendAllTestEmails } from "./emails";
 import { sendOrderCompletionEmails } from "./orderEmailHelper";
@@ -25,8 +26,12 @@ function getUserId(req: Request): string {
 }
 
 function sanitizeStore(store: any) {
-  const { paypalClientId, paypalClientSecret, ...safe } = store;
-  return { ...safe, paypalClientId: paypalClientId ? "***configured***" : null };
+  const { paypalClientSecret, stripeSecretKey, ...safe } = store;
+  return {
+    ...safe,
+    paypalClientSecret: paypalClientSecret ? "***configured***" : null,
+    stripeSecretKey: stripeSecretKey ? "***configured***" : null,
+  };
 }
 
 function sanitizeProductForStorefront(product: any) {
@@ -206,7 +211,7 @@ export async function registerRoutes(
 
   app.get("/api/stores", isAuthenticated, async (req, res) => {
     const stores = await storage.getStoresByOwner(getUserId(req));
-    res.json(stores);
+    res.json(stores.map(sanitizeStore));
   });
 
   app.get("/api/stores/:id", isAuthenticated, async (req, res) => {
@@ -214,7 +219,7 @@ export async function registerRoutes(
     if (!store || store.ownerId !== getUserId(req)) {
       return res.status(404).json({ message: "Store not found" });
     }
-    res.json(store);
+    res.json(sanitizeStore(store));
   });
 
   app.post("/api/stores", isAuthenticated, async (req, res) => {
@@ -262,6 +267,8 @@ export async function registerRoutes(
       paymentProvider: z.enum(["stripe", "paypal"]).optional(),
       paypalClientId: z.string().optional().nullable(),
       paypalClientSecret: z.string().optional().nullable(),
+      stripePublishableKey: z.string().refine(v => !v || v.startsWith("pk_"), { message: "Publishable key must start with pk_" }).optional().nullable(),
+      stripeSecretKey: z.string().refine(v => !v || v.startsWith("sk_"), { message: "Secret key must start with sk_" }).optional().nullable(),
       blogEnabled: z.boolean().optional(),
       announcementText: z.string().optional().nullable(),
       announcementLink: z.string().optional().nullable(),
@@ -285,7 +292,7 @@ export async function registerRoutes(
     }
 
     const updated = await storage.updateStore(store.id, parsed.data);
-    res.json(updated);
+    res.json(sanitizeStore(updated));
   });
 
   app.delete("/api/stores/:id", isAuthenticated, async (req, res) => {
@@ -1954,7 +1961,12 @@ export async function registerRoutes(
       }
     } else {
       try {
-        const stripe = await getUncachableStripeClient();
+        let stripe;
+        if (store.stripeSecretKey) {
+          stripe = new Stripe(store.stripeSecretKey, { apiVersion: '2025-11-17.clover' as any });
+        } else {
+          stripe = await getUncachableStripeClient();
+        }
 
         const productData: any = { name: itemName };
         if (itemDescription) productData.description = itemDescription.substring(0, 500);
@@ -2114,7 +2126,13 @@ export async function registerRoutes(
 
     if (order.status === "PENDING" && order.stripeSessionId) {
       try {
-        const stripe = await getUncachableStripeClient();
+        const orderStore = await storage.getStoreById(order.storeId);
+        let stripe;
+        if (orderStore?.stripeSecretKey) {
+          stripe = new Stripe(orderStore.stripeSecretKey, { apiVersion: '2025-11-17.clover' as any });
+        } else {
+          stripe = await getUncachableStripeClient();
+        }
         const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId);
         if (session.payment_status === "paid") {
           const emailFromSession = (session as any).customer_details?.email;
