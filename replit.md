@@ -25,7 +25,7 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
     *   **Product Types**: Supports various digital product types (digital, software, template, ebook, course, graphics) with type-specific delivery.
     *   **Rich Detail Pages**: Software products feature AppSumo-style deal pages with structured content and pricing comparisons.
 *   **E-commerce & Payments**:
-    *   **Payment Gateways**: Integration with Stripe and PayPal, allowing store owners to configure their own API keys for direct payment processing.
+    *   **Payment Gateways**: Integration with Stripe and PayPal. Store owners can configure one or both processors simultaneously. When both are configured, customers see a payment method selection modal at checkout to choose between card (Stripe) or PayPal. The checkout API accepts an optional `paymentMethod` field ("stripe" or "paypal"). If no payment keys are configured, checkout returns a clear error instead of falling back to platform keys.
     *   **Coupon System**: Flexible coupon codes with various discount types, usage limits, and expiration dates.
     *   **Email System**: SendGrid integration for transactional emails (welcome, order confirmation, sale notifications, download links) using consistent HTML templates.
     *   **Lead Magnets**: Free product offerings in exchange for email sign-ups, integrating with customer accounts.

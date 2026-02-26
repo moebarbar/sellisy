@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateSelector } from "@/components/dashboard/template-selector";
@@ -585,7 +584,6 @@ function PaymentsCard() {
   const { activeStore, activeStoreId } = useActiveStore();
   const { toast } = useToast();
 
-  const [provider, setProvider] = useState<"stripe" | "paypal">("stripe");
   const [stripePublishableKey, setStripePublishableKey] = useState("");
   const [stripeSecretKey, setStripeSecretKey] = useState("");
   const [paypalClientId, setPaypalClientId] = useState("");
@@ -593,7 +591,6 @@ function PaymentsCard() {
 
   useEffect(() => {
     if (activeStore) {
-      setProvider((activeStore as any).paymentProvider || "stripe");
       setStripePublishableKey((activeStore as any).stripePublishableKey || "");
       setStripeSecretKey((activeStore as any).stripeSecretKey || "");
       setPaypalClientId((activeStore as any).paypalClientId || "");
@@ -604,20 +601,11 @@ function PaymentsCard() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!activeStoreId) return;
-      const body: Record<string, string | null> = {
-        paymentProvider: provider,
-      };
-      if (provider === "stripe") {
-        body.stripePublishableKey = stripePublishableKey || null;
-        body.stripeSecretKey = stripeSecretKey && stripeSecretKey !== "***configured***" ? stripeSecretKey : undefined as any;
-        body.paypalClientId = null;
-        body.paypalClientSecret = null;
-      } else {
-        body.stripePublishableKey = null;
-        body.stripeSecretKey = null;
-        body.paypalClientId = paypalClientId || null;
-        body.paypalClientSecret = paypalClientSecret && paypalClientSecret !== "***configured***" ? paypalClientSecret : undefined as any;
-      }
+      const body: Record<string, string | null | undefined> = {};
+      body.stripePublishableKey = stripePublishableKey || null;
+      body.stripeSecretKey = stripeSecretKey && stripeSecretKey !== "***configured***" ? stripeSecretKey : undefined;
+      body.paypalClientId = paypalClientId || null;
+      body.paypalClientSecret = paypalClientSecret && paypalClientSecret !== "***configured***" ? paypalClientSecret : undefined;
       Object.keys(body).forEach((k) => { if (body[k] === undefined) delete body[k]; });
       await apiRequest("PATCH", `/api/stores/${activeStoreId}`, body);
     },
@@ -632,9 +620,8 @@ function PaymentsCard() {
 
   const stripeConfigured = !!(activeStore && (activeStore as any).stripePublishableKey && (activeStore as any).stripeSecretKey === "***configured***");
   const stripeIsTestMode = (activeStore as any)?.stripePublishableKey?.startsWith("pk_test_");
-  const paypalConfigured = !!(paypalClientId && paypalClientSecret);
+  const paypalConfigured = !!(activeStore && (activeStore as any).paypalClientId && (activeStore as any).paypalClientSecret === "***configured***");
   const hasChanges = activeStore && (
-    provider !== ((activeStore as any).paymentProvider || "stripe") ||
     stripePublishableKey !== ((activeStore as any).stripePublishableKey || "") ||
     stripeSecretKey !== ((activeStore as any).stripeSecretKey || "") ||
     paypalClientId !== ((activeStore as any).paypalClientId || "") ||
@@ -642,6 +629,7 @@ function PaymentsCard() {
   );
 
   const stripeSecretDisplay = stripeSecretKey === "***configured***" ? "" : stripeSecretKey;
+  const paypalSecretDisplay = paypalClientSecret === "***configured***" ? "" : paypalClientSecret;
 
   return (
     <Card>
@@ -652,107 +640,91 @@ function PaymentsCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>Active Payment Processor</Label>
-          <Select value={provider} onValueChange={(v) => setProvider(v as "stripe" | "paypal")}>
-            <SelectTrigger data-testid="select-payment-provider">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="stripe">Stripe</SelectItem>
-              <SelectItem value="paypal">PayPal</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Choose which payment processor handles your store's checkout.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Configure one or both payment processors. If both are set up, your customers can choose how to pay at checkout.
+        </p>
 
-        {provider === "stripe" && (
-          <div className="rounded-md border border-border p-4 space-y-4">
+        <div className="rounded-md border border-border p-4 space-y-4">
+          <div className="flex items-center gap-3 flex-wrap">
             {stripeConfigured ? (
-              <div className="flex items-center gap-3 flex-wrap">
+              <>
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
-                <div>
-                  <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Configured</p>
-                </div>
+                <p className="text-sm font-medium" data-testid="text-stripe-status">Stripe Configured</p>
                 <Badge variant="secondary" className="ml-auto" data-testid="badge-stripe-mode">
                   {stripeIsTestMode ? "Test Mode" : "Live"}
                 </Badge>
-              </div>
+              </>
             ) : (
-              <div className="flex items-center gap-3 flex-wrap">
+              <>
                 <XCircle className="h-5 w-5 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground" data-testid="text-stripe-status">
-                  Enter your Stripe API keys to accept payments
+                  Enter your Stripe API keys to accept card payments
                 </p>
-              </div>
+              </>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="stripe-publishable-key">Stripe Publishable Key</Label>
-              <Input
-                id="stripe-publishable-key"
-                value={stripePublishableKey}
-                onChange={(e) => setStripePublishableKey(e.target.value)}
-                placeholder="Your Stripe Publishable Key"
-                data-testid="input-stripe-publishable-key"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="stripe-secret-key">Stripe Secret Key</Label>
-              <Input
-                id="stripe-secret-key"
-                type="password"
-                value={stripeSecretDisplay}
-                onChange={(e) => setStripeSecretKey(e.target.value)}
-                placeholder={stripeConfigured ? "Secret key is set — enter a new one to replace" : "Your Stripe Secret Key"}
-                data-testid="input-stripe-secret-key"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground" data-testid="text-stripe-help">
-              Get these from your Stripe Dashboard at dashboard.stripe.com/apikeys. Payments go directly to your Stripe account.
-            </p>
           </div>
-        )}
+          <div className="space-y-2">
+            <Label htmlFor="stripe-publishable-key">Stripe Publishable Key</Label>
+            <Input
+              id="stripe-publishable-key"
+              value={stripePublishableKey}
+              onChange={(e) => setStripePublishableKey(e.target.value)}
+              placeholder="Your Stripe Publishable Key"
+              data-testid="input-stripe-publishable-key"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="stripe-secret-key">Stripe Secret Key</Label>
+            <Input
+              id="stripe-secret-key"
+              type="password"
+              value={stripeSecretDisplay}
+              onChange={(e) => setStripeSecretKey(e.target.value)}
+              placeholder={stripeConfigured ? "Secret key is set — enter a new one to replace" : "Your Stripe Secret Key"}
+              data-testid="input-stripe-secret-key"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground" data-testid="text-stripe-help">
+            Get these from your Stripe Dashboard at dashboard.stripe.com/apikeys. Payments go directly to your Stripe account.
+          </p>
+        </div>
 
-        {provider === "paypal" && (
-          <div className="rounded-md border border-border p-4 space-y-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              {paypalConfigured ? (
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              ) : (
-                <XCircle className="h-5 w-5 text-muted-foreground" />
-              )}
-              <p className="text-sm font-medium" data-testid="text-paypal-status">
-                {paypalConfigured ? "PayPal Configured" : "PayPal Not Configured"}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="paypal-client-id">PayPal Client ID</Label>
-              <Input
-                id="paypal-client-id"
-                value={paypalClientId}
-                onChange={(e) => setPaypalClientId(e.target.value)}
-                placeholder="Your PayPal app Client ID"
-                data-testid="input-paypal-client-id"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="paypal-client-secret">PayPal Client Secret</Label>
-              <Input
-                id="paypal-client-secret"
-                type="password"
-                value={paypalClientSecret}
-                onChange={(e) => setPaypalClientSecret(e.target.value)}
-                placeholder="Your PayPal app Client Secret"
-                data-testid="input-paypal-client-secret"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Get these from your PayPal Developer Dashboard at developer.paypal.com. Payments go directly to your PayPal account.
+        <div className="rounded-md border border-border p-4 space-y-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            {paypalConfigured ? (
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+            ) : (
+              <XCircle className="h-5 w-5 text-muted-foreground" />
+            )}
+            <p className="text-sm font-medium" data-testid="text-paypal-status">
+              {paypalConfigured ? "PayPal Configured" : "PayPal Not Configured"}
             </p>
           </div>
-        )}
+          <div className="space-y-2">
+            <Label htmlFor="paypal-client-id">PayPal Client ID</Label>
+            <Input
+              id="paypal-client-id"
+              value={paypalClientId}
+              onChange={(e) => setPaypalClientId(e.target.value)}
+              placeholder="Your PayPal app Client ID"
+              data-testid="input-paypal-client-id"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="paypal-client-secret">PayPal Client Secret</Label>
+            <Input
+              id="paypal-client-secret"
+              type="password"
+              value={paypalSecretDisplay}
+              onChange={(e) => setPaypalClientSecret(e.target.value)}
+              placeholder={paypalConfigured ? "Secret is set — enter a new one to replace" : "Your PayPal app Client Secret"}
+              data-testid="input-paypal-client-secret"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Get these from your PayPal Developer Dashboard at developer.paypal.com. Payments go directly to your PayPal account.
+          </p>
+        </div>
 
         <Button
           disabled={!hasChanges || saveMutation.isPending}

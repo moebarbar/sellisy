@@ -1837,6 +1837,7 @@ export async function registerRoutes(
       bundleId: z.string().optional(),
       buyerEmail: z.string().email().optional(),
       couponCode: z.string().optional(),
+      paymentMethod: z.enum(["stripe", "paypal"]).optional(),
     }).refine(d => d.productId || d.bundleId, { message: "productId or bundleId required" });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -1958,15 +1959,27 @@ export async function registerRoutes(
       await db.insert(orderItems).values({ orderId: order.id, ...item });
     }
 
-    const hasPayPal = store.paymentProvider === "paypal" && store.paypalClientId && store.paypalClientSecret;
-    const hasStripe = store.paymentProvider === "stripe" && store.stripeSecretKey;
+    const hasPayPal = !!(store.paypalClientId && store.paypalClientSecret);
+    const hasStripe = !!store.stripeSecretKey;
 
     if (!hasPayPal && !hasStripe) {
       await db.update(orders).set({ status: "FAILED" }).where(eq(orders.id, order.id));
       return res.status(400).json({ message: "This store hasn't set up payment processing yet. Please contact the store owner." });
     }
 
-    if (hasPayPal) {
+    const chosenMethod = parsed.data.paymentMethod;
+    if (chosenMethod === "paypal" && !hasPayPal) {
+      await db.update(orders).set({ status: "FAILED" }).where(eq(orders.id, order.id));
+      return res.status(400).json({ message: "PayPal is not configured for this store." });
+    }
+    if (chosenMethod === "stripe" && !hasStripe) {
+      await db.update(orders).set({ status: "FAILED" }).where(eq(orders.id, order.id));
+      return res.status(400).json({ message: "Stripe is not configured for this store." });
+    }
+
+    const usePayPal = chosenMethod === "paypal" || (!chosenMethod && hasPayPal && !hasStripe);
+
+    if (usePayPal) {
       try {
         const { approveUrl, paypalOrderId } = await createPayPalOrder(
           store.paypalClientId!,
