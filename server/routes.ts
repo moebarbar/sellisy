@@ -1931,6 +1931,10 @@ export async function registerRoutes(
         return order;
       });
 
+      sendOrderCompletionEmails(result.id, appUrl).catch(err =>
+        console.error("Free order email error:", err)
+      );
+
       return res.json({
         url: `${appUrl}/checkout/success?order_id=${result.id}`,
         orderId: result.id,

@@ -89,9 +89,12 @@ export async function sendOrderConfirmationEmail(params: {
       </table>
     </div>
     ${ctaButton('Download Your Products', downloadUrl)}
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;"><tr><td align="center">
+      <a href="${baseUrl}/s/${params.storeSlug}/portal" style="display:inline-block;background:#ffffff;color:${BRAND_COLOR};text-decoration:none;padding:12px 32px;border-radius:8px;font-weight:600;font-size:14px;border:2px solid ${BRAND_COLOR};">View Your Customer Portal</a>
+    </td></tr></table>
     ${divider()}
     <p style="margin:0 0 4px;color:#9ca3af;font-size:13px;text-align:center;">Order ID: <strong>${orderId}</strong></p>
-    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">This download link is valid for 7 days. If you need a new link, contact the store owner.</p>`;
+    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">This download link is valid for 7 days. You can also access your purchases anytime from the <a href="${baseUrl}/s/${params.storeSlug}/portal" style="color:${BRAND_COLOR};text-decoration:none;">Customer Portal</a>.</p>`;
 
   try {
     await sendEmail(
