@@ -38,7 +38,7 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
 *   **File Storage**: Utilizes Replit Object Storage for product images, deliverable files, logos, and banners via presigned URLs.
 *   **Embed Widgets**: Store owners can generate embeddable iframes for products or bundles on external websites, with live preview and theme toggles.
 *   **Custom Domains**: Integration with Cloudflare for SaaS to allow store owners to connect custom domains with automatic SSL provisioning and host-based routing.
-*   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) for storefronts, knowledge bases, and product pages, configurable by store owners.
+*   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) for storefronts and product pages, configurable by store owners. Server-side OG tag injection (`server/og-tags.ts`) serves pre-rendered meta tags to social media crawlers for proper link previews on Facebook, Twitter, LinkedIn, etc.
 *   **Data Protection System**:
     *   **Soft Deletes**: Products and stores use a `deletedAt` timestamp instead of hard deletes. All queries filter out soft-deleted records (`WHERE deletedAt IS NULL`). Hard delete methods exist but are only used for full cleanup operations.
     *   **Integrity Checks**: `server/integrity.ts` provides `runHealthCheck()` (detect orphaned records, null owners) and `runRepair()` (auto-fix issues). Health check runs automatically on every server startup via `runStartupCheck()`.

@@ -578,6 +578,7 @@ function ProductFormDialog({
   const [imageUploading, setImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const deliverableFileRef = useRef<HTMLInputElement>(null);
 
   const { uploadFile } = useUpload();
 
@@ -1131,7 +1132,15 @@ function ProductFormDialog({
                 type="button"
                 variant={fileDelivery === "upload" ? "default" : "outline"}
                 size="sm"
-                onClick={() => { setFileDelivery("upload"); setFileUrl(""); }}
+                onClick={() => {
+                  if (fileDelivery === "upload") {
+                    deliverableFileRef.current?.click();
+                  } else {
+                    setFileDelivery("upload");
+                    setFileUrl("");
+                    setTimeout(() => deliverableFileRef.current?.click(), 100);
+                  }
+                }}
                 data-testid="button-file-upload-mode"
               >
                 <Upload className="mr-2 h-3.5 w-3.5" />
@@ -1151,8 +1160,10 @@ function ProductFormDialog({
 
             {fileDelivery === "upload" ? (
               <div className="space-y-1">
-                <Input
+                <input
+                  ref={deliverableFileRef}
                   type="file"
+                  className="hidden"
                   onChange={handleFileUpload}
                   disabled={fileUploading}
                   data-testid="input-file-upload"
@@ -1168,6 +1179,9 @@ function ProductFormDialog({
                     <FileIcon className="h-3 w-3" />
                     <span>File uploaded successfully</span>
                   </div>
+                )}
+                {!fileUploading && !fileUrl && (
+                  <p className="text-xs text-muted-foreground">Click "Upload File" above to select a file</p>
                 )}
               </div>
             ) : (

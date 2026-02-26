@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { WebhookHandlers } from './webhookHandlers';
 import { runStartupCheck } from "./integrity";
+import { injectOgTags } from "./og-tags";
 
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err);
@@ -109,8 +110,10 @@ app.use((req, res, next) => {
   });
 
   if (process.env.NODE_ENV === "production") {
+    app.use(injectOgTags);
     serveStatic(app);
   } else {
+    app.use(injectOgTags);
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   }

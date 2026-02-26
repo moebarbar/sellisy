@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign, Pencil, Loader2, Code, Trash2 } from "lucide-react";
+import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign, Pencil, Loader2, Code, Trash2, Share2 } from "lucide-react";
 import { ProductPlaceholder } from "@/components/product-placeholder";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EmbedDialog } from "@/components/dashboard/embed-dialog";
@@ -259,19 +259,42 @@ function StoreProductRow({
               data-testid={`switch-publish-${storeProduct.id}`}
             />
             {storeProduct.isPublished && storeSlug && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setEmbedOpen(true)}
-                    data-testid={`button-embed-sp-${storeProduct.id}`}
-                  >
-                    <Code className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Embed</TooltipContent>
-              </Tooltip>
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={async () => {
+                        const url = `${window.location.origin}/s/${storeSlug}/product/${product.id}`;
+                        try {
+                          await navigator.clipboard.writeText(url);
+                          toast({ title: "Product link copied!" });
+                        } catch {
+                          toast({ title: "Failed to copy link", variant: "destructive" });
+                        }
+                      }}
+                      data-testid={`button-share-sp-${storeProduct.id}`}
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Copy Product Link</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setEmbedOpen(true)}
+                      data-testid={`button-embed-sp-${storeProduct.id}`}
+                    >
+                      <Code className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Embed</TooltipContent>
+                </Tooltip>
+              </>
             )}
             <Tooltip>
               <TooltipTrigger asChild>
