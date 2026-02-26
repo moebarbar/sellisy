@@ -208,7 +208,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProductsByOwner(ownerId: string) {
-    return db.select().from(products).where(and(eq(products.ownerId, ownerId), eq(products.source, "USER"))).orderBy(desc(products.createdAt));
+    return db.select().from(products).where(eq(products.ownerId, ownerId)).orderBy(desc(products.createdAt));
   }
 
   async getProductById(id: string) {

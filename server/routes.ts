@@ -370,7 +370,7 @@ export async function registerRoutes(
     if (!product) return res.status(404).json({ message: "Product not found" });
     if (product.source === "PLATFORM") return res.status(400).json({ message: "Product is already a platform product" });
 
-    await db.update(products).set({ source: "PLATFORM", ownerId: null }).where(eq(products.id, productId));
+    await db.update(products).set({ source: "PLATFORM" }).where(eq(products.id, productId));
     const updated = await storage.getProductById(productId);
     res.json(updated);
   });
@@ -548,7 +548,7 @@ export async function registerRoutes(
 
   app.patch("/api/products/:id", isAuthenticated, async (req, res) => {
     const product = await storage.getProductById(req.params.id as string);
-    if (!product || product.ownerId !== getUserId(req) || product.source !== "USER") {
+    if (!product || product.ownerId !== getUserId(req)) {
       return res.status(404).json({ message: "Product not found" });
     }
 
@@ -602,7 +602,7 @@ export async function registerRoutes(
 
   app.delete("/api/products/:id", isAuthenticated, async (req, res) => {
     const product = await storage.getProductById(req.params.id as string);
-    if (!product || product.ownerId !== getUserId(req) || product.source !== "USER") {
+    if (!product || product.ownerId !== getUserId(req)) {
       return res.status(404).json({ message: "Product not found" });
     }
 

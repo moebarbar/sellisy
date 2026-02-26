@@ -163,6 +163,11 @@ export default function MyProductsPage() {
                   )}
                   <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                     <Badge variant="outline" className="text-xs capitalize">{product.category}</Badge>
+                    {product.source === "PLATFORM" && (
+                      <Badge className="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" data-testid={`badge-in-library-${product.id}`}>
+                        In Library
+                      </Badge>
+                    )}
                     {product.productType && product.productType !== "digital" && (
                       <Badge variant="secondary" className="text-xs capitalize" data-testid={`badge-type-${product.id}`}>
                         {product.productType}
