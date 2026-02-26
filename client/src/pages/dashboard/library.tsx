@@ -53,6 +53,8 @@ export default function LibraryPage() {
 
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products/library"],
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const [importProduct, setImportProduct] = useState<Product | null>(null);

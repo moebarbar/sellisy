@@ -35,6 +35,8 @@ export default function MyProductsPage() {
 
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products/mine"],
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: stores } = useQuery<Store[]>({
