@@ -18,8 +18,8 @@ import {
   Users, Rocket, Zap, Star, ArrowRight, Sparkles, Target,
   Coffee, Flame, Moon as MoonIcon, Sun as SunIcon,
   CheckCircle2, Circle, Palette, Share2, Loader2, ExternalLink,
-  CreditCard, Instagram, PenLine, Globe, Mail, Gift, Tag,
-  BarChart2, Megaphone, Search, Heart, Video, Lightbulb, Copy,
+  CreditCard, Instagram, PenLine, Globe, Mail, Gift,
+  Megaphone, Heart, Video, Lightbulb, Copy,
 } from "lucide-react";
 
 interface Analytics {
@@ -426,21 +426,21 @@ interface ActionPrompt {
 }
 
 const actionPrompts: ActionPrompt[] = [
-  { id: "instagram", title: "Post on Instagram today?", description: "Your products deserve the spotlight. Show them off!", icon: Instagram, href: "/dashboard/marketing/instagram-strategy", gradient: "from-pink-500/10 to-purple-500/10", iconColor: "text-pink-500" },
-  { id: "share", title: "Share your store link", description: "Your store is live 24/7. Let people know!", icon: Globe, href: "", gradient: "from-blue-500/10 to-cyan-500/10", iconColor: "text-blue-500" },
-  { id: "blog", title: "Write a blog post", description: "Content is king. Share your expertise!", icon: PenLine, href: "/dashboard/knowledge-base", gradient: "from-emerald-500/10 to-teal-500/10", iconColor: "text-emerald-500" },
-  { id: "pinterest", title: "Pin it on Pinterest", description: "Your audience hangs out there. Meet them!", icon: Heart, href: "/dashboard/marketing/pinterest-strategy", gradient: "from-red-500/10 to-orange-500/10", iconColor: "text-red-500" },
-  { id: "email", title: "Launch an email campaign", description: "Your subscribers are waiting to hear from you", icon: Mail, href: "/dashboard/marketing/email-list-building", gradient: "from-violet-500/10 to-indigo-500/10", iconColor: "text-violet-500" },
-  { id: "bundle", title: "Create a bundle deal", description: "Bundles boost your average order value by 30%", icon: Gift, href: "/dashboard/marketing/bundle-strategy", gradient: "from-amber-500/10 to-yellow-500/10", iconColor: "text-amber-500" },
-  { id: "coupon", title: "Set up a coupon", description: "Everyone loves a good deal. Create urgency!", icon: Tag, href: "/dashboard/coupons", gradient: "from-green-500/10 to-emerald-500/10", iconColor: "text-green-500" },
-  { id: "analytics", title: "Check your analytics", description: "Data-driven decisions = more sales", icon: BarChart2, href: "/dashboard/analytics", gradient: "from-sky-500/10 to-blue-500/10", iconColor: "text-sky-500" },
-  { id: "leadmagnet", title: "Try a lead magnet", description: "Give away something valuable. Grow your list!", icon: Megaphone, href: "/dashboard/marketing/lead-magnet-strategy", gradient: "from-fuchsia-500/10 to-pink-500/10", iconColor: "text-fuchsia-500" },
-  { id: "tiktok", title: "Post on TikTok", description: "Short videos sell. Show your product in action!", icon: Video, href: "/dashboard/marketing/tiktok-strategy", gradient: "from-cyan-500/10 to-sky-500/10", iconColor: "text-cyan-500" },
-  { id: "seo", title: "Optimize your SEO", description: "Get found by the right people on Google", icon: Search, href: "/dashboard/marketing/seo-basics", gradient: "from-orange-500/10 to-amber-500/10", iconColor: "text-orange-500" },
-  { id: "social-proof", title: "Add social proof", description: "Reviews and testimonials build trust fast", icon: Star, href: "/dashboard/marketing/social-proof", gradient: "from-yellow-500/10 to-orange-500/10", iconColor: "text-yellow-500" },
-  { id: "paid-ads", title: "Try paid ads", description: "A small budget can go a long way", icon: Zap, href: "/dashboard/marketing/paid-ads-getting-started", gradient: "from-indigo-500/10 to-violet-500/10", iconColor: "text-indigo-500" },
-  { id: "storefront", title: "Update your storefront", description: "Fresh look = fresh sales. Try a new template!", icon: Palette, href: "/dashboard/settings", gradient: "from-teal-500/10 to-green-500/10", iconColor: "text-teal-500" },
-  { id: "cross-promote", title: "Cross-promote everywhere", description: "Leverage multiple platforms for maximum reach", icon: Lightbulb, href: "/dashboard/marketing/cross-platform-strategy", gradient: "from-rose-500/10 to-red-500/10", iconColor: "text-rose-500" },
+  { id: "instagram", title: "Post on Instagram today?", description: "Show off your product with a story or reel. Your followers are waiting!", icon: Instagram, href: "/dashboard/marketing/instagram-strategy", gradient: "from-pink-500/10 to-purple-500/10", iconColor: "text-pink-500" },
+  { id: "share", title: "Share your store link!", description: "Drop your link in your bio, DMs, or group chats. Get eyes on it!", icon: Globe, href: "", gradient: "from-blue-500/10 to-cyan-500/10", iconColor: "text-blue-500" },
+  { id: "blog", title: "Write a blog post", description: "Teach something useful, then link to your product. Content sells!", icon: PenLine, href: "/dashboard/knowledge-base", gradient: "from-emerald-500/10 to-teal-500/10", iconColor: "text-emerald-500" },
+  { id: "pinterest", title: "Create a Pinterest pin", description: "Design a pin for your product. Pinterest drives passive traffic for months!", icon: Heart, href: "/dashboard/marketing/pinterest-strategy", gradient: "from-red-500/10 to-orange-500/10", iconColor: "text-red-500" },
+  { id: "tiktok", title: "Film a quick TikTok", description: "30 seconds is all it takes. Show your product in action and watch it blow up!", icon: Video, href: "/dashboard/marketing/tiktok-strategy", gradient: "from-cyan-500/10 to-sky-500/10", iconColor: "text-cyan-500" },
+  { id: "email", title: "Send an email to your list", description: "Your subscribers already trust you. Tell them about your latest product!", icon: Mail, href: "/dashboard/marketing/email-list-building", gradient: "from-violet-500/10 to-indigo-500/10", iconColor: "text-violet-500" },
+  { id: "twitter", title: "Tweet about your product", description: "Share a tip, a win, or a sneak peek. Twitter loves authenticity!", icon: Megaphone, href: "/dashboard/marketing/twitter-x-strategy", gradient: "from-sky-500/10 to-blue-500/10", iconColor: "text-sky-500" },
+  { id: "linkedin", title: "Post on LinkedIn", description: "Share your journey or a case study. B2B buyers hang out there!", icon: Globe, href: "/dashboard/marketing/linkedin-strategy", gradient: "from-blue-600/10 to-indigo-500/10", iconColor: "text-blue-600" },
+  { id: "youtube", title: "Record a YouTube video", description: "Tutorials and walkthroughs rank forever. One video = years of traffic!", icon: Video, href: "/dashboard/marketing/youtube-strategy", gradient: "from-red-500/10 to-rose-500/10", iconColor: "text-red-500" },
+  { id: "reddit", title: "Join a Reddit conversation", description: "Find your niche subreddit, help people out, and drop your link naturally!", icon: Megaphone, href: "/dashboard/marketing/reddit-strategy", gradient: "from-orange-500/10 to-amber-500/10", iconColor: "text-orange-500" },
+  { id: "leadmagnet", title: "Create a free giveaway", description: "Offer a freebie to capture emails. Your list is your goldmine!", icon: Gift, href: "/dashboard/marketing/lead-magnet-strategy", gradient: "from-fuchsia-500/10 to-pink-500/10", iconColor: "text-fuchsia-500" },
+  { id: "social-proof", title: "Share a customer win", description: "Got a testimonial or screenshot? Post it! Social proof sells like crazy.", icon: Star, href: "/dashboard/marketing/social-proof", gradient: "from-yellow-500/10 to-orange-500/10", iconColor: "text-yellow-500" },
+  { id: "cross-promote", title: "Repurpose your content", description: "Turn one blog post into 5 social posts. Work smarter, not harder!", icon: Lightbulb, href: "/dashboard/marketing/cross-platform-strategy", gradient: "from-rose-500/10 to-red-500/10", iconColor: "text-rose-500" },
+  { id: "collab", title: "Reach out for a collab", description: "DM a creator in your niche. Partnerships = instant new audience!", icon: Heart, href: "/dashboard/marketing/partnership-marketing", gradient: "from-purple-500/10 to-fuchsia-500/10", iconColor: "text-purple-500" },
+  { id: "reel", title: "Make a quick Reel today", description: "Behind-the-scenes, a product demo, or a tip. Reels get insane reach!", icon: Video, href: "/dashboard/marketing/instagram-strategy", gradient: "from-pink-500/10 to-rose-500/10", iconColor: "text-pink-500" },
 ];
 
 function WhatsNextSection({ storeSlug }: { storeSlug?: string }) {
