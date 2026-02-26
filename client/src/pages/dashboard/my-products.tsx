@@ -13,7 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useUpload } from "@/hooks/use-upload";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download, Star, X, ArrowUpToLine, Package } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download, Star, X, ArrowUpToLine, Package, FileUp } from "lucide-react";
 import { ProductPlaceholder } from "@/components/product-placeholder";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import type { Product, Store, ProductImage, Category } from "@shared/schema";
@@ -30,6 +31,7 @@ export default function MyProductsPage() {
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [importProduct, setImportProduct] = useState<Product | null>(null);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
 
   const { data: products, isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products/mine"],
@@ -88,10 +90,18 @@ export default function MyProductsPage() {
           <h1 className="text-2xl font-bold tracking-tight" data-testid="text-my-products-title">My Products</h1>
           <p className="text-muted-foreground mt-1">Create and manage your own digital products.</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} data-testid="button-create-product">
-          <Plus className="mr-2 h-4 w-4" />
-          Create Product
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {isAdmin && (
+            <Button variant="outline" onClick={() => setBulkUploadOpen(true)} data-testid="button-bulk-upload-csv">
+              <FileUp className="mr-2 h-4 w-4" />
+              Bulk Upload CSV
+            </Button>
+          )}
+          <Button onClick={() => setCreateOpen(true)} data-testid="button-create-product">
+            <Plus className="mr-2 h-4 w-4" />
+            Create Product
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -302,6 +312,13 @@ export default function MyProductsPage() {
         stores={stores || []}
         onClose={() => setImportProduct(null)}
       />
+
+      {isAdmin && (
+        <BulkUploadCSVDialog
+          open={bulkUploadOpen}
+          onClose={() => setBulkUploadOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1136,6 +1153,251 @@ function ProductFormDialog({
             {mode === "create" ? "Create Product" : "Save Changes"}
           </Button>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface CsvRow {
+  title: string;
+  description: string;
+  category: string;
+  price: string;
+  originalPrice: string;
+  productType: string;
+  tags: string;
+  accessUrl: string;
+  thumbnailUrl: string;
+  fileUrl: string;
+}
+
+interface BulkImportResult {
+  created: number;
+  errors: Array<{ row: number; message: string }>;
+}
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function BulkUploadCSVDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { toast } = useToast();
+  const [parsedRows, setParsedRows] = useState<CsvRow[]>([]);
+  const [importResult, setImportResult] = useState<BulkImportResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const csvColumns = ["title", "description", "category", "price", "originalPrice", "productType", "tags", "accessUrl", "thumbnailUrl", "fileUrl"];
+
+  const handleDownloadTemplate = () => {
+    const header = csvColumns.join(",");
+    const sampleRow = [
+      "My Product",
+      "A great digital product",
+      "templates",
+      "9.99",
+      "19.99",
+      "digital",
+      "tag1;tag2",
+      "",
+      "",
+      "",
+    ].join(",");
+    const csvContent = `${header}\n${sampleRow}\n`;
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bulk-upload-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportResult(null);
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      const lines = text.split(/\r?\n/).filter((l) => l.trim());
+      if (lines.length < 2) {
+        toast({ title: "Invalid CSV", description: "CSV must have a header row and at least one data row.", variant: "destructive" });
+        return;
+      }
+      const headers = parseCsvLine(lines[0]).map((h) => h.toLowerCase().trim());
+      const rows: CsvRow[] = [];
+      for (let i = 1; i < lines.length && i <= 500; i++) {
+        const values = parseCsvLine(lines[i]);
+        const row: any = {};
+        csvColumns.forEach((col) => {
+          const idx = headers.indexOf(col.toLowerCase());
+          row[col] = idx >= 0 ? (values[idx] || "") : "";
+        });
+        if (row.title) {
+          rows.push(row as CsvRow);
+        }
+      }
+      if (rows.length === 0) {
+        toast({ title: "No valid rows", description: "No rows with a title were found in the CSV.", variant: "destructive" });
+        return;
+      }
+      setParsedRows(rows);
+    };
+    reader.readAsText(file);
+  };
+
+  const importMutation = useMutation({
+    mutationFn: async (rows: CsvRow[]) => {
+      const products = rows.map((row) => ({
+        title: row.title,
+        description: row.description || undefined,
+        category: row.category || "templates",
+        priceCents: Math.round(parseFloat(row.price || "0") * 100),
+        originalPriceCents: row.originalPrice ? Math.round(parseFloat(row.originalPrice) * 100) : undefined,
+        productType: row.productType || "digital",
+        tags: row.tags ? row.tags.split(";").map((t: string) => t.trim()).filter(Boolean) : [],
+        accessUrl: row.accessUrl || undefined,
+        thumbnailUrl: row.thumbnailUrl || undefined,
+        fileUrl: row.fileUrl || undefined,
+        images: [],
+      }));
+      const res = await apiRequest("POST", "/api/products/bulk-import", { products });
+      return res.json() as Promise<BulkImportResult>;
+    },
+    onSuccess: (result) => {
+      setImportResult(result);
+      queryClient.invalidateQueries({ queryKey: ["/api/products/mine"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products/library"] });
+      toast({ title: "Bulk import complete", description: `${result.created} products created.` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Bulk import failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleClose = () => {
+    setParsedRows([]);
+    setImportResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Bulk Upload Products via CSV</DialogTitle>
+          <DialogDescription>
+            Download the template, fill in your products, then upload the CSV file. Max 500 products per batch.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" onClick={handleDownloadTemplate} data-testid="button-download-csv-template">
+              <Download className="mr-2 h-4 w-4" />
+              Download Template
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Upload CSV File</Label>
+            <Input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleFileChange}
+              data-testid="input-csv-file"
+            />
+          </div>
+
+          {parsedRows.length > 0 && !importResult && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-sm text-muted-foreground" data-testid="text-csv-row-count">
+                  {parsedRows.length} product{parsedRows.length !== 1 ? "s" : ""} found in CSV
+                </p>
+                <Button
+                  onClick={() => importMutation.mutate(parsedRows)}
+                  disabled={importMutation.isPending}
+                  data-testid="button-import-all"
+                >
+                  {importMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Import All
+                </Button>
+              </div>
+              <div className="border rounded-md overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Type</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parsedRows.map((row, idx) => (
+                      <TableRow key={idx} data-testid={`row-csv-preview-${idx}`}>
+                        <TableCell className="font-medium">{row.title}</TableCell>
+                        <TableCell>${parseFloat(row.price || "0").toFixed(2)}</TableCell>
+                        <TableCell className="capitalize">{row.category || "templates"}</TableCell>
+                        <TableCell className="capitalize">{row.productType || "digital"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          {importResult && (
+            <div className="space-y-3" data-testid="div-import-results">
+              <p className="text-sm font-medium" data-testid="text-import-summary">
+                {importResult.created} product{importResult.created !== 1 ? "s" : ""} created
+                {importResult.errors.length > 0 && `, ${importResult.errors.length} error${importResult.errors.length !== 1 ? "s" : ""}`}
+              </p>
+              {importResult.errors.length > 0 && (
+                <div className="space-y-1">
+                  {importResult.errors.map((err, idx) => (
+                    <p key={idx} className="text-sm text-destructive" data-testid={`text-import-error-${idx}`}>
+                      Row {err.row}: {err.message}
+                    </p>
+                  ))}
+                </div>
+              )}
+              <Button variant="outline" onClick={handleClose} data-testid="button-close-bulk-upload">
+                Close
+              </Button>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

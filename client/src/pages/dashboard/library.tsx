@@ -15,6 +15,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Check, Download, Loader2, Package, Eye, Store, Lock, Crown, Sparkles, Plus, Trash2, Upload, ImagePlus, Star, X, FileIcon, Link as LinkIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "@/hooks/use-toast";
 import { ProductPlaceholder } from "@/components/product-placeholder";
 import { ProtectedImage } from "@/components/protected-image";
 import type { Product, PlanTier } from "@shared/schema";
@@ -99,6 +102,54 @@ export default function LibraryPage() {
     return products.filter((p) => p.category === activeCategory);
   }, [products, activeCategory]);
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (!filteredProducts) return;
+    setSelectedIds(prev => {
+      if (prev.size === filteredProducts.length && filteredProducts.length > 0) return new Set();
+      return new Set(filteredProducts.map(p => p.id));
+    });
+  }, [filteredProducts]);
+
+  const bulkDelete = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await apiRequest("DELETE", "/api/products/bulk", { ids });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products/library"] });
+      toast({ title: "Products deleted", description: `${selectedIds.size} product(s) removed.` });
+      setSelectedIds(new Set());
+    },
+    onError: (err: any) => {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const bulkStatus = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
+      await apiRequest("PATCH", "/api/products/bulk-status", { ids, status });
+    },
+    onSuccess: (_, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products/library"] });
+      toast({ title: "Status updated", description: `${selectedIds.size} product(s) set to ${status}.` });
+      setSelectedIds(new Set());
+    },
+    onError: (err: any) => {
+      toast({ title: "Status update failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   if (!storesLoading && !activeStoreId) {
     return (
       <div className="p-6">
@@ -120,11 +171,21 @@ export default function LibraryPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-library-title">Products Library</h1>
-          <p className="text-muted-foreground mt-1">
-            Browse and import platform products into {activeStore?.name}.
-          </p>
+        <div className="flex items-center gap-3">
+          {isAdmin && filteredProducts.length > 0 && (
+            <Checkbox
+              checked={selectedIds.size === filteredProducts.length && filteredProducts.length > 0}
+              onCheckedChange={toggleSelectAll}
+              data-testid="checkbox-select-all"
+              aria-label="Select all products"
+            />
+          )}
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight" data-testid="text-library-title">Products Library</h1>
+            <p className="text-muted-foreground mt-1">
+              Browse and import platform products into {activeStore?.name}.
+            </p>
+          </div>
         </div>
         {isAdmin && (
           <Button onClick={() => setShowBulkImport(true)} data-testid="button-add-product">
@@ -175,6 +236,17 @@ export default function LibraryPage() {
               <Card key={product.id} className={`overflow-hidden cursor-pointer ${isLocked ? "opacity-75" : "hover-elevate"}`} onClick={() => setDetailProduct(product)}>
                 <CardContent className="p-0">
                   <div className="relative aspect-[4/3] bg-muted overflow-hidden">
+                    {isAdmin && (
+                      <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(product.id)}
+                          onCheckedChange={() => toggleSelect(product.id)}
+                          data-testid={`checkbox-product-${product.id}`}
+                          aria-label={`Select ${product.title}`}
+                          className="bg-background/80"
+                        />
+                      </div>
+                    )}
                     {product.thumbnailUrl ? (
                       <ProtectedImage
                         protected={!PLAN_FEATURES[userTier].allowImageDownload}
@@ -303,6 +375,75 @@ export default function LibraryPage() {
           </CardContent>
         </Card>
       )}
+
+      {isAdmin && selectedIds.size > 0 && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-md border bg-background px-4 py-3 shadow-lg"
+          data-testid="bulk-actions-bar"
+        >
+          <span className="text-sm font-medium whitespace-nowrap" data-testid="text-selected-count">
+            {selectedIds.size} selected
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={bulkDelete.isPending}
+            data-testid="button-bulk-delete"
+          >
+            <Trash2 className="mr-2 h-3.5 w-3.5" />
+            Delete Selected
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => bulkStatus.mutate({ ids: Array.from(selectedIds), status: "ACTIVE" })}
+            disabled={bulkStatus.isPending}
+            data-testid="button-bulk-set-active"
+          >
+            Set Active
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => bulkStatus.mutate({ ids: Array.from(selectedIds), status: "DRAFT" })}
+            disabled={bulkStatus.isPending}
+            data-testid="button-bulk-set-draft"
+          >
+            Set Draft
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedIds(new Set())}
+            data-testid="button-deselect-all"
+          >
+            Deselect All
+          </Button>
+        </div>
+      )}
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} product(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The selected products will be permanently removed from the library.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-bulk-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => bulkDelete.mutate(Array.from(selectedIds))}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-bulk-delete"
+            >
+              {bulkDelete.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ProductDetailDialog
         product={detailProduct}

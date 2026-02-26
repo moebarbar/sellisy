@@ -435,6 +435,41 @@ export async function registerRoutes(
     res.json(results);
   });
 
+  app.delete("/api/products/bulk", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const schema = z.object({ ids: z.array(z.string()).min(1).max(500) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    let deleted = 0;
+    for (const id of parsed.data.ids) {
+      try {
+        await storage.deleteProduct(id);
+        deleted++;
+      } catch {}
+    }
+    res.json({ deleted });
+  });
+
+  app.patch("/api/products/bulk-status", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const schema = z.object({
+      ids: z.array(z.string()).min(1).max(500),
+      status: z.enum(["DRAFT", "ACTIVE"]),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    let updated = 0;
+    for (const id of parsed.data.ids) {
+      try {
+        await db.update(products).set({ status: parsed.data.status }).where(eq(products.id, id));
+        updated++;
+      } catch {}
+    }
+    res.json({ updated });
+  });
+
   app.get("/api/products/mine", isAuthenticated, async (req, res) => {
     const prods = await storage.getProductsByOwner(getUserId(req));
     res.json(prods);
@@ -473,9 +508,10 @@ export async function registerRoutes(
     const primaryImg = imgs.find((i) => i.isPrimary) || imgs[0];
     const thumbUrl = primaryImg?.url ?? parsed.data.thumbnailUrl ?? null;
 
+    const admin = await isUserAdmin(getUserId(req));
     const product = await storage.createProduct({
-      ownerId: getUserId(req),
-      source: "USER",
+      ownerId: admin ? null : getUserId(req),
+      source: admin ? "PLATFORM" : "USER",
       title: parsed.data.title,
       description: parsed.data.description || null,
       tagline: parsed.data.tagline ?? null,
