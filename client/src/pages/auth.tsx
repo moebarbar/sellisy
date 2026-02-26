@@ -26,11 +26,6 @@ export default function AuthPage() {
   const [lastName, setLastName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  if (user) {
-    navigate("/dashboard");
-    return null;
-  }
-
   const loginMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/auth/login", { email, password });
@@ -60,6 +55,11 @@ export default function AuthPage() {
   });
 
   const isPending = loginMutation.isPending || registerMutation.isPending;
+
+  if (user) {
+    navigate("/dashboard");
+    return null;
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
