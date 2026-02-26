@@ -67,6 +67,32 @@ export default function LibraryPage() {
 
   const [showBulkImport, setShowBulkImport] = useState(false);
 
+  const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
+  const quickImport = useMutation({
+    mutationFn: async (product: Product) => {
+      if (!activeStoreId) throw new Error("No store selected");
+      setImportingIds(prev => new Set(prev).add(product.id));
+      await apiRequest("POST", "/api/store-products", {
+        storeId: activeStoreId,
+        productId: product.id,
+      });
+      return product;
+    },
+    onSuccess: (product) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/store-products", activeStoreId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/imported-products", activeStoreId] });
+      setImportingIds(prev => { const n = new Set(prev); n.delete(product.id); return n; });
+      toast({
+        title: "Product imported",
+        description: `"${product.title}" added to ${activeStore?.name}.`,
+      });
+    },
+    onError: (err: any, product) => {
+      setImportingIds(prev => { const n = new Set(prev); n.delete(product.id); return n; });
+      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+    },
+  });
+
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     if (activeCategory === "all") return products;
@@ -127,7 +153,7 @@ export default function LibraryPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="p-0">
-                <Skeleton className="aspect-square w-full rounded-t-md" />
+                <Skeleton className="aspect-[4/3] w-full rounded-t-md" />
                 <div className="p-4 space-y-2">
                   <Skeleton className="h-5 w-32" />
                   <Skeleton className="h-4 w-full" />
@@ -138,7 +164,7 @@ export default function LibraryPage() {
           ))}
         </div>
       ) : filteredProducts.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProducts.map((product) => {
             const isImported = activeStoreId ? importedSet.has(product.id) : false;
             const requiredTier = (product.requiredTier || "basic") as PlanTier;
@@ -148,7 +174,7 @@ export default function LibraryPage() {
             return (
               <Card key={product.id} className={`overflow-hidden cursor-pointer ${isLocked ? "opacity-75" : "hover-elevate"}`} onClick={() => setDetailProduct(product)}>
                 <CardContent className="p-0">
-                  <div className="relative aspect-square bg-muted overflow-hidden">
+                  <div className="relative aspect-[4/3] bg-muted overflow-hidden">
                     {product.thumbnailUrl ? (
                       <ProtectedImage
                         protected={!PLAN_FEATURES[userTier].allowImageDownload}
@@ -230,14 +256,19 @@ export default function LibraryPage() {
                         </Button>
                       ) : (
                         <Button
-                          variant="default"
+                          variant={isImported ? "secondary" : "default"}
                           size="sm"
                           className="flex-1"
-                          disabled={isImported}
-                          onClick={(e) => { e.stopPropagation(); if (!isImported) setImportProduct(product); }}
+                          disabled={isImported || importingIds.has(product.id)}
+                          onClick={(e) => { e.stopPropagation(); if (!isImported) quickImport.mutate(product); }}
                           data-testid={`button-import-${product.id}`}
                         >
-                          {isImported ? (
+                          {importingIds.has(product.id) ? (
+                            <>
+                              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                              Importing...
+                            </>
+                          ) : isImported ? (
                             <>
                               <Check className="mr-2 h-3.5 w-3.5" />
                               Imported
@@ -281,7 +312,7 @@ export default function LibraryPage() {
         onClose={() => setDetailProduct(null)}
         onImport={(product) => {
           setDetailProduct(null);
-          setImportProduct(product);
+          quickImport.mutate(product);
         }}
       />
 

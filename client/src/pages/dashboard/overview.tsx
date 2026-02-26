@@ -1,18 +1,24 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { TemplateSelector } from "@/components/dashboard/template-selector";
+import { fireConfetti } from "@/lib/confetti";
 import {
   Store, Package, ShoppingBag, DollarSign, TrendingUp, BarChart3,
   Users, Rocket, Zap, Star, ArrowRight, Sparkles, Target,
-  Coffee, Flame, Moon as MoonIcon, Sun as SunIcon, AlertCircle,
+  Coffee, Flame, Moon as MoonIcon, Sun as SunIcon,
+  CheckCircle2, Circle, Palette, Share2, Loader2, ExternalLink,
 } from "lucide-react";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface Analytics {
   totalRevenue: number;
@@ -104,6 +110,280 @@ function AnimatedStatCard({
   );
 }
 
+const CHECKLIST_DISMISSED_KEY = "sellisy_checklist_dismissed";
+
+function InlineStoreCreation() {
+  const { toast } = useToast();
+  const { setActiveStoreId } = useActiveStore();
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [template, setTemplate] = useState("neon");
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/stores", { name, slug, templateKey: template });
+      return res.json();
+    },
+    onSuccess: (store: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
+      fireConfetti();
+      toast({ title: "Your store is live!", description: `"${name}" is ready to conquer the world.` });
+      if (store?.id) {
+        setActiveStoreId(store.id);
+      }
+      setName("");
+      setSlug("");
+      setTemplate("neon");
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to create store", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    setSlug(value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, ""));
+  };
+
+  return (
+    <div className="p-6 dv-fade-in">
+      <div className="max-w-2xl mx-auto space-y-8">
+        <div className="text-center space-y-3">
+          <div className="relative inline-block mb-2">
+            <div className="flex items-center justify-center h-20 w-20 rounded-2xl bg-primary/10 mx-auto">
+              <Rocket className="h-9 w-9 text-primary dv-float" />
+            </div>
+            <div className="absolute -top-1 -right-1 flex items-center justify-center h-6 w-6 rounded-full bg-primary">
+              <Sparkles className="h-3 w-3 text-primary-foreground" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold tracking-tight" data-testid="text-no-stores">
+            Create your first store
+          </h2>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            Set up your digital storefront in under 30 seconds. Pick a name, choose a look, and you're live.
+          </p>
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                mutation.mutate();
+              }}
+              className="space-y-5"
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="onboard-store-name">Store Name</Label>
+                  <Input
+                    id="onboard-store-name"
+                    data-testid="input-store-name"
+                    value={name}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    placeholder="My Digital Store"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="onboard-store-slug">URL Slug</Label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">/s/</span>
+                    <Input
+                      id="onboard-store-slug"
+                      data-testid="input-store-slug"
+                      value={slug}
+                      onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                      placeholder="my-store"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Choose a Template</Label>
+                <TemplateSelector value={template} onChange={setTemplate} />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={mutation.isPending || !name || !slug}
+                data-testid="button-submit-store"
+              >
+                {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Rocket className="mr-2 h-4 w-4" />
+                Launch Store
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+interface ChecklistItem {
+  id: string;
+  label: string;
+  description: string;
+  done: boolean;
+  icon: typeof Store;
+  href: string;
+  actionLabel: string;
+}
+
+function GettingStartedChecklist({ activeStore, storeProducts }: {
+  activeStore: any;
+  storeProducts: any[] | undefined;
+}) {
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      const val = localStorage.getItem(CHECKLIST_DISMISSED_KEY);
+      return val === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const hasProducts = (storeProducts?.length ?? 0) > 0;
+  const hasPublished = storeProducts?.some((sp: any) => sp.isPublished) ?? false;
+  const hasCustomization = !!(activeStore?.logoUrl || activeStore?.accentColor || (activeStore?.templateKey && activeStore.templateKey !== "neon"));
+
+  const items: ChecklistItem[] = [
+    {
+      id: "store",
+      label: "Create a store",
+      description: "You're here — nice work!",
+      done: true,
+      icon: Store,
+      href: "/dashboard",
+      actionLabel: "Done",
+    },
+    {
+      id: "products",
+      label: "Add products",
+      description: "Import from the library or create your own",
+      done: hasProducts,
+      icon: Package,
+      href: "/dashboard/library",
+      actionLabel: "Browse Library",
+    },
+    {
+      id: "publish",
+      label: "Publish a product",
+      description: "Make at least one product visible on your storefront",
+      done: hasPublished,
+      icon: Zap,
+      href: "/dashboard/products",
+      actionLabel: "Manage Products",
+    },
+    {
+      id: "customize",
+      label: "Customize your store",
+      description: "Add a logo, pick an accent color, or change your template",
+      done: hasCustomization,
+      icon: Palette,
+      href: "/dashboard/settings",
+      actionLabel: "Store Settings",
+    },
+    {
+      id: "share",
+      label: "Share your store link",
+      description: "Visit your live storefront and share it with the world",
+      done: hasPublished,
+      icon: Share2,
+      href: `/s/${activeStore?.slug}`,
+      actionLabel: "View Storefront",
+    },
+  ];
+
+  const completedCount = items.filter((i) => i.done).length;
+  const allDone = completedCount >= items.length - 1;
+  const progress = Math.round((completedCount / items.length) * 100);
+
+  if (dismissed) return null;
+
+  return (
+    <Card data-testid="getting-started-checklist">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10">
+              <Target className="h-4.5 w-4.5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Getting Started</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {allDone ? "All done — you're ready to sell!" : `${completedCount} of ${items.length} complete`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary" className="tabular-nums">{progress}%</Badge>
+            {allDone && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setDismissed(true);
+                  try { localStorage.setItem(CHECKLIST_DISMISSED_KEY, "true"); } catch {}
+                }}
+                data-testid="button-dismiss-checklist"
+              >
+                Dismiss
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="space-y-1">
+          {items.map((item) => (
+            <Link key={item.id} href={item.href}>
+              <div
+                className={`flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors cursor-pointer group ${
+                  item.done
+                    ? "text-muted-foreground"
+                    : "hover:bg-muted/50"
+                }`}
+                data-testid={`checklist-item-${item.id}`}
+              >
+                {item.done ? (
+                  <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                ) : (
+                  <Circle className="h-5 w-5 text-muted-foreground/40 shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${item.done ? "line-through" : ""}`}>
+                    {item.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{item.description}</p>
+                </div>
+                {!item.done && (
+                  <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0" tabIndex={-1} data-testid={`button-checklist-${item.id}`}>
+                    {item.actionLabel}
+                    <ArrowRight className="ml-1 h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function OverviewPage() {
   const { activeStore, activeStoreId, storesLoading } = useActiveStore();
   const { user } = useAuth();
@@ -136,31 +416,10 @@ export default function OverviewPage() {
   const avgWhole = Math.floor(avgOrder);
   const avgCents = Math.round((avgOrder - avgWhole) * 100);
 
+  const isNewStore = activeStore && !hasAnyProducts && analytics?.totalOrders === 0;
+
   if (!storesLoading && !activeStoreId) {
-    return (
-      <div className="p-6 dv-fade-in">
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="relative mb-6">
-              <div className="flex items-center justify-center h-20 w-20 rounded-2xl bg-primary/10">
-                <Rocket className="h-9 w-9 text-primary dv-float" />
-              </div>
-              <div className="absolute -top-1 -right-1 flex items-center justify-center h-6 w-6 rounded-full bg-primary">
-                <Sparkles className="h-3 w-3 text-primary-foreground" />
-              </div>
-            </div>
-            <h3 className="text-xl font-bold mb-2" data-testid="text-no-stores">Ready for liftoff?</h3>
-            <p className="text-sm text-muted-foreground mb-6 max-w-sm leading-relaxed">
-              Your empire starts with a single store. Create one now and watch the magic happen. 
-              It takes less than 30 seconds.
-            </p>
-            <p className="text-xs text-muted-foreground/60 italic">
-              Use the store switcher at the top to get started
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <InlineStoreCreation />;
   }
 
   return (
@@ -184,56 +443,15 @@ export default function OverviewPage() {
           </div>
           <Link href={`/s/${activeStore?.slug}`}>
             <Button variant="outline" size="sm" data-testid="button-view-storefront">
-              <Target className="h-3.5 w-3.5 mr-1.5" />
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
               View Storefront
             </Button>
           </Link>
         </div>
       </div>
 
-      {storeProducts && !hasPublishedProducts && (
-        <Alert data-testid="alert-none-published">
-          <AlertCircle className="h-4 w-4" />
-          {hasAnyProducts ? (
-            <>
-              <AlertTitle>No products are published yet</AlertTitle>
-              <AlertDescription className="space-y-2">
-                <p>
-                  Your storefront won't show any products until you publish them. Use the toggle next to each product below to make it visible to visitors.
-                </p>
-                <Link href="/dashboard/products">
-                  <Button variant="outline" size="sm" className="mt-1" data-testid="button-alert-go-products">
-                    <Package className="mr-2 h-4 w-4" />
-                    Go to Products
-                  </Button>
-                </Link>
-              </AlertDescription>
-            </>
-          ) : (
-            <>
-              <AlertTitle>No products imported yet</AlertTitle>
-              <AlertDescription className="space-y-2">
-                <p>
-                  Your storefront is empty. Import products from the platform library or create your own to get started.
-                </p>
-                <div className="flex items-center gap-2 flex-wrap mt-1">
-                  <Link href="/dashboard/library">
-                    <Button variant="outline" size="sm" data-testid="button-alert-go-library">
-                      <ArrowRight className="mr-2 h-4 w-4" />
-                      Browse Library
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/my-products">
-                    <Button variant="outline" size="sm" data-testid="button-alert-go-create">
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Create Product
-                    </Button>
-                  </Link>
-                </div>
-              </AlertDescription>
-            </>
-          )}
-        </Alert>
+      {isNewStore && (
+        <GettingStartedChecklist activeStore={activeStore} storeProducts={storeProducts} />
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

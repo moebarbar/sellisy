@@ -117,11 +117,11 @@ export default function MyProductsPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="p-0">
-                <Skeleton className="aspect-square w-full rounded-t-md" />
+                <Skeleton className="aspect-[4/3] w-full rounded-t-md" />
                 <div className="p-4 space-y-2">
                   <Skeleton className="h-5 w-32" />
                   <Skeleton className="h-4 w-full" />
@@ -132,7 +132,7 @@ export default function MyProductsPage() {
           ))}
         </div>
       ) : filteredProducts.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProducts.map((product) => (
             <Card key={product.id} data-testid={`card-product-${product.id}`}>
               <CardContent className="p-0">
@@ -399,7 +399,7 @@ function ProductCardImage({ product }: { product: Product }) {
   const displayUrl = product.thumbnailUrl;
 
   return (
-    <div className="relative aspect-square bg-muted overflow-hidden rounded-t-md">
+    <div className="relative aspect-[4/3] bg-muted overflow-hidden rounded-t-md">
       {displayUrl ? (
         <img
           src={displayUrl}
