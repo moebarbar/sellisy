@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRoute, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -288,6 +289,12 @@ export default function KbViewerPage() {
       return res.json();
     },
     enabled: !!kbId && !!activePageId && !!data?.hasAccess,
+  });
+
+  usePageMeta({
+    title: data?.knowledgeBase?.title ? `${data.knowledgeBase.title}` : undefined,
+    description: data?.knowledgeBase?.description || undefined,
+    ogType: "article",
   });
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, ShoppingBag, Package, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 type ClaimData = {
   order: { id: string; buyerEmail: string; totalCents: number };
@@ -18,6 +19,11 @@ export default function ClaimSuccessPage() {
   const search = useSearch();
   const params = new URLSearchParams(search);
   const orderId = params.get("orderId");
+
+  usePageMeta({
+    title: "Claim Your Download",
+    description: "Access your free digital product download.",
+  });
   const storeSlug = params.get("store");
   const [data, setData] = useState<ClaimData | null>(null);
   const [loading, setLoading] = useState(true);

@@ -227,6 +227,8 @@ export default function BlogPostPage() {
   usePageMeta({
     title: data ? `${data.post.title} - ${data.store.name}` : "Blog Post",
     description: data?.post.excerpt || undefined,
+    ogImage: data?.post?.coverImageUrl || data?.store?.logoUrl || undefined,
+    ogType: "article",
     favicon: data?.store?.faviconUrl || data?.store?.logoUrl || undefined,
   });
 

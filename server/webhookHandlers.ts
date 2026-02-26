@@ -50,6 +50,7 @@ export class WebhookHandlers {
       return;
     }
 
+    try {
     const order = await storage.getOrderById(orderId);
     if (!order) {
       console.error('Webhook: order not found for id:', orderId);
@@ -101,5 +102,8 @@ export class WebhookHandlers {
     await sendOrderCompletionEmails(orderId, baseUrl);
 
     console.log('Webhook: order completed, emails triggered:', orderId);
+    } catch (error: any) {
+      console.error('Webhook: handleCheckoutCompleted error for order:', orderId, error);
+    }
   }
 }

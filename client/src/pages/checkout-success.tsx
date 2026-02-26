@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Download, AlertCircle, ArrowLeft, Package, Clock, FileDown } from "lucide-react";
 import { Link } from "wouter";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 type SuccessData = {
   order: {
@@ -32,6 +33,11 @@ export default function CheckoutSuccessPage() {
   const orderId = params.get("order_id");
 
   const identifier = sessionId || orderId;
+
+  usePageMeta({
+    title: "Order Confirmation",
+    description: "Your purchase is complete. Download your products here.",
+  });
 
   const { data, isLoading, error } = useQuery<SuccessData>({
     queryKey: ["/api/checkout/success", identifier],

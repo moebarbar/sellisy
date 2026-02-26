@@ -1819,6 +1819,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/checkout", async (req, res) => {
+    try {
     const schema = z.object({
       storeId: z.string(),
       productId: z.string().optional(),
@@ -2010,8 +2011,13 @@ export async function registerRoutes(
         res.json({ url: session.url });
       } catch (error: any) {
         console.error("Stripe checkout error:", error.message);
+        await db.update(orders).set({ status: "FAILED" }).where(eq(orders.id, order.id));
         res.status(500).json({ message: "Payment processing unavailable. Please try again later." });
       }
+    }
+    } catch (error: any) {
+      console.error("Checkout error:", error);
+      res.status(500).json({ message: "Checkout failed. Please try again." });
     }
   });
 
@@ -2121,6 +2127,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/checkout/success/:identifier", async (req, res) => {
+    try {
     const id = req.params.identifier as string;
     let order = await storage.getOrderById(id);
 
@@ -2213,6 +2220,10 @@ export async function registerRoutes(
       items: emailItems,
       fileCount,
     });
+    } catch (error: any) {
+      console.error("Checkout success error:", error);
+      res.status(500).json({ message: "Failed to load order details" });
+    }
   });
 
   function hashToken(token: string): string {
@@ -2796,7 +2807,7 @@ export async function registerRoutes(
       }
 
       const cfResult = await getCustomHostname(store.cloudflareHostnameId);
-      const isActive = cfResult.status === "active" && (cfResult.sslStatus === "active" || cfResult.sslStatus === "pending_deployment");
+      const isActive = cfResult.status === "active" && cfResult.sslStatus === "active";
       const isFailed = cfResult.verificationErrors && cfResult.verificationErrors.length > 0;
 
       let newStatus = store.domainStatus;

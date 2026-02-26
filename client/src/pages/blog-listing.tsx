@@ -133,6 +133,8 @@ export default function BlogListingPage() {
   usePageMeta({
     title: data ? `Blog - ${data.store.name}` : "Blog",
     description: data ? `Read the latest articles from ${data.store.name}` : undefined,
+    ogImage: data?.store?.logoUrl || undefined,
+    ogType: "website",
     favicon: data?.store?.faviconUrl || data?.store?.logoUrl || undefined,
   });
 

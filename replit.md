@@ -55,7 +55,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
     *   **Schema**: `customDomain`, `domainStatus`, `domainSource`, `domainVerifiedAt`, `cloudflareHostnameId` fields on `stores` table.
     *   **API**: `server/cloudflareClient.ts` wraps Cloudflare Custom Hostnames API (create, get, delete, list). Domain routes at `/api/domains/*`.
     *   **UI**: `DomainSettings` component in `client/src/components/dashboard/domain-settings.tsx`, integrated into store settings page. Single connect flow with DNS instructions always pointing to `customers.sellisy.com`.
-*   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) are implemented using a `usePageMeta` hook. Storefront pages show the store's SEO title (or store name) in the browser tab — no platform branding. Custom `faviconUrl` per store, falling back to store logo. Store owners set SEO title, meta description, and favicon from dashboard settings.
+*   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) are implemented using a `usePageMeta` hook. Storefront pages show the store's SEO title (or store name) in the browser tab — no platform branding. Custom `faviconUrl` per store, falling back to store logo. Store owners set SEO title, meta description, and favicon from dashboard settings. Blog pages include `ogImage` and `ogType` for social sharing. KB viewer, checkout success, and claim success pages also have SEO meta tags.
 
 ## External Dependencies
 *   **Replit Object Storage**: For storing product images, deliverable files, store logos, and banners.
@@ -76,7 +76,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 ## Integration Notes
 *   **Stripe**: Connected via Replit Stripe connector. Credentials are fetched from the Replit connection API (`server/stripeClient.ts`). Functions are async. Replit handles sandbox/live key management and deployment transitions automatically. Webhook handler in `server/webhookHandlers.ts` processes `checkout.session.completed` events, creates download tokens, updates buyer email from Stripe session, increments coupon usage, and triggers order emails.
 *   **SendGrid**: Connected via Replit SendGrid connector. Client in `server/sendgridClient.ts`. Use `sendEmail(to, subject, html)` for transactional emails. From-email configured in the connector. Includes retry logic (3 attempts with exponential backoff) and email logging.
-*   **Error Handling**: `throwIfResNotOk` in `client/src/lib/queryClient.ts` parses JSON error responses to extract clean `message` fields — no raw JSON in user-facing error toasts.
+*   **Error Handling**: `throwIfResNotOk` in `client/src/lib/queryClient.ts` parses JSON error responses to extract clean `message` fields — no raw JSON in user-facing error toasts. Global `uncaughtException` and `unhandledRejection` handlers in `server/index.ts` prevent silent crashes. All critical routes (`/api/checkout`, `/api/checkout/success/:identifier`, webhook `handleCheckoutCompleted`) wrapped in try-catch for robust error recovery. Failed Stripe checkout sessions mark orders as `FAILED`.
 
 ## Template Standards
 *   **Color Tokens**: All storefront templates use a centralized color object (`c`) that adapts to light/dark mode. Store `accentColor` (6-digit hex from color picker) is respected across storefronts and detail pages.
