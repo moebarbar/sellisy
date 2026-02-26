@@ -13,7 +13,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 
 **Core Features & Design Patterns:**
 
-*   **Authentication**: Local email/password authentication with bcrypt hashing and session management via `connect-pg-simple`. Users register/login at `/auth`. Admin account seeded via `ADMIN_EMAIL`/`ADMIN_PASSWORD` env vars. User IDs read from `req.session.userId`.
+*   **Authentication**: Local email/password authentication with bcrypt hashing and session management via `connect-pg-simple`. Users register/login at `/auth`. Landing page CTAs link to `/auth?mode=signup` to default new users to the signup form. Admin account seeded via `ADMIN_EMAIL`/`ADMIN_PASSWORD` env vars; password re-synced from env var on every startup. User IDs read from `req.session.userId`.
 *   **Multi-tenancy**: All data operations (stores, products, orders, etc.) are strictly scoped by `ownerId` to ensure data isolation between different store owners.
 *   **Frontend**: Built with React, leveraging `shadcn/ui` for components and `Tailwind CSS` for styling to achieve a premium, customizable UI. `TanStack Query` manages server state.
 *   **Storefronts**: Six templates available: **Neon** (bold, cyberpunk), **Silk** (elegant, minimal), **Aurora** (vibrant gradients, glassmorphism), **Ember** (warm, earthy, bold), **Frost** (clean, icy blue), and **Midnight** (sleek dark, purple accents). Neon and Silk exist as legacy standalone components; all six have unified theme configs in `client/src/components/storefront/themes/`. The **unified base template system** (`BaseTemplate` + `StorefrontTheme` configs) enables rapid creation of new templates by defining only visual tokens (colors, fonts, layout, effects). Stores support announcement bars, social media links, rich footers, category navigation, search/sort, and scroll-reveal animations. Each store has a branded customer portal.
@@ -24,8 +24,9 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
     *   **Product Types**: Products support various types (digital, software, template, ebook, course, graphics) with type-specific delivery instructions and redemption methods.
     *   **Rich Detail Pages**: Software products feature AppSumo-style deal pages with structured content parsing, pricing comparisons, and feature lists.
 *   **E-commerce & Payments**:
-    *   **Payment Gateways**: Integration with Stripe Checkout and PayPal for secure payment processing. Store owners can select their preferred provider.
-    *   **Coupon System**: Flexible coupon codes with percentage or fixed discounts, max uses, and expiration dates.
+    *   **Payment Gateways**: Integration with Stripe Checkout and PayPal for secure payment processing. Store owners can select their preferred provider. Stripe `customer_email` is pre-filled in checkout sessions when available. Settings page shows Stripe as "Ready" (not developer jargon).
+    *   **Coupon System**: Flexible coupon codes with percentage or fixed discounts, max uses, and expiration dates. Coupon usage is incremented in both the checkout success endpoint and the Stripe webhook handler (idempotent via order status checks).
+    *   **Email System**: SendGrid integration sends: welcome email on registration, order confirmation to buyer, new sale notification to store owner, lead magnet delivery email, and download link resend. All emails use consistent branded HTML templates via `server/emails.ts`.
     *   **Lead Magnets**: Functionality to offer free products in exchange for email sign-ups, integrating with customer account creation and optional upsells.
     *   **Secure Downloads**: Token-based download system for purchased digital products, delivered from Object Storage.
     *   **Transactional Safety**: Checkout processes wrap all database writes in transactions for atomicity.
@@ -68,8 +69,9 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 *   **Namecheap API**: For domain registration and DNS management (via `server/namecheapClient.ts`).
 
 ## Integration Notes
-*   **Stripe**: Connected via Replit Stripe connector. Credentials are fetched from the Replit connection API (`server/stripeClient.ts`). Functions are async. Replit handles sandbox/live key management and deployment transitions automatically.
-*   **SendGrid**: Connected via Replit SendGrid connector. Client in `server/sendgridClient.ts`. Use `sendEmail(to, subject, html)` for transactional emails. From-email configured in the connector.
+*   **Stripe**: Connected via Replit Stripe connector. Credentials are fetched from the Replit connection API (`server/stripeClient.ts`). Functions are async. Replit handles sandbox/live key management and deployment transitions automatically. Webhook handler in `server/webhookHandlers.ts` processes `checkout.session.completed` events, creates download tokens, updates buyer email from Stripe session, increments coupon usage, and triggers order emails.
+*   **SendGrid**: Connected via Replit SendGrid connector. Client in `server/sendgridClient.ts`. Use `sendEmail(to, subject, html)` for transactional emails. From-email configured in the connector. Includes retry logic (3 attempts with exponential backoff) and email logging.
+*   **Error Handling**: `throwIfResNotOk` in `client/src/lib/queryClient.ts` parses JSON error responses to extract clean `message` fields — no raw JSON in user-facing error toasts.
 
 ## Template Standards
 *   **Color Tokens**: All storefront templates use a centralized color object (`c`) that adapts to light/dark mode. Store `accentColor` (6-digit hex from color picker) is respected across storefronts and detail pages.

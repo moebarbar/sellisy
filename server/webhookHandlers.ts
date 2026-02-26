@@ -2,6 +2,9 @@ import { getUncachableStripeClient } from './stripeClient';
 import { storage } from './storage';
 import { randomBytes } from 'crypto';
 import { sendOrderCompletionEmails } from './orderEmailHelper';
+import { db } from './db';
+import { coupons } from '@shared/schema';
+import { eq, sql } from 'drizzle-orm';
 
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
@@ -78,6 +81,11 @@ export class WebhookHandlers {
       const customer = await storage.findOrCreateCustomer(buyerEmail);
       await storage.setOrderCustomerId(orderId, customer.id);
       await storage.linkOrdersByEmail(buyerEmail, customer.id);
+    }
+
+    const couponId = session.metadata?.couponId;
+    if (couponId) {
+      await db.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, couponId));
     }
 
     const baseUrl = process.env.REPLIT_DEV_DOMAIN

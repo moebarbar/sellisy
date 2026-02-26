@@ -1926,7 +1926,7 @@ export async function registerRoutes(
         if (itemImage && itemImage.startsWith("http")) images.push(itemImage);
         if (images.length > 0) productData.images = images;
 
-        const session = await stripe.checkout.sessions.create({
+        const sessionParams: any = {
           mode: 'payment',
           line_items: [{
             price_data: {
@@ -1943,7 +1943,13 @@ export async function registerRoutes(
           },
           success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${appUrl}/s/${store.slug}`,
-        });
+        };
+
+        if (buyerEmail && buyerEmail !== "pending@checkout.com") {
+          sessionParams.customer_email = buyerEmail;
+        }
+
+        const session = await stripe.checkout.sessions.create(sessionParams);
 
         await db.update(orders).set({ stripeSessionId: session.id }).where(eq(orders.id, order.id));
 
@@ -2075,6 +2081,11 @@ export async function registerRoutes(
         const stripe = await getUncachableStripeClient();
         const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId);
         if (session.payment_status === "paid") {
+          const emailFromSession = (session as any).customer_details?.email;
+          if (emailFromSession && (!order.buyerEmail || order.buyerEmail === "pending@checkout.com")) {
+            await storage.updateOrderBuyerEmail(order.id, emailFromSession);
+          }
+
           await storage.updateOrderStatus(order.id, "COMPLETED");
           order = (await storage.getOrderById(order.id))!;
 
@@ -2082,11 +2093,11 @@ export async function registerRoutes(
             await storage.incrementCouponUses(order.couponId);
           }
 
-          if (!order.customerId && order.buyerEmail && order.buyerEmail !== "pending@checkout.com") {
-            const emailFromSession = (session as any).customer_details?.email || order.buyerEmail;
-            const customer = await storage.findOrCreateCustomer(emailFromSession);
+          const finalEmail = emailFromSession || order.buyerEmail;
+          if (finalEmail && finalEmail !== "pending@checkout.com") {
+            const customer = await storage.findOrCreateCustomer(finalEmail);
             await storage.setOrderCustomerId(order.id, customer.id);
-            await storage.linkOrdersByEmail(emailFromSession, customer.id);
+            await storage.linkOrdersByEmail(finalEmail, customer.id);
           }
         }
       } catch (e: any) {
