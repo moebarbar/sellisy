@@ -4,10 +4,9 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, storeDomains, stores, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
+import { orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, stores, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { checkDomainAvailability, getDomainPrice, purchaseDomain, setDomainDns, isNamecheapConfigured } from "./namecheapClient";
-import dns from "dns";
+import { createCustomHostname, getCustomHostname, deleteCustomHostname, isCloudflareConfigured } from "./cloudflareClient";
 import { seedDatabase, seedMarketingIfNeeded, seedAdminUser } from "./seed";
 import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
@@ -2739,85 +2738,7 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  // Domain API routes
-  app.get("/api/domains/check", isAuthenticated, async (req, res) => {
-    try {
-      if (!isNamecheapConfigured()) {
-        return res.json({ configured: false });
-      }
-      const domain = req.query.domain as string;
-      if (!domain) return res.status(400).json({ message: "Domain parameter required" });
-
-      const availability = await checkDomainAvailability(domain);
-      const pricing = await getDomainPrice(domain);
-      res.json({
-        available: availability.available,
-        domain: availability.domain,
-        premium: availability.premium,
-        registerPrice: pricing.registerPrice,
-        renewPrice: pricing.renewPrice,
-        currency: pricing.currency,
-      });
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-
-  app.post("/api/domains/purchase", isAuthenticated, async (req, res) => {
-    try {
-      const schema = z.object({
-        storeId: z.string().min(1),
-        domain: z.string().min(1),
-        contact: z.object({
-          firstName: z.string().min(1),
-          lastName: z.string().min(1),
-          address: z.string().min(1),
-          city: z.string().min(1),
-          state: z.string().min(1),
-          postalCode: z.string().min(1),
-          country: z.string().min(1),
-          phone: z.string().min(1),
-          email: z.string().email(),
-        }),
-        years: z.number().int().min(1).max(10).optional(),
-      });
-      const parsed = schema.safeParse(req.body);
-      if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
-
-      const store = await storage.getStoreById(parsed.data.storeId);
-      if (!store || store.ownerId !== getUserId(req)) {
-        return res.status(404).json({ message: "Store not found" });
-      }
-
-      const result = await purchaseDomain(parsed.data.domain, parsed.data.contact, parsed.data.years || 1);
-      if (!result.success) {
-        return res.status(400).json({ message: result.error || "Domain purchase failed" });
-      }
-
-      const appHostname = req.get("host") || "";
-      await setDomainDns(parsed.data.domain, appHostname);
-
-      await db.insert(storeDomains).values({
-        storeId: store.id,
-        domain: parsed.data.domain,
-        registrar: "namecheap",
-        namecheapOrderId: result.orderId,
-        registrationDate: new Date(),
-        status: "active",
-      });
-
-      await db.update(stores).set({
-        customDomain: parsed.data.domain,
-        domainStatus: "active",
-        domainSource: "namecheap",
-      }).where(eq(stores.id, store.id));
-
-      res.json(result);
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-
+  // Domain API routes (Cloudflare for SaaS)
   app.post("/api/domains/connect", isAuthenticated, async (req, res) => {
     try {
       const schema = z.object({
@@ -2825,28 +2746,30 @@ export async function registerRoutes(
         domain: z.string().min(1).regex(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i, "Invalid domain format"),
       });
       const parsed = schema.safeParse(req.body);
-      if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+      if (!parsed.success) return res.status(400).json({ message: "Invalid domain format" });
 
       const store = await storage.getStoreById(parsed.data.storeId);
       if (!store || store.ownerId !== getUserId(req)) {
         return res.status(404).json({ message: "Store not found" });
       }
 
+      if (!isCloudflareConfigured()) {
+        return res.status(500).json({ message: "Custom domains are not configured yet. Please contact support." });
+      }
+
+      const cfResult = await createCustomHostname(parsed.data.domain);
+
       await db.update(stores).set({
         customDomain: parsed.data.domain,
         domainStatus: "pending_dns",
-        domainSource: "own",
+        domainSource: "cloudflare",
+        cloudflareHostnameId: cfResult.id,
       }).where(eq(stores.id, store.id));
 
-      const appHostname = req.get("host") || "";
       res.json({
         success: true,
-        dnsInstructions: {
-          type: "CNAME",
-          name: parsed.data.domain,
-          value: appHostname,
-          instructions: `Add a CNAME record pointing ${parsed.data.domain} to ${appHostname}. DNS changes may take up to 48 hours to propagate.`,
-        },
+        cloudflareStatus: cfResult.status,
+        sslStatus: cfResult.sslStatus,
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -2861,41 +2784,35 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Store not found" });
       }
 
-      if (!store.customDomain) {
+      if (!store.customDomain || !store.cloudflareHostnameId) {
         return res.status(400).json({ message: "No custom domain configured" });
       }
 
-      const appHostname = (req.get("host") || "").replace(/:\d+$/, "");
-      let verified = false;
-      let currentRecords: string[] = [];
+      const cfResult = await getCustomHostname(store.cloudflareHostnameId);
+      const isActive = cfResult.status === "active" && (cfResult.sslStatus === "active" || cfResult.sslStatus === "pending_deployment");
+      const isFailed = cfResult.verificationErrors && cfResult.verificationErrors.length > 0;
 
-      try {
-        const cnameRecords = await dns.promises.resolveCname(store.customDomain);
-        currentRecords = cnameRecords;
-        verified = cnameRecords.some((r) => r.toLowerCase().replace(/\.$/, "") === appHostname.toLowerCase());
-      } catch (cnameErr) {
-        try {
-          const aRecords = await dns.promises.resolve4(store.customDomain);
-          currentRecords = aRecords;
-        } catch (aErr) {
-        }
+      let newStatus = store.domainStatus;
+      if (isActive) {
+        newStatus = "active";
+      } else if (isFailed) {
+        newStatus = "failed";
+      } else if (cfResult.status === "pending") {
+        newStatus = "pending_dns";
       }
 
-      if (verified) {
-        await db.update(stores).set({
-          domainStatus: "active",
-          domainVerifiedAt: new Date(),
-        }).where(eq(stores.id, store.id));
-      } else {
-        await db.update(stores).set({
-          domainStatus: "pending_dns",
-        }).where(eq(stores.id, store.id));
+      const updateData: any = { domainStatus: newStatus };
+      if (isActive && !store.domainVerifiedAt) {
+        updateData.domainVerifiedAt = new Date();
       }
+      await db.update(stores).set(updateData).where(eq(stores.id, store.id));
 
       res.json({
-        verified,
-        currentRecords,
-        expectedValue: appHostname,
+        verified: isActive,
+        hostnameStatus: cfResult.status,
+        sslStatus: cfResult.sslStatus,
+        verificationErrors: cfResult.verificationErrors,
+        domainStatus: newStatus,
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -2910,11 +2827,20 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Store not found" });
       }
 
+      if (store.cloudflareHostnameId) {
+        try {
+          await deleteCustomHostname(store.cloudflareHostnameId);
+        } catch (cfErr: any) {
+          console.error("Failed to delete Cloudflare hostname:", cfErr.message);
+        }
+      }
+
       await db.update(stores).set({
         customDomain: null,
         domainStatus: null,
         domainSource: null,
         domainVerifiedAt: null,
+        cloudflareHostnameId: null,
       }).where(eq(stores.id, store.id));
 
       res.json({ success: true });
@@ -2931,20 +2857,12 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Store not found" });
       }
 
-      const domainRecords = await db.select().from(storeDomains).where(eq(storeDomains.storeId, storeId));
-      const purchasedDomain = domainRecords.length > 0 ? domainRecords[0] : null;
-
       res.json({
         domain: store.customDomain,
         status: store.domainStatus,
         source: store.domainSource,
         verifiedAt: store.domainVerifiedAt,
-        purchasedDomain: purchasedDomain ? {
-          registrationDate: purchasedDomain.registrationDate,
-          expirationDate: purchasedDomain.expirationDate,
-          autoRenew: purchasedDomain.autoRenew,
-          registrar: purchasedDomain.registrar,
-        } : null,
+        cloudflareHostnameId: store.cloudflareHostnameId,
       });
     } catch (err: any) {
       res.status(500).json({ message: err.message });

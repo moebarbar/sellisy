@@ -14,10 +14,9 @@ import {
   X,
   Copy,
   RefreshCw,
-  Search,
-  ExternalLink,
   AlertCircle,
   Loader2,
+  Shield,
 } from "lucide-react";
 
 interface DomainInfo {
@@ -25,26 +24,10 @@ interface DomainInfo {
   status: string | null;
   source: string | null;
   verifiedAt: string | null;
-  purchasedDomain?: {
-    registrationDate: string | null;
-    expirationDate: string | null;
-    autoRenew: boolean;
-    registrar: string;
-  } | null;
+  cloudflareHostnameId: string | null;
 }
 
-interface DomainCheckResult {
-  available: boolean;
-  domain: string;
-  price?: string;
-}
-
-const STATUS_BADGES: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  pending_dns: { label: "Pending DNS", variant: "outline" },
-  verifying: { label: "Verifying", variant: "secondary" },
-  active: { label: "Active", variant: "default" },
-  failed: { label: "Failed", variant: "destructive" },
-};
+const CNAME_TARGET = "customers.sellisy.com";
 
 function getStatusBadgeClass(status: string) {
   switch (status) {
@@ -69,14 +52,18 @@ function getDnsName(domain: string): string {
   return "@";
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  pending_dns: "Pending DNS",
+  verifying: "Verifying",
+  active: "Active",
+  failed: "Failed",
+};
+
 export function DomainSettings() {
   const { activeStore, activeStoreId } = useActiveStore();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"connect" | "buy">("connect");
   const [connectDomain, setConnectDomain] = useState("");
-  const [searchDomain, setSearchDomain] = useState("");
-  const [checkResult, setCheckResult] = useState<DomainCheckResult | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const { data: domainInfo, isLoading: domainLoading } = useQuery<DomainInfo>({
     queryKey: ["/api/domains", activeStoreId],
@@ -91,7 +78,7 @@ export function DomainSettings() {
       queryClient.invalidateQueries({ queryKey: ["/api/domains", activeStoreId] });
       queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
       setConnectDomain("");
-      toast({ title: "Domain connected", description: "Configure your DNS records to complete setup." });
+      toast({ title: "Domain connected!", description: "Now add the DNS record shown below." });
     },
     onError: (err: any) => {
       toast({ title: "Failed to connect domain", description: err.message, variant: "destructive" });
@@ -100,12 +87,19 @@ export function DomainSettings() {
 
   const verifyMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", `/api/domains/verify/${activeStoreId}`);
+      const res = await apiRequest("POST", `/api/domains/verify/${activeStoreId}`);
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/domains", activeStoreId] });
       queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
-      toast({ title: "DNS verification started" });
+      if (data.verified) {
+        toast({ title: "Domain verified!", description: "Your custom domain is live with SSL." });
+      } else if (data.verificationErrors?.length > 0) {
+        toast({ title: "Verification issue", description: data.verificationErrors[0], variant: "destructive" });
+      } else {
+        toast({ title: "Not verified yet", description: "DNS records haven't propagated. Try again in a few minutes." });
+      }
     },
     onError: (err: any) => {
       toast({ title: "Verification failed", description: err.message, variant: "destructive" });
@@ -126,53 +120,16 @@ export function DomainSettings() {
     },
   });
 
-  const checkMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/domains/check?domain=${encodeURIComponent(searchDomain)}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to check domain");
-      return await res.json();
-    },
-    onSuccess: (data: DomainCheckResult) => {
-      setCheckResult(data);
-    },
-    onError: (err: any) => {
-      toast({ title: "Failed to check domain", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const purchaseMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("POST", `/api/domains/purchase`, {
-        storeId: activeStoreId,
-        domain: checkResult?.domain,
-        contact: { firstName: "", lastName: "", address: "", city: "", state: "", postalCode: "", country: "", phone: "", email: "" },
-        years: 1,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/domains", activeStoreId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
-      setCheckResult(null);
-      setSearchDomain("");
-      toast({ title: "Domain purchased", description: "Your domain has been registered and connected." });
-    },
-    onError: (err: any) => {
-      toast({ title: "Failed to purchase domain", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const handleCopy = (text: string) => {
+  const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   if (!activeStoreId) return null;
 
   const hasDomain = activeStore?.customDomain;
   const domainStatus = activeStore?.domainStatus || "pending_dns";
-  const domainSource = activeStore?.domainSource;
-  const hostname = typeof window !== "undefined" ? window.location.hostname : "your-app.replit.app";
 
   if (domainLoading) {
     return (
@@ -191,7 +148,7 @@ export function DomainSettings() {
   }
 
   if (hasDomain) {
-    const statusInfo = STATUS_BADGES[domainStatus] || STATUS_BADGES.pending_dns;
+    const statusLabel = STATUS_LABELS[domainStatus] || "Pending DNS";
     const dnsName = getDnsName(activeStore.customDomain!);
 
     return (
@@ -211,16 +168,22 @@ export function DomainSettings() {
               className={getStatusBadgeClass(domainStatus)}
               data-testid="badge-domain-status"
             >
-              {statusInfo.label}
+              {statusLabel}
             </Badge>
+            {domainStatus === "active" && (
+              <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                <Shield className="h-3.5 w-3.5" />
+                <span>SSL Active</span>
+              </div>
+            )}
           </div>
 
           {domainStatus !== "active" && (
-            <div className="rounded-md border border-border p-4 space-y-3">
+            <div className="rounded-md border border-border p-4 space-y-4">
               <div>
-                <h4 className="text-sm font-semibold">Configure your DNS</h4>
+                <h4 className="text-sm font-semibold">Set up your DNS</h4>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Add the following DNS record at your domain registrar:
+                  Go to your domain registrar and add this DNS record:
                 </p>
               </div>
 
@@ -230,25 +193,38 @@ export function DomainSettings() {
                     <tr className="border-b border-border">
                       <th className="text-left py-2 pr-4 font-medium text-muted-foreground">Type</th>
                       <th className="text-left py-2 pr-4 font-medium text-muted-foreground">Name</th>
-                      <th className="text-left py-2 font-medium text-muted-foreground">Value</th>
+                      <th className="text-left py-2 font-medium text-muted-foreground">Target</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
                       <td className="py-2 pr-4 font-mono text-xs">CNAME</td>
-                      <td className="py-2 pr-4 font-mono text-xs">{dnsName}</td>
+                      <td className="py-2 pr-4">
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs font-mono bg-muted px-2 py-1 rounded">{dnsName}</code>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => handleCopy(dnsName, "name")}
+                          >
+                            {copied === "name" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          </Button>
+                        </div>
+                      </td>
                       <td className="py-2">
                         <div className="flex items-center gap-2">
                           <code className="text-xs font-mono bg-muted px-2 py-1 rounded" data-testid="text-dns-value">
-                            {hostname}
+                            {CNAME_TARGET}
                           </code>
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => handleCopy(hostname)}
+                            className="h-7 w-7"
+                            onClick={() => handleCopy(CNAME_TARGET, "target")}
                             data-testid="button-copy-dns-value"
                           >
-                            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            {copied === "target" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                           </Button>
                         </div>
                       </td>
@@ -257,53 +233,57 @@ export function DomainSettings() {
                 </table>
               </div>
 
-              <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                DNS changes can take up to 48 hours to propagate
-              </p>
-            </div>
-          )}
-
-          {domainSource === "namecheap" && domainInfo?.purchasedDomain && (
-            <div className="rounded-md border border-border p-4 space-y-2">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <ExternalLink className="h-3.5 w-3.5" />
-                Purchased Domain Info
-              </h4>
-              <div className="grid gap-1 text-xs text-muted-foreground">
-                {domainInfo.purchasedDomain.registrationDate && (
-                  <p data-testid="text-registration-date">
-                    Registered: {new Date(domainInfo.purchasedDomain.registrationDate).toLocaleDateString()}
-                  </p>
-                )}
-                {domainInfo.purchasedDomain.expirationDate && (
-                  <p data-testid="text-expiration-date">
-                    Expires: {new Date(domainInfo.purchasedDomain.expirationDate).toLocaleDateString()}
-                  </p>
-                )}
-                <p>Auto-renew: {domainInfo.purchasedDomain.autoRenew ? "Enabled" : "Disabled"}</p>
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  DNS changes can take a few minutes to 48 hours to propagate.
+                </p>
+                <p className="text-xs text-muted-foreground pl-5">
+                  For root domains (e.g., yourbrand.com), use a DNS provider that supports CNAME flattening at the root.
+                </p>
               </div>
             </div>
           )}
 
+          {domainStatus === "active" && (
+            <div className="rounded-md border border-green-200 dark:border-green-900/50 bg-green-50/50 dark:bg-green-900/10 p-4">
+              <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                <Check className="h-4 w-4" />
+                <span className="font-medium">Your domain is live!</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 pl-6">
+                SSL certificate is active. Your store is accessible at{" "}
+                <a href={`https://${activeStore.customDomain}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline" data-testid="link-custom-domain">
+                  https://{activeStore.customDomain}
+                </a>
+              </p>
+            </div>
+          )}
+
           <div className="flex items-center gap-3 flex-wrap">
-            <Button
-              variant="outline"
-              onClick={() => verifyMutation.mutate()}
-              disabled={verifyMutation.isPending}
-              data-testid="button-verify-dns"
-            >
-              {verifyMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              Verify DNS
-            </Button>
+            {domainStatus !== "active" && (
+              <Button
+                variant="outline"
+                onClick={() => verifyMutation.mutate()}
+                disabled={verifyMutation.isPending}
+                data-testid="button-verify-dns"
+              >
+                {verifyMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Verify DNS
+              </Button>
+            )}
             <Button
               variant="outline"
               className="text-destructive"
-              onClick={() => disconnectMutation.mutate()}
+              onClick={() => {
+                if (confirm("Are you sure you want to disconnect this domain?")) {
+                  disconnectMutation.mutate();
+                }
+              }}
               disabled={disconnectMutation.isPending}
               data-testid="button-disconnect-domain"
             >
@@ -329,122 +309,38 @@ export function DomainSettings() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-1">
-          <Button
-            variant={activeTab === "connect" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setActiveTab("connect")}
-            data-testid="button-tab-connect"
-          >
-            Connect Your Domain
-          </Button>
-          <Button
-            variant={activeTab === "buy" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setActiveTab("buy")}
-            data-testid="button-tab-buy"
-          >
-            Buy a Domain
-          </Button>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">
+            Connect your own domain to your storefront in 3 simple steps:
+          </p>
+          <ol className="text-xs text-muted-foreground space-y-0.5 list-decimal list-inside pl-1">
+            <li>Enter your domain below</li>
+            <li>Add the DNS record we give you at your domain registrar</li>
+            <li>Click Verify — SSL is set up automatically</li>
+          </ol>
         </div>
 
-        {activeTab === "connect" && (
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="connect-domain">Domain Name</Label>
-              <Input
-                id="connect-domain"
-                placeholder="yourdomain.com or shop.yourdomain.com"
-                value={connectDomain}
-                onChange={(e) => setConnectDomain(e.target.value)}
-                data-testid="input-connect-domain"
-              />
-            </div>
-            <Button
-              onClick={() => connectMutation.mutate()}
-              disabled={!connectDomain.trim() || connectMutation.isPending}
-              data-testid="button-connect-domain"
-            >
-              {connectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Connect Domain
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Point your existing domain to your Sellisy store
-            </p>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="connect-domain">Domain Name</Label>
+            <Input
+              id="connect-domain"
+              placeholder="yourdomain.com or shop.yourdomain.com"
+              value={connectDomain}
+              onChange={(e) => setConnectDomain(e.target.value.toLowerCase().trim())}
+              data-testid="input-connect-domain"
+            />
           </div>
-        )}
-
-        {activeTab === "buy" && (
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="search-domain">Search for a Domain</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="search-domain"
-                  placeholder="search for a domain..."
-                  value={searchDomain}
-                  onChange={(e) => setSearchDomain(e.target.value)}
-                  data-testid="input-search-domain"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setCheckResult(null);
-                    checkMutation.mutate();
-                  }}
-                  disabled={!searchDomain.trim() || checkMutation.isPending}
-                  data-testid="button-check-availability"
-                >
-                  {checkMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {checkResult && (
-              <div className="rounded-md border border-border p-3 space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium" data-testid="text-check-domain">{checkResult.domain}</span>
-                  {checkResult.available ? (
-                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 no-default-hover-elevate no-default-active-elevate" data-testid="badge-availability">
-                      <Check className="h-3 w-3 mr-1" /> Available
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 no-default-hover-elevate no-default-active-elevate" data-testid="badge-availability">
-                      <X className="h-3 w-3 mr-1" /> Unavailable
-                    </Badge>
-                  )}
-                </div>
-                {checkResult.available && checkResult.price && (
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <span className="text-sm text-muted-foreground" data-testid="text-domain-price">
-                      {checkResult.price}/yr
-                    </span>
-                    <Button
-                      size="sm"
-                      onClick={() => purchaseMutation.mutate()}
-                      disabled={purchaseMutation.isPending}
-                      data-testid="button-buy-domain"
-                    >
-                      {purchaseMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Buy Domain
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {checkMutation.isError && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" />
-                Domain purchasing is being set up
-              </p>
-            )}
-          </div>
-        )}
+          <Button
+            onClick={() => connectMutation.mutate()}
+            disabled={!connectDomain.trim() || connectMutation.isPending}
+            data-testid="button-connect-domain"
+          >
+            {connectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Globe className="mr-2 h-4 w-4" />
+            Connect Domain
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

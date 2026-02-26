@@ -98,6 +98,7 @@ export const stores = pgTable("stores", {
   domainStatus: text("domain_status"),
   domainSource: text("domain_source"),
   domainVerifiedAt: timestamp("domain_verified_at"),
+  cloudflareHostnameId: text("cloudflare_hostname_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

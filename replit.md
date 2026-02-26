@@ -47,14 +47,13 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
     *   **Consistent Layout**: All dashboard pages use `p-6 space-y-6` full-width containers — no `max-w-*` constraints on content pages. Only centered forms (e.g., inline store creation) use `max-w-2xl mx-auto`.
 *   **File Storage**: Integration with Replit Object Storage for handling product images, deliverable files, logos, and banners via presigned URLs.
 *   **Embed Widgets**: Store owners can embed any published product or bundle on external websites via iframe. Dashboard provides a code generator with live preview, light/dark theme toggle, and copy-to-clipboard. Embed endpoints: `GET /api/embed/:slug/product/:productId` and `/api/embed/:slug/bundle/:bundleId`. Widget pages at `/embed/:slug/product/:productId` and `/embed/:slug/bundle/:bundleId` render compact, styled cards with "Buy Now" links back to the storefront.
-*   **Custom Domains**: Store owners can connect custom domains to their storefronts. Two flows:
-    *   **Buy a Domain**: Purchase domains through Sellisy via Namecheap API. Handles registration, DNS configuration, and linking to the store automatically.
-    *   **Bring Your Own Domain**: Connect an existing domain with guided DNS setup instructions (CNAME records). Replit-style DNS instruction panel with copy buttons and verification status.
-    *   **Domain Verification**: DNS verification checks whether the domain's CNAME/A records point to the app. Status progression: `pending_dns` → `active`.
+*   **Custom Domains**: Store owners can connect their own domains to their storefronts via **Cloudflare for SaaS** (Custom Hostnames).
+    *   **Connect Your Domain**: Users enter their domain, add a CNAME record pointing to `customers.sellisy.com`, and Cloudflare provisions SSL automatically. No domain purchasing — connect-only flow.
+    *   **Domain Verification**: Calls Cloudflare API to check custom hostname status. Status progression: `pending_dns` → `active`. SSL provisioned automatically by Cloudflare.
     *   **Host-Based Routing**: Middleware resolves custom domains to their storefronts automatically (rewrites root domain requests to `/s/{slug}`).
-    *   **Schema**: `customDomain`, `domainStatus`, `domainSource`, `domainVerifiedAt` fields on `stores` table. Separate `store_domains` table tracks purchased domains.
-    *   **API**: `server/namecheapClient.ts` wraps Namecheap API. Domain routes at `/api/domains/*`.
-    *   **UI**: `DomainSettings` component in `client/src/components/dashboard/domain-settings.tsx`, integrated into store settings page.
+    *   **Schema**: `customDomain`, `domainStatus`, `domainSource`, `domainVerifiedAt`, `cloudflareHostnameId` fields on `stores` table.
+    *   **API**: `server/cloudflareClient.ts` wraps Cloudflare Custom Hostnames API (create, get, delete, list). Domain routes at `/api/domains/*`.
+    *   **UI**: `DomainSettings` component in `client/src/components/dashboard/domain-settings.tsx`, integrated into store settings page. Single connect flow with DNS instructions always pointing to `customers.sellisy.com`.
 *   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) are implemented using a `usePageMeta` hook. Storefront pages show the store's SEO title (or store name) in the browser tab — no platform branding. Custom `faviconUrl` per store, falling back to store logo. Store owners set SEO title, meta description, and favicon from dashboard settings.
 
 ## External Dependencies
@@ -71,7 +70,7 @@ The project utilizes a **full-stack JavaScript architecture** with **Express** f
 *   **Tailwind CSS**: Utility-first CSS framework.
 *   **TanStack Query**: Data fetching and caching library for React.
 *   **bcryptjs**: Password hashing for local authentication.
-*   **Namecheap API**: For domain registration and DNS management (via `server/namecheapClient.ts`).
+*   **Cloudflare for SaaS**: Custom domain provisioning via Cloudflare Custom Hostnames API (via `server/cloudflareClient.ts`). Env vars: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID`.
 
 ## Integration Notes
 *   **Stripe**: Connected via Replit Stripe connector. Credentials are fetched from the Replit connection API (`server/stripeClient.ts`). Functions are async. Replit handles sandbox/live key management and deployment transitions automatically. Webhook handler in `server/webhookHandlers.ts` processes `checkout.session.completed` events, creates download tokens, updates buyer email from Stripe session, increments coupon usage, and triggers order emails.
