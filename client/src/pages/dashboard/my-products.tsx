@@ -272,6 +272,7 @@ export default function MyProductsPage() {
         onClose={() => setCreateOpen(false)}
         mode="create"
         categories={userCategories || []}
+        isAdmin={isAdmin}
       />
 
       <ProductFormDialog
@@ -280,6 +281,7 @@ export default function MyProductsPage() {
         mode="edit"
         product={editProduct || undefined}
         categories={userCategories || []}
+        isAdmin={isAdmin}
       />
 
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
@@ -537,12 +539,14 @@ function ProductFormDialog({
   mode,
   product,
   categories: userCategories,
+  isAdmin,
 }: {
   open: boolean;
   onClose: () => void;
   mode: "create" | "edit";
   product?: Product;
   categories: Category[];
+  isAdmin: boolean;
 }) {
   const { toast } = useToast();
   const [title, setTitle] = useState("");
@@ -563,6 +567,7 @@ function ProductFormDialog({
   const [highlightsInput, setHighlightsInput] = useState("");
   const [version, setVersion] = useState("");
   const [fileSize, setFileSize] = useState("");
+  const [requiredTier, setRequiredTier] = useState<"basic" | "pro" | "max">("basic");
   const [imageUploading, setImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -593,6 +598,7 @@ function ProductFormDialog({
       setHighlightsInput((product.highlights || []).join("\n"));
       setVersion(product.version || "");
       setFileSize(product.fileSize || "");
+      setRequiredTier((product.requiredTier as "basic" | "pro" | "max") || "basic");
     } else {
       setTitle("");
       setDescription("");
@@ -612,6 +618,7 @@ function ProductFormDialog({
       setHighlightsInput("");
       setVersion("");
       setFileSize("");
+      setRequiredTier("basic");
     }
   };
 
@@ -723,6 +730,7 @@ function ProductFormDialog({
         version: version || null,
         fileSize: fileSize || null,
         images: buildImagesPayload(),
+        ...(isAdmin ? { requiredTier } : {}),
       };
       await apiRequest("POST", "/api/products", body);
     },
@@ -760,6 +768,7 @@ function ProductFormDialog({
         version: version || null,
         fileSize: fileSize || null,
         images: buildImagesPayload(),
+        ...(isAdmin ? { requiredTier } : {}),
       };
       await apiRequest("PATCH", `/api/products/${product!.id}`, body);
     },
@@ -883,6 +892,23 @@ function ProductFormDialog({
               </Select>
             </div>
           </div>
+
+          {isAdmin && (
+            <div className="space-y-2">
+              <Label htmlFor="requiredTier">Product Tier</Label>
+              <Select value={requiredTier} onValueChange={(v) => setRequiredTier(v as "basic" | "pro" | "max")}>
+                <SelectTrigger data-testid="select-product-tier">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="basic">Basic</SelectItem>
+                  <SelectItem value="pro">Pro</SelectItem>
+                  <SelectItem value="max">Premium</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Controls which subscription tier can access this product in the Library</p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="productType">Product Type</Label>

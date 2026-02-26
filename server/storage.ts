@@ -41,7 +41,7 @@ export interface IStorage {
   getProductsByOwner(ownerId: string): Promise<Product[]>;
   getProductById(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
-  updateProduct(id: string, data: Partial<Pick<Product, "title" | "description" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status">>): Promise<Product | undefined>;
+  updateProduct(id: string, data: Partial<Pick<Product, "title" | "description" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier">>): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<void>;
 
   getStoreProducts(storeId: string): Promise<(StoreProduct & { product: Product })[]>;
@@ -221,7 +221,7 @@ export class DatabaseStorage implements IStorage {
     return product;
   }
 
-  async updateProduct(id: string, data: Partial<Pick<Product, "title" | "description" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags">>) {
+  async updateProduct(id: string, data: Partial<Pick<Product, "title" | "description" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "requiredTier">>) {
     const [product] = await db.update(products).set(data).where(eq(products.id, id)).returning();
     return product;
   }

@@ -413,7 +413,7 @@ export async function registerRoutes(
 
         const product = await storage.createProduct({
           ownerId: getUserId(req),
-          source: "PLATFORM",
+          source: "USER",
           title: row.title,
           description: row.description || null,
           category: row.category || "templates",
@@ -505,6 +505,7 @@ export async function registerRoutes(
       highlights: z.array(z.string()).optional().nullable(),
       version: z.string().optional().nullable(),
       fileSize: z.string().optional().nullable(),
+      requiredTier: z.enum(["basic", "pro", "max"]).optional(),
       images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -516,8 +517,8 @@ export async function registerRoutes(
 
     const admin = await isUserAdmin(getUserId(req));
     const product = await storage.createProduct({
-      ownerId: admin ? null : getUserId(req),
-      source: admin ? "PLATFORM" : "USER",
+      ownerId: getUserId(req),
+      source: "USER",
       title: parsed.data.title,
       description: parsed.data.description || null,
       tagline: parsed.data.tagline ?? null,
@@ -535,6 +536,7 @@ export async function registerRoutes(
       highlights: parsed.data.highlights ?? null,
       version: parsed.data.version ?? null,
       fileSize: parsed.data.fileSize ?? null,
+      requiredTier: admin ? (parsed.data.requiredTier || "basic") : "basic",
     });
 
     if (imgs.length > 0) {
@@ -573,12 +575,17 @@ export async function registerRoutes(
       highlights: z.array(z.string()).optional().nullable(),
       version: z.string().optional().nullable(),
       fileSize: z.string().optional().nullable(),
+      requiredTier: z.enum(["basic", "pro", "max"]).optional(),
       images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
 
-    const { images: imgs, ...productData } = parsed.data;
+    const admin = await isUserAdmin(getUserId(req));
+    const { images: imgs, requiredTier, ...productData } = parsed.data;
+    if (admin && requiredTier) {
+      (productData as any).requiredTier = requiredTier;
+    }
     if (imgs !== undefined) {
       await storage.setProductImages(product.id, imgs);
       const primaryImg = imgs.find((i) => i.isPrimary) || imgs[0];
