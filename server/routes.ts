@@ -181,14 +181,20 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
-  app.get("/api/debug-headers", (req, res) => {
+  app.get("/api/debug-headers", async (req, res) => {
+    const xCustomHost = (req.headers["x-custom-host"] as string) || null;
+    const hostname = xCustomHost?.split(":")[0] || null;
+    let storeMatch = null;
+    if (hostname) {
+      const [found] = await db.select({ id: stores.id, slug: stores.slug, customDomain: stores.customDomain, domainStatus: stores.domainStatus }).from(stores).where(eq(stores.customDomain, hostname)).limit(1);
+      storeMatch = found || null;
+    }
     res.json({
       hostname: req.hostname,
-      xCustomHost: req.headers["x-custom-host"] || null,
+      xCustomHost,
       xForwardedHost: req.headers["x-forwarded-host"] || null,
       host: req.headers["host"] || null,
-      cfConnectingIp: req.headers["cf-connecting-ip"] || null,
-      cfRay: req.headers["cf-ray"] || null,
+      storeMatch,
     });
   });
 
