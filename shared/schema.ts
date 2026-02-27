@@ -212,10 +212,11 @@ export const orders = pgTable("orders", {
   couponId: varchar("coupon_id", { length: 64 }),
   status: orderStatusEnum("status").notNull().default("PENDING"),
   emailSent: boolean("email_sent").notNull().default(false),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
+export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, deletedAt: true });
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 
@@ -250,10 +251,11 @@ export const bundles = pgTable("bundles", {
   priceCents: integer("price_cents").notNull().default(0),
   thumbnailUrl: text("thumbnail_url"),
   isPublished: boolean("is_published").notNull().default(false),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertBundleSchema = createInsertSchema(bundles).omit({ id: true, createdAt: true });
+export const insertBundleSchema = createInsertSchema(bundles).omit({ id: true, createdAt: true, deletedAt: true });
 export type InsertBundle = z.infer<typeof insertBundleSchema>;
 export type Bundle = typeof bundles.$inferSelect;
 
@@ -279,10 +281,11 @@ export const coupons = pgTable("coupons", {
   currentUses: integer("current_uses").notNull().default(0),
   expiresAt: timestamp("expires_at"),
   isActive: boolean("is_active").notNull().default(true),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, currentUses: true, createdAt: true });
+export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, currentUses: true, createdAt: true, deletedAt: true });
 export type InsertCoupon = z.infer<typeof insertCouponSchema>;
 export type Coupon = typeof coupons.$inferSelect;
 
@@ -366,10 +369,11 @@ export const knowledgeBases = pgTable("knowledge_bases", {
   isPublished: boolean("is_published").notNull().default(false),
   fontFamily: text("font_family"),
   productId: varchar("product_id", { length: 64 }),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertKnowledgeBaseSchema = createInsertSchema(knowledgeBases).omit({ id: true, createdAt: true });
+export const insertKnowledgeBaseSchema = createInsertSchema(knowledgeBases).omit({ id: true, createdAt: true, deletedAt: true });
 export type InsertKnowledgeBase = z.infer<typeof insertKnowledgeBaseSchema>;
 export type KnowledgeBase = typeof knowledgeBases.$inferSelect;
 
@@ -441,10 +445,11 @@ export const blogPosts = pgTable("blog_posts", {
   readingTimeMinutes: integer("reading_time_minutes").notNull().default(1),
   isPublished: boolean("is_published").notNull().default(false),
   publishedAt: timestamp("published_at"),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: true, createdAt: true });
+export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: true, createdAt: true, deletedAt: true });
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 export type BlogPost = typeof blogPosts.$inferSelect;
 

@@ -196,24 +196,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async hardDeleteStore(id: string) {
-    const storeOrders = await db.select({ id: orders.id }).from(orders).where(eq(orders.storeId, id));
-    for (const o of storeOrders) {
-      await db.delete(downloadTokens).where(eq(downloadTokens.orderId, o.id));
-      await db.delete(orderItems).where(eq(orderItems.orderId, o.id));
-    }
-    await db.delete(orders).where(eq(orders.storeId, id));
-    const storeBundles = await db.select({ id: bundles.id }).from(bundles).where(eq(bundles.storeId, id));
-    for (const b of storeBundles) {
-      await db.delete(bundleItems).where(eq(bundleItems.bundleId, b.id));
-    }
-    await db.delete(bundles).where(eq(bundles.storeId, id));
-    await db.delete(coupons).where(eq(coupons.storeId, id));
+    console.warn(`[DATA-SAFETY] hardDeleteStore called for store ${id} — this permanently removes the store and cascades soft-deletes to related data`);
+    const now = new Date();
+    await db.update(orders).set({ deletedAt: now }).where(eq(orders.storeId, id));
+    await db.update(bundles).set({ deletedAt: now }).where(eq(bundles.storeId, id));
+    await db.update(coupons).set({ deletedAt: now }).where(eq(coupons.storeId, id));
+    await db.update(blogPosts).set({ deletedAt: now }).where(eq(blogPosts.storeId, id));
     await db.delete(storeProducts).where(eq(storeProducts.storeId, id));
-    const storePosts = await db.select({ id: blogPosts.id }).from(blogPosts).where(eq(blogPosts.storeId, id));
-    for (const p of storePosts) {
-      await db.delete(blogBlocks).where(eq(blogBlocks.postId, p.id));
-    }
-    await db.delete(blogPosts).where(eq(blogPosts.storeId, id));
     await db.delete(stores).where(eq(stores.id, id));
   }
 
@@ -258,6 +247,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async hardDeleteProduct(id: string) {
+    console.warn(`[DATA-SAFETY] hardDeleteProduct called for product ${id} — permanently removing product and related assets`);
     await db.delete(storeProducts).where(eq(storeProducts.productId, id));
     await db.delete(fileAssets).where(eq(fileAssets.productId, id));
     await db.delete(productImages).where(eq(productImages.productId, id));
@@ -328,12 +318,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrderById(id: string) {
-    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    const [order] = await db.select().from(orders).where(and(eq(orders.id, id), isNull(orders.deletedAt)));
     return order;
   }
 
   async getOrderByStripeSession(sessionId: string) {
-    const [order] = await db.select().from(orders).where(eq(orders.stripeSessionId, sessionId));
+    const [order] = await db.select().from(orders).where(and(eq(orders.stripeSessionId, sessionId), isNull(orders.deletedAt)));
     return order;
   }
 
@@ -376,16 +366,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBundleById(id: string) {
-    const [bundle] = await db.select().from(bundles).where(eq(bundles.id, id));
+    const [bundle] = await db.select().from(bundles).where(and(eq(bundles.id, id), isNull(bundles.deletedAt)));
     return bundle;
   }
 
   async getBundlesByStore(storeId: string) {
-    return db.select().from(bundles).where(eq(bundles.storeId, storeId)).orderBy(desc(bundles.createdAt));
+    return db.select().from(bundles).where(and(eq(bundles.storeId, storeId), isNull(bundles.deletedAt))).orderBy(desc(bundles.createdAt));
   }
 
   async getPublishedBundlesByStore(storeId: string) {
-    return db.select().from(bundles).where(and(eq(bundles.storeId, storeId), eq(bundles.isPublished, true)));
+    return db.select().from(bundles).where(and(eq(bundles.storeId, storeId), eq(bundles.isPublished, true), isNull(bundles.deletedAt)));
   }
 
   async updateBundle(id: string, data: Partial<InsertBundle>) {
@@ -394,8 +384,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteBundle(id: string) {
-    await db.delete(bundleItems).where(eq(bundleItems.bundleId, id));
-    await db.delete(bundles).where(eq(bundles.id, id));
+    await db.update(bundles).set({ deletedAt: new Date() }).where(eq(bundles.id, id));
   }
 
   async addBundleItem(data: InsertBundleItem) {
@@ -429,18 +418,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCouponsByStore(storeId: string) {
-    return db.select().from(coupons).where(eq(coupons.storeId, storeId)).orderBy(desc(coupons.createdAt));
+    return db.select().from(coupons).where(and(eq(coupons.storeId, storeId), isNull(coupons.deletedAt))).orderBy(desc(coupons.createdAt));
   }
 
   async getCouponByCode(storeId: string, code: string) {
     const [coupon] = await db.select().from(coupons).where(
-      and(eq(coupons.storeId, storeId), eq(coupons.code, code.toUpperCase()))
+      and(eq(coupons.storeId, storeId), eq(coupons.code, code.toUpperCase()), isNull(coupons.deletedAt))
     );
     return coupon;
   }
 
   async getCouponById(id: string) {
-    const [coupon] = await db.select().from(coupons).where(eq(coupons.id, id));
+    const [coupon] = await db.select().from(coupons).where(and(eq(coupons.id, id), isNull(coupons.deletedAt)));
     return coupon;
   }
 
@@ -454,11 +443,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCoupon(id: string) {
-    await db.delete(coupons).where(eq(coupons.id, id));
+    await db.update(coupons).set({ deletedAt: new Date() }).where(eq(coupons.id, id));
   }
 
   async getOrdersByStore(storeId: string) {
-    return db.select().from(orders).where(eq(orders.storeId, storeId)).orderBy(desc(orders.createdAt));
+    return db.select().from(orders).where(and(eq(orders.storeId, storeId), isNull(orders.deletedAt))).orderBy(desc(orders.createdAt));
   }
 
   async getOrderItemsByOrder(orderId: string) {
@@ -599,7 +588,7 @@ export class DatabaseStorage implements IStorage {
       .select({ order: orders, store: stores })
       .from(orders)
       .innerJoin(stores, eq(orders.storeId, stores.id))
-      .where(and(eq(orders.customerId, customerId), eq(orders.status, "COMPLETED")))
+      .where(and(eq(orders.customerId, customerId), eq(orders.status, "COMPLETED"), isNull(orders.deletedAt)))
       .orderBy(desc(orders.createdAt));
     return rows.map((r) => ({ ...r.order, store: r.store }));
   }
@@ -615,11 +604,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getKnowledgeBasesByOwner(ownerId: string) {
-    return db.select().from(knowledgeBases).where(eq(knowledgeBases.ownerId, ownerId)).orderBy(desc(knowledgeBases.createdAt));
+    return db.select().from(knowledgeBases).where(and(eq(knowledgeBases.ownerId, ownerId), isNull(knowledgeBases.deletedAt))).orderBy(desc(knowledgeBases.createdAt));
   }
 
   async getKnowledgeBaseById(id: string) {
-    const [kb] = await db.select().from(knowledgeBases).where(eq(knowledgeBases.id, id));
+    const [kb] = await db.select().from(knowledgeBases).where(and(eq(knowledgeBases.id, id), isNull(knowledgeBases.deletedAt)));
     return kb;
   }
 
@@ -634,12 +623,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteKnowledgeBase(id: string) {
-    const pages = await this.getKbPagesByKnowledgeBase(id);
-    for (const page of pages) {
-      await db.delete(kbBlocks).where(eq(kbBlocks.pageId, page.id));
-    }
-    await db.delete(kbPages).where(eq(kbPages.knowledgeBaseId, id));
-    await db.delete(knowledgeBases).where(eq(knowledgeBases.id, id));
+    await db.update(knowledgeBases).set({ deletedAt: new Date() }).where(eq(knowledgeBases.id, id));
   }
 
   async getKbPagesByKnowledgeBase(knowledgeBaseId: string) {
@@ -734,20 +718,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBlogPostsByStore(storeId: string) {
-    return db.select().from(blogPosts).where(eq(blogPosts.storeId, storeId)).orderBy(desc(blogPosts.createdAt));
+    return db.select().from(blogPosts).where(and(eq(blogPosts.storeId, storeId), isNull(blogPosts.deletedAt))).orderBy(desc(blogPosts.createdAt));
   }
 
   async getPublishedBlogPostsByStore(storeId: string) {
-    return db.select().from(blogPosts).where(and(eq(blogPosts.storeId, storeId), eq(blogPosts.isPublished, true))).orderBy(desc(blogPosts.publishedAt));
+    return db.select().from(blogPosts).where(and(eq(blogPosts.storeId, storeId), eq(blogPosts.isPublished, true), isNull(blogPosts.deletedAt))).orderBy(desc(blogPosts.publishedAt));
   }
 
   async getBlogPostById(id: string) {
-    const [post] = await db.select().from(blogPosts).where(eq(blogPosts.id, id));
+    const [post] = await db.select().from(blogPosts).where(and(eq(blogPosts.id, id), isNull(blogPosts.deletedAt)));
     return post;
   }
 
   async getBlogPostBySlug(storeId: string, slug: string) {
-    const [post] = await db.select().from(blogPosts).where(and(eq(blogPosts.storeId, storeId), eq(blogPosts.slug, slug)));
+    const [post] = await db.select().from(blogPosts).where(and(eq(blogPosts.storeId, storeId), eq(blogPosts.slug, slug), isNull(blogPosts.deletedAt)));
     return post;
   }
 
@@ -767,6 +751,7 @@ export class DatabaseStorage implements IStorage {
         eq(blogPosts.storeId, storeId),
         eq(blogPosts.isPublished, true),
         eq(blogPosts.category, category),
+        isNull(blogPosts.deletedAt),
         sql`${blogPosts.id} != ${postId}`
       )
     ).orderBy(desc(blogPosts.publishedAt)).limit(limit);
@@ -775,13 +760,12 @@ export class DatabaseStorage implements IStorage {
   async getBlogCategories(storeId: string) {
     const rows = await db.selectDistinct({ category: blogPosts.category })
       .from(blogPosts)
-      .where(and(eq(blogPosts.storeId, storeId), eq(blogPosts.isPublished, true)));
+      .where(and(eq(blogPosts.storeId, storeId), eq(blogPosts.isPublished, true), isNull(blogPosts.deletedAt)));
     return rows.map(r => r.category);
   }
 
   async deleteBlogPost(id: string) {
-    await db.delete(blogBlocks).where(eq(blogBlocks.postId, id));
-    await db.delete(blogPosts).where(eq(blogPosts.id, id));
+    await db.update(blogPosts).set({ deletedAt: new Date() }).where(eq(blogPosts.id, id));
   }
 
   async getBlogBlocksByPost(postId: string) {

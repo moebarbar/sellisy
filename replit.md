@@ -40,11 +40,13 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
 *   **Custom Domains**: Integration with Cloudflare for SaaS to allow store owners to connect custom domains with automatic SSL provisioning and host-based routing.
 *   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) for storefronts and product pages, configurable by store owners. Server-side OG tag injection (`server/og-tags.ts`) serves pre-rendered meta tags to social media crawlers for proper link previews on Facebook, Twitter, LinkedIn, etc.
 *   **Data Protection System**:
-    *   **Soft Deletes**: Products and stores use a `deletedAt` timestamp instead of hard deletes. All queries filter out soft-deleted records (`WHERE deletedAt IS NULL`). Hard delete methods exist but are only used for full cleanup operations.
-    *   **Integrity Checks**: `server/integrity.ts` provides `runHealthCheck()` (detect orphaned records, null owners) and `runRepair()` (auto-fix issues). Health check runs automatically on every server startup via `runStartupCheck()`.
-    *   **Admin Data Health Dashboard**: `/dashboard/data-health` (admin-only) shows platform health stats, lists soft-deleted products/stores with restore buttons, and provides manual health check and repair controls.
+    *   **Soft Deletes**: Products, stores, orders, bundles, coupons, knowledge bases, and blog posts all use a `deletedAt` timestamp instead of hard deletes. All queries filter out soft-deleted records (`WHERE deletedAt IS NULL`). Data is never permanently lost through normal user operations.
+    *   **Hard Delete Safety**: `hardDeleteStore` and `hardDeleteProduct` are admin-only operations that log warnings to the console before executing. `hardDeleteStore` cascade soft-deletes related orders/bundles/coupons/blog posts instead of permanently removing them.
+    *   **Integrity Checks**: `server/integrity.ts` provides `runHealthCheck()` (detect orphaned records, null owners, tracks stats for all soft-deletable entities) and `runRepair()` (auto-fix issues). Health check runs automatically on every server startup via `runStartupCheck()`.
+    *   **Admin Data Health Dashboard**: `/dashboard/data-health` (admin-only) shows platform health stats for all entity types, lists soft-deleted products/stores with restore buttons, and provides manual health check and repair controls.
     *   **Admin Endpoints**: `GET /api/admin/health-check`, `POST /api/admin/repair`, `GET /api/admin/deleted-products`, `GET /api/admin/deleted-stores`, `POST /api/admin/restore-product/:id`, `POST /api/admin/restore-store/:id`.
     *   **Protective Guards**: Defense-in-depth ownership verification in `storage.ts` (`deleteProduct`/`deleteStore` accept optional `callerOwnerId`). Promote route has a post-update guard preventing `ownerId` from being nulled. `updateProduct` uses TypeScript `Pick` to restrict updatable fields (excludes `ownerId`). Bulk operations verify product existence before modifying.
+    *   **Deployment Safety**: `start.sh` only runs `drizzle-kit push` when `RUN_MIGRATIONS=true` is set. No `--force` flag. Normal deploys skip schema push entirely, preventing accidental data loss.
 
 ## External Dependencies
 *   **Cloudflare R2**: Primary file storage (S3-compatible, served via `cdn.sellisy.com`).

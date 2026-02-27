@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { products, stores, storeProducts, orders } from "@shared/schema";
+import { products, stores, storeProducts, orders, bundles, coupons, knowledgeBases, blogPosts } from "@shared/schema";
 import { eq, isNull, isNotNull, sql, and, notInArray } from "drizzle-orm";
 
 export interface IntegrityIssue {
@@ -19,6 +19,16 @@ export interface IntegrityReport {
     totalStores: number;
     deletedProducts: number;
     deletedStores: number;
+    totalOrders: number;
+    deletedOrders: number;
+    totalBundles: number;
+    deletedBundles: number;
+    totalCoupons: number;
+    deletedCoupons: number;
+    totalKnowledgeBases: number;
+    deletedKnowledgeBases: number;
+    totalBlogPosts: number;
+    deletedBlogPosts: number;
     orphanedStoreProducts: number;
     nullOwnerProducts: number;
   };
@@ -46,6 +56,17 @@ export async function runHealthCheck(): Promise<IntegrityReport> {
   const [{ count: totalStores }] = await db.select({ count: sql<number>`count(*)` }).from(stores).where(isNull(stores.deletedAt));
   const [{ count: deletedProducts }] = await db.select({ count: sql<number>`count(*)` }).from(products).where(isNotNull(products.deletedAt));
   const [{ count: deletedStores }] = await db.select({ count: sql<number>`count(*)` }).from(stores).where(isNotNull(stores.deletedAt));
+
+  const [{ count: totalOrders }] = await db.select({ count: sql<number>`count(*)` }).from(orders).where(isNull(orders.deletedAt));
+  const [{ count: deletedOrders }] = await db.select({ count: sql<number>`count(*)` }).from(orders).where(isNotNull(orders.deletedAt));
+  const [{ count: totalBundles }] = await db.select({ count: sql<number>`count(*)` }).from(bundles).where(isNull(bundles.deletedAt));
+  const [{ count: deletedBundles }] = await db.select({ count: sql<number>`count(*)` }).from(bundles).where(isNotNull(bundles.deletedAt));
+  const [{ count: totalCoupons }] = await db.select({ count: sql<number>`count(*)` }).from(coupons).where(isNull(coupons.deletedAt));
+  const [{ count: deletedCoupons }] = await db.select({ count: sql<number>`count(*)` }).from(coupons).where(isNotNull(coupons.deletedAt));
+  const [{ count: totalKnowledgeBases }] = await db.select({ count: sql<number>`count(*)` }).from(knowledgeBases).where(isNull(knowledgeBases.deletedAt));
+  const [{ count: deletedKnowledgeBases }] = await db.select({ count: sql<number>`count(*)` }).from(knowledgeBases).where(isNotNull(knowledgeBases.deletedAt));
+  const [{ count: totalBlogPosts }] = await db.select({ count: sql<number>`count(*)` }).from(blogPosts).where(isNull(blogPosts.deletedAt));
+  const [{ count: deletedBlogPosts }] = await db.select({ count: sql<number>`count(*)` }).from(blogPosts).where(isNotNull(blogPosts.deletedAt));
 
   const allStoreProducts = await db.select({
     id: storeProducts.id,
@@ -107,6 +128,16 @@ export async function runHealthCheck(): Promise<IntegrityReport> {
       totalStores: Number(totalStores),
       deletedProducts: Number(deletedProducts),
       deletedStores: Number(deletedStores),
+      totalOrders: Number(totalOrders),
+      deletedOrders: Number(deletedOrders),
+      totalBundles: Number(totalBundles),
+      deletedBundles: Number(deletedBundles),
+      totalCoupons: Number(totalCoupons),
+      deletedCoupons: Number(deletedCoupons),
+      totalKnowledgeBases: Number(totalKnowledgeBases),
+      deletedKnowledgeBases: Number(deletedKnowledgeBases),
+      totalBlogPosts: Number(totalBlogPosts),
+      deletedBlogPosts: Number(deletedBlogPosts),
       orphanedStoreProducts: orphanedSP.length,
       nullOwnerProducts: nullOwnerProducts.length + nonSeedNullOwner.length,
     },
