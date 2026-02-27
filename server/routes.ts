@@ -181,6 +181,17 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
+  app.get("/api/debug-headers", (req, res) => {
+    res.json({
+      hostname: req.hostname,
+      xCustomHost: req.headers["x-custom-host"] || null,
+      xForwardedHost: req.headers["x-forwarded-host"] || null,
+      host: req.headers["host"] || null,
+      cfConnectingIp: req.headers["cf-connecting-ip"] || null,
+      cfRay: req.headers["cf-ray"] || null,
+    });
+  });
+
   app.get("/api/user/profile", isAuthenticated, async (req, res) => {
     const userId = getUserId(req);
     let profile = await storage.getUserProfile(userId);
