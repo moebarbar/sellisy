@@ -122,39 +122,49 @@ function isCustomDomain(): boolean {
 function CustomDomainRouter() {
   const [slug, setSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const resolved = useRef(false);
 
   useEffect(() => {
+    if (resolved.current) return;
+    resolved.current = true;
     fetch(`/api/resolve-domain?host=${encodeURIComponent(window.location.hostname)}`)
       .then(r => r.json())
       .then(data => {
-        setSlug(data.store?.slug || null);
+        if (data.store?.slug) {
+          setSlug(data.store.slug);
+          const path = window.location.pathname;
+          if (path === "/" || path === "") {
+            setLocation(`/s/${data.store.slug}`, { replace: true });
+          } else if (!path.startsWith("/s/")) {
+            setLocation(`/s/${data.store.slug}${path}`, { replace: true });
+          }
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
   if (loading) return <PageFallback />;
-  if (!slug) return <Suspense fallback={<PageFallback />}><LandingPage /></Suspense>;
 
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
-        <Route path="/p/:productId">{(params) => <ProductDetailPage params={{ slug, productId: params.productId }} />}</Route>
-        <Route path="/product/:productId">{(params) => <ProductDetailPage params={{ slug, productId: params.productId }} />}</Route>
-        <Route path="/bundle/:bundleId">{(params) => <BundleDetailPage params={{ slug, bundleId: params.bundleId }} />}</Route>
+        <Route path="/s/:slug/portal/:orderId" component={StorePortalPage} />
+        <Route path="/s/:slug/portal" component={StorePortalPage} />
+        <Route path="/s/:slug/blog/:postSlug" component={BlogPostPage} />
+        <Route path="/s/:slug/blog" component={BlogListingPage} />
+        <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
+        <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
+        <Route path="/s/:slug" component={StorefrontPage} />
         <Route path="/checkout/success" component={CheckoutSuccessPage} />
         <Route path="/claim/success" component={ClaimSuccessPage} />
-        <Route path="/portal/:orderId">{(params) => <StorePortalPage params={{ slug, orderId: params.orderId }} />}</Route>
-        <Route path="/portal">{() => <StorePortalPage params={{ slug }} />}</Route>
-        <Route path="/blog/:postSlug">{(params) => <BlogPostPage params={{ slug, postSlug: params.postSlug }} />}</Route>
-        <Route path="/blog">{() => <BlogListingPage params={{ slug }} />}</Route>
         <Route path="/kb/:id" component={KbViewerPage} />
         <Route path="/account" component={AccountLoginPage} />
         <Route path="/account/verify" component={AccountVerifyPage} />
         <Route path="/account/purchases" component={AccountPurchasesPage} />
         <Route path="/account/purchase/:orderId" component={AccountPurchaseDetailPage} />
-        <Route>{() => <StorefrontPage params={{ slug }} />}</Route>
+        <Route component={NotFound} />
       </Switch>
     </Suspense>
   );
