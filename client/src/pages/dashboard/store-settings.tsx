@@ -670,6 +670,7 @@ function PaymentsCard() {
               value={stripePublishableKey}
               onChange={(e) => setStripePublishableKey(e.target.value)}
               placeholder="Your Stripe Publishable Key"
+              autoComplete="off"
               data-testid="input-stripe-publishable-key"
             />
           </div>
@@ -681,6 +682,7 @@ function PaymentsCard() {
               value={stripeSecretDisplay}
               onChange={(e) => setStripeSecretKey(e.target.value)}
               placeholder={stripeConfigured ? "Secret key is set — enter a new one to replace" : "Your Stripe Secret Key"}
+              autoComplete="new-password"
               data-testid="input-stripe-secret-key"
             />
           </div>
@@ -707,6 +709,7 @@ function PaymentsCard() {
               value={paypalClientId}
               onChange={(e) => setPaypalClientId(e.target.value)}
               placeholder="Your PayPal app Client ID"
+              autoComplete="off"
               data-testid="input-paypal-client-id"
             />
           </div>
@@ -718,6 +721,7 @@ function PaymentsCard() {
               value={paypalSecretDisplay}
               onChange={(e) => setPaypalClientSecret(e.target.value)}
               placeholder={paypalConfigured ? "Secret is set — enter a new one to replace" : "Your PayPal app Client Secret"}
+              autoComplete="new-password"
               data-testid="input-paypal-client-secret"
             />
           </div>
