@@ -56,10 +56,10 @@ function parseSections(desc: string): { intro: string; features: string[]; highl
   return result;
 }
 
-export default function ProductDetailPage() {
-  const params = useParams<{ slug: string; productId: string }>();
-  const slug = params.slug;
-  const productId = params.productId;
+export default function ProductDetailPage({ params: propParams }: { params?: { slug: string; productId: string } } = {}) {
+  const routeParams = useParams<{ slug: string; productId: string }>();
+  const slug = propParams?.slug || routeParams.slug;
+  const productId = propParams?.productId || routeParams.productId;
 
   const [mode, setMode] = useState<PDPMode>(() => {
     if (typeof window !== "undefined") {

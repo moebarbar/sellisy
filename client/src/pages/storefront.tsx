@@ -20,11 +20,12 @@ type StorefrontData = {
 
 const legacyTemplates = ["neon", "silk"];
 
-export default function StorefrontPage() {
-  const params = useParams<{ slug: string }>();
+export default function StorefrontPage({ params: propParams }: { params?: { slug: string } } = {}) {
+  const routeParams = useParams<{ slug: string }>();
+  const slug = propParams?.slug || routeParams.slug;
 
   const { data, isLoading, error } = useQuery<StorefrontData>({
-    queryKey: ["/api/storefront", params.slug],
+    queryKey: ["/api/storefront", slug],
   });
 
   usePageMeta({

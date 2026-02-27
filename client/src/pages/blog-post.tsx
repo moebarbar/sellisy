@@ -209,10 +209,11 @@ function formatDate(date: string | Date) {
   return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-export default function BlogPostPage() {
-  const [, params] = useRoute("/s/:slug/blog/:postSlug");
-  const slug = params?.slug;
-  const postSlug = params?.postSlug;
+export default function BlogPostPage({ params: propParams }: { params?: { slug: string; postSlug: string } } = {}) {
+  const [, routeParams] = useRoute("/s/:slug/blog/:postSlug");
+  const [, customRouteParams] = useRoute("/blog/:postSlug");
+  const slug = propParams?.slug || routeParams?.slug || customRouteParams?.slug;
+  const postSlug = propParams?.postSlug || routeParams?.postSlug || customRouteParams?.postSlug;
 
   const { data, isLoading, error } = useQuery<{ store: Store; post: BlogPost; blocks: BlogBlock[]; relatedPosts: BlogPost[] }>({
     queryKey: ["/api/storefront", slug, "blog", postSlug],

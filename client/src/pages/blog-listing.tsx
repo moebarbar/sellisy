@@ -114,9 +114,9 @@ function PostCard({ post, slug, accent, featured = false }: { post: BlogPost; sl
   );
 }
 
-export default function BlogListingPage() {
-  const [, params] = useRoute("/s/:slug/blog");
-  const slug = params?.slug;
+export default function BlogListingPage({ params: propParams }: { params?: { slug: string } } = {}) {
+  const [, routeParams] = useRoute("/s/:slug/blog");
+  const slug = propParams?.slug || routeParams?.slug;
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
 

@@ -114,9 +114,58 @@ function DashboardRouter() {
   );
 }
 
+function isCustomDomain(): boolean {
+  const host = window.location.hostname;
+  return !!(host && host !== "localhost" && !host.includes("replit") && !host.includes("railway.app") && !host.includes("sellisy.com") && !/^\d+\./.test(host));
+}
+
+function CustomDomainRouter() {
+  const [slug, setSlug] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [location] = useLocation();
+
+  useEffect(() => {
+    fetch(`/api/resolve-domain?host=${encodeURIComponent(window.location.hostname)}`)
+      .then(r => r.json())
+      .then(data => {
+        setSlug(data.store?.slug || null);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <PageFallback />;
+  if (!slug) return <Suspense fallback={<PageFallback />}><LandingPage /></Suspense>;
+
+  return (
+    <Suspense fallback={<PageFallback />}>
+      <Switch>
+        <Route path="/p/:productId">{(params) => <ProductDetailPage params={{ slug, productId: params.productId }} />}</Route>
+        <Route path="/product/:productId">{(params) => <ProductDetailPage params={{ slug, productId: params.productId }} />}</Route>
+        <Route path="/bundle/:bundleId">{(params) => <BundleDetailPage params={{ slug, bundleId: params.bundleId }} />}</Route>
+        <Route path="/checkout/success" component={CheckoutSuccessPage} />
+        <Route path="/claim/success" component={ClaimSuccessPage} />
+        <Route path="/portal/:orderId">{(params) => <StorePortalPage params={{ slug, orderId: params.orderId }} />}</Route>
+        <Route path="/portal">{() => <StorePortalPage params={{ slug }} />}</Route>
+        <Route path="/blog/:postSlug">{(params) => <BlogPostPage params={{ slug, postSlug: params.postSlug }} />}</Route>
+        <Route path="/blog">{() => <BlogListingPage params={{ slug }} />}</Route>
+        <Route path="/kb/:id" component={KbViewerPage} />
+        <Route path="/account" component={AccountLoginPage} />
+        <Route path="/account/verify" component={AccountVerifyPage} />
+        <Route path="/account/purchases" component={AccountPurchasesPage} />
+        <Route path="/account/purchase/:orderId" component={AccountPurchaseDetailPage} />
+        <Route>{() => <StorefrontPage params={{ slug }} />}</Route>
+      </Switch>
+    </Suspense>
+  );
+}
+
 function Router() {
   const [location] = useLocation();
   const isDashboard = location.startsWith("/dashboard");
+  const customDomain = isCustomDomain();
+
+  if (customDomain) return <CustomDomainRouter />;
 
   return (
     <>

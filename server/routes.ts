@@ -198,6 +198,17 @@ export async function registerRoutes(
     });
   });
 
+  app.get("/api/resolve-domain", async (req, res) => {
+    const hostname = (req.query.host as string)?.split(":")[0];
+    if (!hostname) return res.json({ store: null });
+    try {
+      const [store] = await db.select({ slug: stores.slug }).from(stores).where(and(eq(stores.customDomain, hostname), isNull(stores.deletedAt))).limit(1);
+      res.json({ store: store || null });
+    } catch {
+      res.json({ store: null });
+    }
+  });
+
   app.get("/api/user/profile", isAuthenticated, async (req, res) => {
     const userId = getUserId(req);
     let profile = await storage.getUserProfile(userId);

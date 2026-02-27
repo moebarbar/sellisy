@@ -662,13 +662,15 @@ function PortalOrderDetail({ store, theme, orderId }: {
   );
 }
 
-export default function StorePortalPage() {
+export default function StorePortalPage({ params: propParams }: { params?: { slug: string; orderId?: string } } = {}) {
   const [matchPortal, paramsPortal] = useRoute("/s/:slug/portal");
   const [matchOrder, paramsOrder] = useRoute("/s/:slug/portal/:orderId");
+  const [, customPortalParams] = useRoute("/portal");
+  const [, customOrderParams] = useRoute("/portal/:orderId");
   const [, navigate] = useLocation();
 
-  const slug = paramsOrder?.slug || paramsPortal?.slug || "";
-  const orderId = paramsOrder?.orderId;
+  const slug = propParams?.slug || paramsOrder?.slug || paramsPortal?.slug || "";
+  const orderId = propParams?.orderId || paramsOrder?.orderId || customOrderParams?.orderId;
 
   const { data: storeData, isLoading: storeLoading } = useQuery<{
     store: StoreInfo;

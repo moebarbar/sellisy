@@ -17,10 +17,10 @@ type BundleDetailData = {
 
 type BDPMode = "dark" | "light";
 
-export default function BundleDetailPage() {
-  const params = useParams<{ slug: string; bundleId: string }>();
-  const slug = params.slug;
-  const bundleId = params.bundleId;
+export default function BundleDetailPage({ params: propParams }: { params?: { slug: string; bundleId: string } } = {}) {
+  const routeParams = useParams<{ slug: string; bundleId: string }>();
+  const slug = propParams?.slug || routeParams.slug;
+  const bundleId = propParams?.bundleId || routeParams.bundleId;
 
   const [mode, setMode] = useState<BDPMode>(() => {
     if (typeof window !== "undefined") {
