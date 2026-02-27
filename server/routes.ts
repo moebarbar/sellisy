@@ -2853,6 +2853,13 @@ export async function registerRoutes(
         return res.status(500).json({ message: "Custom domains are not configured yet. Please contact support." });
       }
 
+      const [existingStore] = await db.select({ id: stores.id, slug: stores.slug }).from(stores)
+        .where(and(eq(stores.customDomain, parsed.data.domain), isNull(stores.deletedAt)))
+        .limit(1);
+      if (existingStore && existingStore.id !== store.id) {
+        return res.status(409).json({ message: "This domain is already connected to another store." });
+      }
+
       const cfResult = await createCustomHostname(parsed.data.domain);
 
       const routeId = await createWorkerRoute(`${parsed.data.domain}/*`);
