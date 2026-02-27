@@ -94,6 +94,44 @@ export async function deleteCustomHostname(hostnameId: string): Promise<boolean>
   return data.success === true;
 }
 
+export async function createWorkerRoute(pattern: string, workerName: string = "sellisy-router"): Promise<string | null> {
+  try {
+    const zoneId = getZoneId();
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/workers/routes`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        pattern,
+        script: workerName,
+      }),
+    });
+    const data = await res.json() as any;
+    if (!data.success) {
+      console.error("Failed to create Worker route:", data.errors);
+      return null;
+    }
+    return data.result?.id || null;
+  } catch (err) {
+    console.error("Error creating Worker route:", err);
+    return null;
+  }
+}
+
+export async function deleteWorkerRoute(routeId: string): Promise<boolean> {
+  try {
+    const zoneId = getZoneId();
+    const res = await fetch(`${CF_API_BASE}/zones/${zoneId}/workers/routes/${routeId}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    const data = await res.json() as any;
+    return data.success === true;
+  } catch (err) {
+    console.error("Error deleting Worker route:", err);
+    return false;
+  }
+}
+
 export async function listCustomHostnames(hostname?: string): Promise<CustomHostnameResult[]> {
   const zoneId = getZoneId();
   const params = hostname ? `?hostname=${encodeURIComponent(hostname)}` : "";

@@ -6,7 +6,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, stores, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
-import { createCustomHostname, getCustomHostname, deleteCustomHostname, isCloudflareConfigured } from "./cloudflareClient";
+import { createCustomHostname, getCustomHostname, deleteCustomHostname, createWorkerRoute, deleteWorkerRoute, isCloudflareConfigured } from "./cloudflareClient";
 import { seedDatabase, seedMarketingIfNeeded, seedAdminUser } from "./seed";
 import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
@@ -2838,11 +2838,14 @@ export async function registerRoutes(
 
       const cfResult = await createCustomHostname(parsed.data.domain);
 
+      const routeId = await createWorkerRoute(`${parsed.data.domain}/*`);
+
       await db.update(stores).set({
         customDomain: parsed.data.domain,
         domainStatus: "pending_dns",
         domainSource: "cloudflare",
         cloudflareHostnameId: cfResult.id,
+        workerRouteId: routeId,
       }).where(eq(stores.id, store.id));
 
       res.json({
@@ -2915,12 +2918,21 @@ export async function registerRoutes(
         }
       }
 
+      if ((store as any).workerRouteId) {
+        try {
+          await deleteWorkerRoute((store as any).workerRouteId);
+        } catch (routeErr: any) {
+          console.error("Failed to delete Worker route:", routeErr.message);
+        }
+      }
+
       await db.update(stores).set({
         customDomain: null,
         domainStatus: null,
         domainSource: null,
         domainVerifiedAt: null,
         cloudflareHostnameId: null,
+        workerRouteId: null,
       }).where(eq(stores.id, store.id));
 
       res.json({ success: true });
