@@ -140,13 +140,26 @@ export async function registerRoutes(
       return next();
     }
     try {
-      const [store] = await db.select().from(stores).where(and(eq(stores.customDomain, hostname), eq(stores.domainStatus, "active"))).limit(1);
+      const [store] = await db.select().from(stores).where(eq(stores.customDomain, hostname)).limit(1);
       if (store) {
+        if (req.path.startsWith("/api/") || req.path.startsWith("/assets/") || req.path.startsWith("/objects/")) {
+          return next();
+        }
         if (req.path === "/" || req.path === "") {
           req.url = "/s/" + store.slug;
+        } else if (req.path.startsWith("/p/")) {
+          req.url = "/s/" + store.slug + req.url;
+        } else if (req.path.startsWith("/checkout")) {
+          req.url = "/s/" + store.slug + req.url;
+        } else if (req.path.startsWith("/portal")) {
+          req.url = "/s/" + store.slug + req.url;
+        } else if (req.path.startsWith("/kb")) {
+          req.url = "/s/" + store.slug + req.url;
         }
+        (req as any).customDomainStore = store;
       }
     } catch (err) {
+      console.error("[custom-domain] Error looking up domain:", hostname, err);
     }
     next();
   });
