@@ -1068,37 +1068,39 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
               ))}
 
               {images.length < 5 && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingImages}
-                  className="w-24 h-24 rounded-md border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-muted-foreground/60 transition-colors"
-                  data-testid="button-upload-images"
-                >
-                  {uploadingImages ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <ImagePlus className="h-5 w-5" />
-                  )}
-                  <span className="text-[10px]">{uploadingImages ? `${progress}%` : "Add"}</span>
-                </button>
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    id="library-image-upload"
+                    tabIndex={-1}
+                    onChange={(e) => {
+                      if (e.target.files?.length) {
+                        handleImageUpload(e.target.files);
+                        e.target.value = "";
+                      }
+                    }}
+                    data-testid="input-library-image-upload"
+                  />
+                  <label
+                    htmlFor="library-image-upload"
+                    className={`w-24 h-24 rounded-md border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-muted-foreground/60 transition-colors cursor-pointer ${uploadingImages ? "pointer-events-none opacity-50" : ""}`}
+                    data-testid="button-upload-images"
+                  >
+                    {uploadingImages ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <ImagePlus className="h-5 w-5" />
+                    )}
+                    <span className="text-[10px]">{uploadingImages ? `${progress}%` : "Add"}</span>
+                  </label>
+                </>
               )}
             </div>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files?.length) {
-                  handleImageUpload(e.target.files);
-                  e.target.value = "";
-                }
-              }}
-              data-testid="input-image-files"
-            />
           </div>
 
           <div className="pt-2 border-t">

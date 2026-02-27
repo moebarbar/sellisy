@@ -1095,12 +1095,20 @@ function ProductFormDialog({
               </div>
             )}
             <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => imageInputRef.current?.click()}
-                disabled={imageUploading}
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageUpload}
+                className="sr-only"
+                id="product-image-upload"
+                tabIndex={-1}
+                data-testid="input-image-upload"
+              />
+              <label
+                htmlFor="product-image-upload"
+                className={`inline-flex items-center justify-center rounded-md text-sm font-medium h-8 px-3 cursor-pointer border border-input bg-background hover:bg-accent hover:text-accent-foreground ${imageUploading ? "pointer-events-none opacity-50" : ""}`}
                 data-testid="button-add-images"
               >
                 {imageUploading ? (
@@ -1109,43 +1117,42 @@ function ProductFormDialog({
                   <Plus className="mr-2 h-3.5 w-3.5" />
                 )}
                 {imageUploading ? "Uploading..." : "Add Images"}
-              </Button>
+              </label>
               <span className="text-xs text-muted-foreground">
                 {images.length} image{images.length !== 1 ? "s" : ""} added
               </span>
             </div>
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageUpload}
-              className="hidden"
-              data-testid="input-image-upload"
-            />
           </div>
 
           <div className="space-y-3">
-            <Label>Product File</Label>
+            <Label>Deliverable File</Label>
+            <input
+              ref={deliverableFileRef}
+              type="file"
+              className="sr-only"
+              id="deliverable-file-input"
+              onChange={handleFileUpload}
+              disabled={fileUploading}
+              tabIndex={-1}
+              data-testid="input-file-upload"
+            />
             <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={fileDelivery === "upload" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  if (fileDelivery === "upload") {
-                    deliverableFileRef.current?.click();
-                  } else {
+              <label
+                htmlFor={fileDelivery === "upload" ? "deliverable-file-input" : undefined}
+                onClick={(e) => {
+                  if (fileDelivery !== "upload") {
+                    e.preventDefault();
                     setFileDelivery("upload");
                     setFileUrl("");
-                    setTimeout(() => deliverableFileRef.current?.click(), 100);
+                    setTimeout(() => deliverableFileRef.current?.click(), 50);
                   }
                 }}
+                className={`inline-flex items-center justify-center rounded-md text-sm font-medium h-8 px-3 cursor-pointer ${fileDelivery === "upload" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-input bg-background hover:bg-accent hover:text-accent-foreground"}`}
                 data-testid="button-file-upload-mode"
               >
                 <Upload className="mr-2 h-3.5 w-3.5" />
                 Upload File
-              </Button>
+              </label>
               <Button
                 type="button"
                 variant={fileDelivery === "url" ? "default" : "outline"}
@@ -1160,14 +1167,6 @@ function ProductFormDialog({
 
             {fileDelivery === "upload" ? (
               <div className="space-y-1">
-                <input
-                  ref={deliverableFileRef}
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  disabled={fileUploading}
-                  data-testid="input-file-upload"
-                />
                 {fileUploading && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -1181,7 +1180,7 @@ function ProductFormDialog({
                   </div>
                 )}
                 {!fileUploading && !fileUrl && (
-                  <p className="text-xs text-muted-foreground">Click "Upload File" above to select a file</p>
+                  <p className="text-xs text-muted-foreground">The file customers will download after purchase</p>
                 )}
               </div>
             ) : (
