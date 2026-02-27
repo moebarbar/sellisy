@@ -135,7 +135,7 @@ export async function registerRoutes(
 
   app.use(async (req, res, next) => {
     const hostname = req.hostname;
-    if (!hostname || hostname === "localhost" || hostname.includes("replit") || /^\d+\./.test(hostname)) {
+    if (!hostname || hostname === "localhost" || hostname.includes("replit") || hostname.includes("railway.app") || hostname.includes("sellisy.com") || /^\d+\./.test(hostname)) {
       return next();
     }
     try {
