@@ -5,31 +5,39 @@ const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 1000;
 
 async function getCredentials() {
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY
-    ? 'repl ' + process.env.REPL_IDENTITY
-    : process.env.WEB_REPL_RENEWAL
-      ? 'depl ' + process.env.WEB_REPL_RENEWAL
-      : null;
+  try {
+    const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+    const xReplitToken = process.env.REPL_IDENTITY
+      ? 'repl ' + process.env.REPL_IDENTITY
+      : process.env.WEB_REPL_RENEWAL
+        ? 'depl ' + process.env.WEB_REPL_RENEWAL
+        : null;
 
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
-  }
+    if (xReplitToken && hostname) {
+      const connectionSettings = await fetch(
+        'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid',
+        {
+          headers: {
+            'Accept': 'application/json',
+            'X_REPLIT_TOKEN': xReplitToken
+          }
+        }
+      ).then(res => res.json()).then(data => data.items?.[0]);
 
-  const connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
+      if (connectionSettings?.settings?.api_key && connectionSettings?.settings?.from_email) {
+        return { apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email };
       }
     }
-  ).then(res => res.json()).then(data => data.items?.[0]);
+  } catch {}
 
-  if (!connectionSettings || (!connectionSettings.settings.api_key || !connectionSettings.settings.from_email)) {
-    throw new Error('SendGrid not connected');
+  const apiKey = process.env.SENDGRID_API_KEY;
+  const email = process.env.SENDGRID_FROM_EMAIL;
+
+  if (apiKey && email) {
+    return { apiKey, email };
   }
-  return { apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email };
+
+  throw new Error('SendGrid credentials not available from connector or environment variables (SENDGRID_API_KEY, SENDGRID_FROM_EMAIL)');
 }
 
 export async function getUncachableSendGridClient() {

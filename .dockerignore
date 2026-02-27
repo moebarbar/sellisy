@@ -1,14 +1,11 @@
 node_modules
 dist
-.DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
-.env
-.env.*
+.git
+.gitignore
 .replit
 replit.nix
 .local
 .cache
 .config
 attached_assets
+*.md

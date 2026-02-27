@@ -7,6 +7,19 @@ import { coupons } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
 
 export class WebhookHandlers {
+  static getBaseUrl(): string {
+    if (process.env.APP_URL) {
+      return process.env.APP_URL.replace(/\/$/, '');
+    }
+    if (process.env.REPLIT_DEV_DOMAIN) {
+      return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+    }
+    if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+      return `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+    }
+    return 'https://sellisy.com';
+  }
+
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
     if (!Buffer.isBuffer(payload)) {
       throw new Error(
@@ -60,12 +73,7 @@ export class WebhookHandlers {
     if (order.status === 'COMPLETED') {
       console.log('Webhook: order already completed:', orderId);
       if (!order.emailSent) {
-        const baseUrl = process.env.REPLIT_DEV_DOMAIN
-          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-          : process.env.REPL_SLUG
-            ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-            : 'https://sellisy.com';
-        await sendOrderCompletionEmails(orderId, baseUrl);
+        await sendOrderCompletionEmails(orderId, WebhookHandlers.getBaseUrl());
       }
       return;
     }
@@ -93,13 +101,7 @@ export class WebhookHandlers {
       await db.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, couponId));
     }
 
-    const baseUrl = process.env.REPLIT_DEV_DOMAIN
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : process.env.REPL_SLUG
-        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-        : 'https://sellisy.com';
-
-    await sendOrderCompletionEmails(orderId, baseUrl);
+    await sendOrderCompletionEmails(orderId, WebhookHandlers.getBaseUrl());
 
     console.log('Webhook: order completed, emails triggered:', orderId);
     } catch (error: any) {
