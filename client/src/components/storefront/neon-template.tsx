@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Zap, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, SlidersHorizontal, ArrowUpDown, ChevronRight, ExternalLink } from "lucide-react";
+import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, SlidersHorizontal, ArrowUpDown, ChevronRight, ExternalLink } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import { ProtectedImage } from "@/components/protected-image";
 import { StorefrontProductPlaceholder } from "@/components/product-placeholder";
