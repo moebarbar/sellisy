@@ -1069,25 +1069,8 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
 
               {images.length < 5 && (
                 <>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="sr-only"
-                    id="library-image-upload"
-                    tabIndex={-1}
-                    onChange={(e) => {
-                      if (e.target.files?.length) {
-                        handleImageUpload(e.target.files);
-                        e.target.value = "";
-                      }
-                    }}
-                    data-testid="input-library-image-upload"
-                  />
                   <label
-                    htmlFor="library-image-upload"
-                    className={`w-24 h-24 rounded-md border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-muted-foreground/60 transition-colors cursor-pointer ${uploadingImages ? "pointer-events-none opacity-50" : ""}`}
+                    className={`w-24 h-24 rounded-md border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-muted-foreground/60 transition-colors cursor-pointer relative overflow-hidden ${uploadingImages ? "pointer-events-none opacity-50" : ""}`}
                     data-testid="button-upload-images"
                   >
                     {uploadingImages ? (
@@ -1096,6 +1079,21 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
                       <ImagePlus className="h-5 w-5" />
                     )}
                     <span className="text-[10px]">{uploadingImages ? `${progress}%` : "Add"}</span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        if (e.target.files?.length) {
+                          handleImageUpload(e.target.files);
+                          e.target.value = "";
+                        }
+                      }}
+                      disabled={uploadingImages}
+                      data-testid="input-library-image-upload"
+                    />
                   </label>
                 </>
               )}
