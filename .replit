@@ -47,3 +47,5 @@ integrations = ["javascript_log_in_with_replit:2.0.0", "javascript_object_storag
 [userenv.shared]
 ADMIN_EMAIL = "admin@sellisy.com"
 ADMIN_PASSWORD = "admin123456"
+R2_BUCKET_NAME = "sellisy-storage"
+R2_PUBLIC_URL = "https://cdn.sellisy.com"

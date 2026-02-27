@@ -35,7 +35,7 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
 *   **Marketing Tools**: A 'Marketing Playbook' dashboard section offering actionable strategies.
 *   **Analytics**: A comprehensive per-store analytics dashboard covering revenue, products, customers, coupons, and traffic, powered by real-time data from `store_events` tracking.
 *   **Dashboard**: A dedicated, feature-rich dashboard with store switching, unified navigation, onboarding checklists, rotating marketing prompts, inspirational quotes, and consistent layout. Product cards maintain a platform-standard 1:1 aspect ratio.
-*   **File Storage**: Utilizes Replit Object Storage for product images, deliverable files, logos, and banners via presigned URLs.
+*   **File Storage**: Dual-backend storage system — uses Cloudflare R2 (via S3-compatible API) as primary, with Replit Object Storage as fallback. Product images, deliverable files, logos, and banners served via `cdn.sellisy.com`. Upload routes auto-detect available backend.
 *   **Embed Widgets**: Store owners can generate embeddable iframes for products or bundles on external websites, with live preview and theme toggles.
 *   **Custom Domains**: Integration with Cloudflare for SaaS to allow store owners to connect custom domains with automatic SSL provisioning and host-based routing.
 *   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) for storefronts and product pages, configurable by store owners. Server-side OG tag injection (`server/og-tags.ts`) serves pre-rendered meta tags to social media crawlers for proper link previews on Facebook, Twitter, LinkedIn, etc.
@@ -47,7 +47,8 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
     *   **Protective Guards**: Defense-in-depth ownership verification in `storage.ts` (`deleteProduct`/`deleteStore` accept optional `callerOwnerId`). Promote route has a post-update guard preventing `ownerId` from being nulled. `updateProduct` uses TypeScript `Pick` to restrict updatable fields (excludes `ownerId`). Bulk operations verify product existence before modifying.
 
 ## External Dependencies
-*   **Replit Object Storage**: For asset and file storage.
+*   **Cloudflare R2**: Primary file storage (S3-compatible, served via `cdn.sellisy.com`).
+*   **Replit Object Storage**: Fallback file storage (Replit environment only).
 *   **PostgreSQL**: Primary database.
 *   **Stripe**: Payment processing.
 *   **PayPal**: Payment processing.
