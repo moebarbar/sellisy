@@ -134,7 +134,8 @@ export async function registerRoutes(
   app.use(cookieParser());
 
   app.use(async (req, res, next) => {
-    const hostname = req.hostname;
+    const originalHost = (req.headers["x-custom-host"] as string) || (req.headers["x-forwarded-host"] as string) || req.hostname;
+    const hostname = originalHost?.split(":")[0];
     if (!hostname || hostname === "localhost" || hostname.includes("replit") || hostname.includes("railway.app") || hostname.includes("sellisy.com") || /^\d+\./.test(hostname)) {
       return next();
     }
@@ -2844,14 +2845,15 @@ export async function registerRoutes(
 
       const cfResult = await getCustomHostname(store.cloudflareHostnameId);
       const isActive = cfResult.status === "active" && cfResult.sslStatus === "active";
-      const isFailed = cfResult.verificationErrors && cfResult.verificationErrors.length > 0;
 
       let newStatus = store.domainStatus;
       if (isActive) {
         newStatus = "active";
-      } else if (isFailed) {
+      } else if (cfResult.status === "pending" || cfResult.status === "active") {
+        newStatus = "verifying";
+      } else if (cfResult.status === "moved" || cfResult.status === "deleted") {
         newStatus = "failed";
-      } else if (cfResult.status === "pending") {
+      } else {
         newStatus = "pending_dns";
       }
 
