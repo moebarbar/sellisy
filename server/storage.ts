@@ -152,6 +152,7 @@ export interface IStorage {
   deleteBlogPost(id: string): Promise<void>;
 
   getBlogBlocksByPost(postId: string): Promise<BlogBlock[]>;
+  getBlogBlockById(id: string): Promise<BlogBlock | undefined>;
   createBlogBlock(data: InsertBlogBlock): Promise<BlogBlock>;
   updateBlogBlock(id: string, data: Partial<Pick<BlogBlock, "type" | "content" | "sortOrder">>): Promise<BlogBlock | undefined>;
   deleteBlogBlock(id: string): Promise<void>;
@@ -770,6 +771,11 @@ export class DatabaseStorage implements IStorage {
 
   async getBlogBlocksByPost(postId: string) {
     return db.select().from(blogBlocks).where(eq(blogBlocks.postId, postId)).orderBy(blogBlocks.sortOrder);
+  }
+
+  async getBlogBlockById(id: string) {
+    const [block] = await db.select().from(blogBlocks).where(eq(blogBlocks.id, id));
+    return block;
   }
 
   async createBlogBlock(data: InsertBlogBlock) {

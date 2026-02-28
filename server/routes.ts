@@ -177,8 +177,14 @@ export async function registerRoutes(
   await seedMarketingIfNeeded();
   await seedAdminUser();
 
-  app.get("/api/health", (_req, res) => {
-    res.json({ ok: true });
+  app.get("/api/health", async (_req, res) => {
+    try {
+      await db.execute(sql`SELECT 1`);
+      res.json({ ok: true, db: "connected" });
+    } catch (err) {
+      console.error("[health] Database connectivity check failed:", err);
+      res.status(503).json({ ok: false, db: "disconnected" });
+    }
   });
 
   app.get("/api/debug-headers", async (req, res) => {
@@ -1694,13 +1700,25 @@ export async function registerRoutes(
   });
 
   app.patch("/api/blog-blocks/:id", isAuthenticated, async (req, res) => {
-    const updated = await storage.updateBlogBlock(req.params.id as string, req.body);
+    const block = await storage.getBlogBlockById(req.params.id as string);
+    if (!block) return res.status(404).json({ message: "Not found" });
+    const post = await storage.getBlogPostById(block.postId);
+    if (!post) return res.status(404).json({ message: "Not found" });
+    const store = await storage.getStoreById(post.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const updated = await storage.updateBlogBlock(block.id, req.body);
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
   });
 
   app.delete("/api/blog-blocks/:id", isAuthenticated, async (req, res) => {
-    await storage.deleteBlogBlock(req.params.id as string);
+    const block = await storage.getBlogBlockById(req.params.id as string);
+    if (!block) return res.status(404).json({ message: "Not found" });
+    const post = await storage.getBlogPostById(block.postId);
+    if (!post) return res.status(404).json({ message: "Not found" });
+    const store = await storage.getStoreById(post.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    await storage.deleteBlogBlock(block.id);
     res.json({ success: true });
   });
 

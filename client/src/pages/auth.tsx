@@ -131,9 +131,9 @@ export default function AuthPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === "signup" ? "At least 6 characters" : "Enter your password"}
+                  placeholder={mode === "signup" ? "At least 8 characters" : "Enter your password"}
                   required
-                  minLength={mode === "signup" ? 6 : undefined}
+                  minLength={mode === "signup" ? 8 : undefined}
                   className="pr-10"
                   data-testid="input-password"
                 />

@@ -37,7 +37,7 @@ export function getSession() {
 
 const registerSchema = z.object({
   email: z.string().email().transform(e => e.toLowerCase().trim()),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
 });

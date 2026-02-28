@@ -5,6 +5,7 @@ import { createServer } from "http";
 import { WebhookHandlers } from './webhookHandlers';
 import { runStartupCheck } from "./integrity";
 import { injectOgTags } from "./og-tags";
+import rateLimit from "express-rate-limit";
 
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err);
@@ -26,6 +27,11 @@ app.post(
   '/api/stripe/webhook',
   express.raw({ type: 'application/json' }),
   async (req, res) => {
+    if (process.env.NODE_ENV === "production" && !process.env.STRIPE_WEBHOOK_SECRET) {
+      console.error("Webhook rejected: STRIPE_WEBHOOK_SECRET is not set in production");
+      return res.status(500).json({ error: "Webhook configuration error" });
+    }
+
     const signature = req.headers['stripe-signature'];
     if (!signature) {
       return res.status(400).json({ error: 'Missing stripe-signature' });
@@ -45,6 +51,76 @@ app.post(
     }
   }
 );
+
+if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  console.warn("[SECURITY WARNING] STRIPE_WEBHOOK_SECRET is not set — Stripe webhook signature verification is disabled. Set this in production to prevent forged webhook events.");
+}
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: "Too many login attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: "Too many registration attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const checkoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { message: "Too many checkout attempts. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const downloadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { message: "Too many download attempts. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/api/auth/login", loginLimiter);
+app.use("/api/auth/register", registerLimiter);
+app.use("/api/checkout", checkoutLimiter);
+app.use("/api/download", downloadLimiter);
+
+const allowedOrigins = [
+  "https://sellisy.com",
+  "https://www.sellisy.com",
+  "https://customers.sellisy.com",
+  process.env.APP_URL,
+  process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : undefined,
+].filter(Boolean) as string[];
+
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/embed/")) {
+    return next();
+  }
+
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.some(allowed => origin === allowed || origin.endsWith(".sellisy.com"))) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Vary", "Origin");
+  }
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 
 app.use(
   express.json({

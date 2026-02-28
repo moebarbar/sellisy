@@ -13,7 +13,7 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
 
 **Core Features & Design Patterns:**
 
-*   **Authentication**: Local email/password authentication with `bcrypt` hashing and session management. Admin accounts are seeded via environment variables.
+*   **Authentication**: Local email/password authentication with `bcrypt` hashing and session management. Admin accounts are seeded via environment variables. Password minimum 8 characters enforced on signup.
 *   **Multi-tenancy**: Strict data isolation is enforced for all operations through `ownerId` scoping.
 *   **Frontend**: Built with React, utilizing `shadcn/ui` components and `Tailwind CSS` for a premium, customizable UI. `TanStack Query` manages server state.
 *   **Storefronts**: Features a unified base template system that allows for rapid creation of visually distinct storefronts (Neon, Silk, Aurora, Ember, Frost, Midnight) by configuring visual tokens. Storefronts include features like announcement bars, social links, rich footers, category navigation, search/sort, and scroll-reveal animations, each with a branded customer portal.
@@ -47,6 +47,12 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
     *   **Admin Endpoints**: `GET /api/admin/health-check`, `POST /api/admin/repair`, `GET /api/admin/deleted-products`, `GET /api/admin/deleted-stores`, `POST /api/admin/restore-product/:id`, `POST /api/admin/restore-store/:id`.
     *   **Protective Guards**: Defense-in-depth ownership verification in `storage.ts` (`deleteProduct`/`deleteStore` accept optional `callerOwnerId`). Promote route has a post-update guard preventing `ownerId` from being nulled. `updateProduct` uses TypeScript `Pick` to restrict updatable fields (excludes `ownerId`). Bulk operations verify product existence before modifying.
     *   **Deployment Safety**: `start.sh` only runs `drizzle-kit push` when `RUN_MIGRATIONS=true` is set. No `--force` flag. Normal deploys skip schema push entirely, preventing accidental data loss.
+*   **Security Hardening**:
+    *   **Rate Limiting**: `express-rate-limit` on `/api/auth/login` (10/15min), `/api/auth/register` (5/15min), `/api/checkout` (20/15min), `/api/download` (30/15min). Returns 429 with clear messages.
+    *   **Health Check**: `/api/health` tests actual DB connectivity (`SELECT 1`), returns 503 if unreachable.
+    *   **IDOR Protection**: Blog block PATCH/DELETE routes verify ownership through block → post → store → ownerId chain. KB blocks already had this protection.
+    *   **CORS**: Global CORS middleware allows `*.sellisy.com` and dev domains with credentials. Embed routes retain permissive `*` access.
+    *   **Webhook Warning**: Logs `[SECURITY WARNING]` on startup if `STRIPE_WEBHOOK_SECRET` is not set.
 
 ## External Dependencies
 *   **Cloudflare R2**: Primary file storage (S3-compatible, served via `cdn.sellisy.com`).
