@@ -1932,20 +1932,149 @@ function BlogBlockEditor({
     return { type: "text", content: trimmed };
   }, []);
 
+  const getInlineHtml = useCallback((el: Element): string => {
+    let result = "";
+    for (const node of Array.from(el.childNodes)) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        result += node.textContent || "";
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const child = node as Element;
+        const tag = child.tagName.toLowerCase();
+        const inner = getInlineHtml(child);
+        if (tag === "strong" || tag === "b") result += `<b>${inner}</b>`;
+        else if (tag === "em" || tag === "i") result += `<i>${inner}</i>`;
+        else if (tag === "u") result += `<u>${inner}</u>`;
+        else if (tag === "s" || tag === "strike" || tag === "del") result += `<s>${inner}</s>`;
+        else if (tag === "code") result += `<code>${inner}</code>`;
+        else if (tag === "a") {
+          const href = child.getAttribute("href") || "";
+          result += `<a href="${href}" class="text-primary underline" target="_blank" rel="noopener noreferrer">${inner}</a>`;
+        } else if (tag === "br") result += "\n";
+        else if (tag === "span") {
+          const style = (child as HTMLElement).style;
+          const fontWeight = style.fontWeight;
+          const fontStyle = style.fontStyle;
+          let wrapped = inner;
+          if (fontWeight === "bold" || fontWeight === "700" || parseInt(fontWeight) >= 700) wrapped = `<b>${wrapped}</b>`;
+          if (fontStyle === "italic") wrapped = `<i>${wrapped}</i>`;
+          result += wrapped;
+        } else result += inner;
+      }
+    }
+    return result;
+  }, []);
+
+  const parseHtmlToBlocks = useCallback((html: string): { type: BlockType; content: string }[] => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const results: { type: BlockType; content: string }[] = [];
+
+    const extractLiText = (li: Element): string => {
+      const clone = li.cloneNode(true) as Element;
+      clone.querySelectorAll("ul, ol").forEach(n => n.remove());
+      return getInlineHtml(clone).trim();
+    };
+
+    const processListItems = (node: Element, listType: BlockType) => {
+      for (const li of Array.from(node.children)) {
+        if (li.tagName.toLowerCase() !== "li") continue;
+        const nested = li.querySelector("ul, ol");
+        const content = extractLiText(li);
+        if (content) results.push({ type: listType, content });
+        if (nested) processNode(nested);
+      }
+    };
+
+    const processNode = (node: Element) => {
+      const tag = node.tagName.toLowerCase();
+
+      if (tag === "h1") {
+        const content = getInlineHtml(node).trim();
+        if (content) results.push({ type: "heading1", content });
+      } else if (tag === "h2") {
+        const content = getInlineHtml(node).trim();
+        if (content) results.push({ type: "heading2", content });
+      } else if (tag === "h3" || tag === "h4" || tag === "h5" || tag === "h6") {
+        const content = getInlineHtml(node).trim();
+        if (content) results.push({ type: "heading3", content });
+      } else if (tag === "ul") {
+        processListItems(node, "bullet_list");
+      } else if (tag === "ol") {
+        processListItems(node, "numbered_list");
+      } else if (tag === "blockquote") {
+        for (const child of Array.from(node.children)) {
+          if (child.tagName.toLowerCase() === "p") {
+            const content = getInlineHtml(child).trim();
+            if (content) results.push({ type: "quote", content });
+          } else {
+            const content = getInlineHtml(node).trim();
+            if (content) results.push({ type: "quote", content });
+            break;
+          }
+        }
+        if (node.children.length === 0) {
+          const content = getInlineHtml(node).trim();
+          if (content) results.push({ type: "quote", content });
+        }
+      } else if (tag === "pre") {
+        const code = node.querySelector("code");
+        const content = (code || node).textContent?.trim() || "";
+        if (content) results.push({ type: "code", content });
+      } else if (tag === "hr") {
+        results.push({ type: "divider", content: "" });
+      } else if (tag === "p" || tag === "div") {
+        const content = getInlineHtml(node).trim();
+        if (content) results.push({ type: "text", content });
+      } else if (tag === "table") {
+        for (const row of Array.from(node.querySelectorAll("tr"))) {
+          const cells = Array.from(row.querySelectorAll("td, th")).map(c => getInlineHtml(c).trim()).filter(Boolean);
+          if (cells.length) results.push({ type: "text", content: cells.join(" | ") });
+        }
+      } else {
+        for (const child of Array.from(node.children)) {
+          processNode(child);
+        }
+      }
+    };
+
+    for (const child of Array.from(doc.body.children)) {
+      processNode(child);
+    }
+
+    if (results.length === 0) {
+      const inlineContent = getInlineHtml(doc.body).trim();
+      if (inlineContent) {
+        results.push({ type: "text", content: inlineContent });
+      }
+    }
+
+    return results;
+  }, [getInlineHtml]);
+
   const handleSmartPaste = useCallback((e: React.ClipboardEvent) => {
     const target = e.target as HTMLElement;
     const blockEl = target.closest("[data-block-id]") as HTMLElement | null;
     if (!blockEl) return;
 
+    const html = e.clipboardData.getData("text/html");
     const text = e.clipboardData.getData("text/plain");
-    if (!text) return;
-    const lines = text.split(/\n/);
-    if (lines.length <= 1) return;
 
-    const parsed: { type: BlockType; content: string }[] = [];
-    for (const line of lines) {
-      if (line.trim() === "") continue;
-      parsed.push(parseLineType(line));
+    let parsed: { type: BlockType; content: string }[] = [];
+
+    if (html) {
+      parsed = parseHtmlToBlocks(html);
+    }
+
+    if (parsed.length <= 1 && text) {
+      const lines = text.split(/\n/);
+      if (lines.length > 1) {
+        const textParsed: { type: BlockType; content: string }[] = [];
+        for (const line of lines) {
+          if (line.trim() === "") continue;
+          textParsed.push(parseLineType(line));
+        }
+        if (textParsed.length > parsed.length) parsed = textParsed;
+      }
     }
 
     if (parsed.length <= 1) return;
@@ -1960,7 +2089,7 @@ function BlogBlockEditor({
     bulkCreateMutation.mutate({
       blocks: parsed.map((b, i) => ({ type: b.type, content: b.content, sortOrder: insertAfter + 1 + i })),
     });
-  }, [blocks, parseLineType]);
+  }, [blocks, parseLineType, parseHtmlToBlocks]);
 
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
