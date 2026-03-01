@@ -369,6 +369,8 @@ export const knowledgeBases = pgTable("knowledge_bases", {
   isPublished: boolean("is_published").notNull().default(false),
   fontFamily: text("font_family"),
   productId: varchar("product_id", { length: 64 }),
+  authorName: text("author_name"),
+  authorImageUrl: text("author_image_url"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -445,6 +447,8 @@ export const blogPosts = pgTable("blog_posts", {
   readingTimeMinutes: integer("reading_time_minutes").notNull().default(1),
   isPublished: boolean("is_published").notNull().default(false),
   publishedAt: timestamp("published_at"),
+  authorName: text("author_name"),
+  authorImageUrl: text("author_image_url"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

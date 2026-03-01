@@ -121,7 +121,7 @@ export interface IStorage {
   getKnowledgeBasesByOwner(ownerId: string): Promise<KnowledgeBase[]>;
   getKnowledgeBaseById(id: string): Promise<KnowledgeBase | undefined>;
   createKnowledgeBase(data: InsertKnowledgeBase): Promise<KnowledgeBase>;
-  updateKnowledgeBase(id: string, data: Partial<Pick<KnowledgeBase, "title" | "description" | "coverImageUrl" | "priceCents" | "isPublished" | "productId">>): Promise<KnowledgeBase | undefined>;
+  updateKnowledgeBase(id: string, data: Partial<Pick<KnowledgeBase, "title" | "description" | "coverImageUrl" | "priceCents" | "isPublished" | "productId" | "authorName" | "authorImageUrl">>): Promise<KnowledgeBase | undefined>;
   deleteKnowledgeBase(id: string): Promise<void>;
 
   getKbPagesByKnowledgeBase(knowledgeBaseId: string): Promise<KbPage[]>;
@@ -146,7 +146,7 @@ export interface IStorage {
   getBlogPostById(id: string): Promise<BlogPost | undefined>;
   getBlogPostBySlug(storeId: string, slug: string): Promise<BlogPost | undefined>;
   createBlogPost(data: InsertBlogPost): Promise<BlogPost>;
-  updateBlogPost(id: string, data: Partial<Pick<BlogPost, "title" | "slug" | "excerpt" | "coverImageUrl" | "fontFamily" | "category" | "readingTimeMinutes" | "isPublished" | "publishedAt">>): Promise<BlogPost | undefined>;
+  updateBlogPost(id: string, data: Partial<Pick<BlogPost, "title" | "slug" | "excerpt" | "coverImageUrl" | "fontFamily" | "category" | "readingTimeMinutes" | "isPublished" | "publishedAt" | "authorName" | "authorImageUrl">>): Promise<BlogPost | undefined>;
   getRelatedBlogPosts(storeId: string, postId: string, category: string, limit?: number): Promise<BlogPost[]>;
   getBlogCategories(storeId: string): Promise<string[]>;
   deleteBlogPost(id: string): Promise<void>;
@@ -618,7 +618,7 @@ export class DatabaseStorage implements IStorage {
     return kb;
   }
 
-  async updateKnowledgeBase(id: string, data: Partial<Pick<KnowledgeBase, "title" | "description" | "coverImageUrl" | "priceCents" | "isPublished" | "productId">>) {
+  async updateKnowledgeBase(id: string, data: Partial<Pick<KnowledgeBase, "title" | "description" | "coverImageUrl" | "priceCents" | "isPublished" | "productId" | "authorName" | "authorImageUrl">>) {
     const [kb] = await db.update(knowledgeBases).set(data).where(eq(knowledgeBases.id, id)).returning();
     return kb;
   }
@@ -741,7 +741,7 @@ export class DatabaseStorage implements IStorage {
     return post;
   }
 
-  async updateBlogPost(id: string, data: Partial<Pick<BlogPost, "title" | "slug" | "excerpt" | "coverImageUrl" | "fontFamily" | "category" | "readingTimeMinutes" | "isPublished" | "publishedAt">>) {
+  async updateBlogPost(id: string, data: Partial<Pick<BlogPost, "title" | "slug" | "excerpt" | "coverImageUrl" | "fontFamily" | "category" | "readingTimeMinutes" | "isPublished" | "publishedAt" | "authorName" | "authorImageUrl">>) {
     const [post] = await db.update(blogPosts).set(data).where(eq(blogPosts.id, id)).returning();
     return post;
   }

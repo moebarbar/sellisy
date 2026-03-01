@@ -2557,6 +2557,8 @@ function KbSettingsPanel({
   const [coverImageUrl, setCoverImageUrl] = useState(kb.coverImageUrl || "");
   const [priceCents, setPriceCents] = useState(kb.priceCents || 0);
   const [fontFamily, setFontFamily] = useState(kb.fontFamily || "");
+  const [authorName, setAuthorName] = useState(kb.authorName || "");
+  const [authorImageUrl, setAuthorImageUrl] = useState(kb.authorImageUrl || "");
   const [copied, setCopied] = useState(false);
   const coverFileRef = useRef<HTMLInputElement>(null);
   const { uploadFile: uploadCoverFile, isUploading: isCoverUploading } = useUpload({
@@ -2572,6 +2574,8 @@ function KbSettingsPanel({
     setCoverImageUrl(kb.coverImageUrl || "");
     setPriceCents(kb.priceCents || 0);
     setFontFamily(kb.fontFamily || "");
+    setAuthorName(kb.authorName || "");
+    setAuthorImageUrl(kb.authorImageUrl || "");
   }, [kb]);
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2623,7 +2627,7 @@ function KbSettingsPanel({
   });
 
   const saveSettings = () => {
-    updateMutation.mutate({ title: title.trim() || kb.title, description, coverImageUrl: coverImageUrl || null, priceCents, fontFamily: fontFamily || null });
+    updateMutation.mutate({ title: title.trim() || kb.title, description, coverImageUrl: coverImageUrl || null, priceCents, fontFamily: fontFamily || null, authorName: authorName || null, authorImageUrl: authorImageUrl || null });
     toast({ title: "Saved", description: "Settings updated." });
     setShowSettings(false);
   };
@@ -2701,6 +2705,41 @@ function KbSettingsPanel({
                 rows={3}
                 data-testid="input-kb-description"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Author Name <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                placeholder="e.g. John Smith"
+                data-testid="input-kb-author-name"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Author Photo <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <div className="flex items-center gap-3">
+                {authorImageUrl ? (
+                  <div className="relative group/author">
+                    <img src={authorImageUrl} alt="Author" className="w-10 h-10 rounded-full object-cover" data-testid="img-kb-author-preview" />
+                    <button
+                      type="button"
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/author:opacity-100 transition-opacity"
+                      onClick={() => setAuthorImageUrl("")}
+                      data-testid="button-kb-author-remove"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ) : null}
+                <Input
+                  value={authorImageUrl}
+                  onChange={(e) => setAuthorImageUrl(e.target.value)}
+                  placeholder="https://example.com/photo.jpg"
+                  className="flex-1"
+                  data-testid="input-kb-author-image"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Paste a URL for the author's profile photo.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Cover Image</Label>

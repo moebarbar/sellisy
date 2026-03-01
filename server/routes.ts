@@ -1296,6 +1296,8 @@ export async function registerRoutes(
       isPublished: z.boolean().optional(),
       fontFamily: z.string().nullable().optional(),
       productId: z.string().nullable().optional(),
+      authorName: z.string().nullable().optional(),
+      authorImageUrl: z.string().nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -1645,7 +1647,7 @@ export async function registerRoutes(
     if (!post) return res.status(404).json({ message: "Not found" });
     const store = await storage.getStoreById(post.storeId);
     if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
-    const allowed = ["title", "slug", "excerpt", "coverImageUrl", "fontFamily", "category", "readingTimeMinutes", "isPublished", "publishedAt"] as const;
+    const allowed = ["title", "slug", "excerpt", "coverImageUrl", "fontFamily", "category", "readingTimeMinutes", "isPublished", "publishedAt", "authorName", "authorImageUrl"] as const;
     const data: any = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) data[key] = req.body[key];
