@@ -2094,6 +2094,98 @@ function BlogBlockEditor({
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
+  const [selectedBlockRange, setSelectedBlockRange] = useState<[number, number] | null>(null);
+  const crossBlockDragRef = useRef<{ startIdx: number; active: boolean } | null>(null);
+
+  const getBlockIndexFromPoint = useCallback((x: number, y: number): number | null => {
+    const container = editorContainerRef.current;
+    if (!container) return null;
+    const blockEls = container.querySelectorAll("[data-block-id]");
+    for (let i = 0; i < blockEls.length; i++) {
+      const rect = blockEls[i].getBoundingClientRect();
+      if (y >= rect.top && y <= rect.bottom) return i;
+    }
+    if (blockEls.length > 0) {
+      const firstRect = blockEls[0].getBoundingClientRect();
+      if (y < firstRect.top) return 0;
+      const lastRect = blockEls[blockEls.length - 1].getBoundingClientRect();
+      if (y > lastRect.bottom) return blockEls.length - 1;
+    }
+    return null;
+  }, []);
+
+  const handleCrossBlockMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("[draggable], button, [role='menu'], [role='menuitem'], .dropdown-menu, input, select, textarea")) return;
+    const idx = getBlockIndexFromPoint(e.clientX, e.clientY);
+    if (idx !== null) {
+      crossBlockDragRef.current = { startIdx: idx, active: false };
+    }
+    if (selectedBlockRange) {
+      setSelectedBlockRange(null);
+    }
+  }, [getBlockIndexFromPoint, selectedBlockRange]);
+
+  const handleCrossBlockMouseMove = useCallback((e: React.MouseEvent) => {
+    const drag = crossBlockDragRef.current;
+    if (!drag) return;
+    if (e.buttons !== 1) {
+      crossBlockDragRef.current = null;
+      return;
+    }
+    const currentIdx = getBlockIndexFromPoint(e.clientX, e.clientY);
+    if (currentIdx === null) return;
+    if (currentIdx !== drag.startIdx) {
+      if (!drag.active) {
+        drag.active = true;
+        window.getSelection()?.removeAllRanges();
+      }
+      const minIdx = Math.min(drag.startIdx, currentIdx);
+      const maxIdx = Math.max(drag.startIdx, currentIdx);
+      setSelectedBlockRange([minIdx, maxIdx]);
+      e.preventDefault();
+    }
+  }, [getBlockIndexFromPoint]);
+
+  const handleCrossBlockMouseUp = useCallback(() => {
+    const drag = crossBlockDragRef.current;
+    crossBlockDragRef.current = null;
+    if (!drag?.active) return;
+  }, []);
+
+  useEffect(() => {
+    if (!selectedBlockRange) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        e.preventDefault();
+        const [minIdx, maxIdx] = selectedBlockRange;
+        const selectedBlocks = blocks.slice(minIdx, maxIdx + 1);
+        const textParts = selectedBlocks.map((b) => {
+          const tmp = document.createElement("div");
+          tmp.innerHTML = b.content || "";
+          return tmp.textContent || "";
+        });
+        navigator.clipboard.writeText(textParts.join("\n"));
+        toast({ title: "Copied", description: `${selectedBlocks.length} blocks copied to clipboard.` });
+      }
+      if (e.key === "Escape") {
+        setSelectedBlockRange(null);
+      }
+    };
+    const handleClick = () => {
+      setSelectedBlockRange(null);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClick);
+    }, 100);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClick);
+    };
+  }, [selectedBlockRange, blocks]);
+
   const handleDrop = (idx: number) => {
     if (dragIdx == null || dragIdx === idx) {
       setDragIdx(null);
@@ -2138,7 +2230,7 @@ function BlogBlockEditor({
   };
 
   return (
-    <div className="space-y-0 relative" ref={editorContainerRef} onPaste={handleSmartPaste} style={blogFontFamily ? { fontFamily: `'${blogFontFamily}', sans-serif` } : undefined}>
+    <div className={`space-y-0 relative ${selectedBlockRange ? "kb-multi-selecting" : ""}`} ref={editorContainerRef} onPaste={handleSmartPaste} onMouseDown={handleCrossBlockMouseDown} onMouseMove={handleCrossBlockMouseMove} onMouseUp={handleCrossBlockMouseUp} style={blogFontFamily ? { fontFamily: `'${blogFontFamily}', sans-serif` } : undefined}>
       <InlineFormatToolbar containerRef={editorContainerRef} />
       <div ref={savingIndicatorRef} className="absolute top-0 right-0 items-center gap-1.5 text-muted-foreground/50 z-10" style={{ display: "none" }} data-testid="save-indicator">
         <div className="w-1.5 h-1.5 rounded-full bg-primary/50 save-pulse" />
@@ -2158,7 +2250,7 @@ function BlogBlockEditor({
       />
 
       {blocks.map((block, idx) => (
-        <div key={block.id} className="relative" data-block-id={block.id} data-testid={`block-wrapper-${block.id}`}>
+        <div key={block.id} className={`relative ${selectedBlockRange && idx >= selectedBlockRange[0] && idx <= selectedBlockRange[1] ? "kb-block-multi-selected" : ""}`} data-block-id={block.id} data-testid={`block-wrapper-${block.id}`}>
           {dragOverIdx === idx && dragIdx !== null && dragIdx !== idx && (
             <div className="absolute left-8 right-0 top-0 h-0.5 bg-primary rounded-full z-10 pointer-events-none" data-testid={`drop-indicator-${block.id}`} />
           )}
@@ -2336,7 +2428,10 @@ export default function BlogEditorPage() {
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [fontFamily, setFontFamily] = useState("");
   const [category, setCategory] = useState("General");
+  const [authorName, setAuthorName] = useState("");
+  const [authorImageUrl, setAuthorImageUrl] = useState("");
   const coverFileRef = useRef<HTMLInputElement>(null);
+  const authorPhotoFileRef = useRef<HTMLInputElement>(null);
   const { uploadFile: uploadCoverFile, isUploading: isCoverUploading } = useUpload({
     onSuccess: (res) => {
       setCoverImageUrl(res.objectPath);
@@ -2344,6 +2439,24 @@ export default function BlogEditorPage() {
     },
     onError: () => toast({ title: "Upload failed", description: "Could not upload cover image.", variant: "destructive" }),
   });
+  const { uploadFile: uploadAuthorPhoto, isUploading: isAuthorPhotoUploading } = useUpload({
+    onSuccess: (res) => {
+      setAuthorImageUrl(res.objectPath);
+      toast({ title: "Author photo uploaded" });
+    },
+    onError: () => toast({ title: "Upload failed", description: "Could not upload author photo.", variant: "destructive" }),
+  });
+
+  const handleAuthorPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+    await uploadAuthorPhoto(file);
+    if (authorPhotoFileRef.current) authorPhotoFileRef.current.value = "";
+  };
 
   const { data: post, isLoading: postLoading } = useQuery<BlogPost>({
     queryKey: ["/api/blog-posts", postId],
@@ -2363,6 +2476,8 @@ export default function BlogEditorPage() {
       setCoverImageUrl(post.coverImageUrl || "");
       setFontFamily(post.fontFamily || "");
       setCategory(post.category || "General");
+      setAuthorName(post.authorName || "");
+      setAuthorImageUrl(post.authorImageUrl || "");
     }
   }, [post]);
 
@@ -2409,6 +2524,8 @@ export default function BlogEditorPage() {
       fontFamily: fontFamily || null,
       category: category || "General",
       readingTimeMinutes,
+      authorName: authorName || null,
+      authorImageUrl: authorImageUrl || null,
     });
     toast({ title: "Saved", description: "Post settings updated." });
     setShowSettings(false);
@@ -2499,6 +2616,59 @@ export default function BlogEditorPage() {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Author Name <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                placeholder="e.g. John Smith"
+                data-testid="input-blog-author-name"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Author Photo <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <input
+                ref={authorPhotoFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAuthorPhotoUpload}
+                data-testid="input-blog-author-photo-file"
+              />
+              <div className="flex items-center gap-3">
+                {authorImageUrl ? (
+                  <div className="relative group/author">
+                    <img src={authorImageUrl} alt="Author" className="w-10 h-10 rounded-full object-cover" data-testid="img-blog-author-preview" />
+                    <button
+                      type="button"
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/author:opacity-100 transition-opacity"
+                      onClick={() => setAuthorImageUrl("")}
+                      data-testid="button-blog-author-remove"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => authorPhotoFileRef.current?.click()}
+                  disabled={isAuthorPhotoUploading}
+                  data-testid="button-blog-author-upload"
+                >
+                  {isAuthorPhotoUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                  Upload
+                </Button>
+                <Input
+                  value={authorImageUrl}
+                  onChange={(e) => setAuthorImageUrl(e.target.value)}
+                  placeholder="https://example.com/photo.jpg"
+                  className="flex-1"
+                  data-testid="input-blog-author-image"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Upload a photo or paste a URL for the author's profile picture.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Cover Image</Label>

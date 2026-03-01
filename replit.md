@@ -31,7 +31,7 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
     *   **Lead Magnets**: Free product offerings in exchange for email sign-ups, integrating with customer accounts.
     *   **Secure Downloads**: Token-based system for digital product delivery from Object Storage.
     *   **Transactional Safety**: All checkout-related database writes are wrapped in transactions for atomicity.
-*   **Content Creation**: A Notion-style block editor for building Knowledge Bases with nested pages, various block types, and drag-and-drop reordering.
+*   **Content Creation**: A Notion-style block editor for building Knowledge Bases with nested pages, various block types, drag-and-drop reordering, multi-block mouse selection (click-drag across blocks with Ctrl+C copy support), and rich HTML paste parsing (preserves headings, lists, bold/italic from web pages and documents). Both KB and blog editors support optional author name and photo (with file upload or URL).
 *   **Marketing Tools**: A 'Marketing Playbook' dashboard section offering actionable strategies.
 *   **Analytics**: A comprehensive per-store analytics dashboard covering revenue, products, customers, coupons, and traffic, powered by real-time data from `store_events` tracking.
 *   **Dashboard**: A dedicated, feature-rich dashboard with store switching, unified navigation, onboarding checklists, rotating marketing prompts, inspirational quotes, and consistent layout. Product cards maintain a platform-standard 1:1 aspect ratio.

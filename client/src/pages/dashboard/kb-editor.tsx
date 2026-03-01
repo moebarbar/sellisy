@@ -1023,6 +1023,111 @@ function BlockEditor({
   const savingIndicatorRef = useRef<HTMLDivElement>(null);
   const savingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
+  const [multiSelectedIndices, setMultiSelectedIndices] = useState<Set<number>>(new Set());
+  const multiSelectAnchorRef = useRef<number | null>(null);
+  const isMultiSelectingRef = useRef(false);
+  const mouseDownBlockRef = useRef<number | null>(null);
+
+  const getBlockIndexFromPoint = useCallback((clientY: number): number | null => {
+    if (!editorContainerRef.current) return null;
+    const blockWrappers = editorContainerRef.current.querySelectorAll("[data-block-id]");
+    for (let i = 0; i < blockWrappers.length; i++) {
+      const rect = blockWrappers[i].getBoundingClientRect();
+      if (clientY >= rect.top && clientY <= rect.bottom) return i;
+    }
+    if (blockWrappers.length > 0) {
+      const firstRect = blockWrappers[0].getBoundingClientRect();
+      if (clientY < firstRect.top) return 0;
+      const lastRect = blockWrappers[blockWrappers.length - 1].getBoundingClientRect();
+      if (clientY > lastRect.bottom) return blockWrappers.length - 1;
+    }
+    return null;
+  }, []);
+
+  const clearMultiSelection = useCallback(() => {
+    setMultiSelectedIndices(new Set());
+    multiSelectAnchorRef.current = null;
+    isMultiSelectingRef.current = false;
+    mouseDownBlockRef.current = null;
+  }, []);
+
+  const handleEditorMouseDown = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("[draggable]") || target.closest("button") || target.closest("[role='menu']") || target.closest(".grip-handle")) {
+      return;
+    }
+    const blockIdx = getBlockIndexFromPoint(e.clientY);
+    if (blockIdx === null) return;
+    mouseDownBlockRef.current = blockIdx;
+    if (multiSelectedIndices.size > 0) {
+      clearMultiSelection();
+    }
+  }, [getBlockIndexFromPoint, multiSelectedIndices.size, clearMultiSelection]);
+
+  const handleEditorMouseMove = useCallback((e: React.MouseEvent) => {
+    if (mouseDownBlockRef.current === null) return;
+    if (e.buttons !== 1) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("[draggable]")) return;
+
+    const currentIdx = getBlockIndexFromPoint(e.clientY);
+    if (currentIdx === null) return;
+    const anchorIdx = mouseDownBlockRef.current;
+
+    if (currentIdx !== anchorIdx) {
+      if (!isMultiSelectingRef.current) {
+        isMultiSelectingRef.current = true;
+        multiSelectAnchorRef.current = anchorIdx;
+        const sel = window.getSelection();
+        if (sel) sel.removeAllRanges();
+      }
+      const minIdx = Math.min(anchorIdx, currentIdx);
+      const maxIdx = Math.max(anchorIdx, currentIdx);
+      const newSet = new Set<number>();
+      for (let i = minIdx; i <= maxIdx; i++) newSet.add(i);
+      setMultiSelectedIndices(newSet);
+    } else if (isMultiSelectingRef.current) {
+      setMultiSelectedIndices(new Set([anchorIdx]));
+    }
+  }, [getBlockIndexFromPoint]);
+
+  const handleEditorMouseUp = useCallback(() => {
+    if (isMultiSelectingRef.current && multiSelectedIndices.size <= 1) {
+      clearMultiSelection();
+    }
+    mouseDownBlockRef.current = null;
+    isMultiSelectingRef.current = false;
+  }, [multiSelectedIndices.size, clearMultiSelection]);
+
+  useEffect(() => {
+    if (multiSelectedIndices.size === 0) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        e.preventDefault();
+        const sortedIndices = Array.from(multiSelectedIndices).sort((a, b) => a - b);
+        const contents: string[] = [];
+        for (const idx of sortedIndices) {
+          const block = blocks[idx];
+          if (!block) continue;
+          const el = blockRefs.current[block.id];
+          const text = el?.innerText || block.content || "";
+          const tmp = document.createElement("div");
+          tmp.innerHTML = text;
+          contents.push(tmp.textContent || text);
+        }
+        const combined = contents.join("\n");
+        navigator.clipboard.writeText(combined).then(() => {
+          toast({ title: "Copied", description: `${sortedIndices.length} blocks copied to clipboard.` });
+        });
+      }
+      if (e.key === "Escape") {
+        clearMultiSelection();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [multiSelectedIndices, blocks, clearMultiSelection, toast]);
+
   const createBlockMutation = useMutation({
     mutationFn: async (data: { type: BlockType; sortOrder: number }) => {
       const res = await apiRequest("POST", `/api/kb-pages/${pageId}/blocks`, data);
@@ -1431,7 +1536,15 @@ function BlockEditor({
   };
 
   return (
-    <div className="space-y-0 relative" ref={editorContainerRef} onPaste={handleSmartPaste} style={kbFontFamily ? { fontFamily: `'${kbFontFamily}', sans-serif` } : undefined}>
+    <div
+      className={`space-y-0 relative ${multiSelectedIndices.size > 1 ? "kb-multi-selecting" : ""}`}
+      ref={editorContainerRef}
+      onPaste={handleSmartPaste}
+      onMouseDown={handleEditorMouseDown}
+      onMouseMove={handleEditorMouseMove}
+      onMouseUp={handleEditorMouseUp}
+      style={kbFontFamily ? { fontFamily: `'${kbFontFamily}', sans-serif` } : undefined}
+    >
       <InlineFormatToolbar containerRef={editorContainerRef} />
       <div ref={savingIndicatorRef} className="absolute top-0 right-0 items-center gap-1.5 text-muted-foreground/50 z-10" style={{ display: "none" }} data-testid="save-indicator">
         <div className="w-1.5 h-1.5 rounded-full bg-primary/50 save-pulse" />
@@ -1451,7 +1564,7 @@ function BlockEditor({
       />
 
       {blocks.map((block, idx) => (
-        <div key={block.id} className="relative" data-block-id={block.id} data-testid={`block-wrapper-${block.id}`}>
+        <div key={block.id} className={`relative ${multiSelectedIndices.has(idx) ? "kb-block-multi-selected" : ""}`} data-block-id={block.id} data-testid={`block-wrapper-${block.id}`}>
           {dragOverIdx === idx && dragIdx !== null && dragIdx !== idx && (
             <div className="absolute left-8 right-0 top-0 h-0.5 bg-primary rounded-full z-10 pointer-events-none" data-testid={`drop-indicator-${block.id}`} />
           )}
@@ -2561,11 +2674,18 @@ function KbSettingsPanel({
   const [authorImageUrl, setAuthorImageUrl] = useState(kb.authorImageUrl || "");
   const [copied, setCopied] = useState(false);
   const coverFileRef = useRef<HTMLInputElement>(null);
+  const authorPhotoFileRef = useRef<HTMLInputElement>(null);
   const { uploadFile: uploadCoverFile, isUploading: isCoverUploading } = useUpload({
     onSuccess: (res) => {
       setCoverImageUrl(res.objectPath);
     },
     onError: () => toast({ title: "Upload failed", description: "Could not upload cover image.", variant: "destructive" }),
+  });
+  const { uploadFile: uploadAuthorPhoto, isUploading: isAuthorPhotoUploading } = useUpload({
+    onSuccess: (res) => {
+      setAuthorImageUrl(res.objectPath);
+    },
+    onError: () => toast({ title: "Upload failed", description: "Could not upload author photo.", variant: "destructive" }),
   });
 
   useEffect(() => {
@@ -2587,6 +2707,17 @@ function KbSettingsPanel({
     }
     await uploadCoverFile(file);
     if (coverFileRef.current) coverFileRef.current.value = "";
+  };
+
+  const handleAuthorPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+    await uploadAuthorPhoto(file);
+    if (authorPhotoFileRef.current) authorPhotoFileRef.current.value = "";
   };
 
   const updateMutation = useMutation({
@@ -2717,6 +2848,14 @@ function KbSettingsPanel({
             </div>
             <div className="space-y-1.5">
               <Label>Author Photo <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <input
+                ref={authorPhotoFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAuthorPhotoUpload}
+                data-testid="input-kb-author-photo-file"
+              />
               <div className="flex items-center gap-3">
                 {authorImageUrl ? (
                   <div className="relative group/author">
@@ -2731,6 +2870,16 @@ function KbSettingsPanel({
                     </button>
                   </div>
                 ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => authorPhotoFileRef.current?.click()}
+                  disabled={isAuthorPhotoUploading}
+                  data-testid="button-kb-author-upload"
+                >
+                  {isAuthorPhotoUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                  Upload
+                </Button>
                 <Input
                   value={authorImageUrl}
                   onChange={(e) => setAuthorImageUrl(e.target.value)}
@@ -2739,7 +2888,7 @@ function KbSettingsPanel({
                   data-testid="input-kb-author-image"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">Paste a URL for the author's profile photo.</p>
+              <p className="text-xs text-muted-foreground">Upload a photo or paste a URL for the author's profile photo.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Cover Image</Label>

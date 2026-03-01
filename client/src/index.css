@@ -23,6 +23,20 @@
   animation: save-pulse 1s ease-in-out infinite;
 }
 
+.kb-block-multi-selected {
+  background-color: hsl(var(--primary) / 0.12);
+  border-radius: 4px;
+}
+
+.kb-block-multi-selected [contenteditable] {
+  caret-color: transparent;
+}
+
+.kb-multi-selecting {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* LIGHT MODE */
 :root {
   --button-outline: rgba(0,0,0, .10);
