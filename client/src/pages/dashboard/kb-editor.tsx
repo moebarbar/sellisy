@@ -1101,26 +1101,51 @@ function BlockEditor({
 
   useEffect(() => {
     if (multiSelectedIndices.size === 0) return;
+    const sortedIndices = Array.from(multiSelectedIndices).sort((a, b) => a - b);
+    const getSelectedText = () => {
+      const contents: string[] = [];
+      for (const idx of sortedIndices) {
+        const block = blocks[idx];
+        if (!block) continue;
+        const el = blockRefs.current[block.id];
+        const text = el?.innerText || block.content || "";
+        const tmp = document.createElement("div");
+        tmp.innerHTML = text;
+        contents.push(tmp.textContent || text);
+      }
+      return contents.join("\n");
+    };
+    const deleteSelectedBlocks = () => {
+      const ids = sortedIndices.map(idx => blocks[idx]?.id).filter(Boolean) as string[];
+      const count = ids.length;
+      const focusIdx = Math.max(0, sortedIndices[0] - 1);
+      const focusBlock = blocks[focusIdx];
+      bulkDeleteMutation.mutate(ids);
+      clearMultiSelection();
+      if (focusBlock && !ids.includes(focusBlock.id)) {
+        setFocusBlockId(focusBlock.id);
+      }
+      return count;
+    };
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "c") {
         e.preventDefault();
-        const sortedIndices = Array.from(multiSelectedIndices).sort((a, b) => a - b);
-        const contents: string[] = [];
-        for (const idx of sortedIndices) {
-          const block = blocks[idx];
-          if (!block) continue;
-          const el = blockRefs.current[block.id];
-          const text = el?.innerText || block.content || "";
-          const tmp = document.createElement("div");
-          tmp.innerHTML = text;
-          contents.push(tmp.textContent || text);
-        }
-        const combined = contents.join("\n");
+        const combined = getSelectedText();
         navigator.clipboard.writeText(combined).then(() => {
           toast({ title: "Copied", description: `${sortedIndices.length} blocks copied to clipboard.` });
         });
-      }
-      if (e.key === "Escape") {
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "x") {
+        e.preventDefault();
+        const combined = getSelectedText();
+        navigator.clipboard.writeText(combined).then(() => {
+          const count = deleteSelectedBlocks();
+          toast({ title: "Cut", description: `${count} blocks cut to clipboard.` });
+        });
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        const count = deleteSelectedBlocks();
+        toast({ title: "Deleted", description: `${count} blocks deleted.` });
+      } else if (e.key === "Escape") {
         clearMultiSelection();
       }
     };
@@ -1194,6 +1219,26 @@ function BlockEditor({
       delete localContentMapRef.current[deletedId];
     },
     onError: () => toast({ title: "Error", description: "Failed to delete block.", variant: "destructive" }),
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      ids.forEach(id => {
+        if (pendingSavesRef.current[id]) {
+          pendingSavesRef.current[id].abort();
+          delete pendingSavesRef.current[id];
+        }
+      });
+      await apiRequest("POST", `/api/kb-pages/${pageId}/blocks/bulk-delete`, { ids });
+    },
+    onSuccess: (_data, deletedIds) => {
+      queryClient.setQueryData<KbBlock[]>(
+        [`/api/kb-pages/${pageId}/blocks`],
+        (old) => old?.filter((b) => !deletedIds.includes(b.id))
+      );
+      deletedIds.forEach(id => delete localContentMapRef.current[id]);
+    },
+    onError: () => toast({ title: "Error", description: "Failed to delete blocks.", variant: "destructive" }),
   });
 
   const bulkCreateMutation = useMutation({

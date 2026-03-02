@@ -1503,6 +1503,21 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
+  app.post("/api/kb-pages/:pageId/blocks/bulk-delete", isAuthenticated, async (req, res) => {
+    const page = await storage.getKbPageById(req.params.pageId as string);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: "ids required" });
+    const pageBlocks = await storage.getKbBlocksByPage(page.id);
+    const pageBlockIds = new Set(pageBlocks.map(b => b.id));
+    const validIds = ids.filter((id: string) => pageBlockIds.has(id));
+    if (validIds.length === 0) return res.status(400).json({ message: "No valid block ids" });
+    await storage.deleteKbBlocksBulk(validIds);
+    res.json({ ok: true, deleted: validIds.length });
+  });
+
   app.put("/api/knowledge-bases/:id/pages/reorder", isAuthenticated, async (req, res) => {
     const kb = await storage.getKnowledgeBaseById(req.params.id as string);
     if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
@@ -1722,6 +1737,21 @@ export async function registerRoutes(
     if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
     await storage.deleteBlogBlock(block.id);
     res.json({ success: true });
+  });
+
+  app.post("/api/blog-posts/:postId/blocks/bulk-delete", isAuthenticated, async (req, res) => {
+    const post = await storage.getBlogPostById(req.params.postId as string);
+    if (!post) return res.status(404).json({ message: "Not found" });
+    const store = await storage.getStoreById(post.storeId);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: "ids required" });
+    const postBlocks = await storage.getBlogBlocksByPost(post.id);
+    const postBlockIds = new Set(postBlocks.map(b => b.id));
+    const validIds = ids.filter((id: string) => postBlockIds.has(id));
+    if (validIds.length === 0) return res.status(400).json({ message: "No valid block ids" });
+    await storage.deleteBlogBlocksBulk(validIds);
+    res.json({ ok: true, deleted: validIds.length });
   });
 
   app.put("/api/blog-posts/:id/blocks/reorder", isAuthenticated, async (req, res) => {

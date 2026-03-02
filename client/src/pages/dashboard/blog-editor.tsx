@@ -1798,6 +1798,26 @@ function BlogBlockEditor({
     onError: () => toast({ title: "Error", description: "Failed to delete block.", variant: "destructive" }),
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      ids.forEach(id => {
+        if (pendingSavesRef.current[id]) {
+          pendingSavesRef.current[id].abort();
+          delete pendingSavesRef.current[id];
+        }
+      });
+      await apiRequest("POST", `/api/blog-posts/${postId}/blocks/bulk-delete`, { ids });
+    },
+    onSuccess: (_data, deletedIds) => {
+      queryClient.setQueryData<BlogBlock[]>(
+        ["/api/blog-posts", postId, "blocks"],
+        (old) => old?.filter((b) => !deletedIds.includes(b.id))
+      );
+      deletedIds.forEach(id => delete localContentMapRef.current[id]);
+    },
+    onError: () => toast({ title: "Error", description: "Failed to delete blocks.", variant: "destructive" }),
+  });
+
   const bulkCreateMutation = useMutation({
     mutationFn: async (data: { blocks: { type: string; content: string; sortOrder: number }[] }) => {
       const res = await apiRequest("POST", `/api/blog-posts/${postId}/blocks/bulk`, data);
@@ -2155,20 +2175,45 @@ function BlogBlockEditor({
 
   useEffect(() => {
     if (!selectedBlockRange) return;
+    const [minIdx, maxIdx] = selectedBlockRange;
+    const selectedBlocks = blocks.slice(minIdx, maxIdx + 1);
+    const getSelectedText = () => {
+      return selectedBlocks.map((b) => {
+        const tmp = document.createElement("div");
+        tmp.innerHTML = b.content || "";
+        return tmp.textContent || "";
+      }).join("\n");
+    };
+    const deleteSelectedBlocks = () => {
+      const ids = selectedBlocks.map(b => b.id);
+      const count = ids.length;
+      const focusIdx = Math.max(0, minIdx - 1);
+      const focusBlock = blocks[focusIdx];
+      bulkDeleteMutation.mutate(ids);
+      setSelectedBlockRange(null);
+      if (focusBlock && !ids.includes(focusBlock.id)) {
+        setFocusBlockId(focusBlock.id);
+      }
+      return count;
+    };
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "c") {
         e.preventDefault();
-        const [minIdx, maxIdx] = selectedBlockRange;
-        const selectedBlocks = blocks.slice(minIdx, maxIdx + 1);
-        const textParts = selectedBlocks.map((b) => {
-          const tmp = document.createElement("div");
-          tmp.innerHTML = b.content || "";
-          return tmp.textContent || "";
-        });
-        navigator.clipboard.writeText(textParts.join("\n"));
+        const combined = getSelectedText();
+        navigator.clipboard.writeText(combined);
         toast({ title: "Copied", description: `${selectedBlocks.length} blocks copied to clipboard.` });
-      }
-      if (e.key === "Escape") {
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "x") {
+        e.preventDefault();
+        const combined = getSelectedText();
+        navigator.clipboard.writeText(combined).then(() => {
+          const count = deleteSelectedBlocks();
+          toast({ title: "Cut", description: `${count} blocks cut to clipboard.` });
+        });
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        const count = deleteSelectedBlocks();
+        toast({ title: "Deleted", description: `${count} blocks deleted.` });
+      } else if (e.key === "Escape") {
         setSelectedBlockRange(null);
       }
     };

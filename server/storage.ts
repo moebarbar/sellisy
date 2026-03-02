@@ -135,6 +135,7 @@ export interface IStorage {
   createKbBlock(data: InsertKbBlock): Promise<KbBlock>;
   updateKbBlock(id: string, data: Partial<Pick<KbBlock, "type" | "content" | "sortOrder">>): Promise<KbBlock | undefined>;
   deleteKbBlock(id: string): Promise<void>;
+  deleteKbBlocksBulk(ids: string[]): Promise<void>;
   reorderKbBlocks(pageId: string, blockIds: string[]): Promise<void>;
 
   createStoreEvent(event: InsertStoreEvent): Promise<StoreEvent>;
@@ -156,6 +157,7 @@ export interface IStorage {
   createBlogBlock(data: InsertBlogBlock): Promise<BlogBlock>;
   updateBlogBlock(id: string, data: Partial<Pick<BlogBlock, "type" | "content" | "sortOrder">>): Promise<BlogBlock | undefined>;
   deleteBlogBlock(id: string): Promise<void>;
+  deleteBlogBlocksBulk(ids: string[]): Promise<void>;
   reorderBlogBlocks(postId: string, blockIds: string[]): Promise<void>;
 }
 
@@ -678,6 +680,11 @@ export class DatabaseStorage implements IStorage {
     await db.delete(kbBlocks).where(eq(kbBlocks.id, id));
   }
 
+  async deleteKbBlocksBulk(ids: string[]) {
+    if (ids.length === 0) return;
+    await db.delete(kbBlocks).where(inArray(kbBlocks.id, ids));
+  }
+
   async reorderKbBlocks(pageId: string, blockIds: string[]) {
     for (let i = 0; i < blockIds.length; i++) {
       await db.update(kbBlocks).set({ sortOrder: i }).where(and(eq(kbBlocks.id, blockIds[i]), eq(kbBlocks.pageId, pageId)));
@@ -790,6 +797,11 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBlogBlock(id: string) {
     await db.delete(blogBlocks).where(eq(blogBlocks.id, id));
+  }
+
+  async deleteBlogBlocksBulk(ids: string[]) {
+    if (ids.length === 0) return;
+    await db.delete(blogBlocks).where(inArray(blogBlocks.id, ids));
   }
 
   async reorderBlogBlocks(postId: string, blockIds: string[]) {
