@@ -1726,6 +1726,7 @@ function BlogBlockEditor({
 
   const pendingSavesRef = useRef<Record<string, AbortController>>({});
   const localContentMapRef = useRef<Record<string, string>>({});
+  const deletedBlockIdsRef = useRef<Set<string>>(new Set());
   const isSavingRef = useRef(false);
   const savingIndicatorRef = useRef<HTMLDivElement>(null);
   const savingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -1752,6 +1753,7 @@ function BlogBlockEditor({
   });
 
   const saveBlockToServer = useCallback(async (id: string, data: Partial<BlogBlock>) => {
+    if (deletedBlockIdsRef.current.has(id)) return;
     if (pendingSavesRef.current[id]) {
       pendingSavesRef.current[id].abort();
     }
@@ -1782,6 +1784,7 @@ function BlogBlockEditor({
 
   const deleteBlockMutation = useMutation({
     mutationFn: async (id: string) => {
+      deletedBlockIdsRef.current.add(id);
       if (pendingSavesRef.current[id]) {
         pendingSavesRef.current[id].abort();
         delete pendingSavesRef.current[id];
@@ -1801,6 +1804,7 @@ function BlogBlockEditor({
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       ids.forEach(id => {
+        deletedBlockIdsRef.current.add(id);
         if (pendingSavesRef.current[id]) {
           pendingSavesRef.current[id].abort();
           delete pendingSavesRef.current[id];

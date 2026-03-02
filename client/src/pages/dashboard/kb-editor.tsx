@@ -23,6 +23,7 @@ import {
 import {
   Plus,
   FileText,
+  BookOpen,
   ChevronRight,
   ChevronDown,
   Trash2,
@@ -921,6 +922,14 @@ function PageTree({
       {pages.length === 0 && (
         <p className="text-xs text-muted-foreground px-3 py-6 text-center">No pages yet</p>
       )}
+      <button
+        className="w-full mt-2 py-2.5 rounded-md border border-dashed border-muted-foreground/30 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover-elevate transition-colors"
+        onClick={() => onCreatePage(null)}
+        data-testid="button-quick-add-page"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        <span>Add page</span>
+      </button>
     </div>
   );
 }
@@ -1019,6 +1028,7 @@ function BlockEditor({
 
   const pendingSavesRef = useRef<Record<string, AbortController>>({});
   const localContentMapRef = useRef<Record<string, string>>({});
+  const deletedBlockIdsRef = useRef<Set<string>>(new Set());
   const isSavingRef = useRef(false);
   const savingIndicatorRef = useRef<HTMLDivElement>(null);
   const savingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -1175,6 +1185,7 @@ function BlockEditor({
   });
 
   const saveBlockToServer = useCallback(async (id: string, data: Partial<KbBlock>) => {
+    if (deletedBlockIdsRef.current.has(id)) return;
     if (pendingSavesRef.current[id]) {
       pendingSavesRef.current[id].abort();
     }
@@ -1205,6 +1216,7 @@ function BlockEditor({
 
   const deleteBlockMutation = useMutation({
     mutationFn: async (id: string) => {
+      deletedBlockIdsRef.current.add(id);
       if (pendingSavesRef.current[id]) {
         pendingSavesRef.current[id].abort();
         delete pendingSavesRef.current[id];
@@ -1224,6 +1236,7 @@ function BlockEditor({
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       ids.forEach(id => {
+        deletedBlockIdsRef.current.add(id);
         if (pendingSavesRef.current[id]) {
           pendingSavesRef.current[id].abort();
           delete pendingSavesRef.current[id];
@@ -3208,7 +3221,7 @@ export default function KbEditorPage() {
 
   return (
     <div className="flex h-full" data-testid="kb-editor">
-      <div className="w-64 flex-shrink-0 border-r flex flex-col bg-muted/30">
+      <div className="w-64 flex-shrink-0 border-r flex flex-col bg-muted/30 sticky top-0 h-screen">
         <div className="p-3 border-b">
           <div className="flex items-center gap-1.5 mb-3">
             <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => navigate("/dashboard/content-creator")} data-testid="button-back-to-kbs">
@@ -3237,7 +3250,7 @@ export default function KbEditorPage() {
         <div className="flex-1 overflow-y-auto p-2.5">
           <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center gap-1.5">
-              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+              <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pages</span>
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{pages.length}</Badge>
             </div>
