@@ -51,13 +51,39 @@ export default function BundleDetailPage({ params: propParams }: { params?: { sl
     }
   }, [data?.store?.id, data?.bundle?.id]);
 
-  usePageMeta({
-    title: data?.bundle ? `${data.bundle.name} - ${data.store.name}` : undefined,
-    description: data?.bundle ? `${data.bundle.name} bundle from ${data.store.name} — ${data.products?.length || 0} products` : undefined,
-    ogImage: data?.bundle?.thumbnailUrl || undefined,
-    ogType: "product",
-    favicon: data?.store?.faviconUrl || data?.store?.logoUrl || undefined,
-  });
+  const seoMeta = useMemo(() => {
+    if (!data?.bundle) return {};
+    const { bundle, store, products: bundleProducts } = data;
+    const title = `${bundle.name} - ${store.name}`;
+    const description = (bundle.description || `${bundle.name} bundle — ${bundleProducts?.length || 0} products from ${store.name}`).replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+    const canonicalUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : undefined;
+    const priceDollars = (bundle.priceCents / 100).toFixed(2);
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: bundle.name,
+      description: bundle.description || `${bundle.name} from ${store.name}`,
+      image: bundle.thumbnailUrl || undefined,
+      url: canonicalUrl,
+      brand: { "@type": "Brand", name: store.name },
+      offers: {
+        "@type": "Offer",
+        price: priceDollars,
+        priceCurrency: "USD",
+        availability: "https://schema.org/InStock",
+        url: canonicalUrl,
+      },
+    };
+    return {
+      title, description, ogImage: bundle.thumbnailUrl || undefined, ogType: "product" as const,
+      ogUrl: canonicalUrl, ogSiteName: store.name, canonicalUrl,
+      twitterCard: "summary_large_image" as const,
+      favicon: store.faviconUrl || store.logoUrl || undefined,
+      jsonLd,
+    };
+  }, [data]);
+
+  usePageMeta(seoMeta);
 
   const handleBuy = async () => {
     if (!data) return;

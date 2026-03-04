@@ -389,7 +389,7 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
                     <div className="t-holo-stripe" />
 
                     <div className="relative overflow-hidden" style={{ borderRadius: `${theme.layout.cardBorderRadius} ${theme.layout.cardBorderRadius} 0 0` }}>
-                      <a href={`${basePath}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
+                      <a href={`${basePath}/product/${product.slug || product.id}`} data-testid={`link-product-img-${product.id}`}>
                         {product.thumbnailUrl ? (
                           <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full aspect-square object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
                         ) : (
@@ -417,7 +417,7 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
                         </div>
                       )}
 
-                      <a href={`${basePath}/product/${product.id}`} className="block" data-testid={`link-product-title-${product.id}`}>
+                      <a href={`${basePath}/product/${product.slug || product.id}`} className="block" data-testid={`link-product-title-${product.id}`}>
                         <h3 className="font-bold text-base mb-2 transition-colors" style={{ color: c.text, fontFamily: theme.typography.headingFamily, minHeight: "2.5em", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }} data-testid={`text-product-title-${product.id}`}>
                           {product.title}
                         </h3>
@@ -466,7 +466,7 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
                   <div className={`${theme.effects.cardClass} group flex flex-col md:flex-row`} data-testid={`card-product-${product.id}`} onMouseEnter={() => prefetchProduct(product.id)}>
                     {product.thumbnailUrl && (
                       <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden">
-                        <a href={`${basePath}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
+                        <a href={`${basePath}/product/${product.slug || product.id}`} data-testid={`link-product-img-${product.id}`}>
                           <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
                         </a>
                       </div>
@@ -489,7 +489,7 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
                           )}
                         </div>
 
-                        <a href={`${basePath}/product/${product.id}`} data-testid={`link-product-title-${product.id}`}>
+                        <a href={`${basePath}/product/${product.slug || product.id}`} data-testid={`link-product-title-${product.id}`}>
                           <h3 className="text-xl font-bold mb-3 transition-colors" style={{ color: c.text, fontFamily: theme.typography.headingFamily }} data-testid={`text-product-title-${product.id}`}>
                             {product.title}
                           </h3>

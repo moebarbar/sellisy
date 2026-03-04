@@ -25,6 +25,15 @@ function getUserId(req: Request): string {
   return (req as any).session?.userId;
 }
 
+function generateProductSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80) || "product";
+}
+
 function sanitizeStore(store: any) {
   const { paypalClientSecret, stripeSecretKey, ...safe } = store;
   return {
@@ -184,6 +193,67 @@ export async function registerRoutes(
     } catch (err) {
       console.error("[health] Database connectivity check failed:", err);
       res.status(503).json({ ok: false, db: "disconnected" });
+    }
+  });
+
+  app.get("/robots.txt", (_req, res) => {
+    res.type("text/plain").send(`User-agent: *
+Allow: /s/
+Allow: /product/
+Allow: /bundle/
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /auth
+
+Sitemap: ${_req.protocol}://${_req.get("host")}/sitemap.xml`);
+  });
+
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const allStores = await db
+        .select({ slug: stores.slug, name: stores.name })
+        .from(stores)
+        .where(isNull(stores.deletedAt));
+
+      const baseUrl = `${req.headers["x-forwarded-proto"] || req.protocol}://${req.get("host")}`;
+      let urls = "";
+
+      for (const store of allStores) {
+        urls += `  <url><loc>${baseUrl}/s/${store.slug}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>\n`;
+
+        const storeObj = await storage.getStoreBySlug(store.slug);
+        if (!storeObj) continue;
+
+        const storeProductsList = await storage.getStoreProducts(storeObj.id);
+        for (const sp of storeProductsList) {
+          if (!sp.isPublished) continue;
+          const product = await storage.getProductById(sp.productId);
+          if (!product || product.deletedAt) continue;
+          const productSlug = product.slug || product.id;
+          urls += `  <url><loc>${baseUrl}/s/${store.slug}/product/${productSlug}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
+        }
+
+        const storeBundles = await storage.getBundlesByStore(storeObj.id);
+        for (const bundle of storeBundles) {
+          if (!bundle.isPublished || bundle.deletedAt) continue;
+          urls += `  <url><loc>${baseUrl}/s/${store.slug}/bundle/${bundle.id}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>\n`;
+        }
+
+        const blogPosts = await storage.getBlogPostsByStore(storeObj.id);
+        for (const post of blogPosts) {
+          if (post.deletedAt || !post.isPublished) continue;
+          urls += `  <url><loc>${baseUrl}/s/${store.slug}/blog/${post.slug}</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>\n`;
+        }
+      }
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}</urlset>`;
+
+      res.type("application/xml").send(xml);
+    } catch (err) {
+      console.error("Sitemap generation error:", err);
+      res.status(500).send("Error generating sitemap");
     }
   });
 
@@ -579,6 +649,7 @@ export async function registerRoutes(
       ownerId: getUserId(req),
       source: "USER",
       title: parsed.data.title,
+      slug: generateProductSlug(parsed.data.title),
       description: parsed.data.description || null,
       tagline: parsed.data.tagline ?? null,
       category: parsed.data.category || "templates",
@@ -642,6 +713,9 @@ export async function registerRoutes(
 
     const admin = await isUserAdmin(getUserId(req));
     const { images: imgs, requiredTier, ...productData } = parsed.data;
+    if (productData.title) {
+      (productData as any).slug = generateProductSlug(productData.title);
+    }
     if (admin && requiredTier) {
       (productData as any).requiredTier = requiredTier;
     }
@@ -1844,10 +1918,24 @@ export async function registerRoutes(
     const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
-    const sp = await storage.getStoreProductByStoreAndProduct(store.id, req.params.productId as string);
-    if (!sp || !sp.isPublished) return res.status(404).json({ message: "Product not found" });
+    const productIdOrSlug = req.params.productId as string;
+    let sp = await storage.getStoreProductByStoreAndProduct(store.id, productIdOrSlug);
+    let product = sp ? await storage.getProductById(productIdOrSlug) : null;
 
-    const product = await storage.getProductById(req.params.productId as string);
+    if (!sp || !product) {
+      const [foundBySlug] = await db
+        .select({ product: products })
+        .from(products)
+        .innerJoin(storeProducts, and(eq(storeProducts.productId, products.id), eq(storeProducts.storeId, store.id)))
+        .where(and(eq(products.slug, productIdOrSlug), isNull(products.deletedAt)))
+        .limit(1);
+      if (foundBySlug?.product) {
+        sp = await storage.getStoreProductByStoreAndProduct(store.id, foundBySlug.product.id);
+        product = foundBySlug.product;
+      }
+    }
+
+    if (!sp || !sp.isPublished) return res.status(404).json({ message: "Product not found" });
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     const images = await storage.getProductImages(product.id);

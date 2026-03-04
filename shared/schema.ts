@@ -130,6 +130,7 @@ export const products = pgTable("products", {
   ownerId: varchar("owner_id", { length: 64 }),
   source: productSourceEnum("source").notNull().default("USER"),
   title: text("title").notNull(),
+  slug: text("slug"),
   description: text("description"),
   tagline: text("tagline"),
   category: text("category").notNull().default("templates"),

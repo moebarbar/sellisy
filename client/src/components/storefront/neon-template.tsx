@@ -554,7 +554,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                 <div key={product.id} className="neon-card group sf-reveal-item" onMouseEnter={() => prefetchProduct(product.id)}>
                   <div className="neon-holo-stripe" />
                   <div className="neon-card-line-scan" />
-                  <a href={basePath + "/product/" + product.id} className="block relative overflow-hidden">
+                  <a href={basePath + "/product/" + (product.slug || product.id)} className="block relative overflow-hidden">
                     <div className="aspect-square overflow-hidden">
                       {product.thumbnailUrl ? (
                         <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
@@ -597,7 +597,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                         ))}
                       </div>
                     )}
-                    <a href={basePath + "/product/" + product.id} className="block">
+                    <a href={basePath + "/product/" + (product.slug || product.id)} className="block">
                       <h3 className="font-semibold text-lg mb-2 tracking-tight transition-colors duration-300" style={{ color: isDark ? "rgba(255,255,255,0.95)" : c.text }} data-testid={`text-neon-product-${product.id}`}>
                         {product.title}
                       </h3>

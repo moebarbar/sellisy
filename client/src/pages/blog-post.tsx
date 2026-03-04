@@ -229,10 +229,25 @@ export default function BlogPostPage({ params: propParams }: { params?: { slug: 
 
   usePageMeta({
     title: data ? `${data.post.title} - ${data.store.name}` : "Blog Post",
-    description: data?.post.excerpt || undefined,
+    description: data?.post.excerpt?.slice(0, 160) || undefined,
     ogImage: data?.post?.coverImageUrl || data?.store?.logoUrl || undefined,
     ogType: "article",
+    ogSiteName: data?.store?.name || undefined,
+    ogUrl: typeof window !== "undefined" ? window.location.href.split("?")[0] : undefined,
+    canonicalUrl: typeof window !== "undefined" ? window.location.href.split("?")[0] : undefined,
+    twitterCard: "summary_large_image",
     favicon: data?.store?.faviconUrl || data?.store?.logoUrl || undefined,
+    jsonLd: data ? {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      headline: data.post.title,
+      description: data.post.excerpt || data.post.title,
+      image: data.post.coverImageUrl || data.store.logoUrl || undefined,
+      url: typeof window !== "undefined" ? window.location.href.split("?")[0] : undefined,
+      author: data.post.authorName ? { "@type": "Person", name: data.post.authorName } : { "@type": "Organization", name: data.store.name },
+      publisher: { "@type": "Organization", name: data.store.name },
+      datePublished: data.post.createdAt ? new Date(data.post.createdAt).toISOString() : undefined,
+    } : undefined,
   });
 
   if (isLoading) {

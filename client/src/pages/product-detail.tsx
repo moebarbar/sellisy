@@ -91,13 +91,45 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
     }
   }, [data?.store?.id, data?.product?.id]);
 
-  usePageMeta({
-    title: data?.product ? `${data.product.title} - ${data.store.name}` : undefined,
-    description: data?.product ? (data.product.description || `Get ${data.product.title} from ${data.store.name}`) : undefined,
-    ogImage: data?.product?.thumbnailUrl || undefined,
-    ogType: "product",
-    favicon: data?.store?.faviconUrl || data?.store?.logoUrl || undefined,
-  });
+  const seoMeta = useMemo(() => {
+    if (!data?.product) return {};
+    const { product, store, images } = data;
+    const ogImage = (images && images.length > 0 ? images.find(i => i.isPrimary)?.url || images[0]?.url : null) || product.thumbnailUrl || undefined;
+    const title = `${product.title} - ${store.name}`;
+    const rawDesc = product.description || product.tagline || `Get ${product.title} from ${store.name}`;
+    const description = rawDesc.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+    const canonicalUrl = typeof window !== "undefined" ? window.location.href.split("?")[0] : undefined;
+    const priceDollars = (product.priceCents / 100).toFixed(2);
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.title,
+      description: product.description || `${product.title} from ${store.name}`,
+      image: ogImage,
+      url: canonicalUrl,
+      brand: { "@type": "Brand", name: store.name },
+      sku: product.id,
+      category: product.category,
+      offers: {
+        "@type": "Offer",
+        price: priceDollars,
+        priceCurrency: "USD",
+        availability: product.status === "ACTIVE" ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        url: canonicalUrl,
+        seller: { "@type": "Organization", name: store.name },
+      },
+    };
+    return {
+      title, description, ogImage, ogType: "product" as const,
+      ogUrl: canonicalUrl, ogSiteName: store.name, canonicalUrl,
+      keywords: product.tags?.join(", ") || undefined,
+      twitterCard: "summary_large_image" as const,
+      favicon: store.faviconUrl || store.logoUrl || undefined,
+      jsonLd,
+    };
+  }, [data]);
+
+  usePageMeta(seoMeta);
 
   const handleBuy = async () => {
     if (!data) return;

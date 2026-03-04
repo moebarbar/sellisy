@@ -38,7 +38,16 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
 *   **File Storage**: Dual-backend storage system — uses Cloudflare R2 (via S3-compatible API) as primary, with Replit Object Storage as fallback. Product images, deliverable files, logos, and banners served via `cdn.sellisy.com`. Upload routes auto-detect available backend.
 *   **Embed Widgets**: Store owners can generate embeddable iframes for products or bundles on external websites, with live preview and theme toggles.
 *   **Custom Domains**: Integration with Cloudflare for SaaS to allow store owners to connect custom domains with automatic SSL provisioning and host-based routing. All storefront links (products, bundles, blog, portal) use `getStoreBasePath(slug)` from `client/src/lib/utils.ts` to generate domain-aware URLs. KB access URLs and purchase URLs also prefer the store's custom domain when active.
-*   **SEO**: Dynamic SEO meta tags (title, description, Open Graph) for storefronts and product pages, configurable by store owners. Server-side OG tag injection (`server/og-tags.ts`) serves pre-rendered meta tags to social media crawlers for proper link previews on Facebook, Twitter, LinkedIn, etc.
+*   **SEO**:
+    *   **Product Slugs**: Products have an auto-generated `slug` field derived from the title (e.g., `premium-ui-kit`). Slugs are created on product create/update and backfilled on startup. Product URLs use slugs for SEO-friendly paths (`/s/store/product/premium-ui-kit`).
+    *   **Open Graph & Twitter Cards**: Full OG tags (title, description, image, url, type, site_name, image:alt) and Twitter Card tags on all storefront pages (products, bundles, blogs, stores). Server-side injection via `server/og-tags.ts` for crawlers; client-side via `usePageMeta` hook.
+    *   **JSON-LD Structured Data**: Schema.org Product markup on product and bundle pages (name, description, image, price, currency, availability, brand, SKU, seller). BlogPosting markup on blog posts. Store markup on storefronts.
+    *   **Canonical URLs**: `<link rel="canonical">` on all storefront pages to prevent duplicate content.
+    *   **Meta Descriptions**: Auto-generated, capped at 160 characters, using product description/tagline.
+    *   **robots.txt**: Served at `/robots.txt`, allows `/s/`, `/product/`, `/bundle/`; disallows `/api/`, `/dashboard/`, `/auth`. Points to sitemap.
+    *   **sitemap.xml**: Dynamic XML sitemap at `/sitemap.xml` listing all stores, published products (with slug URLs), published bundles, and published blog posts.
+    *   **Slug Resolution**: API resolves products by slug (store-scoped via `storeProducts` join) with UUID fallback for backward compatibility.
+    *   **Alt Text**: Product images include alt text from product titles in all storefront templates.
 *   **Data Protection System**:
     *   **Soft Deletes**: Products, stores, orders, bundles, coupons, knowledge bases, and blog posts all use a `deletedAt` timestamp instead of hard deletes. All queries filter out soft-deleted records (`WHERE deletedAt IS NULL`). Data is never permanently lost through normal user operations.
     *   **Hard Delete Safety**: `hardDeleteStore` and `hardDeleteProduct` are admin-only operations that log warnings to the console before executing. `hardDeleteStore` cascade soft-deletes related orders/bundles/coupons/blog posts instead of permanently removing them.
