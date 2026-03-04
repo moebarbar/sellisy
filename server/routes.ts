@@ -1320,8 +1320,20 @@ export async function registerRoutes(
     const pages = await storage.getKbPagesByKnowledgeBase(kb.id);
     if (pages.length === 0) return res.status(400).json({ message: "Add at least one page before creating a product." });
 
-    const appUrl = `${req.protocol}://${req.get("host")}`;
-    const accessUrl = `${appUrl}/kb/${kb.id}`;
+    let accessUrl = `https://${req.get("host")}/kb/${kb.id}`;
+
+    let linkedStore: any = null;
+    if (kb.productId) {
+      const sp = await db.select().from(storeProducts).where(eq(storeProducts.productId, kb.productId)).then(r => r[0]);
+      if (sp) linkedStore = await storage.getStoreById(sp.storeId);
+    }
+    if (!linkedStore) {
+      const userStores = await storage.getStoresByOwner(userId);
+      linkedStore = userStores.find(s => s.customDomain && s.domainStatus === "active") || null;
+    }
+    if (linkedStore?.customDomain && linkedStore.domainStatus === "active") {
+      accessUrl = `https://${linkedStore.customDomain}/kb/${kb.id}`;
+    }
 
     if (kb.productId) {
       const existing = await storage.getProductById(kb.productId);
@@ -1574,7 +1586,11 @@ export async function registerRoutes(
       if (sp) {
         const store = await storage.getStoreById(sp.storeId);
         if (store) {
-          purchaseUrl = `/s/${store.slug}/product/${kb.productId}`;
+          if (store.customDomain && store.domainStatus === "active") {
+            purchaseUrl = `https://${store.customDomain}/product/${kb.productId}`;
+          } else {
+            purchaseUrl = `/s/${store.slug}/product/${kb.productId}`;
+          }
         }
       }
     }
