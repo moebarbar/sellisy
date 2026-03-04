@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
 import { DashboardLayout } from "@/components/dashboard/layout";
+import { isCustomDomain } from "@/lib/utils";
 
 const LandingPage = lazy(() => import("@/pages/landing"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -164,11 +165,6 @@ function DashboardRouter() {
       </Suspense>
     </ErrorBoundary>
   );
-}
-
-function isCustomDomain(): boolean {
-  const host = window.location.hostname;
-  return !!(host && host !== "localhost" && !host.includes("replit") && !host.includes("railway.app") && !host.includes("sellisy.com") && !/^\d+\./.test(host));
 }
 
 function CustomDomainRouter() {

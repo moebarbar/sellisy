@@ -4,10 +4,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Calendar, Clock, Tag, Share2, Link2, ArrowRight, FileText, Check } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import DOMPurify from "dompurify";
 import type { Store, BlogPost, BlogBlock } from "@shared/schema";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { getStoreBasePath } from "@/lib/utils";
 
 function sanitize(html: string) {
   return DOMPurify.sanitize(html, { ALLOWED_TAGS: ["b", "i", "u", "s", "em", "strong", "a", "br", "span", "code", "mark", "sub", "sup"], ALLOWED_ATTR: ["href", "target", "rel", "class", "style"] });
@@ -160,9 +161,9 @@ function ShareButton({ accent }: { accent: string }) {
   );
 }
 
-function RelatedPostCard({ post, slug, accent }: { post: BlogPost; slug: string; accent: string }) {
+function RelatedPostCard({ post, slug, accent, basePath }: { post: BlogPost; slug: string; accent: string; basePath: string }) {
   return (
-    <Link href={`/s/${slug}/blog/${post.slug}`}>
+    <Link href={`${basePath}/blog/${post.slug}`}>
       <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer h-full border-0 shadow-sm" data-testid={`card-related-${post.id}`}>
         <CardContent className="p-0 flex flex-col h-full">
           <div className="aspect-[16/10] overflow-hidden">
@@ -214,6 +215,7 @@ export default function BlogPostPage({ params: propParams }: { params?: { slug: 
   const [, customRouteParams] = useRoute("/blog/:postSlug");
   const slug = propParams?.slug || routeParams?.slug || customRouteParams?.slug;
   const postSlug = propParams?.postSlug || routeParams?.postSlug || customRouteParams?.postSlug;
+  const basePath = useMemo(() => getStoreBasePath(slug || ""), [slug]);
 
   const { data, isLoading, error } = useQuery<{ store: Store; post: BlogPost; blocks: BlogBlock[]; relatedPosts: BlogPost[] }>({
     queryKey: ["/api/storefront", slug, "blog", postSlug],
@@ -264,7 +266,7 @@ export default function BlogPostPage({ params: propParams }: { params?: { slug: 
     <div className="min-h-screen bg-background" style={post.fontFamily ? { fontFamily: `'${post.fontFamily}', sans-serif` } : undefined}>
       <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-6 py-3 flex items-center gap-4">
-          <Link href={`/s/${slug}/blog`} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="link-back-to-blog">
+          <Link href={`${basePath}/blog`} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="link-back-to-blog">
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="flex items-center gap-3 flex-1">
@@ -320,7 +322,7 @@ export default function BlogPostPage({ params: propParams }: { params?: { slug: 
 
         <div className="mt-12 pt-8 border-t flex items-center justify-between">
           <Link
-            href={`/s/${slug}/blog`}
+            href={`${basePath}/blog`}
             className="text-sm font-medium flex items-center gap-1.5 hover:underline"
             style={{ color: accent }}
             data-testid="link-all-articles"
@@ -338,7 +340,7 @@ export default function BlogPostPage({ params: propParams }: { params?: { slug: 
             <h3 className="text-xl font-bold mb-6">Related Articles</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {relatedPosts.map((rp) => (
-                <RelatedPostCard key={rp.id} post={rp} slug={slug!} accent={accent} />
+                <RelatedPostCard key={rp.id} post={rp} slug={slug!} accent={accent} basePath={basePath} />
               ))}
             </div>
           </div>

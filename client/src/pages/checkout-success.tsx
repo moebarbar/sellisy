@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, Download, AlertCircle, ArrowLeft, Package, Clock, FileDown } from "lucide-react";
 import { Link } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { getStoreBasePath } from "@/lib/utils";
 
 type SuccessData = {
   order: {
@@ -33,6 +34,7 @@ export default function CheckoutSuccessPage() {
   const orderId = params.get("order_id");
 
   const identifier = sessionId || orderId;
+  const storeBasePath = useMemo(() => data?.store ? getStoreBasePath(data.store.slug) : "", [data?.store?.slug]);
 
   usePageMeta({
     title: "Order Confirmation",
@@ -153,7 +155,7 @@ export default function CheckoutSuccessPage() {
               )}
 
               {data.store && (
-                <Link href={`/s/${data.store.slug}/portal`}>
+                <Link href={`${storeBasePath}/portal`}>
                   <Button variant="outline" className="mt-4" data-testid="button-view-purchases">
                     <Package className="mr-2 h-4 w-4" />
                     View Your Purchases
@@ -162,7 +164,7 @@ export default function CheckoutSuccessPage() {
               )}
 
               {data.store && (
-                <Link href={`/s/${data.store.slug}`}>
+                <Link href={storeBasePath || "/"}>
                   <Button variant="ghost" className="mt-3" data-testid="button-back-store">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to {data.store.name}

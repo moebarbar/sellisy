@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, SlidersHorizontal, ArrowUpDown, ChevronRight, ExternalLink } from "lucide-react";
@@ -7,6 +7,7 @@ import { ProtectedImage } from "@/components/protected-image";
 import { StorefrontProductPlaceholder } from "@/components/product-placeholder";
 import { useStorefrontFilters } from "@/hooks/use-storefront-filters";
 import { useScrollReveal } from "@/hooks/use-scroll-reveal";
+import { getStoreBasePath } from "@/lib/utils";
 import type { Store, Product, Bundle, BlogPost } from "@shared/schema";
 
 type StorefrontProduct = Product & {
@@ -31,6 +32,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
   }, [mode]);
 
   const isDark = mode === "dark";
+  const basePath = useMemo(() => getStoreBasePath(store.slug), [store.slug]);
   const [leadModalProduct, setLeadModalProduct] = useState<StorefrontProduct | null>(null);
 
   const [announcementDismissed, setAnnouncementDismissed] = useState(() => {
@@ -371,7 +373,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
               <span className="text-xs font-medium text-emerald-400 tracking-wide uppercase">Live</span>
             </div>
             <a
-              href={`/s/${store.slug}/portal`}
+              href={`${basePath}/portal`}
               className="neon-mode-btn flex items-center justify-center w-9 h-9 rounded-lg"
               data-testid="link-neon-portal"
               aria-label="My Purchases"
@@ -545,7 +547,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                 <div key={product.id} className="neon-card group sf-reveal-item">
                   <div className="neon-holo-stripe" />
                   <div className="neon-card-line-scan" />
-                  <a href={"/s/" + store.slug + "/product/" + product.id} className="block relative overflow-hidden">
+                  <a href={basePath + "/product/" + product.id} className="block relative overflow-hidden">
                     <div className="aspect-square overflow-hidden">
                       {product.thumbnailUrl ? (
                         <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
@@ -588,7 +590,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                         ))}
                       </div>
                     )}
-                    <a href={"/s/" + store.slug + "/product/" + product.id} className="block">
+                    <a href={basePath + "/product/" + product.id} className="block">
                       <h3 className="font-semibold text-lg mb-2 tracking-tight transition-colors duration-300" style={{ color: isDark ? "rgba(255,255,255,0.95)" : c.text }} data-testid={`text-neon-product-${product.id}`}>
                         {product.title}
                       </h3>
@@ -648,7 +650,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                     <div className="neon-holo-stripe" />
                     <div className="neon-card-line-scan" />
                     {bundle.thumbnailUrl && (
-                      <a href={`/s/${store.slug}/bundle/${bundle.id}`} className="block relative overflow-hidden">
+                      <a href={`${basePath}/bundle/${bundle.id}`} className="block relative overflow-hidden">
                         <div className="aspect-square overflow-hidden">
                           <ProtectedImage protected={!store.allowImageDownload} src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" loading="lazy" />
                         </div>
@@ -679,7 +681,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                           <span className="text-sm line-through" style={{ color: c.textTertiary }}>${(totalValue / 100).toFixed(2)}</span>
                         )}
                       </div>
-                      <a href={`/s/${store.slug}/bundle/${bundle.id}`} data-testid={`link-bundle-${bundle.id}`}>
+                      <a href={`${basePath}/bundle/${bundle.id}`} data-testid={`link-bundle-${bundle.id}`}>
                         <Button className="neon-buy-btn font-medium border-0 no-default-hover-elevate no-default-active-elevate w-full">
                           <Package className="mr-2 h-4 w-4" />
                           View Bundle
@@ -703,7 +705,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
               {blogPosts.map((post) => (
                 <a
                   key={post.id}
-                  href={`/s/${store.slug}/blog/${post.slug}`}
+                  href={`${basePath}/blog/${post.slug}`}
                   className="group rounded-xl overflow-hidden transition-transform hover:scale-[1.02]"
                   style={{ background: c.card, border: `1px solid ${c.border}` }}
                   data-testid={`link-blog-${post.id}`}
@@ -725,7 +727,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
               ))}
             </div>
             <div className="mt-4 text-center">
-              <a href={`/s/${store.slug}/blog`} className="inline-flex items-center gap-1 text-sm font-medium hover:underline" style={{ color: c.accent }}>
+              <a href={`${basePath}/blog`} className="inline-flex items-center gap-1 text-sm font-medium hover:underline" style={{ color: c.accent }}>
                 View all articles <ArrowRight className="h-3 w-3" />
               </a>
             </div>
@@ -790,7 +792,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
               <div className="flex flex-col gap-3">
                 <span className="text-xs font-medium tracking-wider uppercase mb-1" style={{ color: c.textTertiary }}>Quick Links</span>
                 <a
-                  href={`/s/${store.slug}/portal`}
+                  href={`${basePath}/portal`}
                   className="flex items-center gap-2 text-sm font-medium transition-colors hover:underline"
                   style={{ color: c.textSecondary }}
                   data-testid="link-footer-purchases"
@@ -800,7 +802,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                 </a>
                 {store.blogEnabled && (
                   <a
-                    href={`/s/${store.slug}/blog`}
+                    href={`${basePath}/blog`}
                     className="flex items-center gap-2 text-sm font-medium transition-colors hover:underline"
                     style={{ color: c.textSecondary }}
                     data-testid="link-footer-blog"

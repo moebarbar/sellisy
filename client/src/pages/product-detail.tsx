@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,6 +7,7 @@ import { ShoppingBag, ArrowLeft, Tag, Sparkles, Zap, Sun, Moon, ChevronLeft, Che
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { ProtectedImage } from "@/components/protected-image";
 import { trackEvent } from "@/lib/tracking";
+import { getStoreBasePath } from "@/lib/utils";
 import type { Store, Product, ProductImage } from "@shared/schema";
 
 type ProductDetailData = {
@@ -60,6 +61,7 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
   const routeParams = useParams<{ slug: string; productId: string }>();
   const slug = propParams?.slug || routeParams.slug;
   const productId = propParams?.productId || routeParams.productId;
+  const basePath = useMemo(() => getStoreBasePath(slug || ""), [slug]);
 
   const [mode, setMode] = useState<PDPMode>(() => {
     if (typeof window !== "undefined") {
@@ -282,7 +284,7 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
       <header className="relative z-10 px-6 py-5">
         <div className="pdp-separator absolute bottom-0 left-0 right-0" />
         <div className="mx-auto max-w-3xl flex items-center justify-between gap-4">
-          <a href={`/s/${slug}`} className="flex items-center gap-2 transition-colors" style={{ color: c.textSec }} data-testid="link-back-store">
+          <a href={basePath || "/"} className="flex items-center gap-2 transition-colors" style={{ color: c.textSec }} data-testid="link-back-store">
             <ArrowLeft className="h-4 w-4" />
             <span className="text-sm font-medium">{store.name}</span>
           </a>
@@ -397,7 +399,7 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
                   {product.title}
                 </h1>
 
-                <a href={`/s/${slug}`} className="inline-flex items-center gap-2 transition-colors text-sm" style={{ color: c.textTer }} data-testid="link-store-name">
+                <a href={basePath || "/"} className="inline-flex items-center gap-2 transition-colors text-sm" style={{ color: c.textTer }} data-testid="link-store-name">
                   <Sparkles className="h-3 w-3" />
                   <span>by {store.name}</span>
                 </a>

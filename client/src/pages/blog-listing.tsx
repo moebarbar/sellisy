@@ -8,15 +8,16 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Calendar, FileText, Clock, Search, ArrowRight, Tag } from "lucide-react";
 import type { Store, BlogPost } from "@shared/schema";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { getStoreBasePath } from "@/lib/utils";
 
 function formatDate(date: string | Date) {
   return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-function PostCard({ post, slug, accent, featured = false }: { post: BlogPost; slug: string; accent: string; featured?: boolean }) {
+function PostCard({ post, slug, accent, basePath, featured = false }: { post: BlogPost; slug: string; accent: string; basePath: string; featured?: boolean }) {
   if (featured) {
     return (
-      <Link href={`/s/${slug}/blog/${post.slug}`}>
+      <Link href={`${basePath}/blog/${post.slug}`}>
         <div className="group relative rounded-2xl overflow-hidden cursor-pointer" data-testid={`card-featured-post-${post.id}`}>
           <div className="relative aspect-[2.2/1] min-h-[280px]">
             {post.coverImageUrl ? (
@@ -62,7 +63,7 @@ function PostCard({ post, slug, accent, featured = false }: { post: BlogPost; sl
   }
 
   return (
-    <Link href={`/s/${slug}/blog/${post.slug}`}>
+    <Link href={`${basePath}/blog/${post.slug}`}>
       <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer h-full border-0 shadow-sm bg-card" data-testid={`card-blog-${post.id}`}>
         <CardContent className="p-0 flex flex-col h-full">
           <div className="aspect-[16/10] overflow-hidden">
@@ -117,6 +118,7 @@ function PostCard({ post, slug, accent, featured = false }: { post: BlogPost; sl
 export default function BlogListingPage({ params: propParams }: { params?: { slug: string } } = {}) {
   const [, routeParams] = useRoute("/s/:slug/blog");
   const slug = propParams?.slug || routeParams?.slug;
+  const basePath = useMemo(() => getStoreBasePath(slug || ""), [slug]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -193,7 +195,7 @@ export default function BlogListingPage({ params: propParams }: { params?: { slu
     <div className="min-h-screen bg-background">
       <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center gap-4">
-          <Link href={`/s/${slug}`} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="link-back-to-store">
+          <Link href={`${basePath || "/"}`} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="link-back-to-store">
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="flex items-center gap-3 flex-1">
@@ -263,7 +265,7 @@ export default function BlogListingPage({ params: propParams }: { params?: { slu
         ) : (
           <div className="space-y-10">
             {featuredPost && selectedCategory === "All" && !searchQuery && (
-              <PostCard post={featuredPost} slug={slug!} accent={accent} featured />
+              <PostCard post={featuredPost} slug={slug!} accent={accent} basePath={basePath} featured />
             )}
 
             <div>
@@ -279,7 +281,7 @@ export default function BlogListingPage({ params: propParams }: { params?: { slu
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {(selectedCategory === "All" && !searchQuery ? remainingPosts : filteredPosts).map((post) => (
-                  <PostCard key={post.id} post={post} slug={slug!} accent={accent} />
+                  <PostCard key={post.id} post={post} slug={slug!} accent={accent} basePath={basePath} />
                 ))}
               </div>
             </div>
@@ -292,7 +294,7 @@ export default function BlogListingPage({ params: propParams }: { params?: { slu
               <p className="text-sm text-muted-foreground">
                 {posts.length} article{posts.length !== 1 ? "s" : ""} published
               </p>
-              <Link href={`/s/${slug}`} className="text-sm font-medium hover:underline" style={{ color: accent }} data-testid="link-visit-store">
+              <Link href={`${basePath || "/"}`} className="text-sm font-medium hover:underline" style={{ color: accent }} data-testid="link-visit-store">
                 Visit Store
               </Link>
             </div>

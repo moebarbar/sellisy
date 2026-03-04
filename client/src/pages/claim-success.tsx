@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSearch, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, ShoppingBag, Package, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { getStoreBasePath } from "@/lib/utils";
 
 type ClaimData = {
   order: { id: string; buyerEmail: string; totalCents: number };
@@ -25,6 +26,7 @@ export default function ClaimSuccessPage() {
     description: "Access your free digital product download.",
   });
   const storeSlug = params.get("store");
+  const basePath = useMemo(() => getStoreBasePath(storeSlug || ""), [storeSlug]);
   const [data, setData] = useState<ClaimData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -146,7 +148,7 @@ export default function ClaimSuccessPage() {
                         <span className="text-lg font-bold">
                           ${(data.upsellProduct.priceCents / 100).toFixed(2)}
                         </span>
-                        <Link href={`/s/${storeSlug}/product/${data.upsellProduct.id}`}>
+                        <Link href={`${basePath}/product/${data.upsellProduct.id}`}>
                           <Button size="sm" data-testid="button-upsell-product-buy">
                             <ShoppingBag className="mr-2 h-4 w-4" />
                             Buy Now
@@ -185,7 +187,7 @@ export default function ClaimSuccessPage() {
                             {data.upsellBundle.productCount} products
                           </span>
                         </div>
-                        <Link href={`/s/${storeSlug}/bundle/${data.upsellBundle.id}`}>
+                        <Link href={`${basePath}/bundle/${data.upsellBundle.id}`}>
                           <Button size="sm" data-testid="button-upsell-bundle-buy">
                             <Package className="mr-2 h-4 w-4" />
                             View Bundle
@@ -203,7 +205,7 @@ export default function ClaimSuccessPage() {
 
         <div className="text-center space-y-3">
           {storeSlug && (
-            <Link href={`/s/${storeSlug}`}>
+            <Link href={`${basePath || "/"}`}>
               <Button variant="outline" size="sm" data-testid="button-claim-back-store">
                 <ArrowRight className="mr-2 h-4 w-4" />
                 Back to Store

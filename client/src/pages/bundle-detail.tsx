@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,6 +7,7 @@ import { ShoppingBag, ArrowLeft, Package, Sparkles, Tag, Zap, Sun, Moon, Ticket 
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { ProtectedImage } from "@/components/protected-image";
 import { trackEvent } from "@/lib/tracking";
+import { getStoreBasePath } from "@/lib/utils";
 import type { Store, Product, Bundle } from "@shared/schema";
 
 type BundleDetailData = {
@@ -21,6 +22,7 @@ export default function BundleDetailPage({ params: propParams }: { params?: { sl
   const routeParams = useParams<{ slug: string; bundleId: string }>();
   const slug = propParams?.slug || routeParams.slug;
   const bundleId = propParams?.bundleId || routeParams.bundleId;
+  const basePath = useMemo(() => getStoreBasePath(slug || ""), [slug]);
 
   const [mode, setMode] = useState<BDPMode>(() => {
     if (typeof window !== "undefined") {
@@ -290,7 +292,7 @@ export default function BundleDetailPage({ params: propParams }: { params?: { sl
       <header className="relative z-10 px-6 py-5">
         <div className="bdp-separator absolute bottom-0 left-0 right-0" />
         <div className="mx-auto max-w-4xl flex items-center justify-between gap-4">
-          <a href={`/s/${slug}`} className="flex items-center gap-2 transition-colors" style={{ color: c.textSec }} data-testid="link-back-store">
+          <a href={`${basePath || "/"}`} className="flex items-center gap-2 transition-colors" style={{ color: c.textSec }} data-testid="link-back-store">
             <ArrowLeft className="h-4 w-4" />
             <span className="text-sm font-medium">{store.name}</span>
           </a>
@@ -325,7 +327,7 @@ export default function BundleDetailPage({ params: propParams }: { params?: { sl
               {bundle.name}
             </h1>
 
-            <a href={`/s/${slug}`} className="inline-flex items-center gap-2 transition-colors text-sm" style={{ color: c.textTer }} data-testid="link-store-name">
+            <a href={`${basePath || "/"}`} className="inline-flex items-center gap-2 transition-colors text-sm" style={{ color: c.textTer }} data-testid="link-store-name">
               <Sparkles className="h-3 w-3" />
               <span>by {store.name}</span>
             </a>
@@ -355,7 +357,7 @@ export default function BundleDetailPage({ params: propParams }: { params?: { sl
 
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {products.map((product) => (
-                  <a key={product.id} href={`/s/${slug}/product/${product.id}`} className="bdp-product-card group block" data-testid={`card-bundle-product-${product.id}`}>
+                  <a key={product.id} href={`${basePath}/product/${product.id}`} className="bdp-product-card group block" data-testid={`card-bundle-product-${product.id}`}>
                     <div className="bdp-holo-stripe" />
                     <div className="bdp-card-line-scan" />
                     {product.thumbnailUrl && (

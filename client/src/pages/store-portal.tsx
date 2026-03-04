@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useRoute, Link, useLocation } from "wouter";
+import { getStoreBasePath } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -96,17 +97,18 @@ function useStoreBranding(templateKey: string | undefined) {
   };
 }
 
-function StoreHeader({ store, theme, customer, onLogout, logoutPending }: {
+function StoreHeader({ store, theme, customer, onLogout, logoutPending, basePath }: {
   store: StoreInfo;
   theme: ReturnType<typeof useStoreBranding>;
   customer: CustomerMe | null;
   onLogout: () => void;
   logoutPending: boolean;
+  basePath: string;
 }) {
   return (
     <header className={`sticky top-0 z-50 border-b ${theme.headerBg} ${theme.borderColor} backdrop-blur-md`}>
       <div className="mx-auto max-w-4xl flex items-center justify-between gap-4 flex-wrap px-6 py-3">
-        <Link href={`/s/${store.slug}`}>
+        <Link href={`${basePath || "/"}`}>
           <div className="flex items-center gap-3 cursor-pointer" data-testid="link-store-home">
             {store.logoUrl ? (
               <img src={store.logoUrl} alt={store.name} className="h-8 w-8 rounded-md object-cover" />
@@ -255,11 +257,12 @@ function PortalLogin({ store, theme, onLogin }: {
   );
 }
 
-function PortalPurchases({ store, theme, purchases, isLoading }: {
+function PortalPurchases({ store, theme, purchases, isLoading, basePath }: {
   store: StoreInfo;
   theme: ReturnType<typeof useStoreBranding>;
   purchases: Purchase[] | undefined;
   isLoading: boolean;
+  basePath: string;
 }) {
   const slug = store.slug;
 
@@ -297,7 +300,7 @@ function PortalPurchases({ store, theme, purchases, isLoading }: {
           <p className={`text-sm max-w-xs ${theme.textMuted}`}>
             Your purchases from {store.name} will appear here.
           </p>
-          <Link href={`/s/${slug}`}>
+          <Link href={`${basePath || "/"}`}>
             <button className={`mt-4 inline-flex items-center justify-center rounded-md h-10 px-4 text-sm ${theme.btnPrimary}`} data-testid="button-browse-store">
               Browse Products
             </button>
@@ -306,7 +309,7 @@ function PortalPurchases({ store, theme, purchases, isLoading }: {
       ) : (
         <div className="space-y-3">
           {purchases.map((order) => (
-            <Link key={order.id} href={`/s/${slug}/portal/${order.id}`}>
+            <Link key={order.id} href={`${basePath}/portal/${order.id}`}>
               <div className={`rounded-lg border p-4 cursor-pointer transition-all hover:shadow-md ${theme.cardBg}`} data-testid={`card-portal-order-${order.id}`}>
                 <div className="flex items-center gap-4">
                   <div className="flex -space-x-2">
@@ -349,7 +352,7 @@ function PortalPurchases({ store, theme, purchases, isLoading }: {
       )}
 
       <div className="text-center pt-4">
-        <Link href={`/s/${slug}`}>
+        <Link href={`${basePath || "/"}`}>
           <button className={`inline-flex items-center text-sm ${theme.accent}`} data-testid="link-back-to-store">
             <ArrowLeft className="mr-1 h-3.5 w-3.5" />
             Back to {store.name}
@@ -371,10 +374,11 @@ function getProductTypeInfo(type: string) {
   }
 }
 
-function PortalOrderDetail({ store, theme, orderId }: {
+function PortalOrderDetail({ store, theme, orderId, basePath }: {
   store: StoreInfo;
   theme: ReturnType<typeof useStoreBranding>;
   orderId: string;
+  basePath: string;
 }) {
   const { toast } = useToast();
   const slug = store.slug;
@@ -408,7 +412,7 @@ function PortalOrderDetail({ store, theme, orderId }: {
   return (
     <main className="mx-auto max-w-4xl px-6 py-8 space-y-8">
       <div className="flex items-center gap-3">
-        <Link href={`/s/${slug}/portal`}>
+        <Link href={`${basePath}/portal`}>
           <button className={`inline-flex items-center justify-center h-9 w-9 rounded-md ${theme.btnGhost}`} data-testid="button-back-purchases">
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -630,7 +634,7 @@ function PortalOrderDetail({ store, theme, orderId }: {
               <h2 className={`text-lg font-semibold ${theme.text}`}>More from {store.name}</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 {purchase.upsellProducts.map((product) => (
-                  <Link key={product.id} href={`/s/${slug}/product/${product.id}`}>
+                  <Link key={product.id} href={`${basePath}/product/${product.id}`}>
                     <div className={`rounded-lg border p-3 cursor-pointer transition-all hover:shadow-md ${theme.cardBg}`} data-testid={`card-portal-upsell-${product.id}`}>
                       <div className="flex items-center gap-3">
                         <div className={`h-12 w-12 rounded-md overflow-hidden shrink-0 ${theme.isNeon ? "bg-[#1a1a2e]" : "bg-[#f0ede8]"}`}>
@@ -671,6 +675,7 @@ export default function StorePortalPage({ params: propParams }: { params?: { slu
 
   const slug = propParams?.slug || paramsOrder?.slug || paramsPortal?.slug || "";
   const orderId = propParams?.orderId || paramsOrder?.orderId || customOrderParams?.orderId;
+  const basePath = useMemo(() => getStoreBasePath(slug || ""), [slug]);
 
   const { data: storeData, isLoading: storeLoading } = useQuery<{
     store: StoreInfo;
@@ -740,6 +745,7 @@ export default function StorePortalPage({ params: propParams }: { params?: { slu
         customer={isLoggedIn ? customer : null}
         onLogout={() => logoutMutation.mutate()}
         logoutPending={logoutMutation.isPending}
+        basePath={basePath}
       />
 
       {!isLoggedIn ? (
@@ -749,13 +755,14 @@ export default function StorePortalPage({ params: propParams }: { params?: { slu
           onLogin={() => queryClient.invalidateQueries({ queryKey: ["/api/customer/me"] })}
         />
       ) : orderId ? (
-        <PortalOrderDetail store={store} theme={theme} orderId={orderId} />
+        <PortalOrderDetail store={store} theme={theme} orderId={orderId} basePath={basePath} />
       ) : (
         <PortalPurchases
           store={store}
           theme={theme}
           purchases={purchases}
           isLoading={purchasesLoading}
+          basePath={basePath}
         />
       )}
     </div>

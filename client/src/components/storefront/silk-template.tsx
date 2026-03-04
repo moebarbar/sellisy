@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, ArrowUpDown, ExternalLink } from "lucide-react";
@@ -7,6 +7,7 @@ import { ProtectedImage } from "@/components/protected-image";
 import { StorefrontProductPlaceholder } from "@/components/product-placeholder";
 import { useStorefrontFilters } from "@/hooks/use-storefront-filters";
 import { useScrollReveal } from "@/hooks/use-scroll-reveal";
+import { getStoreBasePath } from "@/lib/utils";
 import type { Store, Product, Bundle, BlogPost } from "@shared/schema";
 
 type StorefrontProduct = Product & {
@@ -43,6 +44,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
   }, [mode]);
 
   const isDark = mode === "dark";
+  const basePath = useMemo(() => getStoreBasePath(store.slug), [store.slug]);
 
   const [announcementDismissed, setAnnouncementDismissed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -290,7 +292,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
           </div>
           <div className="flex items-center gap-1">
             <a
-              href={`/s/${store.slug}/portal`}
+              href={`${basePath}/portal`}
               className="silk-mode-btn flex items-center justify-center w-9 h-9"
               data-testid="link-silk-portal"
               aria-label="My Purchases"
@@ -451,7 +453,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                 <div key={product.id} className="sf-reveal-item">
                   <div className="silk-card group flex flex-col md:flex-row" data-testid={`card-product-${product.id}`}>
                     <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden">
-                      <a href={`/s/${store.slug}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
+                      <a href={`${basePath}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
                         {product.thumbnailUrl ? (
                           <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
                         ) : (
@@ -469,7 +471,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                           <div className="h-px flex-1" style={{ backgroundColor: c.divider }} />
                         </div>
                         <h3 className="text-xl md:text-2xl font-serif mb-3 tracking-tight" style={{ color: c.text, lineHeight: "1.3" }} data-testid={`text-silk-product-${product.id}`}>
-                          <a href={`/s/${store.slug}/product/${product.id}`} className="hover:underline" data-testid={`link-product-title-${product.id}`}>
+                          <a href={`${basePath}/product/${product.id}`} className="hover:underline" data-testid={`link-product-title-${product.id}`}>
                             {product.title}
                           </a>
                         </h3>
@@ -590,7 +592,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                             <span className="text-sm line-through" style={{ color: c.textTertiary }}>${(totalValue / 100).toFixed(2)}</span>
                           )}
                         </div>
-                        <a href={`/s/${store.slug}/bundle/${bundle.id}`} data-testid={`link-bundle-${bundle.id}`}>
+                        <a href={`${basePath}/bundle/${bundle.id}`} data-testid={`link-bundle-${bundle.id}`}>
                           <Button className="silk-btn rounded-full px-6 font-medium tracking-wide text-sm no-default-hover-elevate no-default-active-elevate">
                             <Package className="mr-2 h-4 w-4" />
                             View Bundle
@@ -614,7 +616,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
               {blogPosts.map((post) => (
                 <a
                   key={post.id}
-                  href={`/s/${store.slug}/blog/${post.slug}`}
+                  href={`${basePath}/blog/${post.slug}`}
                   className="group rounded-xl overflow-hidden transition-all hover:shadow-lg"
                   style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}
                   data-testid={`link-blog-${post.id}`}
@@ -636,7 +638,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
               ))}
             </div>
             <div className="mt-6 text-center">
-              <a href={`/s/${store.slug}/blog`} className="inline-flex items-center gap-1 text-sm font-serif tracking-wide hover:underline" style={{ color: c.gold }}>
+              <a href={`${basePath}/blog`} className="inline-flex items-center gap-1 text-sm font-serif tracking-wide hover:underline" style={{ color: c.gold }}>
                 View all articles <ArrowRight className="h-3 w-3" />
               </a>
             </div>
@@ -688,7 +690,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
             <div className="flex flex-col gap-3">
               <span className="text-xs font-serif font-medium tracking-[0.2em] uppercase mb-1" style={{ color: c.textTertiary }}>Quick Links</span>
               <a
-                href={`/s/${store.slug}/portal`}
+                href={`${basePath}/portal`}
                 className="flex items-center gap-2 text-sm font-serif tracking-wide transition-colors hover:underline"
                 style={{ color: c.textSecondary }}
                 data-testid="link-footer-purchases"
@@ -698,7 +700,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
               </a>
               {store.blogEnabled && (
                 <a
-                  href={`/s/${store.slug}/blog`}
+                  href={`${basePath}/blog`}
                   className="flex items-center gap-2 text-sm font-serif tracking-wide transition-colors hover:underline"
                   style={{ color: c.textSecondary }}
                   data-testid="link-footer-blog"

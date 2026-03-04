@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useSearch } from "wouter";
 import { ExternalLink, Package, Layers } from "lucide-react";
+import { getStoreBasePath } from "@/lib/utils";
 
 function formatPrice(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -16,6 +18,7 @@ function hexToRgb(hex: string) {
 }
 
 function EmbedCard({ type, slug, itemId }: { type: "product" | "bundle"; slug: string; itemId: string }) {
+  const basePath = useMemo(() => getStoreBasePath(slug || ""), [slug]);
   const search = useSearch();
   const params = new URLSearchParams(search);
   const theme = params.get("theme") === "dark" ? "dark" : "light";
@@ -60,8 +63,8 @@ function EmbedCard({ type, slug, itemId }: { type: "product" | "bundle"; slug: s
   const productCount = type === "bundle" ? item.productCount : null;
 
   const storeUrl = type === "product"
-    ? `/s/${slug}/product/${itemId}`
-    : `/s/${slug}/bundle/${itemId}`;
+    ? `${basePath}/product/${itemId}`
+    : `${basePath}/bundle/${itemId}`;
 
   const hasSavings = originalPriceCents && originalPriceCents > priceCents;
   const savingsPercent = hasSavings ? Math.round(((originalPriceCents - priceCents) / originalPriceCents) * 100) : 0;
