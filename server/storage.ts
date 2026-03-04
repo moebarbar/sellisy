@@ -120,8 +120,9 @@ export interface IStorage {
 
   getKnowledgeBasesByOwner(ownerId: string): Promise<KnowledgeBase[]>;
   getKnowledgeBaseById(id: string): Promise<KnowledgeBase | undefined>;
+  getKnowledgeBaseBySlug(slug: string): Promise<KnowledgeBase | undefined>;
   createKnowledgeBase(data: InsertKnowledgeBase): Promise<KnowledgeBase>;
-  updateKnowledgeBase(id: string, data: Partial<Pick<KnowledgeBase, "title" | "description" | "coverImageUrl" | "priceCents" | "isPublished" | "productId" | "authorName" | "authorImageUrl">>): Promise<KnowledgeBase | undefined>;
+  updateKnowledgeBase(id: string, data: Partial<Pick<KnowledgeBase, "title" | "slug" | "description" | "coverImageUrl" | "priceCents" | "isPublished" | "productId" | "authorName" | "authorImageUrl">>): Promise<KnowledgeBase | undefined>;
   deleteKnowledgeBase(id: string): Promise<void>;
 
   getKbPagesByKnowledgeBase(knowledgeBaseId: string): Promise<KbPage[]>;
@@ -615,12 +616,17 @@ export class DatabaseStorage implements IStorage {
     return kb;
   }
 
+  async getKnowledgeBaseBySlug(slug: string) {
+    const [kb] = await db.select().from(knowledgeBases).where(and(eq(knowledgeBases.slug, slug), isNull(knowledgeBases.deletedAt)));
+    return kb;
+  }
+
   async createKnowledgeBase(data: InsertKnowledgeBase) {
     const [kb] = await db.insert(knowledgeBases).values(data).returning();
     return kb;
   }
 
-  async updateKnowledgeBase(id: string, data: Partial<Pick<KnowledgeBase, "title" | "description" | "coverImageUrl" | "priceCents" | "isPublished" | "productId" | "authorName" | "authorImageUrl">>) {
+  async updateKnowledgeBase(id: string, data: Partial<Pick<KnowledgeBase, "title" | "slug" | "description" | "coverImageUrl" | "priceCents" | "isPublished" | "productId" | "authorName" | "authorImageUrl">>) {
     const [kb] = await db.update(knowledgeBases).set(data).where(eq(knowledgeBases.id, id)).returning();
     return kb;
   }

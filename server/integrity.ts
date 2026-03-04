@@ -174,19 +174,35 @@ export async function runRepair(): Promise<RepairResult> {
   return { timestamp: new Date().toISOString(), repairs, totalFixed };
 }
 
+function slugify(title: string, fallback = "item"): string {
+  return title
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80) || fallback;
+}
+
 async function backfillProductSlugs(): Promise<number> {
   const rows = await db.select({ id: products.id, title: products.title })
     .from(products)
     .where(isNull(products.slug));
   if (rows.length === 0) return 0;
   for (const row of rows) {
-    const slug = row.title
-      .toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 80) || "product";
+    const slug = slugify(row.title, "product");
     await db.update(products).set({ slug }).where(eq(products.id, row.id));
+  }
+  return rows.length;
+}
+
+async function backfillKbSlugs(): Promise<number> {
+  const rows = await db.select({ id: knowledgeBases.id, title: knowledgeBases.title })
+    .from(knowledgeBases)
+    .where(isNull(knowledgeBases.slug));
+  if (rows.length === 0) return 0;
+  for (const row of rows) {
+    const slug = slugify(row.title, "kb");
+    await db.update(knowledgeBases).set({ slug }).where(eq(knowledgeBases.id, row.id));
   }
   return rows.length;
 }
@@ -197,6 +213,11 @@ export async function runStartupCheck(): Promise<void> {
   const slugCount = await backfillProductSlugs();
   if (slugCount > 0) {
     console.log(`[integrity] Backfilled slugs for ${slugCount} products.`);
+  }
+
+  const kbSlugCount = await backfillKbSlugs();
+  if (kbSlugCount > 0) {
+    console.log(`[integrity] Backfilled slugs for ${kbSlugCount} knowledge bases.`);
   }
 
   const report = await runHealthCheck();

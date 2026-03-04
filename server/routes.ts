@@ -25,13 +25,13 @@ function getUserId(req: Request): string {
   return (req as any).session?.userId;
 }
 
-function generateProductSlug(title: string): string {
+function generateSlug(title: string, fallback = "item"): string {
   return title
     .toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
-    .slice(0, 80) || "product";
+    .slice(0, 80) || fallback;
 }
 
 function sanitizeStore(store: any) {
@@ -651,7 +651,7 @@ ${urls}</urlset>`;
       ownerId: getUserId(req),
       source: "USER",
       title: parsed.data.title,
-      slug: generateProductSlug(parsed.data.title),
+      slug: generateSlug(parsed.data.title, "product"),
       description: parsed.data.description || null,
       tagline: parsed.data.tagline ?? null,
       category: parsed.data.category || "templates",
@@ -716,7 +716,7 @@ ${urls}</urlset>`;
     const admin = await isUserAdmin(getUserId(req));
     const { images: imgs, requiredTier, ...productData } = parsed.data;
     if (productData.title) {
-      (productData as any).slug = generateProductSlug(productData.title);
+      (productData as any).slug = generateSlug(productData.title, "product");
     }
     if (admin && requiredTier) {
       (productData as any).requiredTier = requiredTier;
@@ -1351,6 +1351,7 @@ ${urls}</urlset>`;
     const kb = await storage.createKnowledgeBase({
       ownerId: userId,
       title,
+      slug: generateSlug(title, "kb"),
     });
     res.json(kb);
   });
@@ -1377,7 +1378,11 @@ ${urls}</urlset>`;
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
-    const updated = await storage.updateKnowledgeBase(kb.id, parsed.data);
+    const updateData: any = { ...parsed.data };
+    if (updateData.title) {
+      updateData.slug = generateSlug(updateData.title, "kb");
+    }
+    const updated = await storage.updateKnowledgeBase(kb.id, updateData);
     res.json(updated);
   });
 
@@ -1396,7 +1401,8 @@ ${urls}</urlset>`;
     const pages = await storage.getKbPagesByKnowledgeBase(kb.id);
     if (pages.length === 0) return res.status(400).json({ message: "Add at least one page before creating a product." });
 
-    let accessUrl = `https://${req.get("host")}/kb/${kb.id}`;
+    const kbSlug = kb.slug || kb.id;
+    let accessUrl = `https://${req.get("host")}/kb/${kbSlug}`;
 
     let linkedStore: any = null;
     if (kb.productId) {
@@ -1408,7 +1414,7 @@ ${urls}</urlset>`;
       linkedStore = userStores.find(s => s.customDomain && s.domainStatus === "active") || null;
     }
     if (linkedStore?.customDomain && linkedStore.domainStatus === "active") {
-      accessUrl = `https://${linkedStore.customDomain}/kb/${kb.id}`;
+      accessUrl = `https://${linkedStore.customDomain}/kb/${kbSlug}`;
     }
 
     if (kb.productId) {
@@ -1636,7 +1642,11 @@ ${urls}</urlset>`;
 
   // Public KB viewer
   app.get("/api/kb/:id/view", async (req, res) => {
-    const kb = await storage.getKnowledgeBaseById(req.params.id as string);
+    const idParam = req.params.id as string;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idParam);
+    const kb = isUuid
+      ? await storage.getKnowledgeBaseById(idParam)
+      : await storage.getKnowledgeBaseBySlug(idParam);
     if (!kb || !kb.isPublished) return res.status(404).json({ message: "Not found" });
     const pages = await storage.getKbPagesByKnowledgeBase(kb.id);
     const isPaid = kb.priceCents > 0;
@@ -1687,7 +1697,11 @@ ${urls}</urlset>`;
   });
 
   app.get("/api/kb/:id/view/page/:pageId", async (req, res) => {
-    const kb = await storage.getKnowledgeBaseById(req.params.id as string);
+    const idParam2 = req.params.id as string;
+    const isUuid2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idParam2);
+    const kb = isUuid2
+      ? await storage.getKnowledgeBaseById(idParam2)
+      : await storage.getKnowledgeBaseBySlug(idParam2);
     if (!kb || !kb.isPublished) return res.status(404).json({ message: "Not found" });
 
     const isPaid = kb.priceCents > 0;

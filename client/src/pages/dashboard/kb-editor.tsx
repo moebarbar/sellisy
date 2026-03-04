@@ -2824,9 +2824,10 @@ function KbSettingsPanel({
     setShowSettings(false);
   };
 
+  const kbSlugOrId = kb.slug || kbId;
   const viewerUrl = activeStore?.customDomain && activeStore?.domainStatus === "active"
-    ? `https://${activeStore.customDomain}/kb/${kbId}`
-    : `${window.location.origin}/kb/${kbId}`;
+    ? `https://${activeStore.customDomain}/kb/${kbSlugOrId}`
+    : `${window.location.origin}/kb/${kbSlugOrId}`;
   const copyLink = () => {
     navigator.clipboard.writeText(viewerUrl);
     setCopied(true);

@@ -46,7 +46,7 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
     *   **Meta Descriptions**: Auto-generated, capped at 160 characters, using product description/tagline.
     *   **robots.txt**: Served at `/robots.txt`, allows `/s/`, `/product/`, `/bundle/`; disallows `/api/`, `/dashboard/`, `/auth`. Points to sitemap.
     *   **sitemap.xml**: Dynamic XML sitemap at `/sitemap.xml` listing all stores, published products (with slug URLs), published bundles, and published blog posts.
-    *   **Slug Resolution**: API resolves products by slug (store-scoped via `storeProducts` join) with UUID fallback for backward compatibility.
+    *   **Slug Resolution**: API resolves products by slug (store-scoped via `storeProducts` join) with UUID fallback for backward compatibility. Knowledge bases also have slugs (auto-generated from title on create/update, backfilled on startup) and resolve by slug with UUID fallback.
     *   **Alt Text**: Product images include alt text from product titles in all storefront templates.
 *   **Data Protection System**:
     *   **Soft Deletes**: Products, stores, orders, bundles, coupons, knowledge bases, and blog posts all use a `deletedAt` timestamp instead of hard deletes. All queries filter out soft-deleted records (`WHERE deletedAt IS NULL`). Data is never permanently lost through normal user operations.

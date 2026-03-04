@@ -364,6 +364,7 @@ export const knowledgeBases = pgTable("knowledge_bases", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
   ownerId: varchar("owner_id", { length: 64 }).notNull(),
   title: text("title").notNull().default("Untitled"),
+  slug: text("slug"),
   description: text("description"),
   coverImageUrl: text("cover_image_url"),
   priceCents: integer("price_cents").notNull().default(0),
