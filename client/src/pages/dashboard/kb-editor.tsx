@@ -3,6 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useRoute } from "wouter";
+import { useActiveStore } from "@/lib/store-context";
+import { getStorePublicPath } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -2717,6 +2719,7 @@ function KbSettingsPanel({
   onCloseSettings?: () => void;
 }) {
   const { toast } = useToast();
+  const { activeStore } = useActiveStore();
   const [showSettingsInternal, setShowSettingsInternal] = useState(false);
   const showSettings = showSettingsExternal ?? showSettingsInternal;
   const setShowSettings = (v: boolean) => {
@@ -2821,7 +2824,9 @@ function KbSettingsPanel({
     setShowSettings(false);
   };
 
-  const viewerUrl = `${window.location.origin}/kb/${kbId}`;
+  const viewerUrl = activeStore?.customDomain && activeStore?.domainStatus === "active"
+    ? `https://${activeStore.customDomain}/kb/${kbId}`
+    : `${window.location.origin}/kb/${kbId}`;
   const copyLink = () => {
     navigator.clipboard.writeText(viewerUrl);
     setCopied(true);

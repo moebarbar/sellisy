@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
+import { getStorePublicPath } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -105,6 +106,7 @@ export default function StoreProductsPage() {
                 storeProduct={sp}
                 storeId={activeStoreId}
                 storeSlug={activeStore?.slug || ""}
+                activeStore={activeStore}
                 allProducts={storeProducts}
                 bundles={bundles || []}
                 onEdit={() => setEditingSp(sp)}
@@ -154,6 +156,7 @@ function StoreProductRow({
   storeProduct,
   storeId,
   storeSlug,
+  activeStore,
   allProducts,
   bundles,
   onEdit,
@@ -161,6 +164,7 @@ function StoreProductRow({
   storeProduct: StoreProductWithProduct;
   storeId: string;
   storeSlug: string;
+  activeStore?: any;
   allProducts: StoreProductWithProduct[];
   bundles: BundleWithProducts[];
   onEdit: () => void;
@@ -266,7 +270,7 @@ function StoreProductRow({
                       size="icon"
                       variant="ghost"
                       onClick={async () => {
-                        const url = `${window.location.origin}/s/${storeSlug}/product/${product.id}`;
+                        const url = getStorePublicPath(activeStore, `product/${product.slug || product.id}`);
                         try {
                           await navigator.clipboard.writeText(url);
                           toast({ title: "Product link copied!" });
@@ -350,6 +354,8 @@ function StoreProductRow({
               itemType="product"
               itemId={product.id}
               itemName={storeProduct.customTitle || product.title}
+              customDomain={activeStore?.customDomain}
+              domainStatus={activeStore?.domainStatus}
             />
           )}
         </div>

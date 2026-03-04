@@ -313,6 +313,8 @@ export default function BundlesPage() {
               open={!!embedBundle}
               onOpenChange={(open) => { if (!open) setEmbedBundle(null); }}
               storeSlug={activeStore.slug}
+              customDomain={activeStore.customDomain}
+              domainStatus={activeStore.domainStatus}
               itemType="bundle"
               itemId={embedBundle.id}
               itemName={embedBundle.name}

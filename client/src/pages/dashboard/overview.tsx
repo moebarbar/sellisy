@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
+import { getStorePublicUrl } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -327,7 +328,7 @@ function GettingStartedChecklist({ activeStore, storeProducts }: {
       description: "Visit your live storefront and share it with the world",
       done: hasPublished,
       icon: Share2,
-      href: `/s/${activeStore?.slug}`,
+      href: activeStore?.customDomain && activeStore?.domainStatus === "active" ? `https://${activeStore.customDomain}` : `/s/${activeStore?.slug}`,
       actionLabel: "View Storefront",
     },
   ];
@@ -443,7 +444,7 @@ const actionPrompts: ActionPrompt[] = [
   { id: "reel", title: "Make a quick Reel today", description: "Behind-the-scenes, a product demo, or a tip. Reels get insane reach!", icon: Video, href: "/dashboard/marketing/instagram-strategy", gradient: "from-pink-500/10 to-rose-500/10", iconColor: "text-pink-500" },
 ];
 
-function WhatsNextSection({ storeSlug }: { storeSlug?: string }) {
+function WhatsNextSection({ store }: { store?: any }) {
   const { toast } = useToast();
   const prompts = useMemo(() => {
     const shuffled = [...actionPrompts].sort(() => Math.random() - 0.5);
@@ -451,8 +452,8 @@ function WhatsNextSection({ storeSlug }: { storeSlug?: string }) {
   }, []);
 
   const handleCopyLink = async () => {
-    if (!storeSlug) return;
-    const url = `${window.location.origin}/s/${storeSlug}`;
+    if (!store) return;
+    const url = getStorePublicUrl(store);
     try {
       await navigator.clipboard.writeText(url);
       toast({ title: "Link copied!", description: "Share it with the world." });
@@ -570,18 +571,18 @@ export default function OverviewPage() {
               "{motivation}"
             </p>
           </div>
-          <Link href={`/s/${activeStore?.slug}`}>
+          <a href={getStorePublicUrl(activeStore)} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm" data-testid="button-view-storefront">
               <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
               View Storefront
             </Button>
-          </Link>
+          </a>
         </div>
       </div>
 
       <GettingStartedChecklist activeStore={activeStore} storeProducts={storeProducts} />
 
-      <WhatsNextSection storeSlug={activeStore?.slug} />
+      <WhatsNextSection store={activeStore} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
@@ -725,12 +726,12 @@ export default function OverviewPage() {
                 Send your storefront URL to potential customers and watch orders roll in.
               </p>
             </div>
-            <Link href={`/s/${activeStore?.slug}`}>
+            <a href={getStorePublicUrl(activeStore)} target="_blank" rel="noopener noreferrer">
               <Button size="sm" data-testid="button-share-tip">
                 <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
                 Visit Store
               </Button>
-            </Link>
+            </a>
           </CardContent>
         </Card>
       )}

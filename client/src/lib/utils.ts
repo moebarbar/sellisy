@@ -14,3 +14,17 @@ export function getStoreBasePath(slug: string): string {
   if (!slug) return "";
   return isCustomDomain() ? "" : `/s/${slug}`;
 }
+
+export function getStorePublicUrl(store: { slug: string; customDomain?: string | null; domainStatus?: string | null } | null | undefined): string {
+  if (!store) return window.location.origin;
+  if (store.customDomain && store.domainStatus === "active") {
+    return `https://${store.customDomain}`;
+  }
+  return `${window.location.origin}/s/${store.slug}`;
+}
+
+export function getStorePublicPath(store: { slug: string; customDomain?: string | null; domainStatus?: string | null } | null | undefined, path: string): string {
+  const base = getStorePublicUrl(store);
+  if (!path) return base;
+  return `${base}/${path.replace(/^\//, "")}`;
+}

@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/lib/theme";
 import { StoreProvider, useActiveStore } from "@/lib/store-context";
+import { getStorePublicUrl } from "@/lib/utils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/sidebar";
 import { Button } from "@/components/ui/button";
@@ -159,14 +160,14 @@ function DashboardHeader() {
 
           {activeStore && (
             <Badge variant="outline" className="hidden sm:flex text-xs text-muted-foreground">
-              /s/{activeStore.slug}
+              {activeStore.customDomain && activeStore.domainStatus === "active" ? activeStore.customDomain : `/s/${activeStore.slug}`}
             </Badge>
           )}
         </div>
 
         <div className="flex items-center gap-1">
           {activeStore && (
-            <a href={`/s/${activeStore.slug}`} target="_blank" rel="noopener noreferrer" onClick={handleStorefrontClick}>
+            <a href={getStorePublicUrl(activeStore)} target="_blank" rel="noopener noreferrer" onClick={handleStorefrontClick}>
               <Button variant="ghost" size="sm" data-testid="button-header-storefront">
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Storefront</span>

@@ -211,7 +211,7 @@ Sitemap: ${_req.protocol}://${_req.get("host")}/sitemap.xml`);
   app.get("/sitemap.xml", async (req, res) => {
     try {
       const allStores = await db
-        .select({ slug: stores.slug, name: stores.name })
+        .select({ slug: stores.slug, name: stores.name, customDomain: stores.customDomain, domainStatus: stores.domainStatus })
         .from(stores)
         .where(isNull(stores.deletedAt));
 
@@ -219,7 +219,9 @@ Sitemap: ${_req.protocol}://${_req.get("host")}/sitemap.xml`);
       let urls = "";
 
       for (const store of allStores) {
-        urls += `  <url><loc>${baseUrl}/s/${store.slug}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>\n`;
+        const hasCustomDomain = !!(store.customDomain && store.domainStatus === "active");
+        const storeBase = hasCustomDomain ? `https://${store.customDomain}` : `${baseUrl}/s/${store.slug}`;
+        urls += `  <url><loc>${storeBase}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>\n`;
 
         const storeObj = await storage.getStoreBySlug(store.slug);
         if (!storeObj) continue;
@@ -230,19 +232,19 @@ Sitemap: ${_req.protocol}://${_req.get("host")}/sitemap.xml`);
           const product = await storage.getProductById(sp.productId);
           if (!product || product.deletedAt) continue;
           const productSlug = product.slug || product.id;
-          urls += `  <url><loc>${baseUrl}/s/${store.slug}/product/${productSlug}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
+          urls += `  <url><loc>${storeBase}/product/${productSlug}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
         }
 
         const storeBundles = await storage.getBundlesByStore(storeObj.id);
         for (const bundle of storeBundles) {
           if (!bundle.isPublished || bundle.deletedAt) continue;
-          urls += `  <url><loc>${baseUrl}/s/${store.slug}/bundle/${bundle.id}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>\n`;
+          urls += `  <url><loc>${storeBase}/bundle/${bundle.id}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>\n`;
         }
 
         const blogPosts = await storage.getBlogPostsByStore(storeObj.id);
         for (const post of blogPosts) {
           if (post.deletedAt || !post.isPublished) continue;
-          urls += `  <url><loc>${baseUrl}/s/${store.slug}/blog/${post.slug}</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>\n`;
+          urls += `  <url><loc>${storeBase}/blog/${post.slug}</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>\n`;
         }
       }
 

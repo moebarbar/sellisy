@@ -4,6 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useActiveStore } from "@/lib/store-context";
+import { getStorePublicPath } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -172,7 +173,7 @@ export default function BlogPostsPage() {
                       {post.isPublished ? "Unpublish" : "Publish"}
                     </DropdownMenuItem>
                     {post.isPublished && activeStore.blogEnabled && (
-                      <DropdownMenuItem onClick={() => window.open(`/s/${activeStore.slug}/blog/${post.slug}`, "_blank")}>
+                      <DropdownMenuItem onClick={() => window.open(getStorePublicPath(activeStore, `blog/${post.slug}`), "_blank")}>
                         <ExternalLink className="h-4 w-4 mr-2" /> View Live
                       </DropdownMenuItem>
                     )}

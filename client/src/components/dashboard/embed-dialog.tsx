@@ -12,16 +12,23 @@ interface EmbedDialogProps {
   itemType: "product" | "bundle";
   itemId: string;
   itemName: string;
+  customDomain?: string | null;
+  domainStatus?: string | null;
 }
 
-export function EmbedDialog({ open, onOpenChange, storeSlug, itemType, itemId, itemName }: EmbedDialogProps) {
+export function EmbedDialog({ open, onOpenChange, storeSlug, itemType, itemId, itemName, customDomain, domainStatus }: EmbedDialogProps) {
   const [darkTheme, setDarkTheme] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const themeParam = darkTheme ? "?theme=dark" : "";
-  const embedPath = `/embed/${storeSlug}/${itemType}/${itemId}${themeParam}`;
-  const embedUrl = `${origin}${embedPath}`;
+  const hasCustomDomain = !!(customDomain && domainStatus === "active");
+  const embedPath = hasCustomDomain
+    ? `/embed/${itemType}/${itemId}${themeParam}`
+    : `/embed/${storeSlug}/${itemType}/${itemId}${themeParam}`;
+  const embedUrl = hasCustomDomain
+    ? `https://${customDomain}${embedPath}`
+    : `${origin}${embedPath}`;
 
   const iframeCode = `<iframe src="${embedUrl}" width="500" height="200" style="border:none;overflow:hidden;border-radius:12px;" loading="lazy" title="${itemName}"></iframe>`;
 
