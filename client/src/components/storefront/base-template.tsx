@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, ArrowUpDown, ExternalLink } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
@@ -48,6 +49,9 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
   }, [mode, theme.modeStorageKey]);
 
   const isDark = mode === "dark";
+  const prefetchProduct = useCallback((productId: string) => {
+    queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "product", productId] });
+  }, [store.slug]);
   const [leadModalProduct, setLeadModalProduct] = useState<StorefrontProduct | null>(null);
 
   const [announcementDismissed, setAnnouncementDismissed] = useState(() => {
@@ -376,7 +380,7 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
 
               return (
                 <div key={product.id} className="sf-reveal-item flex">
-                  <div className={`${theme.effects.cardClass} group flex flex-col w-full`} data-testid={`card-product-${product.id}`}>
+                  <div className={`${theme.effects.cardClass} group flex flex-col w-full`} data-testid={`card-product-${product.id}`} onMouseEnter={() => prefetchProduct(product.id)}>
                     {theme.renderCardOverlay?.(c)}
                     <div className="t-card-line-scan" />
                     <div className="t-holo-stripe" />
@@ -456,7 +460,7 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
 
               return (
                 <div key={product.id} className="sf-reveal-item">
-                  <div className={`${theme.effects.cardClass} group flex flex-col md:flex-row`} data-testid={`card-product-${product.id}`}>
+                  <div className={`${theme.effects.cardClass} group flex flex-col md:flex-row`} data-testid={`card-product-${product.id}`} onMouseEnter={() => prefetchProduct(product.id)}>
                     {product.thumbnailUrl && (
                       <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden">
                         <a href={`${basePath}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>

@@ -197,7 +197,7 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
   const hasDiscount = product.originalPriceCents != null && product.originalPriceCents > product.priceCents;
 
   return (
-    <div style={{ background: c.bg, color: c.text }} className="min-h-screen relative overflow-x-hidden">
+    <div style={{ background: c.bg, color: c.text }} className="min-h-screen relative overflow-x-hidden sf-page-enter">
       <style>{`
         @keyframes pdp-pulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.05); } }
         @keyframes pdp-gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }

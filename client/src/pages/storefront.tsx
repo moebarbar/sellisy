@@ -10,6 +10,9 @@ import { usePageMeta } from "@/hooks/use-page-meta";
 import { trackEvent } from "@/lib/tracking";
 import type { Store, Product, Bundle } from "@shared/schema";
 
+const preloadProductDetail = () => import("./product-detail");
+const preloadBundleDetail = () => import("./bundle-detail");
+
 type BundleWithProducts = Bundle & { products: Product[] };
 
 type StorefrontData = {
@@ -41,6 +44,11 @@ export default function StorefrontPage({ params: propParams }: { params?: { slug
       trackEvent(data.store.id, "page_view");
     }
   }, [data?.store?.id]);
+
+  useEffect(() => {
+    preloadProductDetail();
+    preloadBundleDetail();
+  }, []);
 
   if (isLoading) {
     return (

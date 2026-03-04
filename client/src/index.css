@@ -443,3 +443,11 @@
   opacity: 1;
   transform: translateY(0);
 }
+
+@keyframes sfPageFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.sf-page-enter {
+  animation: sfPageFadeIn 0.2s ease-out both;
+}

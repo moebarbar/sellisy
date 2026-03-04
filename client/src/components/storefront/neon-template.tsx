@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, SlidersHorizontal, ArrowUpDown, ChevronRight, ExternalLink } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
@@ -33,6 +34,9 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
 
   const isDark = mode === "dark";
   const basePath = useMemo(() => getStoreBasePath(store.slug), [store.slug]);
+  const prefetchProduct = useCallback((productId: string) => {
+    queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "product", productId] });
+  }, [store.slug]);
   const [leadModalProduct, setLeadModalProduct] = useState<StorefrontProduct | null>(null);
 
   const [announcementDismissed, setAnnouncementDismissed] = useState(() => {
@@ -544,7 +548,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
               const discountPct = hasDiscount ? Math.round(((product.originalPriceCents! - product.priceCents) / product.originalPriceCents!) * 100) : 0;
 
               return (
-                <div key={product.id} className="neon-card group sf-reveal-item">
+                <div key={product.id} className="neon-card group sf-reveal-item" onMouseEnter={() => prefetchProduct(product.id)}>
                   <div className="neon-holo-stripe" />
                   <div className="neon-card-line-scan" />
                   <a href={basePath + "/product/" + product.id} className="block relative overflow-hidden">

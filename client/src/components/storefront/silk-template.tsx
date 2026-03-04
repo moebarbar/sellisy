@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, ArrowUpDown, ExternalLink } from "lucide-react";
 import { LeadMagnetModal } from "./lead-magnet-modal";
@@ -45,6 +46,9 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
 
   const isDark = mode === "dark";
   const basePath = useMemo(() => getStoreBasePath(store.slug), [store.slug]);
+  const prefetchProduct = useCallback((productId: string) => {
+    queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "product", productId] });
+  }, [store.slug]);
 
   const [announcementDismissed, setAnnouncementDismissed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -451,7 +455,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
 
               return (
                 <div key={product.id} className="sf-reveal-item">
-                  <div className="silk-card group flex flex-col md:flex-row" data-testid={`card-product-${product.id}`}>
+                  <div className="silk-card group flex flex-col md:flex-row" data-testid={`card-product-${product.id}`} onMouseEnter={() => prefetchProduct(product.id)}>
                     <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden">
                       <a href={`${basePath}/product/${product.id}`} data-testid={`link-product-img-${product.id}`}>
                         {product.thumbnailUrl ? (
