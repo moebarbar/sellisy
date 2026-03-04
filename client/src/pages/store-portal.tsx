@@ -738,7 +738,7 @@ export default function StorePortalPage({ params: propParams }: { params?: { slu
   const isLoggedIn = !!customer;
 
   return (
-    <div className={`min-h-screen ${theme.bg}`}>
+    <div className={`min-h-screen ${theme.bg} sf-page-enter`}>
       <StoreHeader
         store={store}
         theme={theme}

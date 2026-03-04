@@ -49,6 +49,9 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
   const prefetchProduct = useCallback((productId: string) => {
     queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "product", productId] });
   }, [store.slug]);
+  const prefetchBundle = useCallback((bundleId: number) => {
+    queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "bundle", bundleId] });
+  }, [store.slug]);
 
   const [announcementDismissed, setAnnouncementDismissed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -555,7 +558,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                 const totalValue = bundle.products.reduce((sum, p) => sum + p.priceCents, 0);
                 const savePct = totalValue > bundle.priceCents ? Math.round(((totalValue - bundle.priceCents) / totalValue) * 100) : 0;
                 return (
-                  <div key={bundle.id} className="silk-card group flex flex-col md:flex-row sf-reveal-item" data-testid={`card-bundle-${bundle.id}`}>
+                  <div key={bundle.id} className="silk-card group flex flex-col md:flex-row sf-reveal-item" data-testid={`card-bundle-${bundle.id}`} onMouseEnter={() => prefetchBundle(bundle.id)}>
                     {bundle.thumbnailUrl && (
                       <div className="md:w-80 lg:w-96 shrink-0 overflow-hidden">
                         <ProtectedImage protected={!store.allowImageDownload} src={bundle.thumbnailUrl} alt={bundle.name} className="w-full h-56 md:h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />

@@ -68,7 +68,7 @@ export default function ClaimSuccessPage() {
   const hasUpsell = data.upsellProduct || data.upsellBundle;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background sf-page-enter">
       <div className="mx-auto max-w-2xl px-6 py-12 space-y-8">
         <div className="text-center space-y-3">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500/10">

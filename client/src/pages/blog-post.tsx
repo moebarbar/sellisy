@@ -263,7 +263,7 @@ export default function BlogPostPage({ params: propParams }: { params?: { slug: 
   const accent = store.accentColor || "#3b82f6";
 
   return (
-    <div className="min-h-screen bg-background" style={post.fontFamily ? { fontFamily: `'${post.fontFamily}', sans-serif` } : undefined}>
+    <div className="min-h-screen bg-background sf-page-enter" style={post.fontFamily ? { fontFamily: `'${post.fontFamily}', sans-serif` } : undefined}>
       <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-6 py-3 flex items-center gap-4">
           <Link href={`${basePath}/blog`} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="link-back-to-blog">

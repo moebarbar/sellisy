@@ -192,7 +192,7 @@ export default function BlogListingPage({ params: propParams }: { params?: { slu
   const remainingPosts = filteredPosts.slice(1);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background sf-page-enter">
       <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center gap-4">
           <Link href={`${basePath || "/"}`} className="text-muted-foreground hover:text-foreground transition-colors" data-testid="link-back-to-store">

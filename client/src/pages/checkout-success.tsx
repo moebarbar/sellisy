@@ -104,7 +104,7 @@ export default function CheckoutSuccessPage() {
   const isPending = data.order.status === "PENDING";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 sf-page-enter">
       <Card className="max-w-lg w-full">
         <CardContent className="flex flex-col items-center py-12 text-center">
           {isPending ? (

@@ -52,6 +52,9 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
   const prefetchProduct = useCallback((productId: string) => {
     queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "product", productId] });
   }, [store.slug]);
+  const prefetchBundle = useCallback((bundleId: number) => {
+    queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "bundle", bundleId] });
+  }, [store.slug]);
   const [leadModalProduct, setLeadModalProduct] = useState<StorefrontProduct | null>(null);
 
   const [announcementDismissed, setAnnouncementDismissed] = useState(() => {
@@ -553,7 +556,7 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
                 const savingsPct = totalValue > 0 ? Math.round((savings / totalValue) * 100) : 0;
 
                 return (
-                  <div key={bundle.id} className={`${theme.effects.cardClass} sf-reveal-item p-6`} data-testid={`card-bundle-${bundle.id}`}>
+                  <div key={bundle.id} className={`${theme.effects.cardClass} sf-reveal-item p-6`} data-testid={`card-bundle-${bundle.id}`} onMouseEnter={() => prefetchBundle(bundle.id)}>
                     <div className="flex items-start gap-4">
                       {bundle.thumbnailUrl && (
                         <ProtectedImage protected={!store.allowImageDownload} src={bundle.thumbnailUrl} alt={bundle.name} className="w-20 h-20 rounded-lg object-cover shrink-0" loading="lazy" data-testid={`img-bundle-${bundle.id}`} />

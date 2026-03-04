@@ -37,6 +37,9 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
   const prefetchProduct = useCallback((productId: string) => {
     queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "product", productId] });
   }, [store.slug]);
+  const prefetchBundle = useCallback((bundleId: number) => {
+    queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "bundle", bundleId] });
+  }, [store.slug]);
   const [leadModalProduct, setLeadModalProduct] = useState<StorefrontProduct | null>(null);
 
   const [announcementDismissed, setAnnouncementDismissed] = useState(() => {
@@ -650,7 +653,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                 const totalValue = bundle.products.reduce((sum, p) => sum + p.priceCents, 0);
                 const savePct = totalValue > bundle.priceCents ? Math.round(((totalValue - bundle.priceCents) / totalValue) * 100) : 0;
                 return (
-                  <div key={bundle.id} className="neon-card group sf-reveal-item" data-testid={`card-bundle-${bundle.id}`}>
+                  <div key={bundle.id} className="neon-card group sf-reveal-item" data-testid={`card-bundle-${bundle.id}`} onMouseEnter={() => prefetchBundle(bundle.id)}>
                     <div className="neon-holo-stripe" />
                     <div className="neon-card-line-scan" />
                     {bundle.thumbnailUrl && (

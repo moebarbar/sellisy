@@ -425,7 +425,7 @@ export default function KbViewerPage() {
   const { knowledgeBase, pages, hasAccess, purchaseUrl } = data;
 
   return (
-    <div className="min-h-screen flex bg-background" data-testid="kb-viewer" style={knowledgeBase.fontFamily ? { fontFamily: `'${knowledgeBase.fontFamily}', sans-serif` } : undefined}>
+    <div className="min-h-screen flex bg-background sf-page-enter" data-testid="kb-viewer" style={knowledgeBase.fontFamily ? { fontFamily: `'${knowledgeBase.fontFamily}', sans-serif` } : undefined}>
       <aside className="w-64 flex-shrink-0 border-r bg-muted/30 sticky top-0 h-screen flex flex-col">
         <div className="p-4 border-b space-y-3">
           {knowledgeBase.authorImageUrl || knowledgeBase.authorName ? (
