@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign, Pencil, Loader2, Code, Trash2, Share2 } from "lucide-react";
+import { AlertCircle, Package, Store, Gift, ChevronDown, ChevronUp, Sparkles, DollarSign, Pencil, Loader2, Code, Trash2, Share2, Star } from "lucide-react";
 import { ProductPlaceholder } from "@/components/product-placeholder";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EmbedDialog } from "@/components/dashboard/embed-dialog";
@@ -228,6 +228,12 @@ function StoreProductRow({
               <h3 className="font-medium truncate" data-testid={`text-sp-title-${storeProduct.id}`}>
                 {storeProduct.customTitle || product.title}
               </h3>
+              {storeProduct.isFeatured && (
+                <Badge variant="default" className="text-xs bg-amber-500 hover:bg-amber-500">
+                  <Star className="mr-1 h-3 w-3 fill-current" />
+                  Featured
+                </Badge>
+              )}
               {storeProduct.isLeadMagnet && (
                 <Badge variant="secondary" className="text-xs">
                   <Gift className="mr-1 h-3 w-3" />
@@ -262,6 +268,32 @@ function StoreProductRow({
               disabled={toggleMutation.isPending}
               data-testid={`switch-publish-${storeProduct.id}`}
             />
+            {storeProduct.isPublished && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className={storeProduct.isFeatured ? "text-amber-500" : "text-muted-foreground"}
+                    onClick={() => {
+                      if (!storeProduct.isFeatured) {
+                        const currentFeatured = allProducts.filter((sp) => sp.isFeatured).length;
+                        if (currentFeatured >= 3) {
+                          toast({ title: "Max 3 featured products", description: "Unfeature another product first.", variant: "destructive" });
+                          return;
+                        }
+                      }
+                      toggleMutation.mutate({ isFeatured: !storeProduct.isFeatured });
+                    }}
+                    disabled={toggleMutation.isPending}
+                    data-testid={`button-feature-${storeProduct.id}`}
+                  >
+                    <Star className={`h-4 w-4 ${storeProduct.isFeatured ? "fill-current" : ""}`} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{storeProduct.isFeatured ? "Remove from featured" : "Feature this product"}</TooltipContent>
+              </Tooltip>
+            )}
             {storeProduct.isPublished && storeSlug && (
               <>
                 <Tooltip>

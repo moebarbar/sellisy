@@ -9,11 +9,13 @@ import { StorefrontProductPlaceholder } from "@/components/product-placeholder";
 import { useStorefrontFilters } from "@/hooks/use-storefront-filters";
 import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 import { getStoreBasePath } from "@/lib/utils";
+import { FeaturedProducts } from "./featured-products";
 import type { Store, Product, Bundle, BlogPost } from "@shared/schema";
 import type { StorefrontTheme, ThemeMode } from "./theme-types";
 
 type StorefrontProduct = Product & {
   isLeadMagnet?: boolean;
+  isFeatured?: boolean;
   upsellProductId?: string | null;
   upsellBundleId?: string | null;
   storeProductId?: string;
@@ -84,6 +86,8 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
   const hasBothPayments = storeHasStripe && storeHasPayPal;
 
   const { searchQuery, setSearchQuery, selectedCategory, setSelectedCategory, sortBy, setSortBy, categories, filtered } = useStorefrontFilters(products);
+  const featured = filtered.filter(p => p.isFeatured);
+  const regular = filtered.filter(p => !p.isFeatured);
   const revealRef = useScrollReveal();
 
   const processCheckout = async (product: StorefrontProduct, paymentMethod?: "stripe" | "paypal") => {
@@ -373,8 +377,20 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
             </p>
           </div>
         ) : isGrid ? (
+          <>
+          {featured.length > 0 && (
+            <FeaturedProducts
+              products={featured}
+              basePath={basePath}
+              allowImageDownload={store.allowImageDownload}
+              colors={c}
+              isDark={mode === "dark"}
+              headingFamily={theme.typography.headingFamily}
+              cardBorderRadius={theme.layout.cardBorderRadius}
+            />
+          )}
           <div ref={revealRef} className={`grid gap-6 ${theme.layout.gridColumns}`} style={{ alignItems: "stretch" }}>
-            {filtered.map((product) => {
+            {regular.map((product) => {
               const hasDiscount = product.originalPriceCents != null && product.originalPriceCents > product.priceCents;
               const discountPct = hasDiscount ? Math.round(((product.originalPriceCents! - product.priceCents) / product.originalPriceCents!) * 100) : 0;
               const truncatedDesc = product.description
@@ -409,6 +425,9 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
                     </div>
 
                     <div className="p-5 relative z-10 flex flex-col flex-1">
+                      {product.productType && (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium tracking-wider uppercase mb-2" style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)", color: c.textSecondary }}>{product.productType}</span>
+                      )}
                       {product.tags && product.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mb-3">
                           {product.tags.slice(0, 3).map((tag) => (
@@ -455,9 +474,22 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
               );
             })}
           </div>
+          </>
         ) : (
+          <>
+          {featured.length > 0 && (
+            <FeaturedProducts
+              products={featured}
+              basePath={basePath}
+              allowImageDownload={store.allowImageDownload}
+              colors={c}
+              isDark={mode === "dark"}
+              headingFamily={theme.typography.headingFamily}
+              cardBorderRadius={theme.layout.cardBorderRadius}
+            />
+          )}
           <div ref={revealRef} className="space-y-8">
-            {filtered.map((product) => {
+            {regular.map((product) => {
               const hasDiscount = product.originalPriceCents != null && product.originalPriceCents > product.priceCents;
               const discountPct = hasDiscount ? Math.round(((product.originalPriceCents! - product.priceCents) / product.originalPriceCents!) * 100) : 0;
 
@@ -538,6 +570,7 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
               );
             })}
           </div>
+          </>
         )}
 
         {bundles.length > 0 && (

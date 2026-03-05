@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Zap, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, SlidersHorizontal, ArrowUpDown, ChevronRight, ExternalLink } from "lucide-react";
+import { FeaturedProducts } from "./featured-products";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import { ProtectedImage } from "@/components/protected-image";
 import { StorefrontProductPlaceholder } from "@/components/product-placeholder";
@@ -13,6 +14,7 @@ import type { Store, Product, Bundle, BlogPost } from "@shared/schema";
 
 type StorefrontProduct = Product & {
   isLeadMagnet?: boolean;
+  isFeatured?: boolean;
   upsellProductId?: string | null;
   upsellBundleId?: string | null;
   storeProductId?: string;
@@ -63,6 +65,8 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const { searchQuery, setSearchQuery, selectedCategory, setSelectedCategory, sortBy, setSortBy, categories, filtered } = useStorefrontFilters(products);
+  const featured = filtered.filter(p => p.isFeatured);
+  const regular = filtered.filter(p => !p.isFeatured);
   const revealRef = useScrollReveal();
 
   const handleBuy = async (product: StorefrontProduct) => {
@@ -109,6 +113,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
     orbB: "rgba(124,58,237,0.06)",
     orbC: "rgba(6,182,212,0.07)",
     shadow: "rgba(0,0,0,0.5)",
+    divider: "rgba(255,255,255,0.08)",
   } : {
     bg: "#f0f4ff",
     bgAlt: `${customAccent || "#60a5fa"}0a`,
@@ -130,6 +135,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
     orbB: "rgba(124,58,237,0.05)",
     orbC: "rgba(6,182,212,0.06)",
     shadow: `${customAccent || "#60a5fa"}1f`,
+    divider: "rgba(15,23,42,0.08)",
   };
 
   const dismissAnnouncement = () => {
@@ -545,8 +551,19 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
             </p>
           </div>
         ) : (
+          <>
+          {featured.length > 0 && (
+            <FeaturedProducts
+              products={featured}
+              basePath={basePath}
+              allowImageDownload={store.allowImageDownload}
+              colors={{ bg: c.bg, card: c.card, cardBorder: c.border, text: isDark ? "rgba(255,255,255,0.85)" : c.text, textSecondary: isDark ? "rgba(255,255,255,0.55)" : "rgba(15,23,42,0.55)", accent: c.cyan, price: c.cyan, btnGradient: `linear-gradient(135deg, ${c.cyan}, ${c.accent})`, btnText: "#000", divider: c.divider }}
+              isDark={isDark}
+              cardBorderRadius="16px"
+            />
+          )}
           <div ref={revealRef} className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((product) => {
+            {regular.map((product) => {
               const hasDiscount = product.originalPriceCents != null && product.originalPriceCents > product.priceCents;
               const discountPct = hasDiscount ? Math.round(((product.originalPriceCents! - product.priceCents) / product.originalPriceCents!) * 100) : 0;
 
@@ -585,7 +602,10 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                         )}
                       </div>
                     )}
-                    {product.category && (
+                    {product.productType && (
+                      <div className="neon-tag-badge inline-flex items-center gap-1 px-2 py-0.5 rounded-full mb-3 text-[10px] font-medium tracking-wider uppercase">{product.productType}</div>
+                    )}
+                    {product.category && product.category !== product.productType && (
                       <div className="neon-tag-badge inline-flex items-center gap-1 px-2 py-0.5 rounded-full mb-3 text-[10px] font-medium tracking-wider uppercase">
                         {product.category}
                       </div>
@@ -635,6 +655,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
               );
             })}
           </div>
+          </>
         )}
 
         {bundles.length > 0 && (

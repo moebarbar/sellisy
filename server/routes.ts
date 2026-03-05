@@ -851,6 +851,7 @@ ${urls}</urlset>`;
       customDeliveryInstructions: z.string().nullable().optional(),
       isPublished: z.boolean().optional(),
       isLeadMagnet: z.boolean().optional(),
+      isFeatured: z.boolean().optional(),
       upsellProductId: z.string().nullable().optional(),
       upsellBundleId: z.string().nullable().optional(),
     });
@@ -863,6 +864,14 @@ ${urls}</urlset>`;
     const store = await storage.getStoreById(spData.storeId);
     if (!store || store.ownerId !== getUserId(req)) {
       return res.status(403).json({ message: "Forbidden" });
+    }
+
+    if (parsed.data.isFeatured) {
+      const allSps = await storage.getStoreProducts(store.id);
+      const featuredCount = allSps.filter((sp) => sp.isFeatured && sp.id !== req.params.id).length;
+      if (featuredCount >= 3) {
+        return res.status(400).json({ message: "Maximum 3 featured products per store" });
+      }
     }
 
     if (parsed.data.isLeadMagnet) {
@@ -1915,6 +1924,7 @@ ${urls}</urlset>`;
       priceCents: sp.customPriceCents ?? sp.product.priceCents,
       originalPriceCents: sp.customPriceCents != null && sp.customPriceCents !== sp.product.priceCents ? sp.product.priceCents : sp.product.originalPriceCents,
       isLeadMagnet: sp.isLeadMagnet,
+      isFeatured: sp.isFeatured,
       upsellProductId: sp.upsellProductId,
       upsellBundleId: sp.upsellBundleId,
       storeProductId: sp.id,
@@ -1964,6 +1974,7 @@ ${urls}</urlset>`;
       priceCents: sp.customPriceCents ?? product.priceCents,
       originalPriceCents: sp.customPriceCents != null && sp.customPriceCents !== product.priceCents ? product.priceCents : product.originalPriceCents,
       isLeadMagnet: sp.isLeadMagnet,
+      isFeatured: sp.isFeatured,
       storeProductId: sp.id,
     });
     res.json({ store: sanitizeStore(store), product: effectiveProduct, images });

@@ -24,6 +24,8 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
     *   **Product Customization**: Store owners can override product details locally without affecting the original library product.
     *   **Product Types**: Supports various digital product types (digital, software, template, ebook, course, graphics) with type-specific delivery.
     *   **Rich Detail Pages**: Software products feature AppSumo-style deal pages with structured content and pricing comparisons.
+    *   **Featured Products**: Store owners can mark up to 3 products as "Featured" via the dashboard (star toggle). Featured products display in a prominent hero section at the top of all storefront templates (Neon, Silk, Aurora, Ember, Frost, Midnight) with a "Featured" badge, and are excluded from the regular grid to prevent duplication. Max 3 limit enforced both client-side and server-side.
+    *   **Product Type Badges**: All storefront template product cards display a product type badge (e.g., "Course", "Software", "eBook") derived from the `productType` field.
 *   **E-commerce & Payments**:
     *   **Payment Gateways**: Integration with Stripe and PayPal. Store owners can configure one or both processors simultaneously. When both are configured, customers see a payment method selection modal at checkout to choose between card (Stripe) or PayPal. The checkout API accepts an optional `paymentMethod` field ("stripe" or "paypal"). If no payment keys are configured, checkout returns a clear error instead of falling back to platform keys.
     *   **Coupon System**: Flexible coupon codes with various discount types, usage limits, and expiration dates.

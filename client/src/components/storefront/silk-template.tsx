@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, ArrowUpDown, ExternalLink } from "lucide-react";
+import { FeaturedProducts } from "./featured-products";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import { ProtectedImage } from "@/components/protected-image";
 import { StorefrontProductPlaceholder } from "@/components/product-placeholder";
@@ -13,6 +14,7 @@ import type { Store, Product, Bundle, BlogPost } from "@shared/schema";
 
 type StorefrontProduct = Product & {
   isLeadMagnet?: boolean;
+  isFeatured?: boolean;
   upsellProductId?: string | null;
   upsellBundleId?: string | null;
   storeProductId?: string;
@@ -74,6 +76,8 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const { searchQuery, setSearchQuery, selectedCategory, setSelectedCategory, sortBy, setSortBy, categories, filtered } = useStorefrontFilters(products);
+  const featured = filtered.filter(p => p.isFeatured);
+  const regular = filtered.filter(p => !p.isFeatured);
   const revealRef = useScrollReveal();
 
   const handleBuy = async (product: StorefrontProduct) => {
@@ -452,7 +456,29 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
           </div>
         ) : (
           <div ref={revealRef} className="space-y-10">
-            {filtered.map((product, index) => {
+            {featured.length > 0 && (
+              <FeaturedProducts
+                products={featured}
+                basePath={basePath}
+                allowImageDownload={store.allowImageDownload}
+                colors={{
+                  bg: c.bg,
+                  card: c.card,
+                  cardBorder: c.cardBorder,
+                  text: c.text,
+                  textSecondary: c.textSecondary,
+                  accent: c.gold,
+                  price: c.gold,
+                  btnGradient: `linear-gradient(135deg, ${c.btnBg}, ${c.btnBorder})`,
+                  btnText: c.btnText,
+                  divider: c.divider,
+                }}
+                isDark={isDark}
+                headingFamily={"Georgia, 'Times New Roman', serif"}
+                cardBorderRadius="8px"
+              />
+            )}
+            {regular.map((product, index) => {
               const hasDiscount = product.originalPriceCents != null && product.originalPriceCents > product.priceCents;
               const discountPct = hasDiscount ? Math.round(((product.originalPriceCents! - product.priceCents) / product.originalPriceCents!) * 100) : 0;
 
@@ -477,6 +503,15 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                           </span>
                           <div className="h-px flex-1" style={{ backgroundColor: c.divider }} />
                         </div>
+                        {product.productType && (
+                          <span
+                            className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-serif font-medium tracking-wider uppercase mb-3"
+                            style={{ backgroundColor: c.goldSubtle, color: c.goldMuted, border: `1px solid ${c.goldBorder}` }}
+                            data-testid={`badge-product-type-${product.id}`}
+                          >
+                            {product.productType}
+                          </span>
+                        )}
                         <h3 className="text-xl md:text-2xl font-serif mb-3 tracking-tight" style={{ color: c.text, lineHeight: "1.3" }} data-testid={`text-silk-product-${product.id}`}>
                           <a href={`${basePath}/product/${product.slug || product.id}`} className="hover:underline" data-testid={`link-product-title-${product.id}`}>
                             {product.title}
@@ -533,7 +568,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                       </div>
                     </div>
                   </div>
-                  {index < filtered.length - 1 && (
+                  {index < regular.length - 1 && (
                     <div className="pt-10">
                       <GoldDivider isDark={isDark} />
                     </div>
