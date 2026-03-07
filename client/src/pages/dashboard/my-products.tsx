@@ -1187,7 +1187,7 @@ function ProductFormDialog({
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isPending || !title.trim() || !price} data-testid="button-submit-product">
+          <Button type="submit" className="w-full cta-mono" disabled={isPending || !title.trim() || !price} data-testid="button-submit-product">
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {mode === "create" ? "Create Product" : "Save Changes"}
           </Button>

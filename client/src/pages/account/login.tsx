@@ -112,7 +112,7 @@ export default function AccountLoginPage() {
 
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full cta-mono"
                   disabled={loginMutation.isPending || !email}
                   data-testid="button-login-submit"
                 >

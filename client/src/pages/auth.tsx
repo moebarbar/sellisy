@@ -211,7 +211,7 @@ export default function AuthPage() {
                 </button>
               </div>
             </div>
-            <Button type="submit" className="w-full font-semibold" disabled={isPending} data-testid="button-auth-submit">
+            <Button type="submit" className="w-full font-semibold cta-mono" disabled={isPending} data-testid="button-auth-submit">
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -224,7 +224,7 @@ export default function AuthPage() {
             Don't have an account?{" "}
             <a
               href="/#pricing"
-              className="text-primary hover:underline font-medium"
+              className="text-primary hover:underline font-medium cta-mono text-xs"
               data-testid="link-view-plans"
             >
               View Plans

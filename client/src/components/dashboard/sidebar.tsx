@@ -238,7 +238,7 @@ export function CreateStoreDialog({ open, onClose }: { open: boolean; onClose: (
           </div>
           <Button
             type="submit"
-            className="w-full"
+            className="w-full cta-mono"
             disabled={mutation.isPending || !name || !slug}
             data-testid="button-submit-store"
           >

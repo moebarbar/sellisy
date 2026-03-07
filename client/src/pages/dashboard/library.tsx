@@ -684,7 +684,7 @@ function ProductDetailDialog({
               </div>
             ) : (
               <Button
-                className="w-full"
+                className="w-full cta-mono"
                 disabled={isImported}
                 onClick={() => onImport(product)}
                 data-testid="button-detail-import"
