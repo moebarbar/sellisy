@@ -6,10 +6,10 @@ const portalProducts = [
   { name: "Notion Templates", color: "#00F5D4", icon: "📋" },
 ];
 
-const stickers = [
-  { text: "🛒 Built-in upsells", bg: "var(--s-yellow)", rotate: -5, top: "8%", left: "2%" },
-  { text: "📬 Portal per store", bg: "var(--s-teal)", rotate: 4, top: "85%", right: "4%" },
-  { text: "💸 More revenue", bg: "var(--s-orange)", rotate: -3, bottom: "12%", left: "5%" },
+const highlights = [
+  { icon: "🛒", text: "Built-in upsells", color: "var(--s-yellow)" },
+  { icon: "📬", text: "Portal per store", color: "var(--s-teal)" },
+  { icon: "💸", text: "More revenue", color: "var(--s-orange)" },
 ];
 
 function PortalCard({ hovered, onHover, onLeave }: { hovered: boolean; onHover: () => void; onLeave: () => void }) {
@@ -199,26 +199,6 @@ export function PortalSection() {
         position: "relative",
       }}
     >
-      {stickers.map((s) => (
-        <div
-          key={s.text}
-          className="s-sticker s-portal-sticker"
-          style={{
-            position: "absolute",
-            background: s.bg,
-            transform: `rotate(${s.rotate}deg)`,
-            animation: "s-float 4s ease-in-out infinite",
-            zIndex: 2,
-            ...(s.top ? { top: s.top } : {}),
-            ...(s.bottom ? { bottom: s.bottom } : {}),
-            ...(s.left ? { left: s.left } : {}),
-            ...(s.right ? { right: s.right } : {}),
-          }}
-        >
-          {s.text}
-        </div>
-      ))}
-
       <div className="s-reveal" style={{ textAlign: "center", marginBottom: 56 }}>
         <p className="s-label" style={{ color: "var(--s-yellow)", marginBottom: 16 }}>
           {"// Built-in for every store"}
@@ -226,7 +206,7 @@ export function PortalSection() {
         <h2
           className="s-heading"
           data-testid="portal-title"
-          style={{ fontSize: "clamp(40px, 6vw, 72px)", color: "var(--s-white)", marginBottom: 16 }}
+          style={{ fontSize: "clamp(40px, 8vw, 80px)", color: "var(--s-white)", marginBottom: 16 }}
         >
           EVERY STORE GETS A PORTAL
         </h2>
@@ -246,6 +226,7 @@ export function PortalSection() {
           flexWrap: "wrap",
           gap: 24,
           justifyContent: "center",
+          marginBottom: 40,
         }}
       >
         <PortalCard
@@ -258,6 +239,37 @@ export function PortalSection() {
           onHover={() => setUpsellHovered(true)}
           onLeave={() => setUpsellHovered(false)}
         />
+      </div>
+
+      <div
+        data-testid="portal-highlights"
+        style={{
+          display: "flex",
+          gap: 16,
+          justifyContent: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        {highlights.map((h, i) => (
+          <div
+            key={i}
+            data-testid={`portal-highlight-${i}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 20px",
+              borderRadius: 999,
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <span style={{ fontSize: 16 }}>{h.icon}</span>
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, textTransform: "uppercase" as const, letterSpacing: 1, color: h.color, fontWeight: 700 }}>
+              {h.text}
+            </span>
+          </div>
+        ))}
       </div>
     </section>
   );

@@ -349,7 +349,7 @@ export function PricingSection() {
         </p>
         <h2
           className="s-heading"
-          style={{ fontSize: "clamp(32px, 6vw, 80px)", marginBottom: 16 }}
+          style={{ fontSize: "clamp(40px, 8vw, 80px)", marginBottom: 16 }}
         >
           <span style={{ color: "var(--s-white)" }}>PICK YOUR PLAN.</span>
           <br />
@@ -365,7 +365,7 @@ export function PricingSection() {
           display: "flex",
           gap: 24,
           justifyContent: "center",
-          alignItems: "flex-start",
+          alignItems: "stretch",
           flexWrap: "wrap",
         }}
       >
@@ -381,6 +381,8 @@ export function PricingSection() {
             minWidth: 280,
             flex: "1 1 280px",
             maxWidth: 380,
+            display: "flex",
+            flexDirection: "column" as const,
           }}
         >
           <p className="s-label" style={{ color: "rgba(250,250,245,0.5)", marginBottom: 8 }}>
@@ -397,7 +399,7 @@ export function PricingSection() {
           <p className="s-body" style={{ color: "rgba(250,250,245,0.5)", marginBottom: 28 }}>
             Your first store starts here
           </p>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, marginBottom: 32 }}>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, marginBottom: 32, flex: 1 }}>
             {starterFeatures.map((f) => (
               <li
                 key={f}
@@ -449,8 +451,9 @@ export function PricingSection() {
             minWidth: 280,
             flex: "1 1 280px",
             maxWidth: 380,
-            transform: "translateY(-12px)",
             position: "relative",
+            display: "flex",
+            flexDirection: "column" as const,
           }}
         >
           <span
@@ -487,7 +490,7 @@ export function PricingSection() {
           <p className="s-body" style={{ color: "rgba(5,5,5,0.6)", marginBottom: 28 }}>
             For creators scaling up
           </p>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, marginBottom: 32 }}>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, marginBottom: 32, flex: 1 }}>
             {growthFeatures.map((f) => (
               <li
                 key={f}
@@ -529,34 +532,30 @@ export function PricingSection() {
         </div>
 
         {/* EMPIRE */}
-        <div style={{ width: 340, minWidth: 280, flex: "1 1 280px", maxWidth: 380, display: "flex", flexDirection: "column" as const, alignItems: "center" }}>
-          <div
-            style={{
-              animation: "s-bounce-crown 2s ease-in-out infinite",
-              fontSize: 28,
-              marginBottom: 8,
-            }}
-          >
-            👑
-          </div>
-          <div
-            data-testid="plan-empire"
-            style={{
-              background: "linear-gradient(90deg, var(--s-yellow), var(--s-orange), var(--s-pink), var(--s-yellow))",
-              backgroundSize: "300%",
-              animation: "s-gradient-border 4s linear infinite",
-              padding: 2,
-              borderRadius: 16,
-              width: "100%",
-              position: "relative",
-            }}
-          >
+        <div
+          data-testid="plan-empire"
+          style={{
+            background: "linear-gradient(90deg, var(--s-yellow), var(--s-orange), var(--s-pink), var(--s-yellow))",
+            backgroundSize: "300%",
+            animation: "s-gradient-border 4s linear infinite",
+            padding: 2,
+            borderRadius: 16,
+            width: 340,
+            minWidth: 280,
+            flex: "1 1 280px",
+            maxWidth: 380,
+            position: "relative",
+          }}
+        >
             <div
               style={{
                 background: "var(--s-black)",
                 borderRadius: 14,
                 padding: 36,
                 position: "relative",
+                display: "flex",
+                flexDirection: "column" as const,
+                height: "100%",
               }}
             >
               <span
@@ -593,7 +592,7 @@ export function PricingSection() {
               <p className="s-body" style={{ color: "rgba(250,250,245,0.5)", marginBottom: 28 }}>
                 Build an empire, not just a store
               </p>
-              <ul style={{ listStyle: "none", padding: 0, margin: 0, marginBottom: 32 }}>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, marginBottom: 32, flex: 1 }}>
                 {empireFeatures.map((f) => (
                   <li
                     key={f}
@@ -634,7 +633,6 @@ export function PricingSection() {
                 Get Started →
               </button>
             </div>
-          </div>
         </div>
       </div>
 

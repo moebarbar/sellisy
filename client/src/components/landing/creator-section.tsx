@@ -328,7 +328,7 @@ export function CreatorSection() {
       </div>
 
       <div
-        data-testid="creator-stickers"
+        data-testid="creator-highlights"
         style={{
           display: "flex",
           flexWrap: "wrap",
@@ -338,23 +338,39 @@ export function CreatorSection() {
         }}
       >
         {[
-          { text: "No-code builder", bg: "var(--s-yellow)" },
-          { text: "Drag & drop", bg: "var(--s-teal)" },
-          { text: "Instant publish", bg: "var(--s-orange)" },
-          { text: "Built-in payments", bg: "var(--s-pink)" },
-        ].map((sticker, i) => (
-          <span
+          { text: "No-code builder", icon: "⚡", color: "var(--s-yellow)", bg: "rgba(245,230,66,0.08)", border: "rgba(245,230,66,0.15)" },
+          { text: "Drag & drop", icon: "🎯", color: "var(--s-teal)", bg: "rgba(0,245,212,0.08)", border: "rgba(0,245,212,0.15)" },
+          { text: "Instant publish", icon: "🚀", color: "var(--s-orange)", bg: "rgba(255,107,53,0.08)", border: "rgba(255,107,53,0.15)" },
+          { text: "Built-in payments", icon: "💳", color: "var(--s-pink)", bg: "rgba(255,60,172,0.08)", border: "rgba(255,60,172,0.15)" },
+        ].map((item, i) => (
+          <div
             key={i}
-            className="s-sticker"
+            data-testid={`creator-highlight-${i}`}
             style={{
-              background: sticker.bg,
-              animation: `s-float ${3 + i * 0.4}s ease-in-out infinite`,
-              animationDelay: `${i * 0.3}s`,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 20px",
+              borderRadius: 999,
+              background: item.bg,
+              border: `1px solid ${item.border}`,
+              transition: "transform 0.2s ease",
             }}
-            data-testid={`creator-sticker-${i}`}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
           >
-            {sticker.text}
-          </span>
+            <span style={{ fontSize: 14 }}>{item.icon}</span>
+            <span style={{
+              fontFamily: "'Space Mono', monospace",
+              fontSize: 11,
+              textTransform: "uppercase" as const,
+              letterSpacing: 1,
+              color: item.color,
+              fontWeight: 700,
+            }}>
+              {item.text}
+            </span>
+          </div>
         ))}
       </div>
     </section>
