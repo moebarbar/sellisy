@@ -82,11 +82,11 @@ export function registerObjectStorageRoutes(app: Express): void {
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       await objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
-      console.error("Error serving object:", error);
       const { ObjectNotFoundError } = await import("./objectStorage");
       if (error instanceof ObjectNotFoundError) {
         return res.status(404).json({ error: "Object not found" });
       }
+      console.error("Error serving object:", error);
       return res.status(500).json({ error: "Failed to serve object" });
     }
   });

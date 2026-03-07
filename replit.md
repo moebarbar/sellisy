@@ -16,8 +16,10 @@ Sellisy is a multi-tenant platform for digital entrepreneurs to create, customiz
 - **CSS Variables**: Both `:root` and `.dark` set to identical dark palette values
 - **Cards**: Dark bg `#0a0a0a`, subtle borders `rgba(255,255,255,0.08)`
 - **Auth page**: Standalone dark splash with floating showcase cards (revenue, products, store, delivery)
-- **Product images**: Always `aspect-square` — never change this
+- **Product images**: Always `aspect-square` — never change this. Use `<img>` tags with `loading="lazy"` and `decoding="async"`, not CSS `background-image`
+- **CTA buttons**: Use `.cta-mono` utility class (Space Mono, uppercase, letter-spacing)
 - **No blue primary**: All former blue accents replaced with yellow/primary (except social media platform brand colors)
+- **Public API**: `/api/products/library/public` maps `priceCents` to formatted price string, `thumbnailUrl` to `imageUrl`. Filters out products without thumbnails.
 
 ## System Architecture
 The project utilizes a full-stack JavaScript architecture with an Express.js backend API, a Vite + React (wouter) frontend, and Drizzle ORM for PostgreSQL database interaction.

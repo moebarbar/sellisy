@@ -488,7 +488,7 @@ ${urls}</urlset>`;
         id: p.id,
         title: p.title,
         description: p.description,
-        price: p.price,
+        price: (p.priceCents / 100).toFixed(2),
         imageUrl: p.thumbnailUrl,
         productType: p.productType,
         slug: p.slug,

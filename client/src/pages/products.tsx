@@ -301,12 +301,27 @@ export default function ProductsPage() {
                     <div
                       style={{
                         aspectRatio: "1/1",
-                        background: product.imageUrl
-                          ? `url(${product.imageUrl}) center/cover no-repeat`
-                          : placeholderGradients[i % placeholderGradients.length],
+                        background: placeholderGradients[i % placeholderGradients.length],
                         position: "relative",
+                        overflow: "hidden",
                       }}
                     >
+                      {product.imageUrl && (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.title}
+                          loading="lazy"
+                          decoding="async"
+                          data-testid={`img-product-${product.id}`}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      )}
                       <span
                         style={{
                           position: "absolute",
@@ -321,6 +336,7 @@ export default function ProductsPage() {
                           padding: "4px 10px",
                           borderRadius: 999,
                           fontWeight: 700,
+                          zIndex: 1,
                         }}
                       >
                         {typeLabel}
