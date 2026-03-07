@@ -7,9 +7,10 @@ export function Footer() {
         borderTop: "1px solid rgba(255,255,255,0.07)",
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
+        justifyContent: "center",
         flexWrap: "wrap",
         gap: 16,
+        textAlign: "center" as const,
       }}
     >
       <div

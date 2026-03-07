@@ -23,8 +23,8 @@ function PortalCard({ hovered, onHover, onLeave }: { hovered: boolean; onHover: 
         border: "1px solid rgba(255,255,255,0.07)",
         borderRadius: 16,
         padding: 28,
-        flex: "1 1 400px",
-        minWidth: 300,
+        flex: "1 1 300px",
+        minWidth: 0,
         boxShadow: hovered ? "0 0 30px rgba(0,245,212,0.1)" : "none",
         transition: "box-shadow 0.3s ease",
       }}
@@ -122,8 +122,8 @@ function UpsellCard({ hovered, onHover, onLeave }: { hovered: boolean; onHover: 
         border: "1px solid rgba(255,255,255,0.07)",
         borderRadius: 16,
         padding: 28,
-        flex: "1 1 400px",
-        minWidth: 300,
+        flex: "1 1 300px",
+        minWidth: 0,
         boxShadow: hovered ? "0 0 30px rgba(245,230,66,0.1)" : "none",
         transition: "box-shadow 0.3s ease",
       }}
@@ -202,7 +202,7 @@ export function PortalSection() {
       {stickers.map((s) => (
         <div
           key={s.text}
-          className="s-sticker"
+          className="s-sticker s-portal-sticker"
           style={{
             position: "absolute",
             background: s.bg,

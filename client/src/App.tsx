@@ -46,6 +46,7 @@ const BlogListingPage = lazy(() => import("@/pages/blog-listing"));
 const BlogPostPage = lazy(() => import("@/pages/blog-post"));
 const EmbedProductWidget = lazy(() => import("@/pages/embed-widget"));
 const EmbedBundleWidget = lazy(() => import("@/pages/embed-widget").then(m => ({ default: m.EmbedBundleWidget })));
+const ProductsPage = lazy(() => import("@/pages/products"));
 
 class ErrorBoundary extends Component<
   { children: ReactNode; fallbackClassName?: string },
@@ -230,6 +231,7 @@ function Router() {
           <Suspense fallback={<PageFallback />}>
             <Switch>
               <Route path="/" component={LandingPage} />
+              <Route path="/products" component={ProductsPage} />
               <Route path="/auth" component={AuthPage} />
               <Route path="/account" component={AccountLoginPage} />
               <Route path="/account/verify" component={AccountVerifyPage} />

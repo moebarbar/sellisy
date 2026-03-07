@@ -12,7 +12,7 @@ const tabs = [
 function CoursesContent() {
   return (
     <div style={{ display: "flex", gap: 0, height: "100%" }}>
-      <div style={{ width: 200, borderRight: "1px solid rgba(255,255,255,0.08)", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className="s-creator-sidebar" style={{ width: 200, borderRight: "1px solid rgba(255,255,255,0.08)", padding: 16, flexDirection: "column", gap: 12 }}>
         <div style={{ marginBottom: 8 }}>
           <div className="s-label" style={{ color: "var(--s-yellow)", fontSize: 9, marginBottom: 6 }}>PROGRESS</div>
           <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
@@ -71,7 +71,7 @@ function SOPsContent() {
 function KBContent() {
   return (
     <div style={{ display: "flex", gap: 0, height: "100%" }}>
-      <div style={{ width: 180, borderRight: "1px solid rgba(255,255,255,0.08)", padding: 16 }}>
+      <div className="s-creator-sidebar" style={{ width: 180, borderRight: "1px solid rgba(255,255,255,0.08)", padding: 16, flexDirection: "column" }}>
         <div className="s-label" style={{ color: "var(--s-yellow)", fontSize: 9, marginBottom: 12 }}>NAVIGATION</div>
         {[
           { label: "Home", indent: 0, active: false },
@@ -285,10 +285,10 @@ export function CreatorSection() {
 
         <div
           data-testid="creator-tab-bar"
+          className="s-creator-tabs"
           style={{
             display: "flex",
             borderBottom: "1px solid rgba(255,255,255,0.06)",
-            overflowX: "auto",
           }}
         >
           {tabs.map((tab) => (

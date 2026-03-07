@@ -82,13 +82,14 @@ export function HowItWorksSection() {
         <h2
           className="s-heading"
           data-testid="title-how-it-works"
-          style={{ fontSize: 64, color: "var(--s-white)", marginBottom: 80 }}
+          style={{ fontSize: "clamp(36px, 6vw, 64px)", color: "var(--s-white)", marginBottom: "clamp(40px, 6vw, 80px)" }}
         >
           THREE STEPS TO YOUR FIRST SALE
         </h2>
 
         <div style={{ position: "relative" }}>
           <div
+            className="s-steps-line"
             style={{
               position: "absolute",
               top: 32,
@@ -102,10 +103,9 @@ export function HowItWorksSection() {
           />
 
           <div
+            className="s-steps-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 48,
               position: "relative",
               zIndex: 1,
             }}

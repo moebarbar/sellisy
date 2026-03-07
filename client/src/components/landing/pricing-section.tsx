@@ -39,7 +39,7 @@ export function PricingSection() {
         </p>
         <h2
           className="s-heading"
-          style={{ fontSize: "clamp(48px, 8vw, 80px)", marginBottom: 16 }}
+          style={{ fontSize: "clamp(32px, 6vw, 80px)", marginBottom: 16 }}
         >
           <span style={{ color: "var(--s-white)" }}>PICK YOUR PLAN.</span>
           <br />
@@ -77,7 +77,7 @@ export function PricingSection() {
             Starter
           </p>
           <div style={{ marginBottom: 8 }}>
-            <span className="s-heading" style={{ fontSize: 80, color: "var(--s-white)" }}>
+            <span className="s-heading" style={{ fontSize: "clamp(48px, 10vw, 80px)", color: "var(--s-white)" }}>
               $19
             </span>
             <span className="s-label" style={{ color: "rgba(250,250,245,0.35)", marginLeft: 4 }}>
@@ -166,7 +166,7 @@ export function PricingSection() {
             Growth
           </p>
           <div style={{ marginBottom: 8 }}>
-            <span className="s-heading" style={{ fontSize: 80, color: "var(--s-black)" }}>
+            <span className="s-heading" style={{ fontSize: "clamp(48px, 10vw, 80px)", color: "var(--s-black)" }}>
               $39
             </span>
             <span className="s-label" style={{ color: "rgba(5,5,5,0.4)", marginLeft: 4 }}>
@@ -270,7 +270,7 @@ export function PricingSection() {
                 Empire
               </p>
               <div style={{ marginBottom: 8 }}>
-                <span className="s-heading" style={{ fontSize: 80, color: "var(--s-white)" }}>
+                <span className="s-heading" style={{ fontSize: "clamp(48px, 10vw, 80px)", color: "var(--s-white)" }}>
                   $69
                 </span>
                 <span className="s-label" style={{ color: "rgba(250,250,245,0.35)", marginLeft: 4 }}>

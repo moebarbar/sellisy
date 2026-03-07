@@ -3,7 +3,7 @@ export function FinalCTA() {
     <section
       data-testid="final-cta"
       style={{
-        padding: "160px 24px",
+        padding: "clamp(80px, 12vw, 160px) 24px",
         position: "relative",
         display: "flex",
         flexDirection: "column" as const,
@@ -50,7 +50,7 @@ export function FinalCTA() {
         <h2
           className="s-heading"
           data-testid="final-cta-headline"
-          style={{ fontSize: "clamp(56px, 12vw, 120px)", marginBottom: 24, lineHeight: 0.95 }}
+          style={{ fontSize: "clamp(40px, 10vw, 120px)", marginBottom: 24, lineHeight: 0.95 }}
         >
           <span style={{ color: "var(--s-white)", display: "block" }}>YOUR STORE</span>
           <span style={{ color: "var(--s-yellow)", display: "block" }}>STARTS</span>

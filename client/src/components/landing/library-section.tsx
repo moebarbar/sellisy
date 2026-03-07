@@ -1,44 +1,39 @@
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-const products = [
-  { name: "Notion Productivity System", price: 29, cat: "Templates" },
-  { name: "6-Figure Email Swipe File", price: 19, cat: "Ebooks" },
-  { name: "Social Media Content Bundle", price: 39, cat: "Graphics" },
-  { name: "React UI Component Kit", price: 49, cat: "UI Kits" },
-  { name: "ChatGPT Prompt Bible Vol.2", price: 14, cat: "Ebooks" },
-  { name: "Canva Brand Kit Pro", price: 24, cat: "Graphics" },
-  { name: "Automation SOP Pack", price: 34, cat: "Templates" },
-  { name: "Faceless YouTube Starter Kit", price: 27, cat: "Ebooks" },
-  { name: "Digital Marketing Playbook", price: 44, cat: "Ebooks" },
-  { name: "Landing Page Template Pack", price: 32, cat: "Templates" },
-  { name: "App Wireframe Kit", price: 19, cat: "UI Kits" },
-  { name: "Mindset & Productivity Ebook", price: 12, cat: "Ebooks" },
-  { name: "Figma Dashboard UI Kit", price: 59, cat: "UI Kits" },
-  { name: "30-Day Content Calendar", price: 17, cat: "Tools" },
-];
-
-const tabs = ["All", "Templates", "Ebooks", "UI Kits", "Graphics", "Tools", "Software"];
-
-const catColors: Record<string, string> = {
-  Templates: "#FF6B35",
-  Ebooks: "#FF3CAC",
-  "UI Kits": "#00F5D4",
-  Graphics: "#F5E642",
-  Tools: "#F0E6D3",
-  Software: "#00F5D4",
+type LibraryProduct = {
+  id: string;
+  title: string;
+  description: string | null;
+  price: string;
+  imageUrl: string | null;
+  productType: string | null;
+  slug: string | null;
 };
 
+const typeColors: Record<string, string> = {
+  digital: "#F5E642",
+  software: "#00F5D4",
+  template: "#FF6B35",
+  ebook: "#FF3CAC",
+  course: "#00F5D4",
+  graphics: "#F5E642",
+};
+
+const placeholderGradients = [
+  "linear-gradient(135deg, #1a1a2e, #16213e)",
+  "linear-gradient(135deg, #0f0c29, #302b63)",
+  "linear-gradient(135deg, #1a0a2e, #2d1b69)",
+  "linear-gradient(135deg, #0a1628, #1a3a5c)",
+  "linear-gradient(135deg, #1a1a0a, #3d3d0a)",
+  "linear-gradient(135deg, #2e0a1a, #5c1a3a)",
+];
+
 export function LibrarySection() {
-  const [activeTab, setActiveTab] = useState("All");
-  const [importedMap, setImportedMap] = useState<Record<number, boolean>>({});
+  const { data: products, isLoading } = useQuery<LibraryProduct[]>({
+    queryKey: ["/api/products/library/public"],
+  });
 
-  const filtered = activeTab === "All"
-    ? products
-    : products.filter((p) => p.cat === activeTab);
-
-  const handleImport = (idx: number) => {
-    setImportedMap((prev) => ({ ...prev, [idx]: true }));
-  };
+  const displayProducts = (products || []).slice(0, 6);
 
   return (
     <section
@@ -51,14 +46,14 @@ export function LibrarySection() {
           style={{ color: "var(--s-yellow)", marginBottom: 16 }}
           data-testid="library-label"
         >
-          // The Library
+          {"// The Library"}
         </div>
         <h2
           className="s-heading"
-          style={{ fontSize: "clamp(48px, 8vw, 80px)", color: "var(--s-white)", marginBottom: 20 }}
+          style={{ fontSize: "clamp(36px, 8vw, 80px)", color: "var(--s-white)", marginBottom: 20 }}
           data-testid="library-title"
         >
-          200+ DONE-FOR-YOU PRODUCTS
+          DONE-FOR-YOU PRODUCTS
         </h2>
         <p
           className="s-body"
@@ -70,174 +65,196 @@ export function LibrarySection() {
         </p>
       </div>
 
-      <div
-        className="s-reveal"
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          justifyContent: "center",
-          marginBottom: 48,
-        }}
-        data-testid="library-tabs"
-      >
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              data-testid={`tab-${tab.toLowerCase().replace(/\s+/g, "-")}`}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                fontFamily: "'Space Mono', monospace",
-                fontSize: 12,
-                textTransform: "uppercase",
-                letterSpacing: 1,
-                padding: "10px 20px",
-                borderRadius: 999,
-                border: isActive ? "1px solid var(--s-yellow)" : "1px solid rgba(255,255,255,0.15)",
-                background: isActive ? "var(--s-yellow)" : "transparent",
-                color: isActive ? "var(--s-black)" : "var(--s-white)",
-                transition: "all 0.2s ease",
-              }}
-            >
-              {tab}
-            </button>
-          );
-        })}
-      </div>
-
-      <div
-        className="s-reveal"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-          gap: 20,
-        }}
-        data-testid="library-grid"
-      >
-        {filtered.map((product, i) => {
-          const originalIdx = products.indexOf(product);
-          const imported = !!importedMap[originalIdx];
-          const badgeColor = catColors[product.cat] || "#F5E642";
-
-          return (
+      {isLoading ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: 20,
+          }}
+        >
+          {[...Array(6)].map((_, i) => (
             <div
-              key={originalIdx}
-              data-testid={`product-card-${originalIdx}`}
-              data-category={product.cat}
+              key={i}
               style={{
                 background: "#0a0a0a",
                 border: "1px solid rgba(255,255,255,0.07)",
                 borderRadius: 12,
-                padding: 20,
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-                transition: "transform 0.25s ease, box-shadow 0.25s ease",
+                height: 320,
+                animation: "pulse 1.5s ease-in-out infinite",
               }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = "translateY(-4px)";
-                (e.currentTarget as HTMLElement).style.boxShadow = "0 12px 40px rgba(0,0,0,0.5)";
+            />
+          ))}
+        </div>
+      ) : (
+        <>
+          <div
+            className="s-reveal"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
+              gap: 20,
+            }}
+            data-testid="library-grid"
+          >
+            {displayProducts.map((product, i) => {
+              const badgeColor = typeColors[product.productType || "digital"] || "#F5E642";
+              const typeLabel = product.productType
+                ? product.productType.charAt(0).toUpperCase() + product.productType.slice(1)
+                : "Digital";
+
+              return (
+                <div
+                  key={product.id}
+                  data-testid={`product-card-${product.id}`}
+                  style={{
+                    background: "#0a0a0a",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    transition: "transform 0.25s ease, box-shadow 0.25s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-4px)";
+                    e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.5)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                >
+                  <div
+                    style={{
+                      aspectRatio: "16/10",
+                      background: product.imageUrl
+                        ? `url(${product.imageUrl}) center/cover no-repeat`
+                        : placeholderGradients[i % placeholderGradients.length],
+                      position: "relative",
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 12,
+                        left: 12,
+                        fontFamily: "'Space Mono', monospace",
+                        fontSize: 9,
+                        textTransform: "uppercase",
+                        letterSpacing: 1,
+                        background: badgeColor,
+                        color: "#050505",
+                        padding: "4px 10px",
+                        borderRadius: 999,
+                        fontWeight: 700,
+                      }}
+                      data-testid={`product-type-${product.id}`}
+                    >
+                      {typeLabel}
+                    </span>
+                  </div>
+
+                  <div style={{ padding: "16px 20px 20px", display: "flex", flexDirection: "column", flex: 1, gap: 8 }}>
+                    <div
+                      style={{
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: 15,
+                        color: "var(--s-white)",
+                        fontWeight: 600,
+                        lineHeight: 1.3,
+                        minHeight: 40,
+                      }}
+                      data-testid={`product-name-${product.id}`}
+                    >
+                      {product.title}
+                    </div>
+
+                    {product.description && (
+                      <div
+                        style={{
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: 13,
+                          color: "rgba(250,250,245,0.4)",
+                          lineHeight: 1.5,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {product.description}
+                      </div>
+                    )}
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: "auto" }}>
+                      <span
+                        className="s-heading"
+                        style={{ fontSize: 28, color: "var(--s-yellow)" }}
+                        data-testid={`product-price-${product.id}`}
+                      >
+                        ${product.price}
+                      </span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <span
+                          style={{
+                            background: "var(--s-teal)",
+                            color: "#050505",
+                            fontFamily: "'Space Mono', monospace",
+                            fontSize: 9,
+                            fontWeight: 700,
+                            padding: "3px 8px",
+                            borderRadius: 999,
+                          }}
+                        >
+                          PLR
+                        </span>
+                        <span
+                          style={{
+                            background: "var(--s-yellow)",
+                            color: "#050505",
+                            fontFamily: "'Space Mono', monospace",
+                            fontSize: 9,
+                            fontWeight: 700,
+                            padding: "3px 8px",
+                            borderRadius: 999,
+                          }}
+                        >
+                          MRR
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="s-reveal" style={{ textAlign: "center", marginTop: 48 }}>
+            <a
+              href="/products"
+              className="s-label"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "14px 32px",
+                background: "var(--s-yellow)",
+                color: "var(--s-black)",
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 700,
+                transition: "transform 0.2s ease",
               }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                (e.currentTarget as HTMLElement).style.boxShadow = "none";
-              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+              data-testid="button-browse-all-products"
             >
-              <span
-                style={{
-                  fontFamily: "'Space Mono', monospace",
-                  fontSize: 9,
-                  textTransform: "uppercase",
-                  letterSpacing: 1,
-                  background: badgeColor,
-                  color: "#050505",
-                  padding: "4px 10px",
-                  borderRadius: 999,
-                  alignSelf: "flex-start",
-                  fontWeight: 700,
-                }}
-                data-testid={`product-category-${originalIdx}`}
-              >
-                {product.cat}
-              </span>
-
-              <div
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 15,
-                  color: "var(--s-white)",
-                  fontWeight: 500,
-                  minHeight: 40,
-                }}
-                data-testid={`product-name-${originalIdx}`}
-              >
-                {product.name}
-              </div>
-
-              <div
-                className="s-heading"
-                style={{ fontSize: 28, color: "var(--s-yellow)" }}
-                data-testid={`product-price-${originalIdx}`}
-              >
-                ${product.price}
-              </div>
-
-              <div style={{ display: "flex", gap: 8 }}>
-                <span
-                  style={{
-                    background: "var(--s-teal)",
-                    color: "#050505",
-                    fontFamily: "'Space Mono', monospace",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: "3px 10px",
-                    borderRadius: 999,
-                  }}
-                >
-                  {"PLR \u2713"}
-                </span>
-                <span
-                  style={{
-                    background: "var(--s-yellow)",
-                    color: "#050505",
-                    fontFamily: "'Space Mono', monospace",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: "3px 10px",
-                    borderRadius: 999,
-                  }}
-                >
-                  {"MRR \u2713"}
-                </span>
-              </div>
-
-              <button
-                data-testid={`import-btn-${originalIdx}`}
-                disabled={imported}
-                onClick={() => handleImport(originalIdx)}
-                style={{
-                  width: "100%",
-                  padding: "10px 0",
-                  borderRadius: 8,
-                  border: imported ? "1px solid rgba(74,222,128,0.3)" : "1px solid rgba(255,255,255,0.15)",
-                  background: imported ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.04)",
-                  color: imported ? "#4ade80" : "var(--s-white)",
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  transition: "all 0.2s ease",
-                  marginTop: "auto",
-                  opacity: imported ? 0.8 : 1,
-                }}
-              >
-                {imported ? "\u2713 Imported!" : "Import to Store"}
-              </button>
-            </div>
-          );
-        })}
-      </div>
+              Browse All Products →
+            </a>
+          </div>
+        </>
+      )}
     </section>
   );
 }

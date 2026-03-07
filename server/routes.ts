@@ -477,6 +477,20 @@ ${urls}</urlset>`;
     res.json({ success: true });
   });
 
+  app.get("/api/products/library/public", async (_req, res) => {
+    const library = await storage.getLibraryProducts();
+    const publicProducts = library.slice(0, 50).map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      description: p.description,
+      price: p.price,
+      imageUrl: p.imageUrl,
+      productType: p.productType,
+      slug: p.slug,
+    }));
+    res.json(publicProducts);
+  });
+
   app.get("/api/products/library", isAuthenticated, async (_req, res) => {
     const library = await storage.getLibraryProducts();
     res.json(library);

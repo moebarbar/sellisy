@@ -11,6 +11,7 @@ import { CreatorSection } from "@/components/landing/creator-section";
 import { AnalyticsSection } from "@/components/landing/analytics-section";
 import { HowItWorksSection } from "@/components/landing/how-it-works-section";
 import { FeaturesSection } from "@/components/landing/features-section";
+import { StoresSection } from "@/components/landing/stores-section";
 import { PricingSection } from "@/components/landing/pricing-section";
 import { FinalCTA } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
@@ -52,6 +53,7 @@ export default function LandingPage() {
         <LibrarySection />
       </div>
       <TemplatesSection />
+      <StoresSection />
       <PortalSection />
       <div id="create">
         <CreatorSection />

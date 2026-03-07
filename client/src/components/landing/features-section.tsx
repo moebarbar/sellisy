@@ -166,17 +166,16 @@ export function FeaturesSection() {
           <h2
             className="s-heading"
             data-testid="title-features"
-            style={{ fontSize: 64, color: "var(--s-white)" }}
+            style={{ fontSize: "clamp(36px, 6vw, 64px)", color: "var(--s-white)" }}
           >
             EVERYTHING YOU NEED
           </h2>
         </div>
 
         <div
+          className="s-features-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 8,
           }}
         >
           {features.map((f, i) => (

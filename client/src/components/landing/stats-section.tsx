@@ -137,9 +137,9 @@ export function StatsSection() {
       }}
     >
       <div
+        className="s-stats-grid"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
           borderTop: "1px solid rgba(255,255,255,0.07)",
           borderBottom: "1px solid rgba(255,255,255,0.07)",
         }}

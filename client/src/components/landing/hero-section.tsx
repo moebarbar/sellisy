@@ -29,7 +29,7 @@ export function HeroSection() {
               <span className="s-label" style={{ color: "var(--s-yellow)", fontSize: "11px" }}>The platform for digital creators</span>
             </div>
 
-            <h1 className="s-heading" style={{ fontSize: "clamp(72px, 12vw, 160px)" }}>
+            <h1 className="s-heading" style={{ fontSize: "clamp(48px, 12vw, 160px)" }}>
               <span style={{ color: "var(--s-white)" }}>SELL</span>
               <br />
               <span style={{ WebkitTextStroke: "2px var(--s-white)", color: "transparent" }}>DIG</span>

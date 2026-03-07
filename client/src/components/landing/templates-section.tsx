@@ -1,12 +1,72 @@
 import { useState } from "react";
 
 const templates = [
-  { id: "neon", name: "Neon", bgColor: "#0a0a0a", accentColor: "#00F5D4", textColor: "#FAFAF5", cardBg: "#141414", btnStyle: { background: "#00F5D4", color: "#050505" } },
-  { id: "silk", name: "Silk", bgColor: "#F0E6D3", accentColor: "#050505", textColor: "#050505", cardBg: "#FAFAF5", btnStyle: { background: "#050505", color: "#F0E6D3" } },
-  { id: "aurora", name: "Aurora", bgColor: "#0d0d1a", accentColor: "#A855F7", textColor: "#FAFAF5", cardBg: "#1a1a2e", btnStyle: { background: "#A855F7", color: "#FAFAF5" } },
-  { id: "ember", name: "Ember", bgColor: "#1a0a0a", accentColor: "#FF6B35", textColor: "#FAFAF5", cardBg: "#2a1510", btnStyle: { background: "#FF6B35", color: "#FAFAF5" } },
-  { id: "frost", name: "Frost", bgColor: "#F0F4F8", accentColor: "#1E3A5F", textColor: "#1E3A5F", cardBg: "#FFFFFF", btnStyle: { background: "#1E3A5F", color: "#FFFFFF" } },
-  { id: "midnight", name: "Midnight", bgColor: "#0a0a0a", accentColor: "#F5E642", textColor: "#FAFAF5", cardBg: "#111111", btnStyle: { background: "#F5E642", color: "#050505" } },
+  {
+    id: "neon",
+    name: "Neon",
+    subtitle: "Bold & Modern",
+    bgColor: "#0a0a1a",
+    accentColor: "#60a5fa",
+    textColor: "#ffffff",
+    cardBg: "rgba(255,255,255,0.04)",
+    heroBg: "linear-gradient(135deg, #0a0a2e 0%, #1a1a3e 50%, #0a1628 100%)",
+    btnStyle: { background: "linear-gradient(135deg, #3b82f6, #7c3aed, #06b6d4)", color: "#ffffff" },
+  },
+  {
+    id: "silk",
+    name: "Silk",
+    subtitle: "Elegant & Minimal",
+    bgColor: "#faf9f6",
+    accentColor: "#b8860b",
+    textColor: "#1a1a1a",
+    cardBg: "#ffffff",
+    heroBg: "linear-gradient(135deg, #f5f0e8 0%, #ede4d3 50%, #f8f4ed 100%)",
+    btnStyle: { background: "linear-gradient(135deg, #b8860b, #d4a853)", color: "#ffffff" },
+  },
+  {
+    id: "aurora",
+    name: "Aurora",
+    subtitle: "Vibrant & Glassy",
+    bgColor: "#0a0f1a",
+    accentColor: "#2dd4bf",
+    textColor: "#ffffff",
+    cardBg: "rgba(255,255,255,0.04)",
+    heroBg: "linear-gradient(135deg, #0a1628 0%, #0f1d30 50%, #0a0f1a 100%)",
+    btnStyle: { background: "linear-gradient(135deg, #2dd4bf, #8b5cf6, #22d3ee)", color: "#ffffff" },
+  },
+  {
+    id: "ember",
+    name: "Ember",
+    subtitle: "Warm & Bold",
+    bgColor: "#fdf6f0",
+    accentColor: "#e67e22",
+    textColor: "#3d2b1f",
+    cardBg: "#ffffff",
+    heroBg: "linear-gradient(135deg, #fdf6f0 0%, #fce8d5 50%, #fdf6f0 100%)",
+    btnStyle: { background: "linear-gradient(135deg, #e67e22, #d35400)", color: "#ffffff" },
+  },
+  {
+    id: "frost",
+    name: "Frost",
+    subtitle: "Clean & Crisp",
+    bgColor: "#f0f7ff",
+    accentColor: "#3b82f6",
+    textColor: "#0f172a",
+    cardBg: "rgba(255,255,255,0.9)",
+    heroBg: "linear-gradient(135deg, #e8f2ff 0%, #dbeafe 50%, #f0f7ff 100%)",
+    btnStyle: { background: "linear-gradient(135deg, #3b82f6, #2563eb)", color: "#ffffff" },
+  },
+  {
+    id: "midnight",
+    name: "Midnight",
+    subtitle: "Sleek & Dark",
+    bgColor: "#0b0d1a",
+    accentColor: "#818cf8",
+    textColor: "#e2e8f0",
+    cardBg: "rgba(255,255,255,0.03)",
+    heroBg: "linear-gradient(135deg, #0b0d1a 0%, #151830 50%, #0b0d1a 100%)",
+    btnStyle: { background: "linear-gradient(135deg, #818cf8, #6366f1, #a78bfa)", color: "#ffffff" },
+  },
 ];
 
 const fakeProducts = [
@@ -31,7 +91,7 @@ export function TemplatesSection() {
         <h2
           className="s-heading"
           data-testid="templates-title"
-          style={{ fontSize: "clamp(40px, 6vw, 72px)", color: "var(--s-white)" }}
+          style={{ fontSize: "clamp(36px, 6vw, 72px)", color: "var(--s-white)" }}
         >
           SIX TEMPLATES. INFINITE STORES.
         </h2>
@@ -43,7 +103,7 @@ export function TemplatesSection() {
           display: "flex",
           flexWrap: "wrap",
           justifyContent: "center",
-          gap: 12,
+          gap: 10,
           marginBottom: 40,
         }}
       >
@@ -56,19 +116,29 @@ export function TemplatesSection() {
               onClick={() => setActive(t.id)}
               style={{
                 position: "relative",
-                padding: "10px 24px",
+                padding: "10px 20px",
                 borderRadius: 999,
                 border: isActive ? "2px solid var(--s-yellow)" : "2px solid rgba(255,255,255,0.15)",
                 background: t.bgColor,
                 color: t.accentColor,
                 fontFamily: "'Space Mono', monospace",
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: 700,
                 letterSpacing: 1,
                 transition: "all 300ms ease",
               }}
             >
-              {t.name}
+              <span>{t.name}</span>
+              <span style={{
+                display: "block",
+                fontSize: 9,
+                fontWeight: 400,
+                opacity: 0.6,
+                color: t.textColor,
+                marginTop: 2,
+              }}>
+                {t.subtitle}
+              </span>
               {isActive && (
                 <span
                   data-testid={`template-active-badge-${t.id}`}
@@ -117,7 +187,7 @@ export function TemplatesSection() {
             gap: 12,
           }}
         >
-          <div style={{ display: "flex", gap: 6 }}>
+          <div className="hidden sm:flex" style={{ gap: 6 }}>
             <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#FF5F57" }} />
             <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#FFBD2E" }} />
             <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#28C840" }} />
@@ -131,33 +201,16 @@ export function TemplatesSection() {
               display: "flex",
               alignItems: "center",
               gap: 8,
-              fontSize: 12,
+              fontSize: 11,
               fontFamily: "'Space Mono', monospace",
               color: "rgba(255,255,255,0.5)",
+              overflow: "hidden",
             }}
           >
-            <span>mystore.sellisy.com</span>
-            <span
-              style={{
-                marginLeft: "auto",
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-              }}
-            >
-              <span
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: "#28C840",
-                  display: "inline-block",
-                  animation: "s-pulse-dot 2s ease-in-out infinite",
-                }}
-              />
-              <span style={{ color: "#28C840", fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>
-                LIVE
-              </span>
+            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>mystore.sellisy.com</span>
+            <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#28C840", display: "inline-block", animation: "s-pulse-dot 2s ease-in-out infinite" }} />
+              <span style={{ color: "#28C840", fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>LIVE</span>
             </span>
           </div>
         </div>
@@ -165,46 +218,40 @@ export function TemplatesSection() {
         <div
           data-testid="browser-content"
           style={{
-            background: current.bgColor,
-            padding: "48px 40px",
+            background: current.heroBg || current.bgColor,
+            padding: "clamp(20px, 4vw, 48px) clamp(16px, 3vw, 40px)",
             transition: "background 400ms ease",
-            minHeight: 380,
+            minHeight: 300,
           }}
         >
-          <div style={{ textAlign: "center", marginBottom: 36, transition: "color 400ms ease", color: current.textColor }}>
-            <h3
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 36,
-                letterSpacing: -1,
-                lineHeight: 1,
-                marginBottom: 8,
-                transition: "color 400ms ease",
-                color: current.textColor,
-              }}
-            >
+          <div style={{ textAlign: "center", marginBottom: 28, transition: "color 400ms ease", color: current.textColor }}>
+            <h3 style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: "clamp(24px, 4vw, 36px)",
+              letterSpacing: -1,
+              lineHeight: 1,
+              marginBottom: 8,
+              transition: "color 400ms ease",
+              color: current.textColor,
+            }}>
               MY CREATIVE STUDIO
             </h3>
-            <p
-              style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 14,
-                opacity: 0.7,
-                transition: "color 400ms ease",
-                color: current.textColor,
-              }}
-            >
+            <p style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: "clamp(12px, 1.5vw, 14px)",
+              opacity: 0.7,
+              transition: "color 400ms ease",
+              color: current.textColor,
+            }}>
               Premium digital products for modern creators
             </p>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 20,
-            }}
-          >
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+            gap: "clamp(10px, 2vw, 20px)",
+          }}>
             {fakeProducts.map((product, i) => (
               <div
                 key={i}
@@ -212,42 +259,36 @@ export function TemplatesSection() {
                 style={{
                   background: current.cardBg,
                   borderRadius: 12,
-                  padding: 20,
+                  padding: "clamp(12px, 2vw, 20px)",
                   transition: "background 400ms ease",
                 }}
               >
-                <div
-                  style={{
-                    width: "100%",
-                    height: 100,
-                    borderRadius: 8,
-                    marginBottom: 14,
-                    background: `linear-gradient(135deg, ${current.accentColor}33, ${current.accentColor}11)`,
-                    transition: "background 400ms ease",
-                  }}
-                />
-                <p
-                  style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontWeight: 600,
-                    fontSize: 14,
-                    marginBottom: 4,
-                    transition: "color 400ms ease",
-                    color: current.textColor,
-                  }}
-                >
+                <div style={{
+                  width: "100%",
+                  height: "clamp(50px, 8vw, 100px)",
+                  borderRadius: 8,
+                  marginBottom: 12,
+                  background: `linear-gradient(135deg, ${current.accentColor}33, ${current.accentColor}11)`,
+                  transition: "background 400ms ease",
+                }} />
+                <p style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontWeight: 600,
+                  fontSize: "clamp(12px, 1.5vw, 14px)",
+                  marginBottom: 4,
+                  transition: "color 400ms ease",
+                  color: current.textColor,
+                }}>
                   {product.name}
                 </p>
-                <p
-                  style={{
-                    fontFamily: "'Space Mono', monospace",
-                    fontSize: 16,
-                    fontWeight: 700,
-                    marginBottom: 12,
-                    transition: "color 400ms ease",
-                    color: current.accentColor,
-                  }}
-                >
+                <p style={{
+                  fontFamily: "'Space Mono', monospace",
+                  fontSize: "clamp(13px, 1.5vw, 16px)",
+                  fontWeight: 700,
+                  marginBottom: 10,
+                  transition: "color 400ms ease",
+                  color: current.accentColor,
+                }}>
                   {product.price}
                 </p>
                 <button
@@ -259,7 +300,7 @@ export function TemplatesSection() {
                     borderRadius: 8,
                     border: "none",
                     fontFamily: "'Space Mono', monospace",
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: 700,
                     letterSpacing: 1,
                     textTransform: "uppercase",

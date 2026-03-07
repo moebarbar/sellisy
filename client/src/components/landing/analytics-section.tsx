@@ -55,8 +55,8 @@ function StatBox({ label, value, prefix, suffix, decimals, started }: {
         background: "#111",
         borderRadius: 10,
         padding: "20px 16px",
-        flex: "1 1 0",
-        minWidth: 140,
+        flex: "1 1 120px",
+        minWidth: 0,
       }}
     >
       <span className="s-label" style={{ color: "rgba(250,250,245,0.5)", marginBottom: 8, display: "block" }}>
@@ -154,13 +154,13 @@ export function AnalyticsSection() {
     <section
       ref={sectionRef}
       data-testid="analytics-section"
-      style={{ padding: "120px 24px", maxWidth: 1100, margin: "0 auto" }}
+      style={{ padding: "clamp(60px, 10vw, 120px) 24px", maxWidth: 1100, margin: "0 auto" }}
     >
       <div style={{ textAlign: "center", marginBottom: 48 }}>
         <span className="s-label" style={{ color: "var(--s-yellow)", marginBottom: 16, display: "inline-block" }}>
           {"// Know what's working"}
         </span>
-        <h2 className="s-heading" style={{ fontSize: "clamp(48px, 8vw, 96px)", color: "var(--s-white)" }}>
+        <h2 className="s-heading" style={{ fontSize: "clamp(32px, 6vw, 96px)", color: "var(--s-white)" }}>
           REAL-TIME ANALYTICS
         </h2>
         <p className="s-body" style={{ color: "rgba(250,250,245,0.55)", maxWidth: 520, margin: "16px auto 0" }}>
@@ -174,7 +174,8 @@ export function AnalyticsSection() {
           background: "#0a0a0a",
           border: "1px solid rgba(250,250,245,0.08)",
           borderRadius: 16,
-          padding: "28px 28px 24px",
+          padding: "clamp(16px, 3vw, 28px)",
+          overflow: "hidden",
         }}
       >
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 24, alignItems: "center" }}>
