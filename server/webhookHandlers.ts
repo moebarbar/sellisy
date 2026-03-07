@@ -4,7 +4,9 @@ import { randomBytes } from 'crypto';
 import { sendOrderCompletionEmails } from './orderEmailHelper';
 import { db } from './db';
 import { coupons } from '@shared/schema';
+import type { PlanTier } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
+import { authStorage } from './replit_integrations/auth/storage';
 
 export class WebhookHandlers {
   static getBaseUrl(): string {
@@ -51,8 +53,43 @@ export class WebhookHandlers {
   static async handleEvent(event: any): Promise<void> {
     switch (event.type) {
       case 'checkout.session.completed':
-        await WebhookHandlers.handleCheckoutCompleted(event.data.object);
+        const session = event.data.object;
+        if (session.metadata?.sellisy_signup === 'true') {
+          await WebhookHandlers.handleSubscriptionSignup(session);
+        } else {
+          await WebhookHandlers.handleCheckoutCompleted(session);
+        }
         break;
+    }
+  }
+
+  static async handleSubscriptionSignup(session: any): Promise<void> {
+    const meta = session.metadata;
+    if (!meta?.email) {
+      console.error('[subscriptions] Webhook: missing email in metadata');
+      return;
+    }
+
+    try {
+      const existing = await authStorage.getUserByEmail(meta.email);
+      if (existing) {
+        console.log(`[subscriptions] User ${meta.email} already exists, skipping creation`);
+        return;
+      }
+
+      const user = await authStorage.upsertUser({
+        email: meta.email,
+        passwordHash: meta.passwordHash,
+        firstName: meta.firstName,
+        lastName: meta.lastName,
+      });
+
+      const tier = (meta.planTier || 'basic') as PlanTier;
+      await storage.updateUserPlan(user.id, tier);
+
+      console.log(`[subscriptions] Created user ${meta.email} with plan ${tier} via Stripe subscription`);
+    } catch (error: any) {
+      console.error('[subscriptions] Error creating user from webhook:', error);
     }
   }
 

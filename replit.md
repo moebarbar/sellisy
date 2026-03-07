@@ -1,7 +1,7 @@
 # Sellisy
 
 ## Overview
-Sellisy is a multi-tenant platform designed to empower digital entrepreneurs. It enables users to create, customize, and manage their own digital product storefronts, offering tools for product management (importing from a central library or creating new ones), secure payment processing with digital download delivery, content creation (knowledge bases), marketing, and customer management. The platform aims to provide a comprehensive solution for selling digital products online.
+Sellisy is a multi-tenant platform for digital entrepreneurs to create, customize, and manage digital product storefronts. It provides tools for product management (importing from a central library or creating new ones), secure payment processing with digital download delivery, content creation (knowledge bases), marketing, and customer management. The platform aims to be a comprehensive solution for selling digital products online.
 
 ## User Preferences
 - Clean, minimal code
@@ -9,68 +9,32 @@ Sellisy is a multi-tenant platform designed to empower digital entrepreneurs. It
 - Multi-tenant safety (queries scoped by ownerId)
 
 ## System Architecture
-The project employs a **full-stack JavaScript architecture** featuring an **Express.js** backend API, a **Vite + React (wouter)** frontend, and **Drizzle ORM** for interaction with a **PostgreSQL** database.
+The project utilizes a full-stack JavaScript architecture with an Express.js backend API, a Vite + React (wouter) frontend, and Drizzle ORM for PostgreSQL database interaction.
 
 **Core Features & Design Patterns:**
 
-*   **Authentication**: Local email/password authentication with `bcrypt` hashing and session management. Admin accounts are seeded via environment variables. Password minimum 8 characters enforced on signup.
-*   **Multi-tenancy**: Strict data isolation is enforced for all operations through `ownerId` scoping.
-*   **Frontend**: Built with React, utilizing `shadcn/ui` components and `Tailwind CSS` for a premium, customizable UI. `TanStack Query` manages server state.
-*   **Storefronts**: Features a unified base template system that allows for rapid creation of visually distinct storefronts (Neon, Silk, Aurora, Ember, Frost, Midnight) by configuring visual tokens. Storefronts include features like announcement bars, social links, rich footers, category navigation, search/sort, and scroll-reveal animations, each with a branded customer portal.
-*   **Product Management**:
-    *   **Product Library**: A central repository of platform products that store owners can import. Admins can promote user-created products to this library and classify products by `requiredTier` (basic, pro, max).
-    *   **Admin Product Workflows**: Includes bulk selection, promotion to library, tier classification, and CSV bulk upload for up to 500 products.
-    *   **User Products**: Users can create custom digital products with file uploads or external URLs.
-    *   **Product Customization**: Store owners can override product details locally without affecting the original library product.
-    *   **Product Types**: Supports various digital product types (digital, software, template, ebook, course, graphics) with type-specific delivery.
-    *   **Rich Detail Pages**: Software products feature AppSumo-style deal pages with structured content and pricing comparisons.
-    *   **Featured Products**: Store owners can mark up to 3 products as "Featured" via the dashboard (star toggle). Featured products display in a prominent hero section at the top of all storefront templates (Neon, Silk, Aurora, Ember, Frost, Midnight) with a "Featured" badge, and are excluded from the regular grid to prevent duplication. Max 3 limit enforced both client-side and server-side.
-    *   **Product Type Badges**: All storefront template product cards display a product type badge (e.g., "Course", "Software", "eBook") derived from the `productType` field.
-*   **E-commerce & Payments**:
-    *   **Payment Gateways**: Integration with Stripe and PayPal. Store owners can configure one or both processors simultaneously. When both are configured, customers see a payment method selection modal at checkout to choose between card (Stripe) or PayPal. The checkout API accepts an optional `paymentMethod` field ("stripe" or "paypal"). If no payment keys are configured, checkout returns a clear error instead of falling back to platform keys.
-    *   **Coupon System**: Flexible coupon codes with various discount types, usage limits, and expiration dates.
-    *   **Email System**: SendGrid integration for transactional emails (welcome, order confirmation, sale notifications, download links, magic link login) using consistent HTML templates. All buyer-facing emails include a junk/spam folder check note for deliverability awareness.
-    *   **Lead Magnets**: Free product offerings in exchange for email sign-ups, integrating with customer accounts.
-    *   **Secure Downloads**: Token-based system for digital product delivery from Object Storage.
-    *   **Transactional Safety**: All checkout-related database writes are wrapped in transactions for atomicity.
-*   **Content Creation**: A Notion-style block editor for building Knowledge Bases with nested pages, various block types, drag-and-drop reordering, multi-block mouse selection (click-drag across blocks with Ctrl+C copy support), and rich HTML paste parsing (preserves headings, lists, bold/italic from web pages and documents). Both KB and blog editors support optional author name and photo (with file upload or URL).
-*   **Marketing Tools**: A 'Marketing Playbook' dashboard section offering actionable strategies.
-*   **Analytics**: A comprehensive per-store analytics dashboard covering revenue, products, customers, coupons, and traffic, powered by real-time data from `store_events` tracking.
-*   **Dashboard**: A dedicated, feature-rich dashboard with store switching, unified navigation, onboarding checklists, rotating marketing prompts, inspirational quotes, and consistent layout. Product cards maintain a platform-standard 1:1 aspect ratio.
-*   **File Storage**: Dual-backend storage system — uses Cloudflare R2 (via S3-compatible API) as primary, with Replit Object Storage as fallback. Product images, deliverable files, logos, and banners served via `cdn.sellisy.com`. Upload routes auto-detect available backend.
-*   **Embed Widgets**: Store owners can generate embeddable iframes for products or bundles on external websites, with live preview and theme toggles.
-*   **Custom Domains**: Integration with Cloudflare for SaaS to allow store owners to connect custom domains with automatic SSL provisioning and host-based routing. All storefront links (products, bundles, blog, portal) use `getStoreBasePath(slug)` from `client/src/lib/utils.ts` to generate domain-aware URLs. KB access URLs and purchase URLs also prefer the store's custom domain when active. Dashboard-generated links (share links, KB public links, blog "View Live", embed widgets, "View Storefront" buttons) all use `getStorePublicUrl(store)` / `getStorePublicPath(store, path)` from `client/src/lib/utils.ts` to prefer custom domain URLs when active. Sitemap URLs also use custom domains for stores that have them.
-*   **SEO**:
-    *   **Product Slugs**: Products have an auto-generated `slug` field derived from the title (e.g., `premium-ui-kit`). Slugs are created on product create/update and backfilled on startup. Product URLs use slugs for SEO-friendly paths (`/s/store/product/premium-ui-kit`).
-    *   **Open Graph & Twitter Cards**: Full OG tags (title, description, image, url, type, site_name, image:alt) and Twitter Card tags on all storefront pages (products, bundles, blogs, stores). Server-side injection via `server/og-tags.ts` for crawlers; client-side via `usePageMeta` hook.
-    *   **JSON-LD Structured Data**: Schema.org Product markup on product and bundle pages (name, description, image, price, currency, availability, brand, SKU, seller). BlogPosting markup on blog posts. Store markup on storefronts.
-    *   **Canonical URLs**: `<link rel="canonical">` on all storefront pages to prevent duplicate content.
-    *   **Meta Descriptions**: Auto-generated, capped at 160 characters, using product description/tagline.
-    *   **robots.txt**: Served at `/robots.txt`, allows `/s/`, `/product/`, `/bundle/`; disallows `/api/`, `/dashboard/`, `/auth`. Points to sitemap.
-    *   **sitemap.xml**: Dynamic XML sitemap at `/sitemap.xml` listing all stores, published products (with slug URLs), published bundles, and published blog posts.
-    *   **Slug Resolution**: API resolves products by slug (store-scoped via `storeProducts` join) with UUID fallback for backward compatibility. Knowledge bases also have slugs (auto-generated from title on create/update, backfilled on startup) and resolve by slug with UUID fallback.
-    *   **Alt Text**: Product images include alt text from product titles in all storefront templates.
-*   **Data Protection System**:
-    *   **Soft Deletes**: Products, stores, orders, bundles, coupons, knowledge bases, and blog posts all use a `deletedAt` timestamp instead of hard deletes. All queries filter out soft-deleted records (`WHERE deletedAt IS NULL`). Data is never permanently lost through normal user operations.
-    *   **Hard Delete Safety**: `hardDeleteStore` and `hardDeleteProduct` are admin-only operations that log warnings to the console before executing. `hardDeleteStore` cascade soft-deletes related orders/bundles/coupons/blog posts instead of permanently removing them.
-    *   **Integrity Checks**: `server/integrity.ts` provides `runHealthCheck()` (detect orphaned records, null owners, tracks stats for all soft-deletable entities) and `runRepair()` (auto-fix issues). Health check runs automatically on every server startup via `runStartupCheck()`.
-    *   **Admin Data Health Dashboard**: `/dashboard/data-health` (admin-only) shows platform health stats for all entity types, lists soft-deleted products/stores with restore buttons, and provides manual health check and repair controls.
-    *   **Admin Endpoints**: `GET /api/admin/health-check`, `POST /api/admin/repair`, `GET /api/admin/deleted-products`, `GET /api/admin/deleted-stores`, `POST /api/admin/restore-product/:id`, `POST /api/admin/restore-store/:id`.
-    *   **Protective Guards**: Defense-in-depth ownership verification in `storage.ts` (`deleteProduct`/`deleteStore` accept optional `callerOwnerId`). Promote route has a post-update guard preventing `ownerId` from being nulled. `updateProduct` uses TypeScript `Pick` to restrict updatable fields (excludes `ownerId`). Bulk operations verify product existence before modifying.
-    *   **Deployment Safety**: `start.sh` only runs `drizzle-kit push` when `RUN_MIGRATIONS=true` is set. No `--force` flag. Normal deploys skip schema push entirely, preventing accidental data loss.
-*   **Security Hardening**:
-    *   **Rate Limiting**: `express-rate-limit` on `/api/auth/login` (10/15min), `/api/auth/register` (5/15min), `/api/checkout` (20/15min), `/api/download` (30/15min). Returns 429 with clear messages.
-    *   **Health Check**: `/api/health` tests actual DB connectivity (`SELECT 1`), returns 503 if unreachable.
-    *   **IDOR Protection**: Blog block PATCH/DELETE routes verify ownership through block → post → store → ownerId chain. KB blocks already had this protection.
-    *   **CORS**: Global CORS middleware allows `*.sellisy.com` and dev domains with credentials. Embed routes retain permissive `*` access.
-    *   **Webhook Warning**: Logs `[SECURITY WARNING]` on startup if `STRIPE_WEBHOOK_SECRET` is not set.
-
-*   **Marketing Landing Page**: Complete editorial-style single-page marketing site at `/` (`client/src/pages/landing.tsx`). Dark theme with sticker-culture aesthetic using Bebas Neue (headings), Space Mono (labels), Permanent Marker (stickers), DM Sans (body). 15 modular components in `client/src/components/landing/`: navbar, hero (with platform showcase cards, dark grid background, bold headline), ticker bar, stats (count-up), product library (lazy-loaded real DB products via `/api/products/library/public`, shows 6 with "Browse All Products" CTA), storefront template previews (6 templates with live switching using real preview colors), live stores section (lazy-loaded real stores via `/api/discover/stores`), customer portal mockup, creator tools (6-tab editor), analytics dashboard preview (SVG chart), how-it-works (3 steps), features grid (3×3), 3-tier pricing ($19/$39/$69), final CTA, footer. All scoped under `.landing-page` class. Scroll-reveal via IntersectionObserver. Reduced motion support. Full mobile responsiveness via CSS media queries in `index.css` (responsive grids, hidden stickers, scrollable tabs, clamp typography). Hero right side features Revenue card ($847), New Sale card (UI Kit Pro), Product Library import card, and Your Store mini preview instead of sticker pills. Google Fonts split: landing page fonts loaded eagerly, storefront/dashboard fonts deferred via `preload`+`onload` pattern.
-*   **Public Products Page**: Full product catalog at `/products` (`client/src/pages/products.tsx`). Fetches from `/api/products/library/public`. Filterable by product type (All, Digital, Software, Template, Ebook, Course, Graphics) with counts per filter. Search bar for filtering by title/description. Dark theme matching landing page. Each card shows image, title, description, price, PLR/MRR badges, and "Start Selling This →" CTA linking to `/auth`. Improved empty state with "Clear Filters" button. SEO page title set dynamically.
+*   **Authentication**: Local email/password authentication with `bcrypt` and session management.
+*   **Multi-tenancy**: Strict data isolation enforced via `ownerId` scoping.
+*   **Frontend**: Built with React, `shadcn/ui`, and `Tailwind CSS` for a premium, customizable UI. `TanStack Query` manages server state.
+*   **Storefronts**: Unified base template system (Neon, Silk, Aurora, Ember, Frost, Midnight) configurable via visual tokens, featuring announcement bars, social links, rich footers, category navigation, search/sort, and scroll-reveal animations. Includes branded customer portals.
+*   **Product Management**: Supports a central Product Library, admin product workflows (bulk upload, promotion, tier classification), user-created custom digital products, and product customization. Supports various digital product types (digital, software, template, ebook, course, graphics) with rich detail pages and "Featured Products" functionality.
+*   **E-commerce & Payments**: Integrated with Stripe and PayPal for payment processing. Features a flexible coupon system, SendGrid for transactional emails (including download links), lead magnets, and secure token-based digital product downloads. All checkout-related database writes are transactional.
+*   **Content Creation**: Notion-style block editor for Knowledge Bases and blogs with nested pages, various block types, drag-and-drop reordering, multi-block selection, and rich HTML paste parsing.
+*   **Marketing Tools**: A 'Marketing Playbook' dashboard section.
+*   **Analytics**: Comprehensive per-store analytics dashboard covering revenue, products, customers, coupons, and traffic, powered by real-time `store_events` tracking.
+*   **Dashboard**: Feature-rich dashboard with store switching, unified navigation, onboarding checklists, and consistent layout. Product cards maintain a 1:1 aspect ratio.
+*   **File Storage**: Dual-backend storage system using Cloudflare R2 as primary and Replit Object Storage as fallback.
+*   **Embed Widgets**: Store owners can generate embeddable iframes for products or bundles with live preview and theme toggles.
+*   **Custom Domains**: Integration with Cloudflare for SaaS for custom domains with automatic SSL and host-based routing.
+*   **SEO**: Implements SEO-friendly product slugs, Open Graph & Twitter Cards, JSON-LD Structured Data, canonical URLs, meta descriptions, `robots.txt`, and a dynamic `sitemap.xml`.
+*   **Data Protection System**: Utilizes soft deletes (`deletedAt` timestamp) for products, stores, orders, and other entities. Includes admin-only hard delete safety mechanisms, integrity checks (`runHealthCheck`, `runRepair`), and an Admin Data Health Dashboard.
+*   **Security Hardening**: Implements rate limiting, a health check endpoint for DB connectivity, IDOR protection, global CORS, and webhook security warnings.
+*   **Marketing Landing Page**: Editorial-style single-page marketing site (`/`) with a dark theme and sticker-culture aesthetic. Features modular components showcasing the platform's capabilities.
+*   **Public Products Page**: Full product catalog at `/products` with filtering, search, and a dark theme matching the landing page.
 
 ## External Dependencies
-*   **Cloudflare R2**: Primary file storage (S3-compatible, served via `cdn.sellisy.com`).
-*   **Replit Object Storage**: Fallback file storage (Replit environment only).
+*   **Cloudflare R2**: Primary file storage.
+*   **Replit Object Storage**: Fallback file storage.
 *   **PostgreSQL**: Primary database.
 *   **Stripe**: Payment processing.
 *   **PayPal**: Payment processing.

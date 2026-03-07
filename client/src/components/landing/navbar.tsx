@@ -55,18 +55,54 @@ export function Navbar() {
           ))}
         </div>
 
-        <a
-          href={user ? "/dashboard" : "/auth"}
-          className="s-label px-5 py-2.5 rounded font-bold transition-all duration-200"
-          style={{
-            background: "var(--s-yellow)",
-            color: "var(--s-black)",
-            fontSize: "11px",
-          }}
-          data-testid="button-nav-cta"
-        >
-          {user ? "Dashboard" : "Get Started →"}
-        </a>
+        {user ? (
+          <a
+            href="/dashboard"
+            className="s-label px-5 py-2.5 rounded font-bold transition-all duration-200"
+            style={{
+              background: "var(--s-yellow)",
+              color: "var(--s-black)",
+              fontSize: "11px",
+            }}
+            data-testid="button-nav-cta"
+          >
+            Dashboard
+          </a>
+        ) : (
+          <div className="flex items-center gap-3">
+            <a
+              href="/auth"
+              className="s-label px-5 py-2.5 rounded font-bold transition-all duration-200"
+              style={{
+                background: "transparent",
+                color: "var(--s-white)",
+                border: "1px solid rgba(250,250,245,0.2)",
+                fontSize: "11px",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "rgba(250,250,245,0.5)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "rgba(250,250,245,0.2)";
+              }}
+              data-testid="button-nav-login"
+            >
+              Login
+            </a>
+            <button
+              onClick={() => scrollTo("#pricing")}
+              className="s-label px-5 py-2.5 rounded font-bold transition-all duration-200"
+              style={{
+                background: "var(--s-yellow)",
+                color: "var(--s-black)",
+                fontSize: "11px",
+              }}
+              data-testid="button-nav-cta"
+            >
+              Get Started →
+            </button>
+          </div>
+        )}
       </div>
     </nav>
   );

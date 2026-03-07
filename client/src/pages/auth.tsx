@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -8,13 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 
 export default function AuthPage() {
   const searchString = useSearch();
   const params = new URLSearchParams(searchString);
-  const initialMode = params.get("mode") === "signup" ? "signup" : "login";
-  const [mode, setMode] = useState<"login" | "signup">(initialMode);
+  const subscribed = params.get("subscribed") === "true";
+  const plan = params.get("plan");
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -22,9 +22,16 @@ export default function AuthPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (subscribed) {
+      toast({
+        title: "Account created successfully!",
+        description: "Your subscription is active. Log in with your credentials to get started.",
+      });
+    }
+  }, [subscribed]);
 
   const loginMutation = useMutation({
     mutationFn: async () => {
@@ -40,21 +47,7 @@ export default function AuthPage() {
     },
   });
 
-  const registerMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/auth/register", { email, password, firstName, lastName });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      navigate("/dashboard");
-    },
-    onError: (err: any) => {
-      toast({ title: "Registration failed", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const isPending = loginMutation.isPending || registerMutation.isPending;
+  const isPending = loginMutation.isPending;
 
   if (user) {
     navigate("/dashboard");
@@ -63,54 +56,38 @@ export default function AuthPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === "login") {
-      loginMutation.mutate();
-    } else {
-      registerMutation.mutate();
-    }
+    loginMutation.mutate();
+  };
+
+  const planLabels: Record<string, string> = {
+    basic: "Starter",
+    pro: "Growth",
+    max: "Empire",
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          {subscribed && (
+            <div className="flex items-center justify-center gap-2 mb-4 text-green-500" data-testid="text-subscription-success">
+              <CheckCircle2 className="h-5 w-5" />
+              <span className="text-sm font-medium">
+                {plan && planLabels[plan]
+                  ? `${planLabels[plan]} plan activated!`
+                  : "Subscription activated!"}
+              </span>
+            </div>
+          )}
           <CardTitle className="text-2xl font-bold" data-testid="text-auth-title">
-            {mode === "login" ? "Welcome Back" : "Create Account"}
+            Welcome Back
           </CardTitle>
           <CardDescription data-testid="text-auth-description">
-            {mode === "login"
-              ? "Sign in to your Sellisy account"
-              : "Get started with your Sellisy store"}
+            Sign in to your Sellisy account
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === "signup" && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="John"
-                    required
-                    data-testid="input-first-name"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Doe"
-                    required
-                    data-testid="input-last-name"
-                  />
-                </div>
-              </div>
-            )}
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -131,9 +108,8 @@ export default function AuthPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === "signup" ? "At least 8 characters" : "Enter your password"}
+                  placeholder="Enter your password"
                   required
-                  minLength={mode === "signup" ? 8 : undefined}
                   className="pr-10"
                   data-testid="input-password"
                 />
@@ -150,37 +126,20 @@ export default function AuthPage() {
             <Button type="submit" className="w-full" disabled={isPending} data-testid="button-auth-submit">
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
-              ) : mode === "login" ? (
-                "Sign In"
               ) : (
-                "Create Account"
+                "Sign In"
               )}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === "login" ? (
-              <>
-                Don't have an account?{" "}
-                <button
-                  onClick={() => setMode("signup")}
-                  className="text-primary hover:underline font-medium"
-                  data-testid="button-switch-signup"
-                >
-                  Sign up
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{" "}
-                <button
-                  onClick={() => setMode("login")}
-                  className="text-primary hover:underline font-medium"
-                  data-testid="button-switch-login"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
+            Don't have an account?{" "}
+            <a
+              href="/#pricing"
+              className="text-primary hover:underline font-medium"
+              data-testid="link-view-plans"
+            >
+              View Plans
+            </a>
           </div>
         </CardContent>
       </Card>

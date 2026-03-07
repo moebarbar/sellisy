@@ -38,7 +38,7 @@ export function HeroSection() {
 
             <div className="flex flex-wrap gap-4 mt-8">
               <a
-                href="/auth"
+                href="#pricing"
                 className="s-label inline-flex items-center gap-2 px-7 py-3.5 rounded font-bold transition-transform duration-200 hover:scale-105"
                 style={{ background: "var(--s-yellow)", color: "var(--s-black)", fontSize: "12px" }}
                 data-testid="button-hero-cta"

@@ -13,6 +13,7 @@ import { z } from "zod";
 import Stripe from 'stripe';
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendMagicLinkEmail, sendAllTestEmails } from "./emails";
+import { registerSubscriptionRoutes } from "./subscriptions";
 import { sendOrderCompletionEmails } from "./orderEmailHelper";
 import { setEmailLogger } from "./sendgridClient";
 import { runHealthCheck, runRepair } from "./integrity";
@@ -140,6 +141,7 @@ export async function registerRoutes(
   await setupAuth(app);
   registerAuthRoutes(app);
   registerObjectStorageRoutes(app);
+  registerSubscriptionRoutes(app);
   app.use(cookieParser());
 
   app.use(async (req, res, next) => {

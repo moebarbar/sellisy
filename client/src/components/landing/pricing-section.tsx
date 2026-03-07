@@ -1,4 +1,314 @@
+import { useState } from "react";
+import { Loader2, Eye, EyeOff, X } from "lucide-react";
+
+type PlanKey = "basic" | "pro" | "max";
+
+const PLANS: Record<PlanKey, { label: string; price: string }> = {
+  basic: { label: "Starter", price: "$19" },
+  pro: { label: "Growth", price: "$39" },
+  max: { label: "Empire", price: "$69" },
+};
+
+function SignupModal({ plan, onClose }: { plan: PlanKey; onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan, email, firstName, lastName, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Something went wrong");
+        setLoading(false);
+        return;
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch {
+      setError("Network error. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const info = PLANS[plan];
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.7)",
+        backdropFilter: "blur(8px)",
+        padding: 16,
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      data-testid="signup-modal-overlay"
+    >
+      <div
+        style={{
+          background: "#0a0a0a",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 16,
+          padding: 36,
+          width: "100%",
+          maxWidth: 420,
+          position: "relative",
+        }}
+        data-testid="signup-modal"
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            background: "none",
+            border: "none",
+            color: "rgba(250,250,245,0.4)",
+            cursor: "pointer",
+          }}
+          data-testid="button-close-modal"
+        >
+          <X size={20} />
+        </button>
+
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <p
+            className="s-label"
+            style={{ color: "var(--s-yellow)", marginBottom: 8 }}
+          >
+            {info.label} Plan
+          </p>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 4 }}>
+            <span className="s-heading" style={{ fontSize: 48, color: "var(--s-white)" }}>
+              {info.price}
+            </span>
+            <span className="s-label" style={{ color: "rgba(250,250,245,0.35)" }}>/mo</span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label
+                className="s-label"
+                style={{ color: "rgba(250,250,245,0.5)", fontSize: 10, marginBottom: 6, display: "block" }}
+              >
+                First Name
+              </label>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+                placeholder="John"
+                data-testid="input-signup-first-name"
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "var(--s-white)",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 14,
+                  outline: "none",
+                }}
+              />
+            </div>
+            <div>
+              <label
+                className="s-label"
+                style={{ color: "rgba(250,250,245,0.5)", fontSize: 10, marginBottom: 6, display: "block" }}
+              >
+                Last Name
+              </label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+                placeholder="Doe"
+                data-testid="input-signup-last-name"
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "var(--s-white)",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 14,
+                  outline: "none",
+                }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label
+              className="s-label"
+              style={{ color: "rgba(250,250,245,0.5)", fontSize: 10, marginBottom: 6, display: "block" }}
+            >
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="you@example.com"
+              data-testid="input-signup-email"
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.04)",
+                color: "var(--s-white)",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 14,
+                outline: "none",
+              }}
+            />
+          </div>
+
+          <div>
+            <label
+              className="s-label"
+              style={{ color: "rgba(250,250,245,0.5)", fontSize: 10, marginBottom: 6, display: "block" }}
+            >
+              Password
+            </label>
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                placeholder="At least 8 characters"
+                data-testid="input-signup-password"
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  paddingRight: 42,
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "var(--s-white)",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 14,
+                  outline: "none",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: 12,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  color: "rgba(250,250,245,0.4)",
+                  cursor: "pointer",
+                }}
+                data-testid="button-toggle-signup-password"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <p
+              style={{
+                color: "#ef4444",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 13,
+                textAlign: "center",
+                margin: 0,
+              }}
+              data-testid="text-signup-error"
+            >
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            data-testid="button-subscribe"
+            style={{
+              padding: "14px 0",
+              borderRadius: 10,
+              background: "var(--s-yellow)",
+              color: "var(--s-black)",
+              fontFamily: "'Space Mono', monospace",
+              fontSize: 13,
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              fontWeight: 700,
+              border: "none",
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.7 : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+          >
+            {loading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Processing...
+              </>
+            ) : (
+              `Subscribe — ${info.price}/mo →`
+            )}
+          </button>
+
+          <p style={{
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: 11,
+            color: "rgba(250,250,245,0.3)",
+            textAlign: "center",
+            margin: 0,
+          }}>
+            You'll be redirected to Stripe for secure payment. Cancel anytime.
+          </p>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function PricingSection() {
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey | null>(null);
+
   const starterFeatures = [
     "1 storefront",
     "30 PLR imports",
@@ -105,11 +415,12 @@ export function PricingSection() {
               </li>
             ))}
           </ul>
-          <a
-            href="/auth"
+          <button
+            onClick={() => setSelectedPlan("basic")}
             data-testid="cta-starter"
             style={{
               display: "block",
+              width: "100%",
               textAlign: "center",
               padding: "14px 0",
               borderRadius: 10,
@@ -120,11 +431,11 @@ export function PricingSection() {
               fontSize: 13,
               textTransform: "uppercase" as const,
               letterSpacing: 1,
-              textDecoration: "none",
+              cursor: "pointer",
             }}
           >
             Get Started →
-          </a>
+          </button>
         </div>
 
         {/* GROWTH */}
@@ -194,11 +505,12 @@ export function PricingSection() {
               </li>
             ))}
           </ul>
-          <a
-            href="/auth"
+          <button
+            onClick={() => setSelectedPlan("pro")}
             data-testid="cta-growth"
             style={{
               display: "block",
+              width: "100%",
               textAlign: "center",
               padding: "14px 0",
               borderRadius: 10,
@@ -208,11 +520,12 @@ export function PricingSection() {
               fontSize: 13,
               textTransform: "uppercase" as const,
               letterSpacing: 1,
-              textDecoration: "none",
+              border: "none",
+              cursor: "pointer",
             }}
           >
             Get Started →
-          </a>
+          </button>
         </div>
 
         {/* EMPIRE */}
@@ -298,11 +611,12 @@ export function PricingSection() {
                   </li>
                 ))}
               </ul>
-              <a
-                href="/auth"
+              <button
+                onClick={() => setSelectedPlan("max")}
                 data-testid="cta-empire"
                 style={{
                   display: "block",
+                  width: "100%",
                   textAlign: "center",
                   padding: "14px 0",
                   borderRadius: 10,
@@ -312,12 +626,13 @@ export function PricingSection() {
                   fontSize: 13,
                   textTransform: "uppercase" as const,
                   letterSpacing: 1,
-                  textDecoration: "none",
                   fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer",
                 }}
               >
                 Get Started →
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -338,6 +653,10 @@ export function PricingSection() {
       >
         Connect your own Stripe or PayPal. You keep 100% of every sale. Cancel anytime.
       </p>
+
+      {selectedPlan && (
+        <SignupModal plan={selectedPlan} onClose={() => setSelectedPlan(null)} />
+      )}
     </section>
   );
 }

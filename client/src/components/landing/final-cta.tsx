@@ -81,7 +81,7 @@ export function FinalCTA() {
 
         <div style={{ display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" as const }}>
           <a
-            href="/auth"
+            href="#pricing"
             data-testid="cta-final-start"
             style={{
               display: "inline-block",
@@ -100,7 +100,7 @@ export function FinalCTA() {
             Get Started →
           </a>
           <a
-            href="/auth"
+            href="#pricing"
             data-testid="cta-final-demo"
             style={{
               display: "inline-block",
