@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTheme } from "@/lib/theme";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Package, Download, ArrowLeft, Loader2, Moon, Sun,
+  Package, Download, ArrowLeft, Loader2,
   ShoppingBag, ExternalLink, Store,
 } from "lucide-react";
 
@@ -46,7 +45,6 @@ type PurchaseDetail = {
 export default function PurchaseDetailPage() {
   const [, params] = useRoute("/account/purchase/:orderId");
   const [, navigate] = useLocation();
-  const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const orderId = params?.orderId;
 
@@ -93,15 +91,10 @@ export default function PurchaseDetailPage() {
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
         <div className="mx-auto max-w-4xl flex items-center justify-between gap-4 flex-wrap px-6 py-3">
           <Link href="/">
-            <span className="text-lg font-bold tracking-tight" data-testid="link-home">
-              Sellisy
+            <span className="text-2xl tracking-tight" data-testid="link-home" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+              SELL<span className="text-primary">I</span>SY
             </span>
           </Link>
-          <div className="flex items-center gap-2">
-            <Button size="icon" variant="ghost" onClick={toggleTheme} data-testid="button-theme-toggle">
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-          </div>
         </div>
       </header>
 

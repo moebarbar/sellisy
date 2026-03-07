@@ -1,5 +1,4 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useTheme } from "@/lib/theme";
 import { StoreProvider, useActiveStore } from "@/lib/store-context";
 import { getStorePublicUrl } from "@/lib/utils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -14,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Moon, Sun, Store, ChevronsUpDown, Check, Plus, ExternalLink } from "lucide-react";
+import { Store, ChevronsUpDown, Check, Plus, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -64,7 +63,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 }
 
 function DashboardHeader() {
-  const { theme, toggleTheme } = useTheme();
   const { stores, activeStore, activeStoreId, setActiveStoreId } = useActiveStore();
   const [createOpen, setCreateOpen] = useState(false);
   const { toast } = useToast();
@@ -174,9 +172,6 @@ function DashboardHeader() {
               </Button>
             </a>
           )}
-          <Button size="icon" variant="ghost" onClick={toggleTheme} data-testid="button-dashboard-theme">
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
         </div>
       </header>
 

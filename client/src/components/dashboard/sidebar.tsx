@@ -64,8 +64,8 @@ const navItems = [
 
 const TIER_BADGE_STYLES: Record<string, string> = {
   basic: "bg-muted text-muted-foreground",
-  pro: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  max: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  pro: "bg-primary/10 text-primary",
+  max: "bg-amber-500/10 text-amber-400",
 };
 
 export function AppSidebar() {
@@ -86,8 +86,8 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <Link href="/">
-          <span className="text-lg font-bold tracking-tight cursor-pointer" data-testid="link-sidebar-home">
-            Sellisy
+          <span className="text-2xl tracking-tight cursor-pointer" data-testid="link-sidebar-home" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+            SELL<span className="text-primary">I</span>SY
           </span>
         </Link>
       </SidebarHeader>

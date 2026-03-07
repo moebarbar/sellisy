@@ -8,15 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
-import { useTheme } from "@/lib/theme";
-import { Mail, Loader2, ArrowRight, Package, Moon, Sun, ExternalLink } from "lucide-react";
+import { Mail, Loader2, ArrowRight, Package, ExternalLink } from "lucide-react";
 
 type CustomerMe = { id: string; email: string };
 
 export default function AccountLoginPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState("");
   const [devLink, setDevLink] = useState<string | null>(null);
 
@@ -62,15 +60,10 @@ export default function AccountLoginPage() {
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
         <div className="mx-auto max-w-6xl flex items-center justify-between gap-4 flex-wrap px-6 py-3">
           <Link href="/">
-            <span className="text-lg font-bold tracking-tight" data-testid="link-home">
-              Sellisy
+            <span className="text-2xl tracking-tight" data-testid="link-home" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+              SELL<span className="text-primary">I</span>SY
             </span>
           </Link>
-          <div className="flex items-center gap-2">
-            <Button size="icon" variant="ghost" onClick={toggleTheme} data-testid="button-theme-toggle">
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-          </div>
         </div>
       </header>
 

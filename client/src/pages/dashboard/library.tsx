@@ -38,8 +38,8 @@ function buildCategoryFilters(products: Product[] | undefined) {
 
 const TIER_COLORS: Record<string, string> = {
   basic: "bg-muted text-muted-foreground",
-  pro: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  max: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  pro: "bg-primary/10 text-primary",
+  max: "bg-amber-500/10 text-amber-400",
 };
 
 const TIER_LABELS: Record<string, string> = {

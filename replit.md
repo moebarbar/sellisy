@@ -8,6 +8,17 @@ Sellisy is a multi-tenant platform for digital entrepreneurs to create, customiz
 - Premium UI design
 - Multi-tenant safety (queries scoped by ownerId)
 
+## Brand & Design System
+- **Theme**: Dark-only (no light mode toggle). Background `#050505`, foreground `#FAFAF5`
+- **Primary color**: Yellow `#F5E642` (HSL 53 91% 61%) — used for CTAs, active states, accents
+- **Fonts**: DM Sans (body/sans), Space Mono (mono/labels), Bebas Neue (logo/display headings)
+- **Logo**: "SELL**I**SY" — Bebas Neue, the "I" is yellow (`text-primary`)
+- **CSS Variables**: Both `:root` and `.dark` set to identical dark palette values
+- **Cards**: Dark bg `#0a0a0a`, subtle borders `rgba(255,255,255,0.08)`
+- **Auth page**: Standalone dark splash with floating showcase cards (revenue, products, store, delivery)
+- **Product images**: Always `aspect-square` — never change this
+- **No blue primary**: All former blue accents replaced with yellow/primary (except social media platform brand colors)
+
 ## System Architecture
 The project utilizes a full-stack JavaScript architecture with an Express.js backend API, a Vite + React (wouter) frontend, and Drizzle ORM for PostgreSQL database interaction.
 
