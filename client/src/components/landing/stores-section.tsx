@@ -1,3 +1,4 @@
+import { useRef, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Store, ExternalLink, Package, Palette } from "lucide-react";
 
@@ -32,14 +33,29 @@ const templateColors: Record<string, string> = {
 };
 
 export function StoresSection() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (!sectionRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
+      { rootMargin: "200px" }
+    );
+    observer.observe(sectionRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   const { data: stores, isLoading } = useQuery<DiscoverStore[]>({
     queryKey: ["/api/discover/stores"],
+    enabled: isVisible,
   });
 
   const displayed = (stores || []).slice(0, 6);
 
   return (
     <section
+      ref={sectionRef}
       data-testid="stores-section"
       style={{ padding: "clamp(60px, 10vw, 120px) 24px", maxWidth: 1200, margin: "0 auto" }}
     >
@@ -75,7 +91,7 @@ export function StoresSection() {
         </p>
       </div>
 
-      {isLoading ? (
+      {!isVisible || isLoading ? (
         <div
           className="s-reveal"
           style={{

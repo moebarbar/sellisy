@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { CustomCursor } from "@/components/landing/custom-cursor";
 import { Navbar } from "@/components/landing/navbar";
 import { HeroSection } from "@/components/landing/hero-section";
 import { TickerBar } from "@/components/landing/ticker-bar";
@@ -44,7 +43,6 @@ export default function LandingPage() {
 
   return (
     <div ref={wrapperRef} className="landing-page" data-testid="landing-page">
-      <CustomCursor />
       <Navbar />
       <HeroSection />
       <TickerBar />

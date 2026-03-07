@@ -1,3 +1,4 @@
+import { useRef, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 type LibraryProduct = {
@@ -29,14 +30,29 @@ const placeholderGradients = [
 ];
 
 export function LibrarySection() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (!sectionRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
+      { rootMargin: "200px" }
+    );
+    observer.observe(sectionRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   const { data: products, isLoading } = useQuery<LibraryProduct[]>({
     queryKey: ["/api/products/library/public"],
+    enabled: isVisible,
   });
 
   const displayProducts = (products || []).slice(0, 6);
 
   return (
     <section
+      ref={sectionRef}
       data-testid="library-section"
       style={{ padding: "120px 24px", maxWidth: 1200, margin: "0 auto" }}
     >
@@ -65,7 +81,7 @@ export function LibrarySection() {
         </p>
       </div>
 
-      {isLoading ? (
+      {!isVisible || isLoading ? (
         <div
           style={{
             display: "grid",

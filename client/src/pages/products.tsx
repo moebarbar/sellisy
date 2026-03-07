@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Search, Package } from "lucide-react";
 import { Navbar } from "@/components/landing/navbar";
 import { Footer } from "@/components/landing/footer";
 
@@ -44,13 +45,43 @@ const placeholderGradients = [
 
 export default function ProductsPage() {
   const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const { data: products, isLoading } = useQuery<LibraryProduct[]>({
     queryKey: ["/api/products/library/public"],
   });
 
-  const filtered = (products || []).filter(
-    (p) => filter === "all" || p.productType === filter
-  );
+  useEffect(() => {
+    document.title = "Product Library - Sellisy | PLR & MRR Digital Products";
+  }, []);
+
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: 0 };
+    for (const type of allTypes) {
+      if (type !== "all") counts[type] = 0;
+    }
+    (products || []).forEach((p) => {
+      counts.all++;
+      const t = p.productType || "digital";
+      if (counts[t] !== undefined) counts[t]++;
+    });
+    return counts;
+  }, [products]);
+
+  const filtered = useMemo(() => {
+    let result = products || [];
+    if (filter !== "all") {
+      result = result.filter((p) => (p.productType || "digital") === filter);
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          (p.description && p.description.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  }, [products, filter, search]);
 
   return (
     <div className="landing-page" data-testid="products-page" style={{ minHeight: "100vh" }}>
@@ -74,6 +105,39 @@ export default function ProductsPage() {
           </p>
         </div>
 
+        <div style={{ maxWidth: 480, margin: "0 auto 32px", position: "relative" }}>
+          <Search
+            style={{
+              position: "absolute",
+              left: 16,
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 18,
+              height: 18,
+              color: "rgba(250,250,245,0.3)",
+              pointerEvents: "none",
+            }}
+          />
+          <input
+            type="text"
+            placeholder="Search products..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            data-testid="input-search-products"
+            style={{
+              width: "100%",
+              padding: "12px 16px 12px 44px",
+              borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(255,255,255,0.04)",
+              color: "var(--s-white)",
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 14,
+              outline: "none",
+            }}
+          />
+        </div>
+
         <div
           className="s-creator-tabs"
           style={{
@@ -88,6 +152,7 @@ export default function ProductsPage() {
           {allTypes.map((type) => {
             const isActive = filter === type;
             const label = type === "all" ? "All" : typeLabels[type] || type;
+            const count = typeCounts[type] ?? 0;
             return (
               <button
                 key={type}
@@ -106,9 +171,22 @@ export default function ProductsPage() {
                   transition: "all 0.2s ease",
                   whiteSpace: "nowrap",
                   flexShrink: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
                 }}
               >
                 {label}
+                <span
+                  data-testid={`filter-count-${type}`}
+                  style={{
+                    fontSize: 10,
+                    opacity: isActive ? 0.7 : 0.4,
+                    fontWeight: 400,
+                  }}
+                >
+                  ({count})
+                </span>
               </button>
             );
           })}
@@ -135,162 +213,210 @@ export default function ProductsPage() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "80px 20px", color: "rgba(250,250,245,0.4)" }}>
-            <p className="s-body" style={{ fontSize: 16 }} data-testid="text-no-products">No products found in this category.</p>
-          </div>
-        ) : (
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
-              gap: 20,
+              textAlign: "center",
+              padding: "80px 20px",
+              color: "rgba(250,250,245,0.4)",
             }}
-            data-testid="products-grid"
+            data-testid="text-no-products"
           >
-            {filtered.map((product, i) => {
-              const badgeColor = typeColors[product.productType || "digital"] || "#F5E642";
-              const typeLabel = typeLabels[product.productType || "digital"] || "Digital";
+            <Package style={{ width: 48, height: 48, margin: "0 auto 16px", opacity: 0.3 }} />
+            <p className="s-body" style={{ fontSize: 16, marginBottom: 8 }}>
+              {search.trim()
+                ? `No products match "${search.trim()}"`
+                : "No products found in this category."}
+            </p>
+            {(search.trim() || filter !== "all") && (
+              <button
+                onClick={() => { setSearch(""); setFilter("all"); }}
+                data-testid="button-clear-filters"
+                style={{
+                  fontFamily: "'Space Mono', monospace",
+                  fontSize: 11,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                  padding: "10px 24px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  background: "transparent",
+                  color: "var(--s-yellow)",
+                  marginTop: 12,
+                }}
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div
+              style={{
+                fontFamily: "'Space Mono', monospace",
+                fontSize: 11,
+                color: "rgba(250,250,245,0.4)",
+                textTransform: "uppercase",
+                letterSpacing: 1,
+                marginBottom: 16,
+              }}
+              data-testid="text-result-count"
+            >
+              {filtered.length} {filtered.length === 1 ? "product" : "products"}
+              {search.trim() ? ` matching "${search.trim()}"` : ""}
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
+                gap: 20,
+              }}
+              data-testid="products-grid"
+            >
+              {filtered.map((product, i) => {
+                const badgeColor = typeColors[product.productType || "digital"] || "#F5E642";
+                const typeLabel = typeLabels[product.productType || "digital"] || "Digital";
 
-              return (
-                <div
-                  key={product.id}
-                  data-testid={`product-card-${product.id}`}
-                  style={{
-                    background: "#0a0a0a",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                    borderRadius: 12,
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    transition: "transform 0.25s ease, box-shadow 0.25s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "translateY(-4px)";
-                    e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.5)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
+                return (
                   <div
+                    key={product.id}
+                    data-testid={`product-card-${product.id}`}
                     style={{
-                      aspectRatio: "16/10",
-                      background: product.imageUrl
-                        ? `url(${product.imageUrl}) center/cover no-repeat`
-                        : placeholderGradients[i % placeholderGradients.length],
-                      position: "relative",
+                      background: "#0a0a0a",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                      borderRadius: 12,
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                      transition: "transform 0.25s ease, box-shadow 0.25s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-4px)";
+                      e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.5)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "none";
                     }}
                   >
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: 12,
-                        left: 12,
-                        fontFamily: "'Space Mono', monospace",
-                        fontSize: 9,
-                        textTransform: "uppercase",
-                        letterSpacing: 1,
-                        background: badgeColor,
-                        color: "#050505",
-                        padding: "4px 10px",
-                        borderRadius: 999,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {typeLabel}
-                    </span>
-                  </div>
-
-                  <div style={{ padding: "16px 20px 20px", display: "flex", flexDirection: "column", flex: 1, gap: 8 }}>
                     <div
                       style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 15,
-                        color: "var(--s-white)",
-                        fontWeight: 600,
-                        lineHeight: 1.3,
+                        aspectRatio: "16/10",
+                        background: product.imageUrl
+                          ? `url(${product.imageUrl}) center/cover no-repeat`
+                          : placeholderGradients[i % placeholderGradients.length],
+                        position: "relative",
                       }}
                     >
-                      {product.title}
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: 12,
+                          left: 12,
+                          fontFamily: "'Space Mono', monospace",
+                          fontSize: 9,
+                          textTransform: "uppercase",
+                          letterSpacing: 1,
+                          background: badgeColor,
+                          color: "#050505",
+                          padding: "4px 10px",
+                          borderRadius: 999,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {typeLabel}
+                      </span>
                     </div>
 
-                    {product.description && (
+                    <div style={{ padding: "16px 20px 20px", display: "flex", flexDirection: "column", flex: 1, gap: 8 }}>
                       <div
                         style={{
                           fontFamily: "'DM Sans', sans-serif",
-                          fontSize: 13,
-                          color: "rgba(250,250,245,0.4)",
-                          lineHeight: 1.5,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
+                          fontSize: 15,
+                          color: "var(--s-white)",
+                          fontWeight: 600,
+                          lineHeight: 1.3,
                         }}
                       >
-                        {product.description}
+                        {product.title}
                       </div>
-                    )}
 
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: "auto", paddingTop: 8 }}>
-                      <span
-                        className="s-heading"
-                        style={{ fontSize: 24, color: "var(--s-yellow)" }}
+                      {product.description && (
+                        <div
+                          style={{
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: 13,
+                            color: "rgba(250,250,245,0.4)",
+                            lineHeight: 1.5,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {product.description}
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: "auto", paddingTop: 8 }}>
+                        <span
+                          className="s-heading"
+                          style={{ fontSize: 24, color: "var(--s-yellow)" }}
+                        >
+                          ${product.price}
+                        </span>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <span style={{
+                            background: "var(--s-teal)",
+                            color: "#050505",
+                            fontFamily: "'Space Mono', monospace",
+                            fontSize: 9,
+                            fontWeight: 700,
+                            padding: "3px 8px",
+                            borderRadius: 999,
+                          }}>
+                            PLR
+                          </span>
+                          <span style={{
+                            background: "var(--s-yellow)",
+                            color: "#050505",
+                            fontFamily: "'Space Mono', monospace",
+                            fontSize: 9,
+                            fontWeight: 700,
+                            padding: "3px 8px",
+                            borderRadius: 999,
+                          }}>
+                            MRR
+                          </span>
+                        </div>
+                      </div>
+
+                      <a
+                        href="/auth"
+                        style={{
+                          display: "block",
+                          textAlign: "center",
+                          padding: "10px 0",
+                          borderRadius: 8,
+                          border: "1px solid rgba(255,255,255,0.15)",
+                          background: "rgba(255,255,255,0.04)",
+                          color: "var(--s-white)",
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          textDecoration: "none",
+                          transition: "all 0.2s ease",
+                          marginTop: 4,
+                        }}
+                        data-testid={`sell-btn-${product.id}`}
                       >
-                        ${product.price}
-                      </span>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <span style={{
-                          background: "var(--s-teal)",
-                          color: "#050505",
-                          fontFamily: "'Space Mono', monospace",
-                          fontSize: 9,
-                          fontWeight: 700,
-                          padding: "3px 8px",
-                          borderRadius: 999,
-                        }}>
-                          PLR
-                        </span>
-                        <span style={{
-                          background: "var(--s-yellow)",
-                          color: "#050505",
-                          fontFamily: "'Space Mono', monospace",
-                          fontSize: 9,
-                          fontWeight: 700,
-                          padding: "3px 8px",
-                          borderRadius: 999,
-                        }}>
-                          MRR
-                        </span>
-                      </div>
+                        Start Selling This →
+                      </a>
                     </div>
-
-                    <a
-                      href="/auth"
-                      style={{
-                        display: "block",
-                        textAlign: "center",
-                        padding: "10px 0",
-                        borderRadius: 8,
-                        border: "1px solid rgba(255,255,255,0.15)",
-                        background: "rgba(255,255,255,0.04)",
-                        color: "var(--s-white)",
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        textDecoration: "none",
-                        transition: "all 0.2s ease",
-                        marginTop: 4,
-                      }}
-                      data-testid={`sell-btn-${product.id}`}
-                    >
-                      Start Selling This →
-                    </a>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
