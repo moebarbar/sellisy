@@ -65,6 +65,8 @@ The project employs a **full-stack JavaScript architecture** featuring an **Expr
     *   **CORS**: Global CORS middleware allows `*.sellisy.com` and dev domains with credentials. Embed routes retain permissive `*` access.
     *   **Webhook Warning**: Logs `[SECURITY WARNING]` on startup if `STRIPE_WEBHOOK_SECRET` is not set.
 
+*   **Marketing Landing Page**: Complete editorial-style single-page marketing site at `/` (`client/src/pages/landing.tsx`). Dark theme with sticker-culture aesthetic using Bebas Neue (headings), Space Mono (labels), Permanent Marker (stickers), DM Sans (body). 15 modular components in `client/src/components/landing/`: custom cursor, navbar, hero, ticker bar, stats (count-up), product library (filterable grid with import buttons), storefront template previews (6 templates with live switching), customer portal mockup, upsell engine mockup, creator tools (6-tab editor), analytics dashboard preview (SVG chart), how-it-works (3 steps), features grid (3×3), 3-tier pricing ($19/$39/$69), final CTA, footer. All scoped under `.landing-page` class. Custom cursor only on desktop (`pointer: fine`). Scroll-reveal via IntersectionObserver. Reduced motion support.
+
 ## External Dependencies
 *   **Cloudflare R2**: Primary file storage (S3-compatible, served via `cdn.sellisy.com`).
 *   **Replit Object Storage**: Fallback file storage (Replit environment only).
