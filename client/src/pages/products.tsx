@@ -300,7 +300,7 @@ export default function ProductsPage() {
                   >
                     <div
                       style={{
-                        aspectRatio: "16/10",
+                        aspectRatio: "1/1",
                         background: product.imageUrl
                           ? `url(${product.imageUrl}) center/cover no-repeat`
                           : placeholderGradients[i % placeholderGradients.length],

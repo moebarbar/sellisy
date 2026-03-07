@@ -486,7 +486,7 @@ ${urls}</urlset>`;
       title: p.title,
       description: p.description,
       price: p.price,
-      imageUrl: p.imageUrl,
+      imageUrl: p.thumbnailUrl,
       productType: p.productType,
       slug: p.slug,
     }));
