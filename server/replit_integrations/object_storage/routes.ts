@@ -77,10 +77,7 @@ export function registerObjectStorageRoutes(app: Express): void {
 
   app.get(/^\/objects\/(.+)$/, async (req, res) => {
     try {
-      if (!useReplitStorage) {
-        return res.status(404).json({ error: "Object not found — files are served from CDN" });
-      }
-      const { ObjectStorageService } = await import("./objectStorage");
+      const { ObjectStorageService, ObjectNotFoundError } = await import("./objectStorage");
       const objectStorageService = new ObjectStorageService();
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       await objectStorageService.downloadObject(objectFile, res);

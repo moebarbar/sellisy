@@ -481,15 +481,18 @@ ${urls}</urlset>`;
 
   app.get("/api/products/library/public", async (_req, res) => {
     const library = await storage.getLibraryProducts();
-    const publicProducts = library.slice(0, 50).map((p: any) => ({
-      id: p.id,
-      title: p.title,
-      description: p.description,
-      price: p.price,
-      imageUrl: p.thumbnailUrl,
-      productType: p.productType,
-      slug: p.slug,
-    }));
+    const publicProducts = library
+      .filter((p: any) => p.thumbnailUrl)
+      .slice(0, 50)
+      .map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        description: p.description,
+        price: p.price,
+        imageUrl: p.thumbnailUrl,
+        productType: p.productType,
+        slug: p.slug,
+      }));
     res.json(publicProducts);
   });
 
