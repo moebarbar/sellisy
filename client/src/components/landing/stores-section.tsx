@@ -77,7 +77,6 @@ export function StoresSection() {
 
       {isLoading ? (
         <div
-          className="s-reveal"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))",
@@ -100,7 +99,6 @@ export function StoresSection() {
         </div>
       ) : displayed.length === 0 ? (
         <div
-          className="s-reveal"
           style={{
             textAlign: "center",
             padding: "60px 20px",
@@ -120,7 +118,6 @@ export function StoresSection() {
         </div>
       ) : (
         <div
-          className="s-reveal"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))",

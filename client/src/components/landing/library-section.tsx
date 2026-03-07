@@ -89,7 +89,6 @@ export function LibrarySection() {
       ) : (
         <>
           <div
-            className="s-reveal"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
@@ -230,7 +229,7 @@ export function LibrarySection() {
             })}
           </div>
 
-          <div className="s-reveal" style={{ textAlign: "center", marginTop: 48 }}>
+          <div style={{ textAlign: "center", marginTop: 48 }}>
             <a
               href="/products"
               className="s-label"
