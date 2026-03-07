@@ -498,7 +498,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async ensureDefaultCategories(ownerId: string) {
-    const existing = await this.getCategoriesByOwner(ownerId);
     const defaults = [
       { name: "Templates", slug: "templates", sortOrder: 0 },
       { name: "Graphics", slug: "graphics", sortOrder: 1 },
@@ -506,16 +505,13 @@ export class DatabaseStorage implements IStorage {
       { name: "Tools", slug: "tools", sortOrder: 3 },
       { name: "Software", slug: "software", sortOrder: 4 },
     ];
-    if (existing.length === 0) {
-      const rows = defaults.map((d) => ({ ...d, ownerId }));
-      return db.insert(categories).values(rows).returning();
-    }
+    const existing = await this.getCategoriesByOwner(ownerId);
     const existingSlugs = new Set(existing.map((c) => c.slug));
     const missing = defaults.filter((d) => !existingSlugs.has(d.slug));
     if (missing.length > 0) {
       const rows = missing.map((d) => ({ ...d, ownerId }));
-      const added = await db.insert(categories).values(rows).returning();
-      return [...existing, ...added];
+      await db.insert(categories).values(rows).onConflictDoNothing();
+      return this.getCategoriesByOwner(ownerId);
     }
     return existing;
   }

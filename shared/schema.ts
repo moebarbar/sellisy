@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -321,7 +321,9 @@ export const categories = pgTable("categories", {
   slug: text("slug").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex("categories_owner_slug_unique").on(table.ownerId, table.slug),
+]);
 
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true });
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
