@@ -223,6 +223,31 @@ export function LibrarySection() {
                         </span>
                       </div>
                     </div>
+
+                    <a
+                      href="#pricing"
+                      data-testid={`import-btn-${product.id}`}
+                      style={{
+                        display: "block",
+                        textAlign: "center",
+                        padding: "10px 0",
+                        borderRadius: 8,
+                        background: "var(--s-yellow)",
+                        color: "var(--s-black)",
+                        fontFamily: "'Space Mono', monospace",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: 1,
+                        textDecoration: "none",
+                        transition: "transform 0.2s ease, opacity 0.2s ease",
+                        marginTop: 4,
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
+                    >
+                      Import to Store →
+                    </a>
                   </div>
                 </div>
               );

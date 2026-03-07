@@ -391,25 +391,28 @@ export default function ProductsPage() {
                       </div>
 
                       <a
-                        href="/auth"
+                        href="/#pricing"
+                        data-testid={`import-btn-${product.id}`}
                         style={{
                           display: "block",
                           textAlign: "center",
                           padding: "10px 0",
                           borderRadius: 8,
-                          border: "1px solid rgba(255,255,255,0.15)",
-                          background: "rgba(255,255,255,0.04)",
-                          color: "var(--s-white)",
-                          fontFamily: "'DM Sans', sans-serif",
-                          fontSize: 13,
-                          fontWeight: 600,
+                          background: "var(--s-yellow)",
+                          color: "var(--s-black)",
+                          fontFamily: "'Space Mono', monospace",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: 1,
                           textDecoration: "none",
-                          transition: "all 0.2s ease",
+                          transition: "transform 0.2s ease, opacity 0.2s ease",
                           marginTop: 4,
                         }}
-                        data-testid={`sell-btn-${product.id}`}
+                        onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.85"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
                       >
-                        Start Selling This →
+                        Import to Store →
                       </a>
                     </div>
                   </div>
