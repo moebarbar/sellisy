@@ -9,229 +9,303 @@ function GrainOverlay() {
   );
 }
 
-export function HeroSection() {
+function DashboardMockup() {
+  const revenueData = [28, 42, 35, 58, 48, 72, 65, 88, 75, 95, 82, 100];
+
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden" data-testid="section-hero">
-      <GrainOverlay />
-      <div className="s-hero-grid" />
+    <div
+      data-testid="hero-dashboard-mockup"
+      style={{
+        background: "#0a0a0a",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 16,
+        overflow: "hidden",
+        boxShadow: "0 40px 100px -20px rgba(0,0,0,0.8), 0 0 60px rgba(245,230,66,0.04)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          padding: "10px 16px",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          gap: 8,
+        }}
+      >
+        <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ff5f57" }} />
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#febc2e" }} />
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#28c840" }} />
+        </div>
+        <div
+          style={{
+            flex: 1,
+            textAlign: "center",
+            fontSize: 11,
+            fontFamily: "'Space Mono', monospace",
+            color: "rgba(255,255,255,0.3)",
+            letterSpacing: 1,
+          }}
+        >
+          sellisy.com/dashboard
+        </div>
+        <div style={{ width: 46 }} />
+      </div>
 
-      <div className="max-w-[1200px] mx-auto px-6 w-full relative z-10 pt-20 pb-20">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8" style={{ border: "1px solid rgba(245,230,66,0.3)" }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--s-yellow)", animation: "s-pulse-dot 1.5s infinite" }} />
-              <span className="s-label" style={{ color: "var(--s-yellow)", fontSize: "11px" }}>The platform for digital creators</span>
-            </div>
-
-            <h1
-              className="s-heading"
-              data-testid="hero-heading"
+      <div style={{ display: "flex", minHeight: 340 }}>
+        <div
+          className="hidden sm:flex"
+          style={{
+            width: 180,
+            borderRight: "1px solid rgba(255,255,255,0.06)",
+            padding: "16px 12px",
+            flexDirection: "column",
+            gap: 2,
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: 18,
+              color: "var(--s-white)",
+              marginBottom: 16,
+              paddingLeft: 8,
+            }}
+          >
+            SELL<span style={{ color: "var(--s-yellow)" }}>I</span>SY
+          </div>
+          {[
+            { label: "Overview", active: true },
+            { label: "Products", active: false },
+            { label: "Orders", active: false },
+            { label: "Customers", active: false },
+            { label: "Analytics", active: false },
+            { label: "Settings", active: false },
+          ].map((item) => (
+            <div
+              key={item.label}
               style={{
-                fontSize: "clamp(64px, 14vw, 180px)",
-                textShadow: "0 4px 40px rgba(0,0,0,0.5)",
-                lineHeight: 0.85,
+                padding: "8px 10px",
+                borderRadius: 8,
+                fontSize: 12,
+                fontFamily: "'DM Sans', sans-serif",
+                color: item.active ? "var(--s-yellow)" : "rgba(255,255,255,0.4)",
+                background: item.active ? "rgba(245,230,66,0.08)" : "transparent",
+                fontWeight: item.active ? 600 : 400,
               }}
             >
-              <span style={{ color: "var(--s-white)", WebkitTextStroke: "1px rgba(255,255,255,0.15)" }}>SELL</span>
-              <br />
-              <span style={{ WebkitTextStroke: "3px var(--s-white)", color: "transparent" }}>DIG</span>
-              <span style={{ color: "var(--s-yellow)", WebkitTextStroke: "1px rgba(245,230,66,0.2)" }}>ITAL</span>
-              <br />
-              <span style={{ color: "var(--s-pink)", WebkitTextStroke: "1px rgba(255,60,172,0.2)" }}>LIVE FREE.</span>
-            </h1>
+              {item.label}
+            </div>
+          ))}
+        </div>
 
-            <p className="s-body mt-7 max-w-[460px]" style={{ opacity: 0.6, fontSize: "18px", lineHeight: 1.6 }}>
-              Build a storefront in minutes. Import 200+ PLR & MRR products or create your own. Connect Stripe or PayPal. Keep 100% of every sale.
-            </p>
-
-            <div className="flex flex-wrap gap-4 mt-8">
-              <a
-                href="#pricing"
-                className="cta-mono inline-flex items-center gap-2 px-7 py-3.5 rounded font-bold transition-transform duration-200 hover:scale-105"
-                style={{ background: "var(--s-yellow)", color: "var(--s-black)", fontSize: "12px" }}
-                data-testid="button-hero-cta"
-              >
-                Start Selling
-              </a>
-              <a
-                href="#products"
-                className="s-label inline-flex items-center gap-2 px-7 py-3.5 rounded font-bold transition-all duration-200 group"
-                style={{ border: "1px solid rgba(250,250,245,0.2)", color: "var(--s-white)", fontSize: "12px" }}
-                data-testid="button-hero-demo"
-              >
-                See Live Demo
-                <span className="inline-block transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
-              </a>
+        <div style={{ flex: 1, padding: "16px 20px", overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
+                Total Revenue
+              </div>
+              <div style={{ fontSize: 28, fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: "var(--s-white)" }}>
+                $12,847
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
+              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#4ade80" }}>+23.5%</span>
             </div>
           </div>
 
-          <div className="relative hidden lg:block h-[580px]">
-            {/* Row 1: Revenue (right) + Delivery (left) */}
-            <div
-              className="absolute top-0 right-0 p-5 rounded-[20px] w-[220px]"
-              style={{
-                background: "var(--s-cream)",
-                boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-                "--card-rotate": "-6deg",
-                animation: "s-float-card 5s ease-in-out infinite",
-                transform: "rotate(-6deg)",
-              } as React.CSSProperties}
-              data-testid="card-revenue"
-            >
-              <div className="s-label" style={{ color: "#050505", opacity: 0.5, fontSize: "10px", letterSpacing: "2px" }}>REVENUE TODAY</div>
-              <div className="s-heading mt-1" style={{ color: "#050505", fontSize: "52px" }}>$847</div>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="w-[7px] h-[7px] rounded-full" style={{ background: "#4ade80" }} />
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", color: "#4ade80", textTransform: "uppercase", letterSpacing: "1px" }}>+32% today</span>
-              </div>
-            </div>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 80, marginBottom: 20, padding: "0 4px" }}>
+            {revenueData.map((h, i) => (
+              <div
+                key={i}
+                style={{
+                  flex: 1,
+                  height: `${h}%`,
+                  borderRadius: 4,
+                  background: i >= 10 ? "var(--s-yellow)" : "rgba(245,230,66,0.15)",
+                  transition: "height 0.3s ease",
+                }}
+              />
+            ))}
+          </div>
 
-            <div
-              className="absolute top-[10px] left-0 rounded-xl w-[160px]"
-              style={{
-                background: "#0a0a0a",
-                border: "1px solid rgba(255,107,53,0.15)",
-                boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
-                padding: "14px 16px",
-                "--card-rotate": "3deg",
-                animation: "s-float-card 4.5s ease-in-out infinite 1s",
-                transform: "rotate(3deg)",
-              } as React.CSSProperties}
-              data-testid="card-delivery"
-            >
-              <div className="s-label" style={{ color: "var(--s-orange)", fontSize: "8px", letterSpacing: "2px", marginBottom: 6 }}>DELIVERY</div>
-              <div className="s-heading" style={{ color: "var(--s-white)", fontSize: "24px", lineHeight: 1 }}>Instant</div>
-              <div style={{ fontSize: 10, color: "rgba(250,250,245,0.4)", fontFamily: "'DM Sans', sans-serif", marginTop: 4 }}>Auto-sent on purchase</div>
-            </div>
-
-            {/* Row 2: Product Card (left) + Customers (right) */}
-            <div
-              className="absolute top-[140px] left-[10px] rounded-[18px] w-[200px]"
-              style={{
-                background: "#0a0a0a",
-                border: "1px solid rgba(245,230,66,0.12)",
-                boxShadow: "0 16px 50px rgba(0,0,0,0.4)",
-                "--card-rotate": "-4deg",
-                animation: "s-float-card 5.5s ease-in-out infinite 0.5s",
-                transform: "rotate(-4deg)",
-                overflow: "hidden",
-              } as React.CSSProperties}
-              data-testid="card-product"
-            >
-              <div style={{ height: 80, background: "linear-gradient(135deg, #1a0a2e, #3a1a5c)", position: "relative" }}>
-                <div style={{ position: "absolute", bottom: 8, left: 12, fontFamily: "'Space Mono', monospace", fontSize: 8, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: 2 }}>PLR PRODUCT</div>
+          <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10, marginBottom: 16 }}>
+            {[
+              { label: "Orders", value: "847", trend: "+12%" },
+              { label: "Customers", value: "1,247", trend: "+18%" },
+              { label: "Conversion", value: "4.8%", trend: "+0.6%" },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                style={{
+                  padding: "12px",
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.05)",
+                }}
+              >
+                <div style={{ fontSize: 9, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
+                  {stat.label}
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", color: "var(--s-white)" }}>
+                  {stat.value}
+                </div>
+                <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "#4ade80", marginTop: 2 }}>
+                  {stat.trend}
+                </div>
               </div>
-              <div style={{ padding: "12px 14px" }}>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: "var(--s-white)", marginBottom: 4 }}>Social Media Kit</div>
-                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "var(--s-yellow)" }}>$29.00</div>
+            ))}
+          </div>
+
+          <div>
+            <div style={{ fontSize: 11, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+              Recent Orders
+            </div>
+            {[
+              { product: "Social Media Kit", customer: "sarah@email.com", amount: "$29.00", status: "Delivered" },
+              { product: "Landing Templates", customer: "mike@email.com", amount: "$49.00", status: "Delivered" },
+              { product: "Brand Guidelines", customer: "alex@email.com", amount: "$19.00", status: "Pending" },
+            ].map((order, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "8px 0",
+                  borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                  gap: 12,
+                  fontSize: 11,
+                }}
+              >
+                <div style={{ width: 28, height: 28, borderRadius: 6, background: `linear-gradient(135deg, ${i === 0 ? '#1a0a2e, #3a1a5c' : i === 1 ? '#0a1a2e, #1a3a5c' : '#2e1a0a, #5c3a1a'})`, flexShrink: 0 }} />
+                <div style={{ flex: 1, fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.7)" }}>
+                  {order.product}
+                </div>
+                <div className="hidden md:block" style={{ flex: 1, fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.3)", fontSize: 10 }}>
+                  {order.customer}
+                </div>
+                <div style={{ fontFamily: "'Space Mono', monospace", color: "var(--s-yellow)", fontSize: 11, fontWeight: 600 }}>
+                  {order.amount}
+                </div>
                 <div
-                  className="cta-mono"
                   style={{
-                    marginTop: 8,
-                    background: "var(--s-yellow)",
-                    color: "var(--s-black)",
-                    borderRadius: 6,
-                    padding: "7px 0",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    width: "100%",
-                    textAlign: "center",
+                    fontSize: 9,
+                    fontFamily: "'Space Mono', monospace",
+                    padding: "3px 8px",
+                    borderRadius: 99,
+                    background: order.status === "Delivered" ? "rgba(74,222,128,0.1)" : "rgba(245,230,66,0.1)",
+                    color: order.status === "Delivered" ? "#4ade80" : "var(--s-yellow)",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
                   }}
-                  data-testid="text-import-cta"
                 >
-                  Import to Store
+                  {order.status}
                 </div>
               </div>
-            </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-            <div
-              className="absolute top-[160px] right-[10px] rounded-xl w-[170px]"
-              style={{
-                background: "#0a0a0a",
-                border: "1px solid rgba(0,245,212,0.12)",
-                boxShadow: "0 14px 40px rgba(0,0,0,0.4)",
-                padding: "14px 16px",
-                "--card-rotate": "5deg",
-                animation: "s-float-card 6s ease-in-out infinite 1.5s",
-                transform: "rotate(5deg)",
-              } as React.CSSProperties}
-              data-testid="card-customers"
-            >
-              <div className="s-label" style={{ color: "var(--s-teal)", fontSize: "8px", letterSpacing: "2px", marginBottom: 6 }}>CUSTOMERS</div>
-              <div className="s-heading" style={{ color: "var(--s-white)", fontSize: "32px", lineHeight: 1 }}>1,247</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80" }} />
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "#4ade80", textTransform: "uppercase", letterSpacing: 1 }}>+18 this week</span>
-              </div>
-            </div>
+export function HeroSection() {
+  return (
+    <section className="relative overflow-hidden" data-testid="section-hero" style={{ paddingTop: 100, paddingBottom: 80 }}>
+      <GrainOverlay />
+      <div className="s-hero-grid" />
 
-            {/* Row 3: Storefront (left) + Analytics (right) */}
-            <div
-              className="absolute top-[370px] left-[20px] rounded-2xl w-[180px]"
-              style={{
-                background: "#0a0a0a",
-                border: "1px solid rgba(0,245,212,0.15)",
-                boxShadow: "0 16px 50px rgba(0,0,0,0.4)",
-                "--card-rotate": "4deg",
-                animation: "s-float-card 5.5s ease-in-out infinite 2s",
-                transform: "rotate(4deg)",
-                overflow: "hidden",
-              } as React.CSSProperties}
-              data-testid="card-storefront"
-            >
-              <div style={{ padding: "12px 14px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                <div className="s-label" data-testid="text-store-label" style={{ color: "var(--s-pink)", fontSize: "8px", letterSpacing: "2px" }}>YOUR STORE</div>
-              </div>
-              <div style={{ padding: "10px 14px" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {["Social Media Kit", "Landing Templates"].map((name) => (
-                    <div key={name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 24, height: 24, borderRadius: 4, background: "linear-gradient(135deg, #1a0a2e, #5c1a3a)", flexShrink: 0 }} />
-                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "rgba(250,250,245,0.7)" }}>{name}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div style={{ padding: "6px 14px 10px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80" }} />
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 8, color: "#4ade80", textTransform: "uppercase", letterSpacing: 1 }}>2 products live</span>
-                </div>
-              </div>
-            </div>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", position: "relative", zIndex: 10 }}>
+        <div style={{ textAlign: "center", maxWidth: 800, margin: "0 auto" }}>
+          <div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8"
+            style={{ border: "1px solid rgba(245,230,66,0.3)", background: "rgba(245,230,66,0.04)" }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--s-yellow)", animation: "s-pulse-dot 1.5s infinite" }} />
+            <span className="s-label" style={{ color: "var(--s-yellow)", fontSize: "11px" }}>The platform for digital creators</span>
+          </div>
 
-            <div
-              className="absolute top-[350px] right-[0px] rounded-xl w-[190px]"
-              style={{
-                background: "#0a0a0a",
-                border: "1px solid rgba(255,60,172,0.12)",
-                boxShadow: "0 14px 40px rgba(0,0,0,0.4)",
-                padding: "14px 16px",
-                "--card-rotate": "-3deg",
-                animation: "s-float-card 5s ease-in-out infinite 2.5s",
-                transform: "rotate(-3deg)",
-              } as React.CSSProperties}
-              data-testid="card-analytics"
+          <h1
+            className="s-heading"
+            data-testid="hero-heading"
+            style={{
+              fontSize: "clamp(40px, 7vw, 80px)",
+              lineHeight: 1,
+              color: "var(--s-white)",
+              marginBottom: 24,
+            }}
+          >
+            Your Digital Storefront.
+            <br />
+            <span style={{ color: "var(--s-yellow)" }}>Built in Minutes.</span>
+          </h1>
+
+          <p
+            className="s-body"
+            style={{
+              fontSize: "clamp(15px, 1.8vw, 18px)",
+              lineHeight: 1.7,
+              opacity: 0.55,
+              maxWidth: 560,
+              margin: "0 auto 32px",
+            }}
+          >
+            Import 200+ PLR & MRR products or create your own. Launch a storefront, connect Stripe or PayPal, and keep 100% of every sale.
+          </p>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center", marginBottom: 48 }}>
+            <a
+              href="#pricing"
+              className="cta-mono inline-flex items-center gap-2 px-8 py-4 rounded-lg font-bold transition-all duration-200 hover:brightness-110"
+              style={{ background: "var(--s-yellow)", color: "var(--s-black)", fontSize: "12px", boxShadow: "0 0 30px rgba(245,230,66,0.15)" }}
+              data-testid="button-hero-cta"
             >
-              <div className="s-label" style={{ color: "var(--s-pink)", fontSize: "8px", letterSpacing: "2px", marginBottom: 8 }}>CONVERSION</div>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 32, marginBottom: 6 }}>
-                {[40, 55, 35, 65, 50, 75, 60, 85, 70, 90].map((h, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      width: 12,
-                      height: `${h}%`,
-                      borderRadius: 2,
-                      background: i >= 8 ? "var(--s-pink)" : "rgba(255,60,172,0.25)",
-                    }}
-                  />
-                ))}
+              Start Selling Free
+            </a>
+            <a
+              href="#products"
+              className="s-label inline-flex items-center gap-2 px-8 py-4 rounded-lg font-bold transition-all duration-200 group"
+              style={{ border: "1px solid rgba(250,250,245,0.15)", color: "var(--s-white)", fontSize: "12px", background: "rgba(255,255,255,0.03)" }}
+              data-testid="button-hero-demo"
+            >
+              Browse Products
+              <span className="inline-block transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
+            </a>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 24, justifyContent: "center", marginBottom: 48 }}>
+            {[
+              { value: "200+", label: "Digital Products" },
+              { value: "5 min", label: "Store Setup" },
+              { value: "$0", label: "Platform Fees" },
+            ].map((stat) => (
+              <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: 8 }} data-testid={`hero-stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 18, fontWeight: 700, color: "var(--s-yellow)" }}>
+                  {stat.value}
+                </span>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1 }}>
+                  {stat.label}
+                </span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "rgba(250,250,245,0.4)" }}>This month</span>
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "var(--s-pink)", fontWeight: 700 }}>4.8%</span>
-              </div>
-            </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ position: "relative" }}>
+          <div
+            style={{
+              position: "absolute",
+              inset: -40,
+              background: "radial-gradient(ellipse 60% 40% at 50% 0%, rgba(245,230,66,0.06) 0%, transparent 70%)",
+              pointerEvents: "none",
+              zIndex: 0,
+            }}
+          />
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <DashboardMockup />
           </div>
         </div>
       </div>
