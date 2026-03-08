@@ -10,7 +10,23 @@ function GrainOverlay() {
 }
 
 function DashboardMockup() {
-  const revenueData = [28, 42, 35, 58, 48, 72, 65, 88, 75, 95, 82, 100];
+  const revenueData = [18, 32, 25, 48, 38, 62, 55, 78, 65, 88, 72, 95, 82, 100];
+
+  const sidebarItems = [
+    { label: "Overview", active: true, icon: "◎" },
+    { label: "Analytics", active: false, icon: "◔" },
+    { label: "Products", active: false, icon: "▦" },
+    { label: "My Products", active: false, icon: "◈" },
+    { label: "Products Library", active: false, icon: "▤" },
+    { label: "Content Creator", active: false, icon: "✎" },
+    { label: "Blog", active: false, icon: "▧" },
+    { label: "Bundles", active: false, icon: "⊞" },
+    { label: "Marketing", active: false, icon: "◇" },
+    { label: "Coupons", active: false, icon: "✂" },
+    { label: "Customers", active: false, icon: "◉" },
+    { label: "Orders", active: false, icon: "☰" },
+    { label: "Settings", active: false, icon: "⚙" },
+  ];
 
   return (
     <div
@@ -52,159 +68,167 @@ function DashboardMockup() {
         <div style={{ width: 46 }} />
       </div>
 
-      <div style={{ display: "flex", minHeight: 340 }}>
+      <div style={{ display: "flex", minHeight: 420 }}>
         <div
-          className="hidden sm:flex"
+          className="hidden md:flex"
           style={{
-            width: 180,
+            width: 190,
             borderRight: "1px solid rgba(255,255,255,0.06)",
-            padding: "16px 12px",
+            padding: "14px 10px",
             flexDirection: "column",
-            gap: 2,
+            gap: 1,
             flexShrink: 0,
+            overflowY: "auto",
           }}
         >
           <div
             style={{
               fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 18,
+              fontSize: 20,
               color: "var(--s-white)",
-              marginBottom: 16,
+              marginBottom: 12,
               paddingLeft: 8,
             }}
           >
             SELL<span style={{ color: "var(--s-yellow)" }}>I</span>SY
           </div>
-          {[
-            { label: "Overview", active: true },
-            { label: "Products", active: false },
-            { label: "Orders", active: false },
-            { label: "Customers", active: false },
-            { label: "Analytics", active: false },
-            { label: "Settings", active: false },
-          ].map((item) => (
+
+          {sidebarItems.map((item) => (
             <div
               key={item.label}
               style={{
-                padding: "8px 10px",
-                borderRadius: 8,
-                fontSize: 12,
+                padding: "7px 10px",
+                borderRadius: 7,
+                fontSize: 11,
                 fontFamily: "'DM Sans', sans-serif",
                 color: item.active ? "var(--s-yellow)" : "rgba(255,255,255,0.4)",
                 background: item.active ? "rgba(245,230,66,0.08)" : "transparent",
                 fontWeight: item.active ? 600 : 400,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
               }}
             >
+              <span style={{ fontSize: 10, opacity: 0.7, width: 14, textAlign: "center" }}>{item.icon}</span>
               {item.label}
             </div>
           ))}
+
+          <div style={{ marginTop: "auto", padding: "10px 10px 4px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, var(--s-yellow), var(--s-orange))", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--s-white)", fontFamily: "'DM Sans', sans-serif" }}>Sarah K.</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 8, fontFamily: "'Space Mono', monospace", color: "var(--s-yellow)", textTransform: "uppercase", letterSpacing: 1, padding: "1px 5px", borderRadius: 3, background: "rgba(245,230,66,0.1)" }}>
+                    PRO
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div style={{ flex: 1, padding: "16px 20px", overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 11, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                Total Revenue
+        <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 12, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, color: "var(--s-white)", padding: "4px 10px", borderRadius: 6, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                Master Resell Club ▾
               </div>
-              <div style={{ fontSize: 28, fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: "var(--s-white)" }}>
-                $12,847
-              </div>
+              <span style={{ fontSize: 9, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.3)" }}>master-resell-club.sellisy.com</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80" }} />
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#4ade80" }}>+23.5%</span>
+            <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "var(--s-teal)", padding: "4px 10px", borderRadius: 6, background: "rgba(0,245,212,0.08)", border: "1px solid rgba(0,245,212,0.15)" }}>
+              View Storefront →
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 80, marginBottom: 20, padding: "0 4px" }}>
-            {revenueData.map((h, i) => (
-              <div
-                key={i}
-                style={{
-                  flex: 1,
-                  height: `${h}%`,
-                  borderRadius: 4,
-                  background: i >= 10 ? "var(--s-yellow)" : "rgba(245,230,66,0.15)",
-                  transition: "height 0.3s ease",
-                }}
-              />
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10, marginBottom: 16 }}>
-            {[
-              { label: "Orders", value: "847", trend: "+12%" },
-              { label: "Customers", value: "1,247", trend: "+18%" },
-              { label: "Conversion", value: "4.8%", trend: "+0.6%" },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                style={{
-                  padding: "12px",
-                  borderRadius: 10,
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.05)",
-                }}
-              >
-                <div style={{ fontSize: 9, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                  {stat.label}
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", color: "var(--s-white)" }}>
-                  {stat.value}
-                </div>
-                <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "#4ade80", marginTop: 2 }}>
-                  {stat.trend}
-                </div>
+          <div style={{ flex: 1, padding: "16px", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <span style={{ fontSize: 18 }}>☀️</span>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", color: "var(--s-white)" }}>Good morning, Sarah</div>
+                <div style={{ fontSize: 10, fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>"Every sale starts with showing up."</div>
               </div>
-            ))}
-          </div>
-
-          <div>
-            <div style={{ fontSize: 11, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
-              Recent Orders
             </div>
-            {[
-              { product: "Social Media Kit", customer: "sarah@email.com", amount: "$29.00", status: "Delivered" },
-              { product: "Landing Templates", customer: "mike@email.com", amount: "$49.00", status: "Delivered" },
-              { product: "Brand Guidelines", customer: "alex@email.com", amount: "$19.00", status: "Pending" },
-            ].map((order, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "8px 0",
-                  borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none",
-                  gap: 12,
-                  fontSize: 11,
-                }}
-              >
-                <div style={{ width: 28, height: 28, borderRadius: 6, background: `linear-gradient(135deg, ${i === 0 ? '#1a0a2e, #3a1a5c' : i === 1 ? '#0a1a2e, #1a3a5c' : '#2e1a0a, #5c3a1a'})`, flexShrink: 0 }} />
-                <div style={{ flex: 1, fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.7)" }}>
-                  {order.product}
-                </div>
-                <div className="hidden md:block" style={{ flex: 1, fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.3)", fontSize: 10 }}>
-                  {order.customer}
-                </div>
-                <div style={{ fontFamily: "'Space Mono', monospace", color: "var(--s-yellow)", fontSize: 11, fontWeight: 600 }}>
-                  {order.amount}
-                </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8, marginBottom: 14 }}>
+              {[
+                { label: "Total Revenue", value: "$12,847", icon: "💰", color: "var(--s-yellow)" },
+                { label: "Total Orders", value: "847", icon: "📦", color: "var(--s-teal)" },
+                { label: "Active Products", value: "24", icon: "🏷️", color: "var(--s-orange)" },
+                { label: "Avg. Order", value: "$15.16", icon: "📊", color: "var(--s-pink)" },
+              ].map((stat) => (
                 <div
+                  key={stat.label}
                   style={{
-                    fontSize: 9,
-                    fontFamily: "'Space Mono', monospace",
-                    padding: "3px 8px",
-                    borderRadius: 99,
-                    background: order.status === "Delivered" ? "rgba(74,222,128,0.1)" : "rgba(245,230,66,0.1)",
-                    color: order.status === "Delivered" ? "#4ade80" : "var(--s-yellow)",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
+                    padding: "10px",
+                    borderRadius: 10,
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.05)",
                   }}
                 >
-                  {order.status}
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                    <span style={{ fontSize: 10 }}>{stat.icon}</span>
+                    <span style={{ fontSize: 8, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1 }}>{stat.label}</span>
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", color: stat.color }}>{stat.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 300px", minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+                  Revenue — Last 14 Days
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 70, padding: "0 2px" }}>
+                  {revenueData.map((h, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        flex: 1,
+                        height: `${h}%`,
+                        borderRadius: 3,
+                        background: i >= 12 ? "var(--s-yellow)" : "rgba(245,230,66,0.15)",
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
-            ))}
+
+              <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+                  Top Products
+                </div>
+                {[
+                  { name: "Social Media Kit", sold: "312 sold", revenue: "$9,048" },
+                  { name: "Brand Guidelines", sold: "186 sold", revenue: "$3,534" },
+                  { name: "Notion Templates", sold: "98 sold", revenue: "$1,470" },
+                ].map((p, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                    <div style={{ width: 6, height: 6, borderRadius: 2, background: i === 0 ? "var(--s-yellow)" : i === 1 ? "var(--s-teal)" : "var(--s-orange)", flexShrink: 0 }} />
+                    <div style={{ flex: 1, fontSize: 10, fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.7)" }}>{p.name}</div>
+                    <div style={{ fontSize: 9, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.3)" }}>{p.sold}</div>
+                    <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "var(--s-yellow)", fontWeight: 600 }}>{p.revenue}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: "rgba(245,230,66,0.04)", border: "1px solid rgba(245,230,66,0.1)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12 }}>🚀</span>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", color: "var(--s-white)" }}>Getting Started</div>
+                    <div style={{ fontSize: 9, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)" }}>5 of 6 complete</div>
+                  </div>
+                </div>
+                <div style={{ width: 80, height: 5, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                  <div style={{ width: "83%", height: "100%", borderRadius: 99, background: "var(--s-yellow)" }} />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
