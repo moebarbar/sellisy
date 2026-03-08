@@ -21,7 +21,18 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <div id="deployment-84aaba48-dc92-41a3-a5e6-0a4abf4d26b6"></div>
-    <script src="https://studio.pickaxe.co/api/embed/bundle.js" defer></script>
+    <div id="pickaxe-chat-widget" style="position:fixed;bottom:20px;right:20px;z-index:9999;">
+      <iframe
+        id="pickaxe-chat-iframe"
+        src="https://studio.pickaxe.co/_embed/KODG0WMQAV?d=deployment-84aaba48-dc92-41a3-a5e6-0a4abf4d26b6"
+        style="width:0;height:0;border:none;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.4);transition:width 0.3s ease,height 0.3s ease;overflow:hidden;"
+        allow="clipboard-write"
+      ></iframe>
+      <button
+        id="pickaxe-chat-toggle"
+        onclick="(function(){var f=document.getElementById('pickaxe-chat-iframe');var b=document.getElementById('pickaxe-chat-toggle');if(f.style.width==='0px'||f.style.width==='0'){f.style.width='380px';f.style.height='560px';b.textContent='✕';b.style.background='#333';}else{f.style.width='0';f.style.height='0';b.textContent='💬';b.style.background='#F5E642';}})()"
+        style="display:block;margin-top:12px;margin-left:auto;width:52px;height:52px;border-radius:50%;border:none;background:#F5E642;color:#050505;font-size:24px;cursor:pointer;box-shadow:0 4px 20px rgba(245,230,66,0.3);transition:background 0.2s;"
+      >💬</button>
+    </div>
   </body>
 </html>
