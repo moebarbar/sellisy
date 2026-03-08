@@ -6,10 +6,12 @@ const portalProducts = [
   { name: "Notion Templates", color: "#00F5D4", icon: "📋" },
 ];
 
-const highlights = [
-  { icon: "🛒", text: "Built-in upsells", color: "var(--s-yellow)" },
-  { icon: "📬", text: "Portal per store", color: "var(--s-teal)" },
-  { icon: "💸", text: "More revenue", color: "var(--s-orange)" },
+const stickers = [
+  { text: "Built-in upsells", bg: "var(--s-yellow)", rotate: -5, top: "8%", left: "2%" },
+  { text: "Portal per store", bg: "var(--s-teal)", rotate: 4, top: "85%", right: "4%" },
+  { text: "More revenue", bg: "var(--s-orange)", rotate: -3, bottom: "12%", left: "5%" },
+  { text: "Repeat buyers", bg: "var(--s-pink)", rotate: 3, top: "45%", right: "1%" },
+  { text: "Track everything", bg: "var(--s-cream)", rotate: -4, bottom: "35%", left: "1%" },
 ];
 
 function PortalCard({ hovered, onHover, onLeave }: { hovered: boolean; onHover: () => void; onLeave: () => void }) {
@@ -104,7 +106,7 @@ function PortalCard({ hovered, onHover, onLeave }: { hovered: boolean; onHover: 
           }}
         />
         <span className="s-body" style={{ fontSize: 13, opacity: 0.5 }}>
-          Welcome back, Sarah 👋
+          Welcome back, Sarah
         </span>
       </div>
     </div>
@@ -167,7 +169,7 @@ function UpsellCard({ hovered, onHover, onLeave }: { hovered: boolean; onHover: 
           marginBottom: 10,
         }}
       >
-        Add to Order →
+        Add to Order &rarr;
       </button>
 
       <p
@@ -199,6 +201,28 @@ export function PortalSection() {
         position: "relative",
       }}
     >
+      {stickers.map((s, i) => (
+        <div
+          key={i}
+          className="s-sticker s-portal-sticker"
+          data-testid={`portal-sticker-${i}`}
+          style={{
+            position: "absolute",
+            zIndex: 2,
+            background: s.bg,
+            transform: `rotate(${s.rotate}deg)`,
+            animation: `s-float ${4 + i * 0.5}s ease-in-out infinite`,
+            animationDelay: `${i * 0.4}s`,
+            ...(s.top ? { top: s.top } : {}),
+            ...(s.bottom ? { bottom: s.bottom } : {}),
+            ...(s.left ? { left: s.left } : {}),
+            ...(s.right ? { right: s.right } : {}),
+          }}
+        >
+          {s.text}
+        </div>
+      ))}
+
       <div className="s-reveal" style={{ textAlign: "center", marginBottom: 56 }}>
         <p className="s-label" style={{ color: "var(--s-yellow)", marginBottom: 16 }}>
           {"// Built-in for every store"}
@@ -226,7 +250,6 @@ export function PortalSection() {
           flexWrap: "wrap",
           gap: 24,
           justifyContent: "center",
-          marginBottom: 40,
         }}
       >
         <PortalCard
@@ -239,37 +262,6 @@ export function PortalSection() {
           onHover={() => setUpsellHovered(true)}
           onLeave={() => setUpsellHovered(false)}
         />
-      </div>
-
-      <div
-        data-testid="portal-highlights"
-        style={{
-          display: "flex",
-          gap: 16,
-          justifyContent: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        {highlights.map((h, i) => (
-          <div
-            key={i}
-            data-testid={`portal-highlight-${i}`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "10px 20px",
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}
-          >
-            <span style={{ fontSize: 16 }}>{h.icon}</span>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, textTransform: "uppercase" as const, letterSpacing: 1, color: h.color, fontWeight: 700 }}>
-              {h.text}
-            </span>
-          </div>
-        ))}
       </div>
     </section>
   );
