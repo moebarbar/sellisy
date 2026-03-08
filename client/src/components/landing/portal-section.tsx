@@ -6,12 +6,12 @@ const portalProducts = [
   { name: "Notion Templates", color: "#00F5D4", icon: "📋" },
 ];
 
-const stickers = [
-  { text: "Built-in upsells", bg: "var(--s-yellow)", rotate: -5, top: "8%", left: "2%" },
-  { text: "Portal per store", bg: "var(--s-teal)", rotate: 4, top: "85%", right: "4%" },
-  { text: "More revenue", bg: "var(--s-orange)", rotate: -3, bottom: "12%", left: "5%" },
-  { text: "Repeat buyers", bg: "var(--s-pink)", rotate: 3, top: "45%", right: "1%" },
-  { text: "Track everything", bg: "var(--s-cream)", rotate: -4, bottom: "35%", left: "1%" },
+const chips = [
+  { text: "Built-in upsells", color: "var(--s-yellow)", top: "8%", left: "2%" },
+  { text: "Portal per store", color: "var(--s-teal)", top: "85%", right: "4%" },
+  { text: "More revenue", color: "var(--s-orange)", bottom: "12%", left: "5%" },
+  { text: "Repeat buyers", color: "var(--s-pink)", top: "45%", right: "1%" },
+  { text: "Track everything", color: "var(--s-cream)", bottom: "35%", left: "1%" },
 ];
 
 function PortalCard({ hovered, onHover, onLeave }: { hovered: boolean; onHover: () => void; onLeave: () => void }) {
@@ -201,25 +201,24 @@ export function PortalSection() {
         position: "relative",
       }}
     >
-      {stickers.map((s, i) => (
+      {chips.map((c, i) => (
         <div
           key={i}
-          className="s-sticker s-portal-sticker"
-          data-testid={`portal-sticker-${i}`}
+          className="s-chip s-portal-chip"
+          data-testid={`portal-chip-${i}`}
           style={{
             position: "absolute",
             zIndex: 2,
-            background: s.bg,
-            transform: `rotate(${s.rotate}deg)`,
             animation: `s-float ${4 + i * 0.5}s ease-in-out infinite`,
             animationDelay: `${i * 0.4}s`,
-            ...(s.top ? { top: s.top } : {}),
-            ...(s.bottom ? { bottom: s.bottom } : {}),
-            ...(s.left ? { left: s.left } : {}),
-            ...(s.right ? { right: s.right } : {}),
+            ...(c.top ? { top: c.top } : {}),
+            ...(c.bottom ? { bottom: c.bottom } : {}),
+            ...(c.left ? { left: c.left } : {}),
+            ...(c.right ? { right: c.right } : {}),
           }}
         >
-          {s.text}
+          <span className="s-chip-dot" style={{ background: c.color, boxShadow: `0 0 6px ${c.color}` }} />
+          {c.text}
         </div>
       ))}
 

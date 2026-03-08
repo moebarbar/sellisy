@@ -15,7 +15,9 @@ Sellisy is a multi-tenant platform for digital entrepreneurs to create, customiz
 - **Logo**: "SELL**I**SY" — Bebas Neue, the "I" is yellow (`text-primary`)
 - **CSS Variables**: Both `:root` and `.dark` set to identical dark palette values
 - **Cards**: Dark bg `#0a0a0a`, subtle borders `rgba(255,255,255,0.08)`
-- **Auth page**: Standalone dark splash with floating showcase cards (revenue, products, store, delivery)
+- **Auth page**: Standalone dark splash with floating showcase cards (revenue, products, store, delivery), hero grid background, and animated ambient gradient orbs
+- **Landing page ambient effects**: Three slow-drifting gradient orbs (yellow, teal, pink at ~3-5% opacity) in a fixed wrapper add depth to the #050505 background. Pure CSS, GPU-composited.
+- **Feature chips**: Glass-morphism `.s-chip` style (dark translucent bg, subtle border, colored dot indicator) replaces the old `.s-sticker` colorful pills. Portal chips hidden below 1280px via `.s-portal-chip`.
 - **Product images**: Always `aspect-square` — never change this. Use `<img>` tags with `loading="lazy"` and `decoding="async"`, not CSS `background-image`
 - **CTA buttons**: Use `.cta-mono` utility class (Space Mono, uppercase, letter-spacing)
 - **No blue primary**: All former blue accents replaced with yellow/primary (except social media platform brand colors)

@@ -79,8 +79,9 @@ export default function AuthPage() {
     <div className="min-h-screen bg-[#050505] relative overflow-hidden flex items-center justify-center px-4">
       <div className="absolute inset-0 s-hero-grid opacity-30" />
 
-      <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px]" />
-      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-primary/3 rounded-full blur-[100px]" />
+      <div className="s-ambient-orb s-ambient-orb-1 top-[10%] left-[15%] w-[600px] h-[600px] bg-[hsl(53_91%_61%/0.04)] blur-[140px]" />
+      <div className="s-ambient-orb s-ambient-orb-2 bottom-[10%] right-[10%] w-[500px] h-[500px] bg-[hsl(168_100%_48%/0.035)] blur-[120px]" />
+      <div className="s-ambient-orb s-ambient-orb-3 top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[450px] h-[450px] bg-[hsl(326_100%_62%/0.03)] blur-[130px]" />
 
       <ShowcaseCard className="top-[15%] left-[5%] w-52 hidden lg:block" delay="0s">
         <div className="flex items-center gap-2 mb-2">

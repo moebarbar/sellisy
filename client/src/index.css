@@ -443,6 +443,73 @@
   color: var(--s-white);
   font-family: 'DM Sans', sans-serif;
   overflow-x: hidden;
+  position: relative;
+}
+
+@keyframes s-ambient-drift-1 {
+  0%   { transform: translate(0%, 0%) scale(1); }
+  25%  { transform: translate(10%, -8%) scale(1.1); }
+  50%  { transform: translate(-5%, 12%) scale(0.95); }
+  75%  { transform: translate(-12%, -5%) scale(1.05); }
+  100% { transform: translate(0%, 0%) scale(1); }
+}
+
+@keyframes s-ambient-drift-2 {
+  0%   { transform: translate(0%, 0%) scale(1); }
+  25%  { transform: translate(-8%, 10%) scale(1.05); }
+  50%  { transform: translate(12%, 5%) scale(1.1); }
+  75%  { transform: translate(5%, -10%) scale(0.95); }
+  100% { transform: translate(0%, 0%) scale(1); }
+}
+
+@keyframes s-ambient-drift-3 {
+  0%   { transform: translate(0%, 0%) scale(1.05); }
+  25%  { transform: translate(6%, 12%) scale(0.95); }
+  50%  { transform: translate(-10%, -6%) scale(1.1); }
+  75%  { transform: translate(8%, -4%) scale(1); }
+  100% { transform: translate(0%, 0%) scale(1.05); }
+}
+
+.s-ambient-wrap {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.s-ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  will-change: transform;
+}
+
+.s-ambient-orb--yellow {
+  width: 600px;
+  height: 600px;
+  top: 5%;
+  left: 15%;
+  background: radial-gradient(circle, rgba(245, 230, 66, 0.045) 0%, transparent 70%);
+  animation: s-ambient-drift-1 25s ease-in-out infinite;
+}
+
+.s-ambient-orb--teal {
+  width: 500px;
+  height: 500px;
+  top: 40%;
+  right: 10%;
+  background: radial-gradient(circle, rgba(0, 245, 212, 0.035) 0%, transparent 70%);
+  animation: s-ambient-drift-2 30s ease-in-out infinite;
+}
+
+.s-ambient-orb--pink {
+  width: 550px;
+  height: 550px;
+  bottom: 15%;
+  left: 25%;
+  background: radial-gradient(circle, rgba(255, 60, 172, 0.035) 0%, transparent 70%);
+  animation: s-ambient-drift-3 28s ease-in-out infinite;
 }
 
 .landing-page .s-heading {
@@ -459,23 +526,42 @@
   letter-spacing: 2px;
 }
 
-.landing-page .s-sticker {
-  font-family: 'Permanent Marker', cursive;
+.landing-page .s-chip {
+  font-family: 'DM Sans', sans-serif;
   font-size: 13px;
+  font-weight: 500;
   border-radius: 999px;
-  padding: 10px 22px;
-  box-shadow: 0 0 0 3px #050505, 0 0 0 5px rgba(255,255,255,0.15);
-  display: inline-block;
+  padding: 8px 18px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   white-space: nowrap;
-  color: #050505;
+  color: rgba(250,250,245,0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.s-portal-sticker {
+.landing-page .s-chip:hover {
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: 0 0 16px rgba(255,255,255,0.04);
+}
+
+.landing-page .s-chip .s-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.s-portal-chip {
   display: none !important;
 }
 @media (min-width: 1280px) {
-  .s-portal-sticker {
-    display: inline-block !important;
+  .s-portal-chip {
+    display: inline-flex !important;
   }
 }
 
@@ -563,6 +649,7 @@
 @media (prefers-reduced-motion: reduce) {
   .s-reveal { opacity: 1; transform: none; transition: none; }
   .s-ticker-track { animation: none; }
+  .s-ambient-orb { animation: none; }
 }
 
 .s-stats-grid { grid-template-columns: 1fr; }
@@ -581,11 +668,6 @@
   .s-features-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
-.s-portal-sticker { display: none; }
-@media (min-width: 768px) {
-  .s-portal-sticker { display: inline-block; }
-}
-
 .s-creator-sidebar { display: none; }
 @media (min-width: 640px) {
   .s-creator-sidebar { display: flex; }
@@ -593,3 +675,15 @@
 
 .s-creator-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .s-creator-tabs::-webkit-scrollbar { display: none; }
+
+.s-ambient-orb-1 {
+  animation: s-ambient-drift-1 20s ease-in-out infinite;
+}
+
+.s-ambient-orb-2 {
+  animation: s-ambient-drift-2 25s ease-in-out infinite;
+}
+
+.s-ambient-orb-3 {
+  animation: s-ambient-drift-3 22s ease-in-out infinite;
+}

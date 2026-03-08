@@ -332,30 +332,26 @@ export function CreatorSection() {
         style={{
           display: "flex",
           flexWrap: "wrap",
-          gap: 12,
+          gap: 10,
           justifyContent: "center",
           marginTop: 48,
         }}
       >
         {[
-          { text: "No-code builder", bg: "var(--s-yellow)" },
-          { text: "Drag & drop", bg: "var(--s-teal)" },
-          { text: "Instant publish", bg: "var(--s-orange)" },
-          { text: "Built-in payments", bg: "var(--s-pink)" },
-          { text: "Custom domains", bg: "var(--s-cream)" },
-          { text: "Email delivery", bg: "var(--s-yellow)" },
-        ].map((sticker, i) => (
+          { text: "Smart product editor", color: "var(--s-yellow)" },
+          { text: "200+ PLR products", color: "var(--s-teal)" },
+          { text: "Instant publish", color: "var(--s-orange)" },
+          { text: "Built-in payments", color: "var(--s-pink)" },
+          { text: "Custom domains", color: "var(--s-cream)" },
+          { text: "Email delivery", color: "var(--s-yellow)" },
+        ].map((chip, i) => (
           <span
             key={i}
-            className="s-sticker"
-            style={{
-              background: sticker.bg,
-              animation: `s-float ${3 + i * 0.4}s ease-in-out infinite`,
-              animationDelay: `${i * 0.3}s`,
-            }}
-            data-testid={`creator-sticker-${i}`}
+            className="s-chip"
+            data-testid={`creator-chip-${i}`}
           >
-            {sticker.text}
+            <span className="s-chip-dot" style={{ background: chip.color, boxShadow: `0 0 6px ${chip.color}` }} />
+            {chip.text}
           </span>
         ))}
       </div>

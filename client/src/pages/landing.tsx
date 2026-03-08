@@ -43,6 +43,11 @@ export default function LandingPage() {
 
   return (
     <div ref={wrapperRef} className="landing-page" data-testid="landing-page">
+      <div className="s-ambient-wrap" aria-hidden="true">
+        <div className="s-ambient-orb s-ambient-orb--yellow" />
+        <div className="s-ambient-orb s-ambient-orb--teal" />
+        <div className="s-ambient-orb s-ambient-orb--pink" />
+      </div>
       <Navbar />
       <HeroSection />
       <TickerBar />
