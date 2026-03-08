@@ -66,9 +66,9 @@ export function HeroSection() {
           </div>
 
           <div className="relative hidden lg:block h-[580px]">
-            {/* Revenue Card */}
+            {/* Row 1: Revenue (right) + Delivery (left) */}
             <div
-              className="absolute top-4 right-4 p-5 rounded-[20px] w-[220px]"
+              className="absolute top-0 right-0 p-5 rounded-[20px] w-[220px]"
               style={{
                 background: "var(--s-cream)",
                 boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
@@ -86,16 +86,34 @@ export function HeroSection() {
               </div>
             </div>
 
-            {/* Product Card */}
             <div
-              className="absolute top-[180px] left-0 rounded-[18px] w-[200px]"
+              className="absolute top-[10px] left-0 rounded-xl w-[160px]"
+              style={{
+                background: "#0a0a0a",
+                border: "1px solid rgba(255,107,53,0.15)",
+                boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
+                padding: "14px 16px",
+                "--card-rotate": "3deg",
+                animation: "s-float-card 4.5s ease-in-out infinite 1s",
+                transform: "rotate(3deg)",
+              } as React.CSSProperties}
+              data-testid="card-delivery"
+            >
+              <div className="s-label" style={{ color: "var(--s-orange)", fontSize: "8px", letterSpacing: "2px", marginBottom: 6 }}>DELIVERY</div>
+              <div className="s-heading" style={{ color: "var(--s-white)", fontSize: "24px", lineHeight: 1 }}>Instant</div>
+              <div style={{ fontSize: 10, color: "rgba(250,250,245,0.4)", fontFamily: "'DM Sans', sans-serif", marginTop: 4 }}>Auto-sent on purchase</div>
+            </div>
+
+            {/* Row 2: Product Card (left) + Customers (right) */}
+            <div
+              className="absolute top-[140px] left-[10px] rounded-[18px] w-[200px]"
               style={{
                 background: "#0a0a0a",
                 border: "1px solid rgba(245,230,66,0.12)",
                 boxShadow: "0 16px 50px rgba(0,0,0,0.4)",
-                "--card-rotate": "5deg",
+                "--card-rotate": "-4deg",
                 animation: "s-float-card 5.5s ease-in-out infinite 0.5s",
-                transform: "rotate(5deg)",
+                transform: "rotate(-4deg)",
                 overflow: "hidden",
               } as React.CSSProperties}
               data-testid="card-product"
@@ -126,9 +144,30 @@ export function HeroSection() {
               </div>
             </div>
 
-            {/* Storefront Card */}
             <div
-              className="absolute bottom-[160px] left-[10px] rounded-2xl w-[180px]"
+              className="absolute top-[160px] right-[10px] rounded-xl w-[170px]"
+              style={{
+                background: "#0a0a0a",
+                border: "1px solid rgba(0,245,212,0.12)",
+                boxShadow: "0 14px 40px rgba(0,0,0,0.4)",
+                padding: "14px 16px",
+                "--card-rotate": "5deg",
+                animation: "s-float-card 6s ease-in-out infinite 1.5s",
+                transform: "rotate(5deg)",
+              } as React.CSSProperties}
+              data-testid="card-customers"
+            >
+              <div className="s-label" style={{ color: "var(--s-teal)", fontSize: "8px", letterSpacing: "2px", marginBottom: 6 }}>CUSTOMERS</div>
+              <div className="s-heading" style={{ color: "var(--s-white)", fontSize: "32px", lineHeight: 1 }}>1,247</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80" }} />
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "#4ade80", textTransform: "uppercase", letterSpacing: 1 }}>+18 this week</span>
+              </div>
+            </div>
+
+            {/* Row 3: Storefront (left) + Analytics (right) */}
+            <div
+              className="absolute top-[370px] left-[20px] rounded-2xl w-[180px]"
               style={{
                 background: "#0a0a0a",
                 border: "1px solid rgba(0,245,212,0.15)",
@@ -161,58 +200,16 @@ export function HeroSection() {
               </div>
             </div>
 
-            {/* Delivery Card */}
             <div
-              className="absolute top-[60px] right-[220px] rounded-xl w-[160px]"
-              style={{
-                background: "#0a0a0a",
-                border: "1px solid rgba(255,107,53,0.15)",
-                boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
-                padding: "14px 16px",
-                "--card-rotate": "-3deg",
-                animation: "s-float-card 4.5s ease-in-out infinite 1s",
-                transform: "rotate(-3deg)",
-              } as React.CSSProperties}
-              data-testid="card-delivery"
-            >
-              <div className="s-label" style={{ color: "var(--s-orange)", fontSize: "8px", letterSpacing: "2px", marginBottom: 6 }}>DELIVERY</div>
-              <div className="s-heading" style={{ color: "var(--s-white)", fontSize: "24px", lineHeight: 1 }}>Instant</div>
-              <div style={{ fontSize: 10, color: "rgba(250,250,245,0.4)", fontFamily: "'DM Sans', sans-serif", marginTop: 4 }}>Auto-sent on purchase</div>
-            </div>
-
-            {/* Customers Card (NEW) */}
-            <div
-              className="absolute bottom-[40px] right-[30px] rounded-xl w-[170px]"
-              style={{
-                background: "#0a0a0a",
-                border: "1px solid rgba(0,245,212,0.12)",
-                boxShadow: "0 14px 40px rgba(0,0,0,0.4)",
-                padding: "14px 16px",
-                "--card-rotate": "3deg",
-                animation: "s-float-card 6s ease-in-out infinite 1.5s",
-                transform: "rotate(3deg)",
-              } as React.CSSProperties}
-              data-testid="card-customers"
-            >
-              <div className="s-label" style={{ color: "var(--s-teal)", fontSize: "8px", letterSpacing: "2px", marginBottom: 6 }}>CUSTOMERS</div>
-              <div className="s-heading" style={{ color: "var(--s-white)", fontSize: "32px", lineHeight: 1 }}>1,247</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80" }} />
-                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: "#4ade80", textTransform: "uppercase", letterSpacing: 1 }}>+18 this week</span>
-              </div>
-            </div>
-
-            {/* Analytics Card (NEW) */}
-            <div
-              className="absolute top-[320px] right-[10px] rounded-xl w-[190px]"
+              className="absolute top-[350px] right-[0px] rounded-xl w-[190px]"
               style={{
                 background: "#0a0a0a",
                 border: "1px solid rgba(255,60,172,0.12)",
                 boxShadow: "0 14px 40px rgba(0,0,0,0.4)",
                 padding: "14px 16px",
-                "--card-rotate": "-4deg",
+                "--card-rotate": "-3deg",
                 animation: "s-float-card 5s ease-in-out infinite 2.5s",
-                transform: "rotate(-4deg)",
+                transform: "rotate(-3deg)",
               } as React.CSSProperties}
               data-testid="card-analytics"
             >

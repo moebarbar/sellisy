@@ -470,6 +470,15 @@
   color: #050505;
 }
 
+.s-portal-sticker {
+  display: none !important;
+}
+@media (min-width: 1280px) {
+  .s-portal-sticker {
+    display: inline-block !important;
+  }
+}
+
 .landing-page .s-body {
   font-family: 'DM Sans', sans-serif;
   font-weight: 300;
