@@ -229,6 +229,36 @@ function DashboardMockup() {
                 </div>
               </div>
             </div>
+
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+                ✨ What's Next?
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 8 }}>
+                {[
+                  { emoji: "📸", title: "Launch on Instagram", desc: "Share your store link and first product with a Reel or Story", color: "var(--s-pink)" },
+                  { emoji: "✍️", title: "Start a Blog", desc: "Write SEO content to drive organic traffic to your store", color: "var(--s-teal)" },
+                  { emoji: "🎁", title: "Create a Bundle", desc: "Package 3+ products together and offer a discount", color: "var(--s-yellow)" },
+                ].map((card) => (
+                  <div
+                    key={card.title}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      background: "rgba(255,255,255,0.02)",
+                      border: "1px solid rgba(255,255,255,0.05)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <span style={{ fontSize: 12 }}>{card.emoji}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", color: "var(--s-white)" }}>{card.title}</span>
+                    </div>
+                    <div style={{ fontSize: 9, fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.35)", lineHeight: 1.4, marginBottom: 6 }}>{card.desc}</div>
+                    <div style={{ fontSize: 8, fontFamily: "'Space Mono', monospace", color: card.color, textTransform: "uppercase", letterSpacing: 1 }}>Let's Go →</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
