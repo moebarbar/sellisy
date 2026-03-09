@@ -607,7 +607,7 @@ function ProductDetailDialog({
           <DialogDescription>Product details and information</DialogDescription>
         </DialogHeader>
         {product && (
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          <div className="flex-1 overflow-y-auto space-y-4 px-1">
             {carouselImages.length > 0 && (
               <ImageCarousel images={carouselImages} isLocked={isLocked} requiredTier={requiredTier} imageProtected={!PLAN_FEATURES[userTier].allowImageDownload} />
             )}
@@ -927,7 +927,7 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+        <div className="flex-1 overflow-y-auto space-y-4 px-1">
           <div className="space-y-2">
             <Label htmlFor="add-title">Title *</Label>
             <Input
