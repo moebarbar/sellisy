@@ -34,7 +34,7 @@ export interface IStorage {
   getStoreById(id: string): Promise<Store | undefined>;
   getStoreBySlug(slug: string): Promise<Store | undefined>;
   createStore(store: InsertStore): Promise<Store>;
-  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite">>): Promise<Store | undefined>;
+  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload">>): Promise<Store | undefined>;
   deleteStore(id: string, callerOwnerId?: string): Promise<void>;
   hardDeleteStore(id: string): Promise<void>;
   restoreStore(id: string): Promise<Store | undefined>;
@@ -43,8 +43,9 @@ export interface IStorage {
   getLibraryProducts(): Promise<Product[]>;
   getProductsByOwner(ownerId: string): Promise<Product[]>;
   getProductById(id: string): Promise<Product | undefined>;
+  getProductBySlug(slug: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
-  updateProduct(id: string, data: Partial<Pick<Product, "title" | "description" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier">>): Promise<Product | undefined>;
+  updateProduct(id: string, data: Partial<Pick<Product, "title" | "slug" | "description" | "tagline" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "highlights" | "version" | "fileSize">>): Promise<Product | undefined>;
   deleteProduct(id: string, callerOwnerId?: string): Promise<void>;
   hardDeleteProduct(id: string): Promise<void>;
   restoreProduct(id: string): Promise<Product | undefined>;
@@ -56,7 +57,7 @@ export interface IStorage {
   getStoreProductByStoreAndProduct(storeId: string, productId: string): Promise<StoreProduct | undefined>;
   createStoreProduct(sp: InsertStoreProduct): Promise<StoreProduct>;
   updateStoreProductPublish(id: string, isPublished: boolean): Promise<StoreProduct | undefined>;
-  updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "customPriceCents" | "customTitle" | "customDescription" | "customTags" | "customAccessUrl" | "customRedemptionCode" | "customDeliveryInstructions" | "isPublished" | "isLeadMagnet" | "upsellProductId" | "upsellBundleId">>): Promise<StoreProduct | undefined>;
+  updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "customPriceCents" | "customTitle" | "customDescription" | "customTags" | "customAccessUrl" | "customRedemptionCode" | "customDeliveryInstructions" | "isPublished" | "isLeadMagnet" | "isFeatured" | "sortOrder" | "upsellProductId" | "upsellBundleId">>): Promise<StoreProduct | undefined>;
   deleteStoreProduct(id: string): Promise<void>;
 
   createOrder(order: InsertOrder): Promise<Order>;
@@ -186,7 +187,7 @@ export class DatabaseStorage implements IStorage {
     return store;
   }
 
-  async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite">>) {
+  async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload">>) {
     const [store] = await db.update(stores).set(data).where(eq(stores.id, id)).returning();
     return store;
   }
@@ -232,12 +233,17 @@ export class DatabaseStorage implements IStorage {
     return product;
   }
 
+  async getProductBySlug(slug: string) {
+    const [product] = await db.select().from(products).where(and(eq(products.slug, slug), isNull(products.deletedAt)));
+    return product;
+  }
+
   async createProduct(data: InsertProduct) {
     const [product] = await db.insert(products).values(data).returning();
     return product;
   }
 
-  async updateProduct(id: string, data: Partial<Pick<Product, "title" | "description" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "requiredTier">>) {
+  async updateProduct(id: string, data: Partial<Pick<Product, "title" | "slug" | "description" | "tagline" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "highlights" | "version" | "fileSize">>) {
     const [product] = await db.update(products).set(data).where(eq(products.id, id)).returning();
     return product;
   }
@@ -307,7 +313,7 @@ export class DatabaseStorage implements IStorage {
     return sp;
   }
 
-  async updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "customPriceCents" | "customTitle" | "customDescription" | "customTags" | "customAccessUrl" | "customRedemptionCode" | "customDeliveryInstructions" | "isPublished" | "isLeadMagnet" | "upsellProductId" | "upsellBundleId">>) {
+  async updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "customPriceCents" | "customTitle" | "customDescription" | "customTags" | "customAccessUrl" | "customRedemptionCode" | "customDeliveryInstructions" | "isPublished" | "isLeadMagnet" | "isFeatured" | "sortOrder" | "upsellProductId" | "upsellBundleId">>) {
     const [sp] = await db.update(storeProducts).set(data).where(eq(storeProducts.id, id)).returning();
     return sp;
   }
