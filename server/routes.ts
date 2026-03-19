@@ -410,6 +410,18 @@ ${urls}</urlset>`;
       seoTitle: z.string().optional().nullable(),
       seoDescription: z.string().optional().nullable(),
       allowImageDownload: z.boolean().optional(),
+      aboutEnabled: z.boolean().optional(),
+      aboutHeadline: z.string().optional().nullable(),
+      aboutText: z.string().optional().nullable(),
+      aboutImageUrl: z.string().optional().nullable(),
+      aboutCtaText: z.string().optional().nullable(),
+      aboutCtaUrl: z.string().optional().nullable(),
+      testimonialsEnabled: z.boolean().optional(),
+      faqEnabled: z.boolean().optional(),
+      newsletterEnabled: z.boolean().optional(),
+      newsletterHeadline: z.string().optional().nullable(),
+      newsletterSubtext: z.string().optional().nullable(),
+      sectionOrder: z.string().optional().nullable(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -429,6 +441,94 @@ ${urls}</urlset>`;
       return res.status(404).json({ message: "Store not found" });
     }
     await storage.deleteStore(store.id, getUserId(req));
+    res.json({ success: true });
+  });
+
+  // --- Storefront Sections (Testimonials) ---
+  app.get("/api/stores/:id/testimonials", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    res.json(await storage.getTestimonialsByStore(store.id));
+  });
+
+  app.post("/api/stores/:id/testimonials", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const schema = z.object({
+      name: z.string().min(1),
+      role: z.string().optional(),
+      quote: z.string().min(1),
+      avatarUrl: z.string().optional(),
+      sortOrder: z.number().optional().default(0),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    res.status(201).json(await storage.createTestimonial({ storeId: store.id, ...parsed.data }));
+  });
+
+  app.patch("/api/stores/:id/testimonials/:testimonialId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const schema = z.object({
+      name: z.string().optional(),
+      role: z.string().optional().nullable(),
+      quote: z.string().optional(),
+      avatarUrl: z.string().optional().nullable(),
+      sortOrder: z.number().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const updated = await storage.updateTestimonial(req.params.testimonialId as string, parsed.data);
+    if (!updated) return res.status(404).json({ message: "Not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/stores/:id/testimonials/:testimonialId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    await storage.deleteTestimonial(req.params.testimonialId as string);
+    res.json({ success: true });
+  });
+
+  // --- Storefront Sections (FAQs) ---
+  app.get("/api/stores/:id/faqs", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    res.json(await storage.getFaqsByStore(store.id));
+  });
+
+  app.post("/api/stores/:id/faqs", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const schema = z.object({
+      question: z.string().min(1),
+      answer: z.string().min(1),
+      sortOrder: z.number().optional().default(0),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    res.status(201).json(await storage.createFaq({ storeId: store.id, ...parsed.data }));
+  });
+
+  app.patch("/api/stores/:id/faqs/:faqId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const schema = z.object({
+      question: z.string().optional(),
+      answer: z.string().optional(),
+      sortOrder: z.number().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const updated = await storage.updateFaq(req.params.faqId as string, parsed.data);
+    if (!updated) return res.status(404).json({ message: "Not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/stores/:id/faqs/:faqId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    await storage.deleteFaq(req.params.faqId as string);
     res.json({ success: true });
   });
 
@@ -1981,9 +2081,11 @@ ${urls}</urlset>`;
     const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
-    const [storeProductRows, publishedBundles] = await Promise.all([
+    const [storeProductRows, publishedBundles, testimonials, faqs] = await Promise.all([
       storage.getStoreProducts(store.id),
       storage.getPublishedBundlesByStore(store.id),
+      storage.getTestimonialsByStore(store.id),
+      storage.getFaqsByStore(store.id),
     ]);
     const publishedRows = storeProductRows.filter((sp) => sp.isPublished);
     const productsWithMeta = publishedRows.map((sp) => sanitizeProductForStorefront({
@@ -2008,7 +2110,22 @@ ${urls}</urlset>`;
       ...b,
       products: allBundleItems[i].map((item) => sanitizeProductForStorefront(item.product)),
     }));
-    res.json({ store: sanitizeStore(store), products: productsWithMeta, bundles: bundlesWithProducts });
+    res.json({ store: sanitizeStore(store), products: productsWithMeta, bundles: bundlesWithProducts, testimonials, faqs });
+  });
+
+  app.post("/api/storefront/:slug/subscribe", async (req, res) => {
+    const store = await storage.getStoreBySlug(req.params.slug as string);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+
+    const schema = z.object({ email: z.string().email() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid email" });
+
+    const existing = await storage.getNewsletterSubscriberByEmail(store.id, parsed.data.email);
+    if (existing) return res.status(200).json({ message: "Already subscribed" });
+
+    const subscriber = await storage.addNewsletterSubscriber({ storeId: store.id, email: parsed.data.email });
+    res.status(201).json({ message: "Subscribed successfully", subscriber });
   });
 
   app.get("/api/storefront/:slug/product/:productId", async (req, res) => {

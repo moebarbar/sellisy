@@ -4,6 +4,7 @@ import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
   bundles, bundleItems, coupons, productImages, categories, userProfiles,
   customers, customerSessions, knowledgeBases, kbPages, kbBlocks, storeEvents, blogPosts, blogBlocks,
+  storeTestimonials, storeFaqs, newsletterSubscribers,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -26,6 +27,9 @@ import {
   type StoreEvent, type InsertStoreEvent,
   type BlogPost, type InsertBlogPost,
   type BlogBlock, type InsertBlogBlock,
+  type StoreTestimonial, type InsertStoreTestimonial,
+  type StoreFaq, type InsertStoreFaq,
+  type NewsletterSubscriber, type InsertNewsletterSubscriber,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -34,7 +38,7 @@ export interface IStorage {
   getStoreById(id: string): Promise<Store | undefined>;
   getStoreBySlug(slug: string): Promise<Store | undefined>;
   createStore(store: InsertStore): Promise<Store>;
-  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload">>): Promise<Store | undefined>;
+  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload" | "aboutEnabled" | "aboutHeadline" | "aboutText" | "aboutImageUrl" | "aboutCtaText" | "aboutCtaUrl" | "testimonialsEnabled" | "faqEnabled" | "newsletterEnabled" | "newsletterHeadline" | "newsletterSubtext" | "sectionOrder">>): Promise<Store | undefined>;
   deleteStore(id: string, callerOwnerId?: string): Promise<void>;
   hardDeleteStore(id: string): Promise<void>;
   restoreStore(id: string): Promise<Store | undefined>;
@@ -161,6 +165,23 @@ export interface IStorage {
   deleteBlogBlock(id: string): Promise<void>;
   deleteBlogBlocksBulk(ids: string[]): Promise<void>;
   reorderBlogBlocks(postId: string, blockIds: string[]): Promise<void>;
+
+  // Storefront sections
+  getTestimonialsByStore(storeId: string): Promise<StoreTestimonial[]>;
+  getTestimonialById(id: string): Promise<StoreTestimonial | undefined>;
+  createTestimonial(data: InsertStoreTestimonial): Promise<StoreTestimonial>;
+  updateTestimonial(id: string, data: Partial<Pick<StoreTestimonial, "name" | "role" | "quote" | "avatarUrl" | "sortOrder">>): Promise<StoreTestimonial | undefined>;
+  deleteTestimonial(id: string): Promise<void>;
+
+  getFaqsByStore(storeId: string): Promise<StoreFaq[]>;
+  getFaqById(id: string): Promise<StoreFaq | undefined>;
+  createFaq(data: InsertStoreFaq): Promise<StoreFaq>;
+  updateFaq(id: string, data: Partial<Pick<StoreFaq, "question" | "answer" | "sortOrder">>): Promise<StoreFaq | undefined>;
+  deleteFaq(id: string): Promise<void>;
+
+  getNewsletterSubscribers(storeId: string): Promise<NewsletterSubscriber[]>;
+  addNewsletterSubscriber(data: InsertNewsletterSubscriber): Promise<NewsletterSubscriber>;
+  getNewsletterSubscriberByEmail(storeId: string, email: string): Promise<NewsletterSubscriber | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -816,6 +837,66 @@ export class DatabaseStorage implements IStorage {
     for (let i = 0; i < blockIds.length; i++) {
       await db.update(blogBlocks).set({ sortOrder: i }).where(and(eq(blogBlocks.id, blockIds[i]), eq(blogBlocks.postId, postId)));
     }
+  }
+
+  // ── Storefront Sections ────────────────────────────────────────
+
+  async getTestimonialsByStore(storeId: string) {
+    return db.select().from(storeTestimonials).where(eq(storeTestimonials.storeId, storeId)).orderBy(storeTestimonials.sortOrder);
+  }
+
+  async getTestimonialById(id: string) {
+    const [t] = await db.select().from(storeTestimonials).where(eq(storeTestimonials.id, id));
+    return t;
+  }
+
+  async createTestimonial(data: InsertStoreTestimonial) {
+    const [t] = await db.insert(storeTestimonials).values(data).returning();
+    return t;
+  }
+
+  async updateTestimonial(id: string, data: Partial<Pick<StoreTestimonial, "name" | "role" | "quote" | "avatarUrl" | "sortOrder">>) {
+    const [t] = await db.update(storeTestimonials).set(data).where(eq(storeTestimonials.id, id)).returning();
+    return t;
+  }
+
+  async deleteTestimonial(id: string) {
+    await db.delete(storeTestimonials).where(eq(storeTestimonials.id, id));
+  }
+
+  async getFaqsByStore(storeId: string) {
+    return db.select().from(storeFaqs).where(eq(storeFaqs.storeId, storeId)).orderBy(storeFaqs.sortOrder);
+  }
+
+  async getFaqById(id: string) {
+    const [f] = await db.select().from(storeFaqs).where(eq(storeFaqs.id, id));
+    return f;
+  }
+
+  async createFaq(data: InsertStoreFaq) {
+    const [f] = await db.insert(storeFaqs).values(data).returning();
+    return f;
+  }
+
+  async updateFaq(id: string, data: Partial<Pick<StoreFaq, "question" | "answer" | "sortOrder">>) {
+    const [f] = await db.update(storeFaqs).set(data).where(eq(storeFaqs.id, id)).returning();
+    return f;
+  }
+
+  async deleteFaq(id: string) {
+    await db.delete(storeFaqs).where(eq(storeFaqs.id, id));
+  }
+
+  async getNewsletterSubscribers(storeId: string) {
+    return db.select().from(newsletterSubscribers).where(eq(newsletterSubscribers.storeId, storeId)).orderBy(desc(newsletterSubscribers.createdAt));
+  }
+
+  async addNewsletterSubscriber(data: InsertNewsletterSubscriber) {
+    const [s] = await db.insert(newsletterSubscribers).values(data).returning();
+    return s;
+  }
+
+  async getNewsletterSubscriberByEmail(storeId: string, email: string) {
   }
 }
 
