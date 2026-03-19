@@ -10,8 +10,12 @@ import { useStorefrontFilters } from "@/hooks/use-storefront-filters";
 import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 import { getStoreBasePath } from "@/lib/utils";
 import { FeaturedProducts } from "./featured-products";
-import type { Store, Product, Bundle, BlogPost } from "@shared/schema";
+import type { Store, Product, Bundle, BlogPost, StoreTestimonial, StoreFaq } from "@shared/schema";
 import type { StorefrontTheme, ThemeMode } from "./theme-types";
+import { AboutSection } from "./sections/about-section";
+import { TestimonialsSection } from "./sections/testimonials-section";
+import { FaqSection } from "./sections/faq-section";
+import { NewsletterSection } from "./sections/newsletter-section";
 
 type StorefrontProduct = Product & {
   isLeadMagnet?: boolean;
@@ -34,10 +38,23 @@ interface BaseTemplateProps {
   products: StorefrontProduct[];
   bundles: Array<{ id: string; name: string; description: string | null; priceCents: number; thumbnailUrl: string | null; products: Product[] }>;
   theme: StorefrontTheme;
+  testimonials?: StoreTestimonial[];
+  faqs?: StoreFaq[];
 }
 
-export function BaseTemplate({ store, products, bundles, theme }: BaseTemplateProps) {
+export function BaseTemplate({ store, products, bundles, theme, testimonials = [], faqs = [] }: BaseTemplateProps) {
   const basePath = useMemo(() => getStoreBasePath(store.slug), [store.slug]);
+
+  const sectionOrder = useMemo(() => {
+    try {
+      if (store.sectionOrder) {
+        return JSON.parse(store.sectionOrder) as string[];
+      }
+    } catch (e) {
+      // ignore
+    }
+    return ["hero", "about", "products", "testimonials", "bundles", "faq", "newsletter", "blog"];
+  }, [store.sectionOrder]);
 
   const [mode, setMode] = useState<ThemeMode>(() => {
     if (typeof window !== "undefined") {
@@ -218,7 +235,10 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
         </div>
       </header>
 
-      <section className={`relative z-10 mx-auto ${theme.layout.maxWidth} px-6 pt-16 pb-20 text-center`}>
+      {sectionOrder.map((sectionId) => {
+        switch (sectionId) {
+          case "hero": return (
+            <section key="hero" className={`relative z-10 mx-auto ${theme.layout.maxWidth} px-6 pt-16 pb-20 text-center`}>
         {store.heroBannerUrl && (
           <div className="absolute inset-0 z-0 overflow-hidden rounded-b-2xl" style={{ margin: "0 24px" }}>
             <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover" loading="lazy" style={{ opacity: isDark ? 0.25 : 0.18 }} data-testid="img-hero-banner" />
@@ -259,8 +279,10 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
           )}
         </div>
       </section>
-
-      {categories.length > 1 && (
+          );
+          case "products": return (
+            <div key="products" className="sf-section-products relative z-10">
+              {categories.length > 1 && (
         <nav
           data-testid="nav-categories"
           className="sticky top-0 z-30"
@@ -572,8 +594,11 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
           </div>
           </>
         )}
-
-        {bundles.length > 0 && (
+              </main>
+            </div>
+          );
+          case "bundles": return bundles.length > 0 ? (
+            <div key="bundles" className={`mx-auto ${theme.layout.maxWidth} px-6 pb-24 relative z-10 block`}>
           <div className="mt-20">
             <div className="text-center mb-12">
               {theme.renderDivider?.(isDark)}
@@ -629,9 +654,10 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
               })}
             </div>
           </div>
-        )}
-
-        {blogPosts.length > 0 && (
+            </div>
+          ) : null;
+          case "blog": return blogPosts.length > 0 ? (
+            <div key="blog" className={`mx-auto ${theme.layout.maxWidth} px-6 pb-24 relative z-10 block`}>
           <div className="mt-20">
             <div className="text-center mb-12">
               {theme.renderDivider?.(isDark)}
@@ -678,8 +704,15 @@ export function BaseTemplate({ store, products, bundles, theme }: BaseTemplatePr
               </a>
             </div>
           </div>
-        )}
-      </main>
+            </div>
+          ) : null;
+          case "about": return <AboutSection key="about" store={store} c={c} theme={theme} />;
+          case "testimonials": return <TestimonialsSection key="testimonials" store={store} testimonials={testimonials || []} c={c} theme={theme} />;
+          case "faq": return <FaqSection key="faq" store={store} faqs={faqs || []} c={c} theme={theme} />;
+          case "newsletter": return <NewsletterSection key="newsletter" store={store} c={c} theme={theme} />;
+          default: return null;
+        }
+      })}
 
       <footer data-testid="footer-storefront" className="relative z-10" style={{ borderTop: `1px solid ${c.headerBorder}` }}>
         <div className={`mx-auto ${theme.layout.maxWidth} px-6 py-16`}>

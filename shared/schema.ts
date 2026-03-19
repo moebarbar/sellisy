@@ -100,6 +100,18 @@ export const stores = pgTable("stores", {
   domainVerifiedAt: timestamp("domain_verified_at"),
   cloudflareHostnameId: text("cloudflare_hostname_id"),
   workerRouteId: text("worker_route_id"),
+  aboutEnabled: boolean("about_enabled").notNull().default(false),
+  aboutHeadline: text("about_headline"),
+  aboutText: text("about_text"),
+  aboutImageUrl: text("about_image_url"),
+  aboutCtaText: text("about_cta_text"),
+  aboutCtaUrl: text("about_cta_url"),
+  testimonialsEnabled: boolean("testimonials_enabled").notNull().default(false),
+  faqEnabled: boolean("faq_enabled").notNull().default(false),
+  newsletterEnabled: boolean("newsletter_enabled").notNull().default(false),
+  newsletterHeadline: text("newsletter_headline"),
+  newsletterSubtext: text("newsletter_subtext"),
+  sectionOrder: text("section_order"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -473,3 +485,46 @@ export const blogBlocks = pgTable("blog_blocks", {
 export const insertBlogBlockSchema = createInsertSchema(blogBlocks).omit({ id: true });
 export type InsertBlogBlock = z.infer<typeof insertBlogBlockSchema>;
 export type BlogBlock = typeof blogBlocks.$inferSelect;
+
+// ── Storefront Sections ──────────────────────────────────────────
+
+export const storeTestimonials = pgTable("store_testimonials", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  name: text("name").notNull(),
+  role: text("role"),
+  quote: text("quote").notNull(),
+  avatarUrl: text("avatar_url"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertStoreTestimonialSchema = createInsertSchema(storeTestimonials).omit({ id: true, createdAt: true });
+export type InsertStoreTestimonial = z.infer<typeof insertStoreTestimonialSchema>;
+export type StoreTestimonial = typeof storeTestimonials.$inferSelect;
+
+export const storeFaqs = pgTable("store_faqs", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertStoreFaqSchema = createInsertSchema(storeFaqs).omit({ id: true, createdAt: true });
+export type InsertStoreFaq = z.infer<typeof insertStoreFaqSchema>;
+export type StoreFaq = typeof storeFaqs.$inferSelect;
+
+export const newsletterSubscribers = pgTable("newsletter_subscribers", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  email: text("email").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  storeEmailUnique: uniqueIndex("newsletter_subscribers_store_email_idx").on(t.storeId, t.email),
+}));
+
+export const insertNewsletterSubscriberSchema = createInsertSchema(newsletterSubscribers).omit({ id: true, createdAt: true });
+export type InsertNewsletterSubscriber = z.infer<typeof insertNewsletterSubscriberSchema>;
+export type NewsletterSubscriber = typeof newsletterSubscribers.$inferSelect;
