@@ -166,6 +166,12 @@ export async function registerRoutes(
           req.url = "/s/" + store.slug + req.url;
         } else if (req.path.startsWith("/kb")) {
           req.url = "/s/" + store.slug + req.url;
+        } else if (req.path.startsWith("/blog")) {
+          req.url = "/s/" + store.slug + req.url;
+        } else if (req.path.startsWith("/product")) {
+          req.url = "/s/" + store.slug + req.url;
+        } else if (req.path.startsWith("/bundle")) {
+          req.url = "/s/" + store.slug + req.url;
         }
         (req as any).customDomainStore = store;
       }
@@ -666,11 +672,17 @@ ${urls}</urlset>`;
     const thumbUrl = primaryImg?.url ?? parsed.data.thumbnailUrl ?? null;
 
     const admin = await isUserAdmin(getUserId(req));
+    const baseSlug = generateSlug(parsed.data.title, "product");
+    let productSlug = baseSlug;
+    let slugCounter = 1;
+    while (await storage.getProductBySlug(productSlug)) {
+      productSlug = `${baseSlug}-${slugCounter++}`;
+    }
     const product = await storage.createProduct({
       ownerId: getUserId(req),
       source: "USER",
       title: parsed.data.title,
-      slug: generateSlug(parsed.data.title, "product"),
+      slug: productSlug,
       description: parsed.data.description || null,
       tagline: parsed.data.tagline ?? null,
       category: parsed.data.category || "templates",
@@ -735,7 +747,15 @@ ${urls}</urlset>`;
     const admin = await isUserAdmin(getUserId(req));
     const { images: imgs, requiredTier, ...productData } = parsed.data;
     if (productData.title) {
-      (productData as any).slug = generateSlug(productData.title, "product");
+      const baseSlug = generateSlug(productData.title, "product");
+      let newSlug = baseSlug;
+      let slugCtr = 1;
+      while (true) {
+        const existing = await storage.getProductBySlug(newSlug);
+        if (!existing || existing.id === product.id) break;
+        newSlug = `${baseSlug}-${slugCtr++}`;
+      }
+      (productData as any).slug = newSlug;
     }
     if (admin && requiredTier) {
       (productData as any).requiredTier = requiredTier;
@@ -850,11 +870,12 @@ ${urls}</urlset>`;
       return res.status(409).json({ message: "Product already imported to this store" });
     }
 
+    const existingSPs = await storage.getStoreProducts(parsed.data.storeId);
     const sp = await storage.createStoreProduct({
       storeId: parsed.data.storeId,
       productId: parsed.data.productId,
       isPublished: false,
-      sortOrder: 0,
+      sortOrder: existingSPs.length,
     });
     res.json(sp);
   });
@@ -1796,11 +1817,22 @@ ${urls}</urlset>`;
     if (!post) return res.status(404).json({ message: "Not found" });
     const store = await storage.getStoreById(post.storeId);
     if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
-    const allowed = ["title", "slug", "excerpt", "coverImageUrl", "fontFamily", "category", "readingTimeMinutes", "isPublished", "publishedAt", "authorName", "authorImageUrl"] as const;
-    const data: any = {};
-    for (const key of allowed) {
-      if (req.body[key] !== undefined) data[key] = req.body[key];
-    }
+    const blogPatchSchema = z.object({
+      title: z.string().optional(),
+      slug: z.string().optional(),
+      excerpt: z.string().nullable().optional(),
+      coverImageUrl: z.string().nullable().optional(),
+      fontFamily: z.string().nullable().optional(),
+      category: z.string().nullable().optional(),
+      readingTimeMinutes: z.number().int().min(0).nullable().optional(),
+      isPublished: z.boolean().optional(),
+      publishedAt: z.string().nullable().optional(),
+      authorName: z.string().nullable().optional(),
+      authorImageUrl: z.string().nullable().optional(),
+    });
+    const parsed = blogPatchSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const data: any = { ...parsed.data };
     if (data.isPublished === true && !post.publishedAt) {
       data.publishedAt = new Date();
     }
@@ -1831,7 +1863,20 @@ ${urls}</urlset>`;
     if (!post) return res.status(404).json({ message: "Not found" });
     const store = await storage.getStoreById(post.storeId);
     if (!store || store.ownerId !== getUserId(req)) return res.status(403).json({ message: "Forbidden" });
-    const block = await storage.createBlogBlock({ postId: post.id, ...req.body });
+    const blockSchema = z.object({
+      type: z.enum(["text", "heading1", "heading2", "heading3", "image", "video", "link", "bullet_list", "numbered_list", "todo", "toggle", "code", "quote", "divider", "callout"]).optional(),
+      content: z.string().optional(),
+      sortOrder: z.number().int().optional(),
+    });
+    const blockParsed = blockSchema.safeParse(req.body);
+    if (!blockParsed.success) return res.status(400).json({ message: "Invalid data" });
+    const existingBlocks = await storage.getBlogBlocksByPost(post.id);
+    const block = await storage.createBlogBlock({
+      postId: post.id,
+      type: blockParsed.data.type || "text",
+      content: blockParsed.data.content || "",
+      sortOrder: blockParsed.data.sortOrder != null ? blockParsed.data.sortOrder : existingBlocks.length,
+    });
     res.json(block);
   });
 
@@ -1857,7 +1902,14 @@ ${urls}</urlset>`;
     if (!post) return res.status(404).json({ message: "Not found" });
     const store = await storage.getStoreById(post.storeId);
     if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
-    const updated = await storage.updateBlogBlock(block.id, req.body);
+    const blockUpdateSchema = z.object({
+      type: z.enum(["text", "heading1", "heading2", "heading3", "image", "video", "link", "bullet_list", "numbered_list", "todo", "toggle", "code", "quote", "divider", "callout"]).optional(),
+      content: z.string().optional(),
+      sortOrder: z.number().int().optional(),
+    });
+    const blockUpdateParsed = blockUpdateSchema.safeParse(req.body);
+    if (!blockUpdateParsed.success) return res.status(400).json({ message: "Invalid data" });
+    const updated = await storage.updateBlogBlock(block.id, blockUpdateParsed.data);
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
   });
@@ -2191,19 +2243,23 @@ ${urls}</urlset>`;
       customerId = customer.id;
     }
 
-    const [order] = await db.insert(orders).values({
-      storeId: store.id,
-      buyerEmail,
-      customerId,
-      totalCents: finalTotalCents,
-      stripeSessionId: null,
-      couponId,
-      status: "PENDING",
-    }).returning();
+    const [order] = await db.transaction(async (tx) => {
+      const [newOrder] = await tx.insert(orders).values({
+        storeId: store.id,
+        buyerEmail,
+        customerId,
+        totalCents: finalTotalCents,
+        stripeSessionId: null,
+        couponId,
+        status: "PENDING",
+      }).returning();
 
-    for (const item of itemsToAdd) {
-      await db.insert(orderItems).values({ orderId: order.id, ...item });
-    }
+      for (const item of itemsToAdd) {
+        await tx.insert(orderItems).values({ orderId: newOrder.id, ...item });
+      }
+
+      return [newOrder];
+    });
 
     const hasPayPal = !!(store.paypalClientId && store.paypalClientSecret);
     const hasStripe = !!store.stripeSecretKey;
@@ -2477,7 +2533,7 @@ ${urls}</urlset>`;
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
 
-    if (order.status === "COMPLETED") {
+    if (order.status === "COMPLETED" && !order.emailSent) {
       sendOrderCompletionEmails(order.id, baseUrl);
     }
 
@@ -2685,6 +2741,16 @@ ${urls}</urlset>`;
   // ========== CUSTOMER PORTAL AUTH ==========
 
   const magicLinkRateLimit = new Map<string, number>();
+
+  // Periodic cleanup to prevent unbounded memory growth
+  setInterval(() => {
+    const now = Date.now();
+    magicLinkRateLimit.forEach((timestamp, email) => {
+      if (now - timestamp > 120_000) {
+        magicLinkRateLimit.delete(email);
+      }
+    });
+  }, 5 * 60 * 1000);
 
   async function getCustomerFromCookie(req: Request): Promise<{ customerId: string } | null> {
     const sessionToken = req.cookies?.customer_session;
@@ -2935,16 +3001,15 @@ ${urls}</urlset>`;
     }
 
     const tokenRaw = randomBytes(32).toString("hex");
-    const hash = hashToken(tokenRaw);
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     await storage.createDownloadToken({
       orderId: foundOrder.id,
-      tokenHash: hash,
+      tokenHash: tokenRaw,
       expiresAt,
     });
 
-    res.json({ downloadToken: hash });
+    res.json({ downloadToken: tokenRaw });
   });
 
   app.get("/api/download/:token", async (req, res) => {
@@ -3185,7 +3250,7 @@ ${urls}</urlset>`;
     }
   });
 
-  app.post("/api/admin/test-emails", async (req, res) => {
+  app.post("/api/admin/test-emails", isAuthenticated, async (req, res) => {
     const userId = getUserId(req);
     const user = await db.select().from(users).where(eq(users.id, userId)).then(r => r[0]);
     if (!user) return res.status(401).json({ message: "Unauthorized" });
