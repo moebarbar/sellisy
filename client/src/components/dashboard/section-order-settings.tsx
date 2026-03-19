@@ -16,7 +16,6 @@ export const DEFAULT_SECTION_ORDER = [
   "faq",
   "newsletter",
   "blog",
-  "footer"
 ];
 
 const SECTION_LABELS: Record<string, string> = {
@@ -28,7 +27,6 @@ const SECTION_LABELS: Record<string, string> = {
   faq: "FAQ",
   newsletter: "Newsletter Signup",
   blog: "Blog Posts",
-  footer: "Footer"
 };
 
 export function SectionOrderSettingsCard() {
@@ -68,7 +66,14 @@ export function SectionOrderSettingsCard() {
     },
   });
 
-  const currentSavedOrder = (activeStore as any)?.sectionOrder ? JSON.parse((activeStore as any).sectionOrder) : DEFAULT_SECTION_ORDER;
+  let currentSavedOrder: string[] = DEFAULT_SECTION_ORDER;
+  try {
+    if ((activeStore as any)?.sectionOrder) {
+      currentSavedOrder = JSON.parse((activeStore as any).sectionOrder);
+    }
+  } catch {
+    // ignore malformed JSON
+  }
   const hasChanges = JSON.stringify(order) !== JSON.stringify(currentSavedOrder);
 
   const moveUp = (index: number) => {
@@ -92,7 +97,7 @@ export function SectionOrderSettingsCard() {
           <LayoutList className="h-4 w-4" /> Storefront Layout
         </CardTitle>
         <CardDescription>
-          Drag or use the arrows to reorder how sections appear on your storefront.
+          Use the arrows to reorder how sections appear on your storefront.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

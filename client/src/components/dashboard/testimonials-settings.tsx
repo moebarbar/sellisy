@@ -2,14 +2,14 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, MessageSquareQuote, Plus, Trash2, Pencil, X, Check } from "lucide-react";
+import { Loader2, MessageSquareQuote, Plus, Trash2, Pencil, X } from "lucide-react";
 import { ImageUploadField } from "./image-upload-field";
 import type { StoreTestimonial } from "@shared/schema";
 
@@ -185,6 +185,8 @@ export function TestimonialsSettingsCard() {
 
             {isLoading ? (
               <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : testimonials.length === 0 && !isAdding && !editingId ? (
+              <p className="text-xs text-muted-foreground text-center py-2">Add your first testimonial — the section won't appear on your storefront until at least one is added.</p>
             ) : testimonials.length > 0 ? (
               <div className="space-y-3">
                 {testimonials.map((t) => (

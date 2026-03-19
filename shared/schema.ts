@@ -521,7 +521,9 @@ export const newsletterSubscribers = pgTable("newsletter_subscribers", {
   storeId: varchar("store_id", { length: 64 }).notNull(),
   email: text("email").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => ({
+  storeEmailUnique: uniqueIndex("newsletter_subscribers_store_email_idx").on(t.storeId, t.email),
+}));
 
 export const insertNewsletterSubscriberSchema = createInsertSchema(newsletterSubscribers).omit({ id: true, createdAt: true });
 export type InsertNewsletterSubscriber = z.infer<typeof insertNewsletterSubscriberSchema>;

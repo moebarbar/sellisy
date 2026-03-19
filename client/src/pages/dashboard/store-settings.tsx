@@ -376,6 +376,12 @@ export default function StoreSettingsPage() {
         </CardContent>
       </Card>
 
+      <AboutSettingsCard />
+      <TestimonialsSettingsCard />
+      <FaqSettingsCard />
+      <NewsletterSettingsCard />
+      <SectionOrderSettingsCard />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">

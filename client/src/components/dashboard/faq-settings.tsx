@@ -160,6 +160,8 @@ export function FaqSettingsCard() {
 
             {isLoading ? (
               <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : faqs.length === 0 && !isAdding && !editingId ? (
+              <p className="text-xs text-muted-foreground text-center py-2">Add your first FAQ — the section won't appear on your storefront until at least one question is added.</p>
             ) : faqs.length > 0 ? (
               <div className="space-y-3">
                 {faqs.map((f) => (

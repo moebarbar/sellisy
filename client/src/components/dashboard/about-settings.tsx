@@ -34,6 +34,17 @@ export function AboutSettingsCard() {
     }
   }, [activeStore]);
 
+  const toggleMutation = useMutation({
+    mutationFn: async (newValue: boolean) => {
+      if (!activeStoreId) return;
+      await apiRequest("PATCH", `/api/stores/${activeStoreId}`, { aboutEnabled: newValue });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
+      toast({ title: variables ? "About section enabled" : "About section disabled" });
+    },
+  });
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!activeStoreId) return;
@@ -72,7 +83,11 @@ export function AboutSettingsCard() {
           <div className="flex items-center gap-2">
             <UserSquare2 className="h-4 w-4" /> About / Story Section
           </div>
-          <Switch checked={enabled} onCheckedChange={setEnabled} />
+          <Switch
+            checked={enabled}
+            onCheckedChange={(val) => { setEnabled(val); toggleMutation.mutate(val); }}
+            disabled={toggleMutation.isPending}
+          />
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

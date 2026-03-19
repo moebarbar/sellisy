@@ -53,7 +53,7 @@ export function BaseTemplate({ store, products, bundles, theme, testimonials = [
     } catch (e) {
       // ignore
     }
-    return ["hero", "products", "bundles", "about", "testimonials", "faq", "blog", "newsletter"];
+    return ["hero", "about", "products", "testimonials", "bundles", "faq", "newsletter", "blog"];
   }, [store.sectionOrder]);
 
   const [mode, setMode] = useState<ThemeMode>(() => {
@@ -706,10 +706,10 @@ export function BaseTemplate({ store, products, bundles, theme, testimonials = [
           </div>
             </div>
           ) : null;
-          case "about": return <AboutSection key="about" store={store} themeClass={theme.effects.modeToggleClass} />;
-          case "testimonials": return <TestimonialsSection key="testimonials" store={store} testimonials={testimonials || []} themeClass={theme.effects.modeToggleClass} />;
-          case "faq": return <FaqSection key="faq" store={store} faqs={faqs || []} themeClass={theme.effects.modeToggleClass} />;
-          case "newsletter": return <NewsletterSection key="newsletter" store={store} themeClass={theme.effects.modeToggleClass} />;
+          case "about": return <AboutSection key="about" store={store} c={c} theme={theme} />;
+          case "testimonials": return <TestimonialsSection key="testimonials" store={store} testimonials={testimonials || []} c={c} theme={theme} />;
+          case "faq": return <FaqSection key="faq" store={store} faqs={faqs || []} c={c} theme={theme} />;
+          case "newsletter": return <NewsletterSection key="newsletter" store={store} c={c} theme={theme} />;
           default: return null;
         }
       })}

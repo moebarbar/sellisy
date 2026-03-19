@@ -478,7 +478,9 @@ ${urls}</urlset>`;
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
-    const updated = await storage.updateTestimonial(req.params.testimonialId as string, parsed.data);
+    const testimonial = await storage.getTestimonialById(req.params.testimonialId as string);
+    if (!testimonial || testimonial.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    const updated = await storage.updateTestimonial(testimonial.id, parsed.data);
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
   });
@@ -486,7 +488,9 @@ ${urls}</urlset>`;
   app.delete("/api/stores/:id/testimonials/:testimonialId", isAuthenticated, async (req, res) => {
     const store = await storage.getStoreById(req.params.id as string);
     if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
-    await storage.deleteTestimonial(req.params.testimonialId as string);
+    const testimonial = await storage.getTestimonialById(req.params.testimonialId as string);
+    if (!testimonial || testimonial.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    await storage.deleteTestimonial(testimonial.id);
     res.json({ success: true });
   });
 
@@ -520,7 +524,9 @@ ${urls}</urlset>`;
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
-    const updated = await storage.updateFaq(req.params.faqId as string, parsed.data);
+    const faq = await storage.getFaqById(req.params.faqId as string);
+    if (!faq || faq.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    const updated = await storage.updateFaq(faq.id, parsed.data);
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
   });
@@ -528,7 +534,9 @@ ${urls}</urlset>`;
   app.delete("/api/stores/:id/faqs/:faqId", isAuthenticated, async (req, res) => {
     const store = await storage.getStoreById(req.params.id as string);
     if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
-    await storage.deleteFaq(req.params.faqId as string);
+    const faq = await storage.getFaqById(req.params.faqId as string);
+    if (!faq || faq.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    await storage.deleteFaq(faq.id);
     res.json({ success: true });
   });
 
