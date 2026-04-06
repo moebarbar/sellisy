@@ -103,7 +103,7 @@ export default function StorefrontPage({ params: propParams }: { params?: { slug
 
   const theme = getTheme(templateKey);
   if (theme) {
-    return <BaseTemplate store={data.store} products={data.products} bundles={data.bundles || []} theme={theme} testimonials={data.testimonials} faqs={data.faqs} reviews={data.reviews} />;
+    return <BaseTemplate store={data.store} products={data.products} bundles={data.bundles || []} theme={theme} testimonials={data.testimonials} faqs={data.faqs} reviews={data.reviews} subscriberCount={data.subscriberCount ?? 0} />;
   }
 
   return <NeonTemplate store={data.store} products={data.products} bundles={data.bundles || []} />;

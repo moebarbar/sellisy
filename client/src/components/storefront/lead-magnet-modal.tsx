@@ -88,11 +88,14 @@ export function LeadMagnetModal({
           >
             <Gift className="h-6 w-6" style={{ color: c.accent }} />
           </div>
+          <div className="inline-block px-3 py-1 rounded-full text-xs font-semibold" style={{ background: `${c.accent}18`, color: c.accent }}>
+            Free · Instant Access
+          </div>
           <h3 className="text-xl font-bold" style={{ color: c.text }} data-testid="text-lead-modal-title">
-            Get it free
+            {productTitle}
           </h3>
           <p className="text-sm" style={{ color: c.textSecondary }}>
-            Enter your email to get <strong style={{ color: c.text }}>{productTitle}</strong> delivered to your inbox
+            Enter your email and we'll send your download link immediately.
           </p>
         </div>
 
@@ -145,7 +148,7 @@ export function LeadMagnetModal({
           </Button>
 
           <p className="text-xs text-center" style={{ color: c.textSecondary }}>
-            You'll get instant access to download your product
+            No credit card required. We respect your privacy.
           </p>
         </form>
       </div>

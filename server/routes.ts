@@ -2313,12 +2313,13 @@ ${urls}</urlset>`;
     const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
-    const [storeProductRows, publishedBundles, testimonials, faqs, reviews] = await Promise.all([
+    const [storeProductRows, publishedBundles, testimonials, faqs, reviews, subscriberCount] = await Promise.all([
       storage.getStoreProducts(store.id),
       storage.getPublishedBundlesByStore(store.id),
       storage.getTestimonialsByStore(store.id),
       storage.getFaqsByStore(store.id),
       store.reviewsEnabled ? storage.getReviewsByStore(store.id) : Promise.resolve([]),
+      store.newsletterEnabled && store.showSubscriberCount ? storage.getNewsletterSubscriberCount(store.id) : Promise.resolve(0),
     ]);
     const publishedRows = storeProductRows.filter((sp) => sp.isPublished);
     const productsWithMeta = publishedRows.map((sp) => sanitizeProductForStorefront({
@@ -2343,7 +2344,7 @@ ${urls}</urlset>`;
       ...b,
       products: allBundleItems[i].map((item) => sanitizeProductForStorefront(item.product)),
     }));
-    res.json({ store: sanitizeStore(store), products: productsWithMeta, bundles: bundlesWithProducts, testimonials, faqs, reviews });
+    res.json({ store: sanitizeStore(store), products: productsWithMeta, bundles: bundlesWithProducts, testimonials, faqs, reviews, subscriberCount });
   });
 
   app.post("/api/storefront/:slug/subscribe", async (req, res) => {

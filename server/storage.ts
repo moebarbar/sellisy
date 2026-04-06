@@ -191,11 +191,12 @@ export interface IStorage {
   deleteFaq(id: string): Promise<void>;
 
   getNewsletterSubscribers(storeId: string): Promise<NewsletterSubscriber[]>;
+  getNewsletterSubscriberCount(storeId: string): Promise<number>;
   addNewsletterSubscriber(data: InsertNewsletterSubscriber): Promise<NewsletterSubscriber>;
   getNewsletterSubscriberByEmail(storeId: string, email: string): Promise<NewsletterSubscriber | undefined>;
 
   // Reviews
-  getReviewsByStore(storeId: string): Promise<StoreReview[]>;
+  getReviewsByStore(storeId: string): Promise<Array<StoreReview & { customerName?: string | null }>>;
   getReviewsByProduct(storeId: string, productId: string): Promise<StoreReview[]>;
   getReviewByCustomerAndProduct(customerId: string, productId: string): Promise<StoreReview | undefined>;
   getReviewById(id: string): Promise<StoreReview | undefined>;
@@ -943,6 +944,14 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(newsletterSubscribers).where(eq(newsletterSubscribers.storeId, storeId)).orderBy(desc(newsletterSubscribers.createdAt));
   }
 
+  async getNewsletterSubscriberCount(storeId: string): Promise<number> {
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(newsletterSubscribers)
+      .where(eq(newsletterSubscribers.storeId, storeId));
+    return row?.count ?? 0;
+  }
+
   async addNewsletterSubscriber(data: InsertNewsletterSubscriber) {
     const [s] = await db.insert(newsletterSubscribers).values(data).returning();
     return s;
@@ -958,7 +967,23 @@ export class DatabaseStorage implements IStorage {
   // ── Reviews ────────────────────────────────────────────────────
 
   async getReviewsByStore(storeId: string) {
-    return db.select().from(storeReviews).where(eq(storeReviews.storeId, storeId)).orderBy(desc(storeReviews.createdAt));
+    return db
+      .select({
+        id: storeReviews.id,
+        storeId: storeReviews.storeId,
+        customerId: storeReviews.customerId,
+        productId: storeReviews.productId,
+        orderId: storeReviews.orderId,
+        rating: storeReviews.rating,
+        title: storeReviews.title,
+        content: storeReviews.content,
+        createdAt: storeReviews.createdAt,
+        customerName: customers.name,
+      })
+      .from(storeReviews)
+      .leftJoin(customers, eq(storeReviews.customerId, customers.id))
+      .where(eq(storeReviews.storeId, storeId))
+      .orderBy(desc(storeReviews.createdAt));
   }
 
   async getReviewsByProduct(storeId: string, productId: string) {

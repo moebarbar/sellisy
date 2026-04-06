@@ -19,11 +19,16 @@ export function TestimonialsSection({ store, testimonials, c, theme }: Testimoni
       <div ref={revealRef} className={`mx-auto ${theme.layout.maxWidth} px-6 py-16 md:py-24`}>
         <div className="text-center mb-12 sf-reveal-item">
           <h2
-            className="text-3xl md:text-4xl font-bold tracking-tight mb-4"
+            className="text-3xl md:text-4xl font-bold tracking-tight mb-3"
             style={{ color: c.text, fontFamily: theme.typography.headingFamily }}
           >
-            What Customers Say
+            Trusted by {testimonials.length}+ Happy Customers
           </h2>
+          {/* Social proof star row */}
+          <p className="text-base" style={{ color: c.textSecondary }}>
+            <span style={{ color: "#f59e0b" }}>★★★★★</span>{" "}
+            <span className="font-medium">{testimonials.length} five-star testimonials</span>
+          </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -57,6 +62,9 @@ export function TestimonialsSection({ store, testimonials, c, theme }: Testimoni
                   </svg>
                 </div>
               </div>
+
+              {/* Stars */}
+              <p className="text-base mb-3" style={{ color: "#f59e0b" }}>★★★★★</p>
 
               <p className="italic flex-grow mb-6 whitespace-pre-wrap" style={{ color: c.textSecondary }}>
                 "{t.quote}"

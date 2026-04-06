@@ -140,6 +140,16 @@ function midnightCss(c: ThemeColors, mode: ThemeMode): string {
       border: 1px solid ${isDark ? "rgba(16,185,129,0.28)" : "rgba(16,185,129,0.18)"};
       color: ${isDark ? "#6ee7b7" : "#059669"};
     }
+    .t-verified-badge {
+      background: ${isDark ? "rgba(16,185,129,0.1)" : "rgba(16,185,129,0.07)"};
+      border: 1px solid ${isDark ? "rgba(16,185,129,0.25)" : "rgba(16,185,129,0.16)"};
+      color: ${isDark ? "#6ee7b7" : "#059669"};
+    }
+    .t-guarantee-badge {
+      background: ${isDark ? "rgba(59,130,246,0.1)" : "rgba(59,130,246,0.07)"};
+      border: 1px solid ${isDark ? "rgba(59,130,246,0.25)" : "rgba(59,130,246,0.16)"};
+      color: ${isDark ? "#93c5fd" : "#2563eb"};
+    }
     .t-savings-glow {
       background: ${isDark ? "linear-gradient(135deg, rgba(16,185,129,0.07), rgba(5,150,105,0.12))" : "linear-gradient(135deg, rgba(16,185,129,0.05), rgba(5,150,105,0.08))"};
       border: 1px solid ${isDark ? "rgba(16,185,129,0.18)" : "rgba(16,185,129,0.12)"};
