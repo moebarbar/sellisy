@@ -4,10 +4,13 @@ import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, Download, AlertCircle, ArrowLeft, Package, Clock, FileDown } from "lucide-react";
+import { CheckCircle, Download, AlertCircle, ArrowLeft, Package, Clock, FileDown, Sparkles, ShoppingBag, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { getStoreBasePath } from "@/lib/utils";
+
+type UpsellProduct = { id: string; title: string; description: string | null; priceCents: number; thumbnailUrl: string | null };
+type UpsellBundle = { id: string; name: string; description: string | null; priceCents: number; thumbnailUrl: string | null; productCount: number };
 
 type SuccessData = {
   order: {
@@ -20,6 +23,8 @@ type SuccessData = {
   store?: { name: string; slug: string } | null;
   items?: { title: string; priceCents: number }[];
   fileCount?: number;
+  upsellProduct?: UpsellProduct | null;
+  upsellBundle?: UpsellBundle | null;
 };
 
 type DownloadData = {
@@ -177,6 +182,72 @@ export default function CheckoutSuccessPage() {
                   Back to Home
                 </Button>
               </Link>
+
+              {(data.upsellProduct || data.upsellBundle) && (
+                <div className="w-full mt-8 pt-6 border-t space-y-4 text-left">
+                  <div className="flex items-center gap-2 justify-center">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">You might also like</h3>
+                  </div>
+                  {data.upsellProduct && (
+                    <Card className="hover-elevate">
+                      <CardContent className="p-5">
+                        <div className="flex items-start gap-4">
+                          {data.upsellProduct.thumbnailUrl ? (
+                            <img src={data.upsellProduct.thumbnailUrl} alt={data.upsellProduct.title} className="h-20 w-20 rounded-lg object-cover shrink-0" />
+                          ) : (
+                            <div className="h-20 w-20 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                              <Package className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <p className="font-semibold" data-testid="text-upsell-product-title">{data.upsellProduct.title}</p>
+                            {data.upsellProduct.description && <p className="text-sm text-muted-foreground line-clamp-2">{data.upsellProduct.description}</p>}
+                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                              <span className="text-lg font-bold">${(data.upsellProduct.priceCents / 100).toFixed(2)}</span>
+                              <Link href={`${storeBasePath}/product/${data.upsellProduct.id}`}>
+                                <Button size="sm" data-testid="button-upsell-product-buy">
+                                  <ShoppingBag className="mr-2 h-4 w-4" /> Buy Now <ArrowRight className="ml-2 h-4 w-4" />
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                  {data.upsellBundle && (
+                    <Card className="hover-elevate">
+                      <CardContent className="p-5">
+                        <div className="flex items-start gap-4">
+                          {data.upsellBundle.thumbnailUrl ? (
+                            <img src={data.upsellBundle.thumbnailUrl} alt={data.upsellBundle.name} className="h-20 w-20 rounded-lg object-cover shrink-0" />
+                          ) : (
+                            <div className="h-20 w-20 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                              <Package className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <p className="font-semibold" data-testid="text-upsell-bundle-title">{data.upsellBundle.name}</p>
+                            {data.upsellBundle.description && <p className="text-sm text-muted-foreground line-clamp-2">{data.upsellBundle.description}</p>}
+                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-lg font-bold">${(data.upsellBundle.priceCents / 100).toFixed(2)}</span>
+                                <span className="text-xs text-muted-foreground">{data.upsellBundle.productCount} products</span>
+                              </div>
+                              <Link href={`${storeBasePath}/bundle/${data.upsellBundle.id}`}>
+                                <Button size="sm" data-testid="button-upsell-bundle-buy">
+                                  <Package className="mr-2 h-4 w-4" /> View Bundle <ArrowRight className="ml-2 h-4 w-4" />
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
             </>
           )}
         </CardContent>

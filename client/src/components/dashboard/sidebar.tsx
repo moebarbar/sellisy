@@ -44,6 +44,7 @@ import {
   Users,
   FileText,
   ShieldCheck,
+  Mail,
 } from "lucide-react";
 
 const navItems = [
@@ -54,6 +55,7 @@ const navItems = [
   { title: "Products Library", url: "/dashboard/library", icon: ShoppingBag },
   { title: "Content Creator", url: "/dashboard/content-creator", icon: PenTool },
   { title: "Blog", url: "/dashboard/blog", icon: FileText },
+  { title: "Newsletter", url: "/dashboard/newsletter", icon: Mail },
   { title: "Bundles", url: "/dashboard/bundles", icon: Layers },
   { title: "Marketing", url: "/dashboard/marketing", icon: BookOpen },
   { title: "Coupons", url: "/dashboard/coupons", icon: Ticket },

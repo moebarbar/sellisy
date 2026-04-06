@@ -4,7 +4,7 @@ const BRAND_COLOR = '#6366f1';
 const BRAND_NAME = 'Sellisy';
 const BRAND_URL = 'https://sellisy.com';
 
-function baseLayout(content: string, preheader?: string) {
+export function baseLayout(content: string, preheader?: string) {
   const preheaderHtml = preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preheader}</div>`
     : '';
@@ -33,21 +33,21 @@ function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-function ctaButton(label: string, url: string): string {
+export function ctaButton(label: string, url: string): string {
   return `<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td align="center">
     <a href="${url}" style="display:inline-block;background:${BRAND_COLOR};color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:600;font-size:15px;letter-spacing:0.2px;">${label}</a>
   </td></tr></table>`;
 }
 
-function sectionHeading(text: string): string {
+export function sectionHeading(text: string): string {
   return `<h2 style="margin:0 0 8px;color:#111827;font-size:22px;font-weight:700;letter-spacing:-0.3px;">${text}</h2>`;
 }
 
-function bodyText(text: string): string {
+export function bodyText(text: string): string {
   return `<p style="margin:0 0 20px;color:#4b5563;font-size:15px;line-height:1.6;">${text}</p>`;
 }
 
-function divider(): string {
+export function divider(): string {
   return `<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">`;
 }
 

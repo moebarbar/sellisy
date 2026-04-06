@@ -4,7 +4,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, stores, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
+import { orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, stores, storeReviews, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { createCustomHostname, getCustomHostname, deleteCustomHostname, createWorkerRoute, deleteWorkerRoute, isCloudflareConfigured } from "./cloudflareClient";
 import { seedDatabase, seedMarketingIfNeeded, seedAdminUser } from "./seed";
@@ -12,10 +12,10 @@ import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
 import Stripe from 'stripe';
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendMagicLinkEmail, sendAllTestEmails } from "./emails";
+import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendMagicLinkEmail, sendAllTestEmails, baseLayout, sectionHeading, bodyText, ctaButton, divider } from "./emails";
 import { registerSubscriptionRoutes } from "./subscriptions";
 import { sendOrderCompletionEmails } from "./orderEmailHelper";
-import { setEmailLogger } from "./sendgridClient";
+import { setEmailLogger, sendEmailStaggered } from "./sendgridClient";
 import { runHealthCheck, runRepair } from "./integrity";
 import { getRevenueAnalytics, getProductAnalytics, getCustomerAnalytics, getCouponAnalytics, getTrafficAnalytics } from "./analytics";
 import { users } from "@shared/models/auth";
@@ -422,6 +422,7 @@ ${urls}</urlset>`;
       newsletterHeadline: z.string().optional().nullable(),
       newsletterSubtext: z.string().optional().nullable(),
       sectionOrder: z.string().optional().nullable(),
+      reviewsEnabled: z.boolean().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -538,6 +539,171 @@ ${urls}</urlset>`;
     if (!faq || faq.storeId !== store.id) return res.status(404).json({ message: "Not found" });
     await storage.deleteFaq(faq.id);
     res.json({ success: true });
+  });
+
+  // --- Storefront Sections (Reviews — Owner routes) ---
+  app.get("/api/stores/:id/reviews", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const reviews = await storage.getReviewsByStore(store.id);
+    // Attach product titles
+    const reviewsWithProduct = await Promise.all(reviews.map(async (r) => {
+      const product = await storage.getProductById(r.productId);
+      return { ...r, productTitle: product?.title || null };
+    }));
+    res.json(reviewsWithProduct);
+  });
+
+  app.delete("/api/stores/:id/reviews/:reviewId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const review = await storage.getReviewById(req.params.reviewId as string);
+    if (!review || review.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    await storage.deleteReview(review.id);
+    res.json({ success: true });
+  });
+
+  // --- Newsletter Campaigns ---
+
+  app.get("/api/stores/:id/newsletter-campaigns", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const campaigns = await storage.getCampaignsByStore(store.id);
+    res.json(campaigns);
+  });
+
+  app.post("/api/stores/:id/newsletter-campaigns", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const schema = z.object({ subject: z.string().min(1) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Subject is required" });
+    const campaign = await storage.createCampaign({ storeId: store.id, subject: parsed.data.subject });
+    res.json(campaign);
+  });
+
+  app.patch("/api/stores/:id/newsletter-campaigns/:campaignId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const campaign = await storage.getCampaignById(req.params.campaignId as string);
+    if (!campaign || campaign.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    if (campaign.status === "sent") return res.status(400).json({ message: "Cannot edit a sent campaign" });
+    const schema = z.object({ subject: z.string().min(1).optional() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const updated = await storage.updateCampaign(campaign.id, parsed.data);
+    res.json(updated);
+  });
+
+  app.delete("/api/stores/:id/newsletter-campaigns/:campaignId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const campaign = await storage.getCampaignById(req.params.campaignId as string);
+    if (!campaign || campaign.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    await storage.deleteCampaign(campaign.id);
+    res.json({ success: true });
+  });
+
+  app.get("/api/stores/:id/newsletter-campaigns/:campaignId/blocks", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const campaign = await storage.getCampaignById(req.params.campaignId as string);
+    if (!campaign || campaign.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    const blocks = await storage.getBlocksByCampaign(campaign.id);
+    res.json(blocks);
+  });
+
+  app.post("/api/stores/:id/newsletter-campaigns/:campaignId/blocks", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const campaign = await storage.getCampaignById(req.params.campaignId as string);
+    if (!campaign || campaign.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    if (campaign.status === "sent") return res.status(400).json({ message: "Cannot edit a sent campaign" });
+    const schema = z.object({
+      type: z.enum(["text", "heading1", "heading2", "heading3", "image", "video", "link", "bullet_list", "numbered_list", "todo", "toggle", "code", "quote", "divider", "callout"]).optional(),
+      content: z.string().optional(),
+      sortOrder: z.number().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid block data" });
+    const block = await storage.createCampaignBlock({ campaignId: campaign.id, ...parsed.data });
+    res.json(block);
+  });
+
+  app.patch("/api/stores/:id/newsletter-campaigns/:campaignId/blocks/:blockId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const campaign = await storage.getCampaignById(req.params.campaignId as string);
+    if (!campaign || campaign.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    if (campaign.status === "sent") return res.status(400).json({ message: "Cannot edit a sent campaign" });
+    const schema = z.object({
+      type: z.enum(["text", "heading1", "heading2", "heading3", "image", "video", "link", "bullet_list", "numbered_list", "todo", "toggle", "code", "quote", "divider", "callout"]).optional(),
+      content: z.string().optional(),
+      sortOrder: z.number().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid block data" });
+    const updated = await storage.updateCampaignBlock(req.params.blockId as string, parsed.data);
+    res.json(updated);
+  });
+
+  app.delete("/api/stores/:id/newsletter-campaigns/:campaignId/blocks/:blockId", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const campaign = await storage.getCampaignById(req.params.campaignId as string);
+    if (!campaign || campaign.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    if (campaign.status === "sent") return res.status(400).json({ message: "Cannot edit a sent campaign" });
+    await storage.deleteCampaignBlock(req.params.blockId as string);
+    res.json({ success: true });
+  });
+
+  app.post("/api/stores/:id/newsletter-campaigns/:campaignId/send", isAuthenticated, async (req, res) => {
+    const store = await storage.getStoreById(req.params.id as string);
+    if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+    const campaign = await storage.getCampaignById(req.params.campaignId as string);
+    if (!campaign || campaign.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    if (campaign.status === "sent") return res.status(400).json({ message: "Campaign already sent" });
+
+    const subscribers = await storage.getNewsletterSubscribers(store.id);
+    if (subscribers.length === 0) return res.status(400).json({ message: "No subscribers to send to" });
+
+    const blocks = await storage.getBlocksByCampaign(campaign.id);
+
+    // Render blocks to HTML
+    const blocksHtml = blocks.map(block => {
+      const text = block.content || "";
+      switch (block.type) {
+        case "heading1": return `<h1 style="margin:0 0 16px;color:#111827;font-size:28px;font-weight:700;">${text}</h1>`;
+        case "heading2": return sectionHeading(text);
+        case "heading3": return `<h3 style="margin:0 0 12px;color:#1f2937;font-size:18px;font-weight:600;">${text}</h3>`;
+        case "divider": return divider();
+        case "image": return `<img src="${text}" alt="" style="max-width:100%;border-radius:8px;margin:16px 0;">`;
+        case "link": {
+          const [label, url] = text.split("|");
+          return url ? ctaButton(label, url) : bodyText(`<a href="${label}" style="color:#6366f1;">${label}</a>`);
+        }
+        case "quote": return `<blockquote style="margin:16px 0;padding:12px 16px;border-left:4px solid #6366f1;background:#f5f3ff;color:#374151;font-style:italic;">${text}</blockquote>`;
+        case "callout": return `<div style="margin:16px 0;padding:16px;border-radius:8px;background:#fffbeb;border:1px solid #fde68a;color:#374151;">${text}</div>`;
+        default: return bodyText(text);
+      }
+    }).join("\n");
+
+    const html = baseLayout(
+      `${sectionHeading(campaign.subject)}\n${blocksHtml}`,
+      campaign.subject
+    );
+
+    // Send staggered to all subscribers
+    const emails = subscribers.map(s => ({ to: s.email, subject: campaign.subject, html }));
+    await sendEmailStaggered(emails);
+
+    await storage.updateCampaign(campaign.id, {
+      status: "sent",
+      sentAt: new Date(),
+      recipientCount: subscribers.length,
+    });
+
+    res.json({ sent: subscribers.length });
   });
 
   app.get("/api/categories", isAuthenticated, async (req, res) => {
@@ -1797,6 +1963,61 @@ ${urls}</urlset>`;
     res.json({ ok: true });
   });
 
+  // --- KB Page Attachments ---
+
+  app.get("/api/kb-pages/:id/attachments", isAuthenticated, async (req, res) => {
+    const page = await storage.getKbPageById(req.params.id as string);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const attachments = await storage.getAttachmentsByPage(page.id);
+    res.json(attachments);
+  });
+
+  app.post("/api/kb-pages/:id/attachments", isAuthenticated, async (req, res) => {
+    const page = await storage.getKbPageById(req.params.id as string);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const schema = z.object({
+      name: z.string().min(1),
+      fileUrl: z.string().url(),
+      fileSize: z.number().int().positive().optional(),
+      mimeType: z.string().optional(),
+      sortOrder: z.number().int().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const existing = await storage.getAttachmentsByPage(page.id);
+    const attachment = await storage.createAttachment({
+      pageId: page.id,
+      ...parsed.data,
+      sortOrder: parsed.data.sortOrder ?? existing.length,
+    });
+    res.json(attachment);
+  });
+
+  app.patch("/api/kb-pages/:id/attachments/:attachmentId", isAuthenticated, async (req, res) => {
+    const page = await storage.getKbPageById(req.params.id as string);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    const schema = z.object({ name: z.string().min(1).optional(), sortOrder: z.number().int().optional() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const updated = await storage.updateAttachment(req.params.attachmentId as string, parsed.data);
+    res.json(updated);
+  });
+
+  app.delete("/api/kb-pages/:id/attachments/:attachmentId", isAuthenticated, async (req, res) => {
+    const page = await storage.getKbPageById(req.params.id as string);
+    if (!page) return res.status(404).json({ message: "Not found" });
+    const kb = await storage.getKnowledgeBaseById(page.knowledgeBaseId);
+    if (!kb || kb.ownerId !== getUserId(req)) return res.status(404).json({ message: "Not found" });
+    await storage.deleteAttachment(req.params.attachmentId as string);
+    res.json({ success: true });
+  });
+
   // Public KB viewer
   app.get("/api/kb/:id/view", async (req, res) => {
     const idParam = req.params.id as string;
@@ -1881,8 +2102,11 @@ ${urls}</urlset>`;
 
     const page = await storage.getKbPageById(req.params.pageId as string);
     if (!page || page.knowledgeBaseId !== kb.id) return res.status(404).json({ message: "Not found" });
-    const blocks = await storage.getKbBlocksByPage(page.id);
-    res.json({ page, blocks });
+    const [blocks, attachments] = await Promise.all([
+      storage.getKbBlocksByPage(page.id),
+      storage.getAttachmentsByPage(page.id),
+    ]);
+    res.json({ page, blocks, attachments });
   });
 
   // --- Blog routes (dashboard) ---
@@ -2089,11 +2313,12 @@ ${urls}</urlset>`;
     const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
-    const [storeProductRows, publishedBundles, testimonials, faqs] = await Promise.all([
+    const [storeProductRows, publishedBundles, testimonials, faqs, reviews] = await Promise.all([
       storage.getStoreProducts(store.id),
       storage.getPublishedBundlesByStore(store.id),
       storage.getTestimonialsByStore(store.id),
       storage.getFaqsByStore(store.id),
+      store.reviewsEnabled ? storage.getReviewsByStore(store.id) : Promise.resolve([]),
     ]);
     const publishedRows = storeProductRows.filter((sp) => sp.isPublished);
     const productsWithMeta = publishedRows.map((sp) => sanitizeProductForStorefront({
@@ -2118,7 +2343,7 @@ ${urls}</urlset>`;
       ...b,
       products: allBundleItems[i].map((item) => sanitizeProductForStorefront(item.product)),
     }));
-    res.json({ store: sanitizeStore(store), products: productsWithMeta, bundles: bundlesWithProducts, testimonials, faqs });
+    res.json({ store: sanitizeStore(store), products: productsWithMeta, bundles: bundlesWithProducts, testimonials, faqs, reviews });
   });
 
   app.post("/api/storefront/:slug/subscribe", async (req, res) => {
@@ -2134,6 +2359,87 @@ ${urls}</urlset>`;
 
     const subscriber = await storage.addNewsletterSubscriber({ storeId: store.id, email: parsed.data.email });
     res.status(201).json({ message: "Subscribed successfully", subscriber });
+  });
+
+  // --- Public storefront reviews ---
+  app.get("/api/storefront/:slug/reviews", async (req, res) => {
+    const store = await storage.getStoreBySlug(req.params.slug as string);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+
+    const productId = req.query.productId as string | undefined;
+    const reviews = productId
+      ? await storage.getReviewsByProduct(store.id, productId)
+      : await storage.getReviewsByStore(store.id);
+
+    const reviewsWithCustomer = await Promise.all(reviews.map(async (r) => {
+      const customer = await storage.getCustomerById(r.customerId);
+      const customerName = customer?.name || (customer?.email ? customer.email.split("@")[0] : "Customer");
+      return { ...r, customerName };
+    }));
+    res.json(reviewsWithCustomer);
+  });
+
+  // --- Buyer review routes ---
+  app.post("/api/storefront/:slug/reviews", async (req, res) => {
+    const customerAuth = await getCustomerFromCookie(req);
+    if (!customerAuth) return res.status(401).json({ message: "Not logged in" });
+
+    const store = await storage.getStoreBySlug(req.params.slug as string);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+    if (!store.reviewsEnabled) return res.status(403).json({ message: "Reviews are not enabled for this store" });
+
+    const schema = z.object({
+      productId: z.string(),
+      rating: z.number().int().min(1).max(5),
+      content: z.string().min(10),
+      title: z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.issues });
+
+    const parsedProductId = parsed.data.productId;
+
+    // Verify completed order containing this product
+    const customerOrders = await storage.getOrdersByCustomer(customerAuth.customerId);
+    const completedOrders = customerOrders.filter((o) => o.storeId === store.id && o.status === "COMPLETED");
+    let foundOrderId: string | null = null;
+    for (const order of completedOrders) {
+      const items = await db.select().from(orderItems).where(
+        and(eq(orderItems.orderId, order.id), eq(orderItems.productId, parsedProductId))
+      );
+      if (items.length > 0) {
+        foundOrderId = order.id;
+        break;
+      }
+    }
+    if (!foundOrderId) return res.status(403).json({ message: "You must have purchased this product to leave a review" });
+
+    // Check no duplicate
+    const existing = await storage.getReviewByCustomerAndProduct(customerAuth.customerId, parsedProductId);
+    if (existing) return res.status(409).json({ message: "You have already reviewed this product" });
+
+    const review = await storage.createReview({
+      storeId: store.id,
+      customerId: customerAuth.customerId,
+      orderId: foundOrderId,
+      ...parsed.data,
+    });
+    res.status(201).json(review);
+  });
+
+  app.delete("/api/storefront/:slug/reviews/:reviewId", async (req, res) => {
+    const customerAuth = await getCustomerFromCookie(req);
+    if (!customerAuth) return res.status(401).json({ message: "Not logged in" });
+
+    const store = await storage.getStoreBySlug(req.params.slug as string);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+
+    const review = await storage.getReviewById(req.params.reviewId as string);
+    if (!review || review.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+    if (review.customerId !== customerAuth.customerId) return res.status(403).json({ message: "Forbidden" });
+
+    await storage.deleteReview(review.id);
+    res.json({ success: true });
   });
 
   app.get("/api/storefront/:slug/product/:productId", async (req, res) => {
@@ -2254,10 +2560,11 @@ ${urls}</urlset>`;
       storeId: z.string(),
       productId: z.string().optional(),
       bundleId: z.string().optional(),
+      items: z.array(z.object({ productId: z.string() })).optional(),
       buyerEmail: z.string().email().optional(),
       couponCode: z.string().optional(),
       paymentMethod: z.enum(["stripe", "paypal"]).optional(),
-    }).refine(d => d.productId || d.bundleId, { message: "productId or bundleId required" });
+    }).refine(d => d.productId || d.bundleId || (d.items && d.items.length > 0), { message: "productId, bundleId, or items required" });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
 
@@ -2268,7 +2575,7 @@ ${urls}</urlset>`;
     let itemName = "";
     let itemDescription = "";
     let itemImage: string | null = null;
-    const itemsToAdd: { productId: string; priceCents: number }[] = [];
+    const itemsToAdd: { productId: string; priceCents: number; title?: string; image?: string | null }[] = [];
 
     if (parsed.data.bundleId) {
       const bundleData = await storage.getBundleWithProducts(parsed.data.bundleId);
@@ -2278,8 +2585,22 @@ ${urls}</urlset>`;
       itemDescription = `Bundle from ${store.name} — ${bundleData.products.length} items`;
       itemImage = bundleData.bundle.thumbnailUrl;
       for (const p of bundleData.products) {
-        itemsToAdd.push({ productId: p.id, priceCents: p.priceCents });
+        itemsToAdd.push({ productId: p.id, priceCents: p.priceCents, title: p.title, image: p.thumbnailUrl });
       }
+    } else if (parsed.data.items && parsed.data.items.length > 0) {
+      // Cart checkout: multiple products
+      for (const cartItem of parsed.data.items) {
+        const product = await storage.getProductById(cartItem.productId);
+        if (!product) return res.status(404).json({ message: `Product ${cartItem.productId} not found` });
+        const sp = await storage.getStoreProductByStoreAndProduct(store.id, product.id);
+        if (!sp || !sp.isPublished) return res.status(404).json({ message: `Product ${product.title} not available in this store` });
+        const effectivePrice = sp.customPriceCents ?? product.priceCents;
+        totalCents += effectivePrice;
+        itemsToAdd.push({ productId: product.id, priceCents: effectivePrice, title: sp.customTitle || product.title, image: product.thumbnailUrl });
+      }
+      itemName = itemsToAdd.length === 1 ? itemsToAdd[0].title! : `${itemsToAdd.length} items from ${store.name}`;
+      itemDescription = itemsToAdd.map(i => i.title).join(", ");
+      itemImage = itemsToAdd[0]?.image || null;
     } else if (parsed.data.productId) {
       const product = await storage.getProductById(parsed.data.productId);
       if (!product) return res.status(404).json({ message: "Product not found" });
@@ -2290,7 +2611,7 @@ ${urls}</urlset>`;
       itemName = sp.customTitle || product.title;
       itemDescription = sp.customDescription || product.description || `Digital product from ${store.name}`;
       itemImage = product.thumbnailUrl;
-      itemsToAdd.push({ productId: product.id, priceCents: effectivePrice });
+      itemsToAdd.push({ productId: product.id, priceCents: effectivePrice, title: itemName, image: itemImage });
     }
 
     let couponId: string | null = null;
@@ -2429,22 +2750,33 @@ ${urls}</urlset>`;
       try {
         const stripe = new Stripe(store.stripeSecretKey!, { apiVersion: '2025-11-17.clover' as any });
 
-        const productData: any = { name: itemName };
-        if (itemDescription) productData.description = itemDescription.substring(0, 500);
-        const images: string[] = [];
-        if (itemImage && itemImage.startsWith("http")) images.push(itemImage);
-        if (images.length > 0) productData.images = images;
+        // Build Stripe line_items — one per cart item for clarity, or one combined line for bundles
+        const stripeLineItems = itemsToAdd.length > 1 && parsed.data.items
+          ? itemsToAdd.map(item => {
+              const pd: any = { name: item.title || itemName };
+              if (item.image && item.image.startsWith("http")) pd.images = [item.image];
+              return {
+                price_data: { currency: 'usd', product_data: pd, unit_amount: item.priceCents },
+                quantity: 1,
+              };
+            })
+          : [{
+              price_data: {
+                currency: 'usd',
+                product_data: (() => {
+                  const pd: any = { name: itemName };
+                  if (itemDescription) pd.description = itemDescription.substring(0, 500);
+                  if (itemImage && itemImage.startsWith("http")) pd.images = [itemImage];
+                  return pd;
+                })(),
+                unit_amount: finalTotalCents,
+              },
+              quantity: 1,
+            }];
 
         const sessionParams: any = {
           mode: 'payment',
-          line_items: [{
-            price_data: {
-              currency: 'usd',
-              product_data: productData,
-              unit_amount: finalTotalCents,
-            },
-            quantity: 1,
-          }],
+          line_items: stripeLineItems,
           metadata: {
             orderId: order.id,
             storeId: store.id,
@@ -2651,10 +2983,27 @@ ${urls}</urlset>`;
       }
     }
 
-    const emailItems = await Promise.all(items.map(async (i) => {
-      const sp = await storage.getStoreProductByStoreAndProduct(order.storeId, i.productId);
-      return { title: sp?.customTitle || i.product.title, priceCents: i.priceCents };
+    const storeProducts = await Promise.all(items.map(i => storage.getStoreProductByStoreAndProduct(order.storeId, i.productId)));
+    const emailItems = items.map((i, idx) => ({
+      title: storeProducts[idx]?.customTitle || i.product.title,
+      priceCents: i.priceCents,
     }));
+
+    // Resolve upsell from the first item that has one configured
+    let upsellProduct = null;
+    let upsellBundle = null;
+    for (const sp of storeProducts) {
+      if (!sp) continue;
+      if (sp.upsellProductId && !upsellProduct) {
+        const p = await storage.getProductById(sp.upsellProductId);
+        if (p) upsellProduct = { id: p.id, title: p.title, description: p.description, priceCents: p.priceCents, thumbnailUrl: p.thumbnailUrl };
+      }
+      if (sp.upsellBundleId && !upsellBundle) {
+        const b = await storage.getBundleWithProducts(sp.upsellBundleId);
+        if (b) upsellBundle = { id: b.bundle.id, name: b.bundle.name, description: b.bundle.description, priceCents: b.bundle.priceCents, thumbnailUrl: b.bundle.thumbnailUrl, productCount: b.products.length };
+      }
+      if (upsellProduct && upsellBundle) break;
+    }
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
 
@@ -2673,6 +3022,8 @@ ${urls}</urlset>`;
       store: store ? { name: store.name, slug: store.slug } : null,
       items: emailItems,
       fileCount,
+      upsellProduct,
+      upsellBundle,
     });
     } catch (error: any) {
       console.error("Checkout success error:", error);

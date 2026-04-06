@@ -8,7 +8,7 @@ import { BaseTemplate } from "@/components/storefront/base-template";
 import { getTheme } from "@/components/storefront/themes";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { trackEvent } from "@/lib/tracking";
-import type { Store, Product, Bundle } from "@shared/schema";
+import type { Store, Product, Bundle, StoreTestimonial, StoreFaq, StoreReview } from "@shared/schema";
 
 const preloadProductDetail = () => import("./product-detail");
 const preloadBundleDetail = () => import("./bundle-detail");
@@ -19,6 +19,9 @@ type StorefrontData = {
   store: Store;
   products: Product[];
   bundles?: BundleWithProducts[];
+  testimonials?: StoreTestimonial[];
+  faqs?: StoreFaq[];
+  reviews?: StoreReview[];
 };
 
 const legacyTemplates = ["neon", "silk"];
@@ -100,7 +103,7 @@ export default function StorefrontPage({ params: propParams }: { params?: { slug
 
   const theme = getTheme(templateKey);
   if (theme) {
-    return <BaseTemplate store={data.store} products={data.products} bundles={data.bundles || []} theme={theme} />;
+    return <BaseTemplate store={data.store} products={data.products} bundles={data.bundles || []} theme={theme} testimonials={data.testimonials} faqs={data.faqs} reviews={data.reviews} />;
   }
 
   return <NeonTemplate store={data.store} products={data.products} bundles={data.bundles || []} />;

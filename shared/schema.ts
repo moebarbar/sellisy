@@ -11,6 +11,7 @@ export const orderStatusEnum = pgEnum("order_status", ["PENDING", "COMPLETED", "
 export const planTierEnum = pgEnum("plan_tier", ["basic", "pro", "max"]);
 export const productTypeEnum = pgEnum("product_type", ["digital", "software", "template", "ebook", "course", "graphics"]);
 export const paymentProviderEnum = pgEnum("payment_provider", ["stripe", "paypal"]);
+export const campaignStatusEnum = pgEnum("campaign_status", ["draft", "sent"]);
 
 export const userProfiles = pgTable("user_profiles", {
   userId: varchar("user_id", { length: 64 }).primaryKey(),
@@ -112,6 +113,7 @@ export const stores = pgTable("stores", {
   newsletterHeadline: text("newsletter_headline"),
   newsletterSubtext: text("newsletter_subtext"),
   sectionOrder: text("section_order"),
+  reviewsEnabled: boolean("reviews_enabled").notNull().default(false),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -421,6 +423,21 @@ export const insertKbBlockSchema = createInsertSchema(kbBlocks).omit({ id: true 
 export type InsertKbBlock = z.infer<typeof insertKbBlockSchema>;
 export type KbBlock = typeof kbBlocks.$inferSelect;
 
+export const kbPageAttachments = pgTable("kb_page_attachments", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  pageId: varchar("page_id", { length: 64 }).notNull(),
+  name: text("name").notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileSize: integer("file_size"),
+  mimeType: text("mime_type"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertKbPageAttachmentSchema = createInsertSchema(kbPageAttachments).omit({ id: true, createdAt: true });
+export type InsertKbPageAttachment = z.infer<typeof insertKbPageAttachmentSchema>;
+export type KbPageAttachment = typeof kbPageAttachments.$inferSelect;
+
 export const storeEventTypeEnum = pgEnum("store_event_type", ["page_view", "product_view", "bundle_view", "checkout_start", "add_to_cart"]);
 
 export const storeEvents = pgTable("store_events", {
@@ -528,3 +545,49 @@ export const newsletterSubscribers = pgTable("newsletter_subscribers", {
 export const insertNewsletterSubscriberSchema = createInsertSchema(newsletterSubscribers).omit({ id: true, createdAt: true });
 export type InsertNewsletterSubscriber = z.infer<typeof insertNewsletterSubscriberSchema>;
 export type NewsletterSubscriber = typeof newsletterSubscribers.$inferSelect;
+
+export const storeReviews = pgTable("store_reviews", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  customerId: varchar("customer_id", { length: 64 }).notNull(),
+  productId: varchar("product_id", { length: 64 }).notNull(),
+  orderId: varchar("order_id", { length: 64 }).notNull(),
+  rating: integer("rating").notNull(),
+  title: text("title"),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("store_reviews_customer_product_idx").on(t.customerId, t.productId),
+]);
+
+export const insertStoreReviewSchema = createInsertSchema(storeReviews).omit({ id: true, createdAt: true });
+export type InsertStoreReview = z.infer<typeof insertStoreReviewSchema>;
+export type StoreReview = typeof storeReviews.$inferSelect;
+
+// ── Newsletter Campaigns ───────────────────────────────────────────
+
+export const newsletterCampaigns = pgTable("newsletter_campaigns", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  subject: text("subject").notNull(),
+  status: campaignStatusEnum("status").notNull().default("draft"),
+  sentAt: timestamp("sent_at"),
+  recipientCount: integer("recipient_count"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertNewsletterCampaignSchema = createInsertSchema(newsletterCampaigns).omit({ id: true, createdAt: true });
+export type InsertNewsletterCampaign = z.infer<typeof insertNewsletterCampaignSchema>;
+export type NewsletterCampaign = typeof newsletterCampaigns.$inferSelect;
+
+export const newsletterCampaignBlocks = pgTable("newsletter_campaign_blocks", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id", { length: 64 }).notNull(),
+  type: blockTypeEnum("type").notNull().default("text"),
+  content: text("content").notNull().default(""),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertNewsletterCampaignBlockSchema = createInsertSchema(newsletterCampaignBlocks).omit({ id: true });
+export type InsertNewsletterCampaignBlock = z.infer<typeof insertNewsletterCampaignBlockSchema>;
+export type NewsletterCampaignBlock = typeof newsletterCampaignBlocks.$inferSelect;

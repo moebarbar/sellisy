@@ -3,8 +3,9 @@ import { db } from "./db";
 import {
   stores, products, fileAssets, storeProducts, orders, orderItems, downloadTokens,
   bundles, bundleItems, coupons, productImages, categories, userProfiles,
-  customers, customerSessions, knowledgeBases, kbPages, kbBlocks, storeEvents, blogPosts, blogBlocks,
-  storeTestimonials, storeFaqs, newsletterSubscribers,
+  customers, customerSessions, knowledgeBases, kbPages, kbBlocks, kbPageAttachments, storeEvents, blogPosts, blogBlocks,
+  storeTestimonials, storeFaqs, newsletterSubscribers, storeReviews,
+  newsletterCampaigns, newsletterCampaignBlocks,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -30,6 +31,10 @@ import {
   type StoreTestimonial, type InsertStoreTestimonial,
   type StoreFaq, type InsertStoreFaq,
   type NewsletterSubscriber, type InsertNewsletterSubscriber,
+  type StoreReview, type InsertStoreReview,
+  type NewsletterCampaign, type InsertNewsletterCampaign,
+  type NewsletterCampaignBlock, type InsertNewsletterCampaignBlock,
+  type KbPageAttachment, type InsertKbPageAttachment,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -38,7 +43,7 @@ export interface IStorage {
   getStoreById(id: string): Promise<Store | undefined>;
   getStoreBySlug(slug: string): Promise<Store | undefined>;
   createStore(store: InsertStore): Promise<Store>;
-  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload" | "aboutEnabled" | "aboutHeadline" | "aboutText" | "aboutImageUrl" | "aboutCtaText" | "aboutCtaUrl" | "testimonialsEnabled" | "faqEnabled" | "newsletterEnabled" | "newsletterHeadline" | "newsletterSubtext" | "sectionOrder">>): Promise<Store | undefined>;
+  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload" | "aboutEnabled" | "aboutHeadline" | "aboutText" | "aboutImageUrl" | "aboutCtaText" | "aboutCtaUrl" | "testimonialsEnabled" | "faqEnabled" | "newsletterEnabled" | "newsletterHeadline" | "newsletterSubtext" | "sectionOrder" | "reviewsEnabled">>): Promise<Store | undefined>;
   deleteStore(id: string, callerOwnerId?: string): Promise<void>;
   hardDeleteStore(id: string): Promise<void>;
   restoreStore(id: string): Promise<Store | undefined>;
@@ -144,6 +149,12 @@ export interface IStorage {
   deleteKbBlocksBulk(ids: string[]): Promise<void>;
   reorderKbBlocks(pageId: string, blockIds: string[]): Promise<void>;
 
+  // KB Page Attachments
+  getAttachmentsByPage(pageId: string): Promise<KbPageAttachment[]>;
+  createAttachment(data: InsertKbPageAttachment): Promise<KbPageAttachment>;
+  updateAttachment(id: string, data: Partial<Pick<KbPageAttachment, "name" | "sortOrder">>): Promise<KbPageAttachment | undefined>;
+  deleteAttachment(id: string): Promise<void>;
+
   createStoreEvent(event: InsertStoreEvent): Promise<StoreEvent>;
   getStoreCustomers(storeId: string): Promise<{ id: string; email: string; name: string | null; createdAt: Date; totalSpent: number; orderCount: number; lastOrderDate: Date | null; products: string[] }[]>;
   updateCustomerName(customerId: string, name: string): Promise<void>;
@@ -182,6 +193,25 @@ export interface IStorage {
   getNewsletterSubscribers(storeId: string): Promise<NewsletterSubscriber[]>;
   addNewsletterSubscriber(data: InsertNewsletterSubscriber): Promise<NewsletterSubscriber>;
   getNewsletterSubscriberByEmail(storeId: string, email: string): Promise<NewsletterSubscriber | undefined>;
+
+  // Reviews
+  getReviewsByStore(storeId: string): Promise<StoreReview[]>;
+  getReviewsByProduct(storeId: string, productId: string): Promise<StoreReview[]>;
+  getReviewByCustomerAndProduct(customerId: string, productId: string): Promise<StoreReview | undefined>;
+  getReviewById(id: string): Promise<StoreReview | undefined>;
+  createReview(data: InsertStoreReview): Promise<StoreReview>;
+  deleteReview(id: string): Promise<void>;
+
+  // Newsletter Campaigns
+  getCampaignsByStore(storeId: string): Promise<NewsletterCampaign[]>;
+  getCampaignById(id: string): Promise<NewsletterCampaign | undefined>;
+  createCampaign(data: InsertNewsletterCampaign): Promise<NewsletterCampaign>;
+  updateCampaign(id: string, data: Partial<InsertNewsletterCampaign>): Promise<NewsletterCampaign>;
+  deleteCampaign(id: string): Promise<void>;
+  getBlocksByCampaign(campaignId: string): Promise<NewsletterCampaignBlock[]>;
+  createCampaignBlock(data: InsertNewsletterCampaignBlock): Promise<NewsletterCampaignBlock>;
+  updateCampaignBlock(id: string, data: Partial<InsertNewsletterCampaignBlock>): Promise<NewsletterCampaignBlock>;
+  deleteCampaignBlock(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -208,7 +238,7 @@ export class DatabaseStorage implements IStorage {
     return store;
   }
 
-  async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload" | "aboutEnabled" | "aboutHeadline" | "aboutText" | "aboutImageUrl" | "aboutCtaText" | "aboutCtaUrl" | "testimonialsEnabled" | "faqEnabled" | "newsletterEnabled" | "newsletterHeadline" | "newsletterSubtext" | "sectionOrder">>) {
+  async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload" | "aboutEnabled" | "aboutHeadline" | "aboutText" | "aboutImageUrl" | "aboutCtaText" | "aboutCtaUrl" | "testimonialsEnabled" | "faqEnabled" | "newsletterEnabled" | "newsletterHeadline" | "newsletterSubtext" | "sectionOrder" | "reviewsEnabled">>) {
     const [store] = await db.update(stores).set(data).where(eq(stores.id, id)).returning();
     return store;
   }
@@ -720,6 +750,28 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // ── KB Page Attachments ──────────────────────────────────────────
+
+  async getAttachmentsByPage(pageId: string) {
+    return db.select().from(kbPageAttachments)
+      .where(eq(kbPageAttachments.pageId, pageId))
+      .orderBy(kbPageAttachments.sortOrder);
+  }
+
+  async createAttachment(data: InsertKbPageAttachment) {
+    const [row] = await db.insert(kbPageAttachments).values(data).returning();
+    return row;
+  }
+
+  async updateAttachment(id: string, data: Partial<Pick<KbPageAttachment, "name" | "sortOrder">>) {
+    const [row] = await db.update(kbPageAttachments).set(data).where(eq(kbPageAttachments.id, id)).returning();
+    return row;
+  }
+
+  async deleteAttachment(id: string) {
+    await db.delete(kbPageAttachments).where(eq(kbPageAttachments.id, id));
+  }
+
   async createStoreEvent(event: InsertStoreEvent) {
     const [row] = await db.insert(storeEvents).values(event).returning();
     return row;
@@ -901,6 +953,79 @@ export class DatabaseStorage implements IStorage {
       and(eq(newsletterSubscribers.storeId, storeId), eq(newsletterSubscribers.email, email.toLowerCase()))
     );
     return sub;
+  }
+
+  // ── Reviews ────────────────────────────────────────────────────
+
+  async getReviewsByStore(storeId: string) {
+    return db.select().from(storeReviews).where(eq(storeReviews.storeId, storeId)).orderBy(desc(storeReviews.createdAt));
+  }
+
+  async getReviewsByProduct(storeId: string, productId: string) {
+    return db.select().from(storeReviews).where(and(eq(storeReviews.storeId, storeId), eq(storeReviews.productId, productId))).orderBy(desc(storeReviews.createdAt));
+  }
+
+  async getReviewByCustomerAndProduct(customerId: string, productId: string) {
+    const [r] = await db.select().from(storeReviews).where(and(eq(storeReviews.customerId, customerId), eq(storeReviews.productId, productId)));
+    return r;
+  }
+
+  async getReviewById(id: string) {
+    const [r] = await db.select().from(storeReviews).where(eq(storeReviews.id, id));
+    return r;
+  }
+
+  async createReview(data: InsertStoreReview) {
+    const [r] = await db.insert(storeReviews).values(data).returning();
+    return r;
+  }
+
+  async deleteReview(id: string) {
+    await db.delete(storeReviews).where(eq(storeReviews.id, id));
+  }
+
+  // ── Newsletter Campaigns ─────────────────────────────────────────
+
+  async getCampaignsByStore(storeId: string) {
+    return db.select().from(newsletterCampaigns).where(eq(newsletterCampaigns.storeId, storeId)).orderBy(desc(newsletterCampaigns.createdAt));
+  }
+
+  async getCampaignById(id: string) {
+    const [c] = await db.select().from(newsletterCampaigns).where(eq(newsletterCampaigns.id, id));
+    return c;
+  }
+
+  async createCampaign(data: InsertNewsletterCampaign) {
+    const [c] = await db.insert(newsletterCampaigns).values(data).returning();
+    return c;
+  }
+
+  async updateCampaign(id: string, data: Partial<InsertNewsletterCampaign>) {
+    const [c] = await db.update(newsletterCampaigns).set(data).where(eq(newsletterCampaigns.id, id)).returning();
+    return c;
+  }
+
+  async deleteCampaign(id: string) {
+    await db.delete(newsletterCampaignBlocks).where(eq(newsletterCampaignBlocks.campaignId, id));
+    await db.delete(newsletterCampaigns).where(eq(newsletterCampaigns.id, id));
+  }
+
+  async getBlocksByCampaign(campaignId: string) {
+    return db.select().from(newsletterCampaignBlocks).where(eq(newsletterCampaignBlocks.campaignId, campaignId)).orderBy(newsletterCampaignBlocks.sortOrder);
+  }
+
+  async createCampaignBlock(data: InsertNewsletterCampaignBlock) {
+    const [b] = await db.insert(newsletterCampaignBlocks).values(data).returning();
+    return b;
+  }
+
+  async updateCampaignBlock(id: string, data: Partial<InsertNewsletterCampaignBlock>) {
+    const [b] = await db.update(newsletterCampaignBlocks).set(data).where(eq(newsletterCampaignBlocks.id, id)).returning();
+    return b;
+  }
+
+  async deleteCampaignBlock(id: string) {
+    await db.delete(newsletterCampaignBlocks).where(eq(newsletterCampaignBlocks.id, id));
   }
 }
 

@@ -33,6 +33,8 @@ const AnalyticsPage = lazy(() => import("@/pages/dashboard/analytics"));
 const CustomersPage = lazy(() => import("@/pages/dashboard/customers"));
 const BlogPostsPage = lazy(() => import("@/pages/dashboard/blog-posts"));
 const BlogEditorPage = lazy(() => import("@/pages/dashboard/blog-editor"));
+const NewsletterCampaignsPage = lazy(() => import("@/pages/dashboard/newsletter-campaigns"));
+const NewsletterCampaignEditorPage = lazy(() => import("@/pages/dashboard/newsletter-campaign-editor"));
 const DataHealthPage = lazy(() => import("@/pages/dashboard/data-health"));
 
 const AuthPage = lazy(() => import("@/pages/auth"));
@@ -160,6 +162,8 @@ function DashboardRouter() {
             <Route path="/dashboard/content-creator" component={KnowledgeBasesPage} />
             <Route path="/dashboard/blog/:id" component={BlogEditorPage} />
             <Route path="/dashboard/blog" component={BlogPostsPage} />
+            <Route path="/dashboard/newsletter/:id" component={NewsletterCampaignEditorPage} />
+            <Route path="/dashboard/newsletter" component={NewsletterCampaignsPage} />
             <Route path="/dashboard/data-health" component={DataHealthPage} />
           </Switch>
         </FadeIn>
