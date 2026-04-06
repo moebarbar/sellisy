@@ -153,6 +153,16 @@ function neonCss(c: ThemeColors, mode: ThemeMode): string {
       border: 1px solid ${isDark ? "rgba(16,185,129,0.3)" : "rgba(16,185,129,0.2)"};
       color: ${isDark ? "#6ee7b7" : "#059669"};
     }
+    .t-verified-badge {
+      background: ${isDark ? "rgba(16,185,129,0.12)" : "rgba(16,185,129,0.08)"};
+      border: 1px solid ${isDark ? "rgba(16,185,129,0.28)" : "rgba(16,185,129,0.18)"};
+      color: ${isDark ? "#6ee7b7" : "#059669"};
+    }
+    .t-guarantee-badge {
+      background: ${isDark ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.08)"};
+      border: 1px solid ${isDark ? "rgba(59,130,246,0.28)" : "rgba(59,130,246,0.18)"};
+      color: ${isDark ? "#93c5fd" : "#2563eb"};
+    }
     .t-savings-glow {
       background: ${isDark ? "linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.15))" : "linear-gradient(135deg, rgba(16,185,129,0.06), rgba(5,150,105,0.1))"};
       border: 1px solid ${isDark ? "rgba(16,185,129,0.2)" : "rgba(16,185,129,0.15)"};

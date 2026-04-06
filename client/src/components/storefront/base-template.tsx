@@ -44,11 +44,31 @@ interface BaseTemplateProps {
   testimonials?: StoreTestimonial[];
   faqs?: StoreFaq[];
   reviews?: StoreReview[];
+  subscriberCount?: number;
 }
 
-function BaseTemplateInner({ store, products, bundles, theme, testimonials = [], faqs = [], reviews = [] }: BaseTemplateProps) {
+function BaseTemplateInner({ store, products, bundles, theme, testimonials = [], faqs = [], reviews = [], subscriberCount = 0 }: BaseTemplateProps) {
   const { addItem, openCart, items: cartItems } = useCart();
   const basePath = useMemo(() => getStoreBasePath(store.slug), [store.slug]);
+
+  // Per-product rating aggregates (only computed when ratings are enabled)
+  const productRatingMap = useMemo(() => {
+    const map = new Map<string, { avg: number; count: number }>();
+    if ((store as any).reviewsEnabled && (store as any).showRatingsOnCards && reviews.length > 0) {
+      const grouped: Record<string, number[]> = {};
+      for (const r of reviews) {
+        if (r.productId) {
+          if (!grouped[r.productId]) grouped[r.productId] = [];
+          grouped[r.productId].push(r.rating);
+        }
+      }
+      for (const [pid, ratings] of Object.entries(grouped)) {
+        const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+        map.set(pid, { avg: Math.round(avg * 10) / 10, count: ratings.length });
+      }
+    }
+    return map;
+  }, [reviews, (store as any).reviewsEnabled, (store as any).showRatingsOnCards]);
 
   const sectionOrder = useMemo(() => {
     try {
@@ -473,6 +493,8 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
                 ? product.description.length > 80 ? product.description.slice(0, 80).trimEnd() + "..." : product.description
                 : null;
 
+              const productRating = productRatingMap.get(product.id);
+
               return (
                 <div key={product.id} className="sf-reveal-item flex">
                   <div className={`${theme.effects.cardClass} group flex flex-col w-full`} data-testid={`card-product-${product.id}`} onMouseEnter={() => prefetchProduct(product.id)}>
@@ -488,7 +510,7 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
                           <StorefrontProductPlaceholder productType={product.productType} accentColor={store.accentColor || undefined} title={product.title} className="aspect-square" />
                         )}
                       </a>
-                      {hasDiscount && (
+                      {hasDiscount && (store as any).showDiscountBadges !== false && (
                         <div className="absolute top-3 right-3 t-discount px-2.5 py-1 text-xs font-bold rounded-full" data-testid={`badge-discount-${product.id}`}>
                           -{discountPct}%
                         </div>
@@ -518,6 +540,13 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
                         </h3>
                       </a>
 
+                      {productRating && (
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className="text-xs" style={{ color: "#f59e0b" }}>{"★".repeat(Math.round(productRating.avg))}{"☆".repeat(5 - Math.round(productRating.avg))}</span>
+                          <span className="text-[10px]" style={{ color: c.textSecondary }}>{productRating.avg} ({productRating.count})</span>
+                        </div>
+                      )}
+
                       <p className="text-xs mb-4" style={{ color: c.textSecondary, minHeight: "2.25em" }}>
                         {truncatedDesc || "\u00A0"}
                       </p>
@@ -540,7 +569,7 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
                           {product.isLeadMagnet ? (
                             <><Gift className="h-3.5 w-3.5 inline mr-1.5" />Get Free</>
                           ) : (
-                            <><ShoppingBag className="h-3.5 w-3.5 inline mr-1.5" />Buy</>
+                            <><ShoppingBag className="h-3.5 w-3.5 inline mr-1.5" />Add to Cart</>
                           )}
                         </button>
                       </div>
@@ -568,6 +597,7 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
             {regular.map((product) => {
               const hasDiscount = product.originalPriceCents != null && product.originalPriceCents > product.priceCents;
               const discountPct = hasDiscount ? Math.round(((product.originalPriceCents! - product.priceCents) / product.originalPriceCents!) * 100) : 0;
+              const productRating = productRatingMap.get(product.id);
 
               return (
                 <div key={product.id} className="sf-reveal-item">
@@ -585,7 +615,7 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
                           {product.category && (
                             <span className="text-xs tracking-[0.15em] uppercase font-medium" style={{ color: c.accent }}>{product.category}</span>
                           )}
-                          {hasDiscount && (
+                          {hasDiscount && (store as any).showDiscountBadges !== false && (
                             <span className="t-discount px-2.5 py-0.5 text-xs font-bold rounded-full" data-testid={`badge-discount-${product.id}`}>
                               -{discountPct}% OFF
                             </span>
@@ -602,6 +632,13 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
                             {product.title}
                           </h3>
                         </a>
+
+                        {productRating && (
+                          <div className="flex items-center gap-1.5 mb-3">
+                            <span className="text-sm" style={{ color: "#f59e0b" }}>{"★".repeat(Math.round(productRating.avg))}{"☆".repeat(5 - Math.round(productRating.avg))}</span>
+                            <span className="text-xs" style={{ color: c.textSecondary }}>{productRating.avg} · {productRating.count} {productRating.count === 1 ? "review" : "reviews"}</span>
+                          </div>
+                        )}
 
                         <div className="h-px w-full mb-4" style={{ background: c.divider }} />
 
@@ -764,7 +801,7 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
           case "testimonials": return <TestimonialsSection key="testimonials" store={store} testimonials={testimonials || []} c={c} theme={theme} />;
           case "reviews": return <ReviewsSection key="reviews" store={store} reviews={reviews || []} c={c} theme={theme} />;
           case "faq": return <FaqSection key="faq" store={store} faqs={faqs || []} c={c} theme={theme} />;
-          case "newsletter": return <NewsletterSection key="newsletter" store={store} c={c} theme={theme} />;
+          case "newsletter": return <NewsletterSection key="newsletter" store={store} c={c} theme={theme} subscriberCount={subscriberCount} />;
           default: return null;
         }
       })}

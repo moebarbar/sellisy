@@ -23,6 +23,7 @@ import { TestimonialsSettingsCard } from "@/components/dashboard/testimonials-se
 import { FaqSettingsCard } from "@/components/dashboard/faq-settings";
 import { ReviewsSettingsCard } from "@/components/dashboard/reviews-settings";
 import { SectionOrderSettingsCard } from "@/components/dashboard/section-order-settings";
+import { ConversionSettingsCard } from "@/components/dashboard/conversion-settings";
 
 
 
@@ -382,6 +383,7 @@ export default function StoreSettingsPage() {
       <ReviewsSettingsCard />
       <FaqSettingsCard />
       <NewsletterSettingsCard />
+      <ConversionSettingsCard />
       <SectionOrderSettingsCard />
 
       <Card>

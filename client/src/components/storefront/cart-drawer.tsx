@@ -1,4 +1,4 @@
-import { X, Trash2, ShoppingCart, ArrowRight } from "lucide-react";
+import { X, Trash2, ShoppingCart, ArrowRight, ShieldCheck, Zap } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
 import { ProtectedImage } from "@/components/protected-image";
 import type { ThemeColors, StorefrontTheme } from "./theme-types";
@@ -63,9 +63,12 @@ export function CartDrawer({ c, theme, storeId, allowImageDownload, onCheckout }
         {/* Items */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 py-16" style={{ color: c.textSecondary }}>
-              <ShoppingCart className="h-12 w-12 opacity-30" />
-              <p className="text-sm">Your cart is empty</p>
+            <div className="flex flex-col items-center justify-center h-full gap-4 py-16 text-center px-4" style={{ color: c.textSecondary }}>
+              <ShoppingCart className="h-14 w-14 opacity-20" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold" style={{ color: c.text }}>Your cart is empty</p>
+                <p className="text-xs">Browse products and add them to start your order.</p>
+              </div>
             </div>
           ) : (
             items.map(item => (
@@ -131,6 +134,18 @@ export function CartDrawer({ c, theme, storeId, allowImageDownload, onCheckout }
             >
               Checkout <ArrowRight className="h-4 w-4" />
             </button>
+
+            {/* Trust signals */}
+            <div className="flex items-center justify-center gap-4 pt-1">
+              <div className="flex items-center gap-1 text-[10px]" style={{ color: c.textSecondary }}>
+                <ShieldCheck className="h-3 w-3" />
+                <span>Secure checkout</span>
+              </div>
+              <div className="flex items-center gap-1 text-[10px]" style={{ color: c.textSecondary }}>
+                <Zap className="h-3 w-3" />
+                <span>Instant delivery</span>
+              </div>
+            </div>
           </div>
         )}
       </div>

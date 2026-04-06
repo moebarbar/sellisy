@@ -114,6 +114,9 @@ export const stores = pgTable("stores", {
   newsletterSubtext: text("newsletter_subtext"),
   sectionOrder: text("section_order"),
   reviewsEnabled: boolean("reviews_enabled").notNull().default(false),
+  showRatingsOnCards: boolean("show_ratings_on_cards").notNull().default(true),
+  showDiscountBadges: boolean("show_discount_badges").notNull().default(true),
+  showSubscriberCount: boolean("show_subscriber_count").notNull().default(false),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
