@@ -66,8 +66,8 @@ import {
   Palette,
 } from "lucide-react";
 import { useUpload } from "@/hooks/use-upload";
-import { Upload, X } from "lucide-react";
-import type { KnowledgeBase, KbPage, KbBlock } from "@shared/schema";
+import { Upload, X, Paperclip, Download, FileUp } from "lucide-react";
+import type { KnowledgeBase, KbPage, KbBlock, KbPageAttachment } from "@shared/schema";
 
 type BlockType = "text" | "heading1" | "heading2" | "heading3" | "image" | "video" | "link" | "bullet_list" | "numbered_list" | "todo" | "toggle" | "code" | "quote" | "divider" | "callout";
 
@@ -3108,6 +3108,218 @@ function KbSettingsPanel({
   );
 }
 
+function formatBytes(bytes: number | null | undefined): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fileIcon(mimeType: string | null | undefined) {
+  if (!mimeType) return <Paperclip className="h-4 w-4" />;
+  if (mimeType.startsWith("image/")) return <ImageIcon className="h-4 w-4" />;
+  if (mimeType.includes("pdf")) return <FileText className="h-4 w-4" />;
+  if (mimeType.includes("video")) return <Video className="h-4 w-4" />;
+  return <Paperclip className="h-4 w-4" />;
+}
+
+function PageAttachments({ pageId }: { pageId: string }) {
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+
+  const { data: attachments = [], isLoading } = useQuery<KbPageAttachment[]>({
+    queryKey: [`/api/kb-pages/${pageId}/attachments`],
+    enabled: !!pageId,
+  });
+
+  const { uploadFile, isUploading, progress } = useUpload();
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { name: string; fileUrl: string; fileSize?: number; mimeType?: string }) => {
+      const res = await apiRequest("POST", `/api/kb-pages/${pageId}/attachments`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/kb-pages/${pageId}/attachments`] });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to save attachment.", variant: "destructive" }),
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const res = await apiRequest("PATCH", `/api/kb-pages/${pageId}/attachments/${id}`, { name });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/kb-pages/${pageId}/attachments`] });
+      setEditingId(null);
+    },
+    onError: () => toast({ title: "Error", description: "Failed to rename.", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/kb-pages/${pageId}/attachments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/kb-pages/${pageId}/attachments`] });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to delete attachment.", variant: "destructive" }),
+  });
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const result = await uploadFile(file);
+    if (!result) return;
+
+    await createMutation.mutateAsync({
+      name: file.name,
+      fileUrl: result.objectPath,
+      fileSize: file.size,
+      mimeType: file.type || undefined,
+    });
+
+    toast({ title: "Attached", description: `"${file.name}" added to this lesson.` });
+  };
+
+  const startRename = (attachment: KbPageAttachment) => {
+    setEditingId(attachment.id);
+    setEditingName(attachment.name);
+  };
+
+  const commitRename = (id: string) => {
+    if (editingName.trim()) renameMutation.mutate({ id, name: editingName.trim() });
+    else setEditingId(null);
+  };
+
+  return (
+    <div className="mt-10 pt-8 border-t">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Paperclip className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">Lesson Resources</span>
+          {attachments.length > 0 && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{attachments.length}</Badge>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+        >
+          {isUploading ? (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" />{progress}%</>
+          ) : (
+            <><FileUp className="h-3.5 w-3.5" />Attach File</>
+          )}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+        </div>
+      ) : attachments.length === 0 ? (
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          className="w-full flex flex-col items-center gap-2 py-6 border border-dashed rounded-lg text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
+        >
+          <Paperclip className="h-6 w-6 opacity-40" />
+          <span className="text-xs">Attach files for students to download — PDFs, templates, spreadsheets, ZIPs</span>
+        </button>
+      ) : (
+        <div className="space-y-1.5">
+          {attachments.map(attachment => (
+            <div
+              key={attachment.id}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg border bg-muted/30 group"
+            >
+              <span className="text-muted-foreground flex-shrink-0">{fileIcon(attachment.mimeType)}</span>
+
+              {editingId === attachment.id ? (
+                <Input
+                  autoFocus
+                  value={editingName}
+                  onChange={e => setEditingName(e.target.value)}
+                  onBlur={() => commitRename(attachment.id)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") commitRename(attachment.id);
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  className="h-7 text-sm flex-1"
+                />
+              ) : (
+                <span
+                  className="flex-1 text-sm truncate cursor-pointer"
+                  onDoubleClick={() => startRename(attachment)}
+                  title="Double-click to rename"
+                >
+                  {attachment.name}
+                </span>
+              )}
+
+              {attachment.fileSize && (
+                <span className="text-xs text-muted-foreground flex-shrink-0 hidden group-hover:inline">
+                  {formatBytes(attachment.fileSize)}
+                </span>
+              )}
+
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startRename(attachment)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Rename</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <a href={attachment.fileUrl} target="_blank" rel="noopener noreferrer">
+                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    </a>
+                  </TooltipTrigger>
+                  <TooltipContent>Download</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => deleteMutation.mutate(attachment.id)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Remove</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function KbEditorPage() {
   const [, params] = useRoute("/dashboard/kb/:id");
   const [, navigate] = useLocation();
@@ -3299,6 +3511,7 @@ export default function KbEditorPage() {
               onPageTitleChange={handlePageTitleChange}
               kbFontFamily={kb?.fontFamily || undefined}
             />
+            <PageAttachments pageId={activePageId} />
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center gap-6">

@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, ArrowUpDown, ExternalLink } from "lucide-react";
+import { ShoppingBag, Package, Sparkles, Sun, Moon, Gift, User, X, FileText, ArrowRight, Calendar, Search, ArrowUpDown, ExternalLink, ShoppingCart } from "lucide-react";
+import { CartProvider, useCart } from "@/lib/cart-context";
+import { CartDrawer } from "./cart-drawer";
 import { LeadMagnetModal } from "./lead-magnet-modal";
 import { ProtectedImage } from "@/components/protected-image";
 import { StorefrontProductPlaceholder } from "@/components/product-placeholder";
@@ -10,12 +12,13 @@ import { useStorefrontFilters } from "@/hooks/use-storefront-filters";
 import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 import { getStoreBasePath } from "@/lib/utils";
 import { FeaturedProducts } from "./featured-products";
-import type { Store, Product, Bundle, BlogPost, StoreTestimonial, StoreFaq } from "@shared/schema";
+import type { Store, Product, Bundle, BlogPost, StoreTestimonial, StoreFaq, StoreReview } from "@shared/schema";
 import type { StorefrontTheme, ThemeMode } from "./theme-types";
 import { AboutSection } from "./sections/about-section";
 import { TestimonialsSection } from "./sections/testimonials-section";
 import { FaqSection } from "./sections/faq-section";
 import { NewsletterSection } from "./sections/newsletter-section";
+import { ReviewsSection } from "./sections/reviews-section";
 
 type StorefrontProduct = Product & {
   isLeadMagnet?: boolean;
@@ -40,9 +43,11 @@ interface BaseTemplateProps {
   theme: StorefrontTheme;
   testimonials?: StoreTestimonial[];
   faqs?: StoreFaq[];
+  reviews?: StoreReview[];
 }
 
-export function BaseTemplate({ store, products, bundles, theme, testimonials = [], faqs = [] }: BaseTemplateProps) {
+function BaseTemplateInner({ store, products, bundles, theme, testimonials = [], faqs = [], reviews = [] }: BaseTemplateProps) {
+  const { addItem, openCart, items: cartItems } = useCart();
   const basePath = useMemo(() => getStoreBasePath(store.slug), [store.slug]);
 
   const sectionOrder = useMemo(() => {
@@ -53,7 +58,7 @@ export function BaseTemplate({ store, products, bundles, theme, testimonials = [
     } catch (e) {
       // ignore
     }
-    return ["hero", "about", "products", "testimonials", "bundles", "faq", "newsletter", "blog"];
+    return ["hero", "about", "products", "testimonials", "reviews", "bundles", "faq", "newsletter", "blog"];
   }, [store.sectionOrder]);
 
   const [mode, setMode] = useState<ThemeMode>(() => {
@@ -134,12 +139,45 @@ export function BaseTemplate({ store, products, bundles, theme, testimonials = [
     }
   };
 
-  const handleBuy = async (product: StorefrontProduct) => {
-    if (hasBothPayments) {
-      setPaymentModalProduct(product);
-    } else {
-      processCheckout(product);
+  const processCartCheckout = async (paymentMethod?: "stripe" | "paypal") => {
+    if (cartItems.length === 0) return;
+    setCheckoutError(null);
+    setCheckoutLoading(true);
+    try {
+      const body: Record<string, any> = {
+        storeId: store.id,
+        items: cartItems.map(i => ({ productId: i.productId })),
+      };
+      if (paymentMethod) body.paymentMethod = paymentMethod;
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCheckoutError(data.message || "Something went wrong. Please try again.");
+        return;
+      }
+      if (data.url) window.location.href = data.url;
+    } catch {
+      setCheckoutError("Checkout is not available right now. Please try again later.");
+    } finally {
+      setCheckoutLoading(false);
     }
+  };
+
+  const handleBuy = async (product: StorefrontProduct) => {
+    // Free ($0) products shouldn't reach here (they're lead magnets), but guard anyway
+    if (product.priceCents === 0) return;
+    addItem({
+      productId: product.id,
+      storeId: store.id,
+      title: product.title,
+      priceCents: product.priceCents,
+      thumbnailUrl: product.thumbnailUrl || null,
+    });
+    openCart();
   };
 
   const customAccent = store.accentColor || null;
@@ -223,6 +261,22 @@ export function BaseTemplate({ store, products, bundles, theme, testimonials = [
             >
               <User className="h-4 w-4" style={{ color: c.textSecondary }} />
             </a>
+            <button
+              onClick={openCart}
+              className={`${theme.effects.modeToggleClass} relative flex items-center justify-center w-9 h-9 rounded-lg`}
+              data-testid="button-cart"
+              aria-label="Cart"
+            >
+              <ShoppingCart className="h-4 w-4" style={{ color: c.textSecondary }} />
+              {cartItems.length > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[9px] font-bold rounded-full"
+                  style={{ background: c.accent, color: "#fff" }}
+                >
+                  {cartItems.length}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => setMode(m => m === "dark" ? "light" : "dark")}
               className={`${theme.effects.modeToggleClass} flex items-center justify-center w-9 h-9 rounded-lg`}
@@ -708,6 +762,7 @@ export function BaseTemplate({ store, products, bundles, theme, testimonials = [
           ) : null;
           case "about": return <AboutSection key="about" store={store} c={c} theme={theme} />;
           case "testimonials": return <TestimonialsSection key="testimonials" store={store} testimonials={testimonials || []} c={c} theme={theme} />;
+          case "reviews": return <ReviewsSection key="reviews" store={store} reviews={reviews || []} c={c} theme={theme} />;
           case "faq": return <FaqSection key="faq" store={store} faqs={faqs || []} c={c} theme={theme} />;
           case "newsletter": return <NewsletterSection key="newsletter" store={store} c={c} theme={theme} />;
           default: return null;
@@ -849,6 +904,29 @@ export function BaseTemplate({ store, products, bundles, theme, testimonials = [
           }}
         />
       )}
+
+      <CartDrawer
+        c={c}
+        theme={theme}
+        storeId={store.id}
+        allowImageDownload={store.allowImageDownload}
+        onCheckout={() => {
+          if (hasBothPayments) {
+            // For multi-item cart with both payment methods, default to Stripe
+            processCartCheckout("stripe");
+          } else {
+            processCartCheckout();
+          }
+        }}
+      />
     </div>
+  );
+}
+
+export function BaseTemplate(props: BaseTemplateProps) {
+  return (
+    <CartProvider storeSlug={props.store.slug}>
+      <BaseTemplateInner {...props} />
+    </CartProvider>
   );
 }

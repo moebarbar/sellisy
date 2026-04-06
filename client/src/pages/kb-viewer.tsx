@@ -20,6 +20,8 @@ import {
   AlertCircle,
   Copy,
   User,
+  Paperclip,
+  Download,
 } from "lucide-react";
 
 function CodeBlockViewer({ content, id }: { content: string; id: string }) {
@@ -55,6 +57,14 @@ interface KbViewBlock {
   type: string;
   content: string;
   sortOrder: number;
+}
+
+interface KbViewAttachment {
+  id: string;
+  name: string;
+  fileUrl: string;
+  fileSize: number | null;
+  mimeType: string | null;
 }
 
 function ViewerPageTree({
@@ -355,7 +365,7 @@ export default function KbViewerPage() {
     enabled: !!kbId,
   });
 
-  const { data: pageData, error: pageError } = useQuery<{ page: KbViewPage; blocks: KbViewBlock[] }>({
+  const { data: pageData, error: pageError } = useQuery<{ page: KbViewPage; blocks: KbViewBlock[]; attachments: KbViewAttachment[] }>({
     queryKey: ["/api/kb", kbId, "view/page", activePageId, accessToken],
     queryFn: async () => {
       const res = await fetch(`/api/kb/${kbId}/view/page/${activePageId}${tokenParam}`);
@@ -525,6 +535,40 @@ export default function KbViewerPage() {
                 <p className="text-muted-foreground py-8 text-center">This page has no content yet.</p>
               )}
             </div>
+
+            {pageData.attachments && pageData.attachments.length > 0 && (
+              <div className="mt-10 pt-8 border-t">
+                <div className="flex items-center gap-2 mb-4">
+                  <Paperclip className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-semibold">Lesson Resources</span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{pageData.attachments.length}</Badge>
+                </div>
+                <div className="space-y-2">
+                  {pageData.attachments.map(att => (
+                    <a
+                      key={att.id}
+                      href={att.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-muted/30 hover:bg-muted/60 transition-colors group"
+                      data-testid={`attachment-${att.id}`}
+                    >
+                      <Paperclip className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="flex-1 text-sm font-medium truncate">{att.name}</span>
+                      {att.fileSize && (
+                        <span className="text-xs text-muted-foreground flex-shrink-0">
+                          {att.fileSize < 1024 * 1024
+                            ? `${(att.fileSize / 1024).toFixed(1)} KB`
+                            : `${(att.fileSize / (1024 * 1024)).toFixed(1)} MB`}
+                        </span>
+                      )}
+                      <Download className="h-4 w-4 text-muted-foreground flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <PageNavigation
               pages={pages}
               activePageId={activePageId}
