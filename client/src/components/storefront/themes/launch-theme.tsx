@@ -291,7 +291,7 @@ function StartupHeaderLogo({ store, colors }: { store: { name: string; logoUrl: 
 
 export const launchTheme: StorefrontTheme = {
   id: "launch",
-  name: "Startup",
+  name: "Launch",
   defaultMode: "dark",
   colors: launchColors,
   typography: {

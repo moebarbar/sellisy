@@ -135,7 +135,7 @@ export default function BlogListingPage({ params: propParams }: { params?: { slu
   usePageMeta({
     title: data ? `Blog - ${data.store.name}` : "Blog",
     description: data ? `Read the latest articles from ${data.store.name}` : undefined,
-    ogImage: data?.store?.bannerUrl || data?.store?.logoUrl || undefined,
+    ogImage: data?.store?.heroBannerUrl || data?.store?.logoUrl || undefined,
     ogType: "website",
     ogSiteName: data?.store?.name || undefined,
     ogUrl: typeof window !== "undefined" ? window.location.href.split("?")[0] : undefined,

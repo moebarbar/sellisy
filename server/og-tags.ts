@@ -165,7 +165,7 @@ export async function injectOgTags(req: Request, res: Response, next: NextFuncti
 
       const title = (store as any).seoTitle || store.name;
       const description = truncateDescription((store as any).seoDescription || store.tagline || `Shop digital products from ${store.name}`);
-      const image = store.bannerUrl || store.logoUrl || "";
+      const image = store.heroBannerUrl || store.logoUrl || "";
       const canonical = buildCanonicalUrl(req);
 
       const jsonLd = {
