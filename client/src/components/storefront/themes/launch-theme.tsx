@@ -1,7 +1,7 @@
 import { Zap } from "lucide-react";
 import type { StorefrontTheme, ThemeColors, ThemeMode } from "../theme-types";
 
-function startupColors(mode: ThemeMode, customAccent: string | null): ThemeColors {
+function launchColors(mode: ThemeMode, customAccent: string | null): ThemeColors {
   const accent = customAccent || "#3b82f6";
   const accentLight = customAccent || "#60a5fa";
   const isDark = mode === "dark";
@@ -59,21 +59,21 @@ function startupColors(mode: ThemeMode, customAccent: string | null): ThemeColor
   };
 }
 
-function startupCss(c: ThemeColors, mode: ThemeMode): string {
+function launchCss(c: ThemeColors, mode: ThemeMode): string {
   const isDark = mode === "dark";
   return `
-    @keyframes startup-beam { 0% { transform: translateY(-100%); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(400%); opacity: 0; } }
-    @keyframes startup-glow { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.06); } }
-    @keyframes startup-pulse { 0%, 100% { opacity: 0.15; transform: scale(1); } 50% { opacity: 0.35; transform: scale(1.12); } }
-    @keyframes startup-fade-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes startup-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-    @keyframes startup-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes launch-beam { 0% { transform: translateY(-100%); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(400%); opacity: 0; } }
+    @keyframes launch-glow { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.06); } }
+    @keyframes launch-pulse { 0%, 100% { opacity: 0.15; transform: scale(1); } 50% { opacity: 0.35; transform: scale(1.12); } }
+    @keyframes launch-fade-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes launch-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+    @keyframes launch-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
     .t-hero-title {
       background: linear-gradient(135deg, ${isDark ? "#f4f4f5" : "#09090b"} 0%, ${c.accent} 40%, ${isDark ? "#93c5fd" : "#1d4ed8"} 70%, ${isDark ? "#f4f4f5" : "#09090b"} 100%);
       background-size: 200% 100%;
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text; animation: startup-shimmer 6s linear infinite;
+      background-clip: text; animation: launch-shimmer 6s linear infinite;
       letter-spacing: -0.02em;
     }
     .t-hero-subtitle { color: ${c.textSecondary}; }
@@ -142,7 +142,7 @@ function startupCss(c: ThemeColors, mode: ThemeMode): string {
     }
 
     /* Grid background */
-    .startup-grid {
+    .launch-grid {
       position: absolute; inset: 0; pointer-events: none;
       background-image:
         linear-gradient(${isDark ? "rgba(59,130,246,0.06)" : "rgba(59,130,246,0.08)"} 1px, transparent 1px),
@@ -153,18 +153,18 @@ function startupCss(c: ThemeColors, mode: ThemeMode): string {
     }
 
     /* Vertical beams */
-    .startup-beam {
+    .launch-beam {
       position: absolute; top: 0; width: 1px; pointer-events: none;
       background: linear-gradient(to bottom, transparent, ${c.accent}80, transparent);
-      animation: startup-beam linear infinite;
+      animation: launch-beam linear infinite;
     }
 
     /* Glow orbs */
-    .startup-orb { animation: startup-glow 6s ease-in-out infinite; pointer-events: none; }
-    .startup-ring { animation: startup-pulse 4s ease-in-out infinite; pointer-events: none; }
+    .launch-orb { animation: launch-glow 6s ease-in-out infinite; pointer-events: none; }
+    .launch-ring { animation: launch-pulse 4s ease-in-out infinite; pointer-events: none; }
 
     /* Card inner grid overlay */
-    .startup-card-grid {
+    .launch-card-grid {
       position: absolute; inset: 0; pointer-events: none; opacity: 0.03;
       background-image:
         linear-gradient(${c.accent} 1px, transparent 1px),
@@ -173,14 +173,14 @@ function startupCss(c: ThemeColors, mode: ThemeMode): string {
     }
 
     /* Glowing chip */
-    .startup-chip {
+    .launch-chip {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 6px 14px; border-radius: 9999px;
       background: ${isDark ? `${c.accent}12` : `${c.accent}0a`};
       border: 1px solid ${isDark ? `${c.accent}35` : `${c.accent}25`};
       position: relative; overflow: hidden;
     }
-    .startup-chip::after {
+    .launch-chip::after {
       content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
       background: linear-gradient(90deg, transparent, ${c.accentAlt}80, transparent);
     }
@@ -204,13 +204,13 @@ function StartupBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeM
   return (
     <>
       {/* Grid */}
-      <div className="startup-grid" />
+      <div className="launch-grid" />
 
       {/* Animated beams */}
       {isDark && BEAMS.map((b, i) => (
         <div
           key={i}
-          className="startup-beam"
+          className="launch-beam"
           style={{
             left: b.left,
             height: b.height,
@@ -222,7 +222,7 @@ function StartupBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeM
 
       {/* Top center glow */}
       <div
-        className="startup-orb absolute pointer-events-none"
+        className="launch-orb absolute pointer-events-none"
         style={{
           top: -200,
           left: "50%",
@@ -238,10 +238,10 @@ function StartupBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeM
       {/* Pulsing rings */}
       {isDark && (
         <>
-          <div className="startup-ring absolute top-24 left-1/2 -translate-x-1/2 rounded-full pointer-events-none"
+          <div className="launch-ring absolute top-24 left-1/2 -translate-x-1/2 rounded-full pointer-events-none"
             style={{ width: 500, height: 500, border: `1px solid ${colors.accent}18`, marginLeft: -250, marginTop: -250 }}
           />
-          <div className="startup-ring absolute top-24 left-1/2 -translate-x-1/2 rounded-full pointer-events-none"
+          <div className="launch-ring absolute top-24 left-1/2 -translate-x-1/2 rounded-full pointer-events-none"
             style={{ width: 700, height: 700, border: `1px solid ${colors.accent}0d`, marginLeft: -350, marginTop: -350, animationDelay: "2s" }}
           />
         </>
@@ -249,11 +249,11 @@ function StartupBackground({ colors, mode }: { colors: ThemeColors; mode: ThemeM
 
       {/* Corner glow blobs */}
       <div
-        className="startup-orb absolute top-0 left-0 pointer-events-none"
+        className="launch-orb absolute top-0 left-0 pointer-events-none"
         style={{ width: 400, height: 400, borderRadius: "50%", background: `radial-gradient(circle, ${colors.accent}${isDark ? "12" : "07"}, transparent)`, filter: "blur(60px)", transform: "translate(-30%, -30%)" }}
       />
       <div
-        className="startup-orb absolute top-0 right-0 pointer-events-none"
+        className="launch-orb absolute top-0 right-0 pointer-events-none"
         style={{ width: 400, height: 400, borderRadius: "50%", background: `radial-gradient(circle, ${isDark ? "#1d4ed8" : colors.accent}${isDark ? "10" : "06"}, transparent)`, filter: "blur(60px)", transform: "translate(30%, -30%)", animationDelay: "3s" }}
       />
     </>
@@ -289,11 +289,11 @@ function StartupHeaderLogo({ store, colors }: { store: { name: string; logoUrl: 
   );
 }
 
-export const startupTheme: StorefrontTheme = {
-  id: "startup",
+export const launchTheme: StorefrontTheme = {
+  id: "launch",
   name: "Startup",
   defaultMode: "dark",
-  colors: startupColors,
+  colors: launchColors,
   typography: {
     headingFamily: "'Barlow', system-ui, -apple-system, sans-serif",
     bodyFamily: "'Barlow', system-ui, -apple-system, sans-serif",
@@ -318,17 +318,17 @@ export const startupTheme: StorefrontTheme = {
     cardClass: "t-card",
     buyBtnClass: "t-buy-btn",
   },
-  css: startupCss,
+  css: launchCss,
   renderBackground: (colors, mode) => <StartupBackground colors={colors} mode={mode} />,
   renderHeroBadge: (colors) => (
-    <div className="startup-chip mb-8">
+    <div className="launch-chip mb-8">
       <Zap className="h-3 w-3" style={{ color: colors.accentAlt }} />
       <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: colors.accentAlt, fontFamily: "'Barlow', system-ui, sans-serif" }}>
         Digital Products
       </span>
     </div>
   ),
-  renderCardOverlay: () => <div className="startup-card-grid" />,
+  renderCardOverlay: () => <div className="launch-card-grid" />,
   renderDivider: (isDark) => <StartupDivider isDark={isDark} />,
   renderHeaderLogo: (store, colors) => <StartupHeaderLogo store={store} colors={colors} />,
   renderAnnouncementStyle: (colors) => ({
@@ -346,6 +346,6 @@ export const startupTheme: StorefrontTheme = {
   ),
   heroSubtitleFallback: "The best digital products, built for makers and creators who move fast.",
   heroBadgeText: "Digital Products",
-  announcementStoragePrefix: "startup-announcement",
-  modeStorageKey: "startup-mode",
+  announcementStoragePrefix: "launch-announcement",
+  modeStorageKey: "launch-mode",
 };

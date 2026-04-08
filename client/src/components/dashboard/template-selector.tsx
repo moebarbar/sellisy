@@ -163,9 +163,9 @@ const TEMPLATES: TemplateOption[] = [
     },
   },
   {
-    key: "startup",
-    name: "Startup",
-    subtitle: "Bold & Techy",
+    key: "launch",
+    name: "Launch",
+    subtitle: "Dark & High-Converting",
     icon: Rocket,
     preview: {
       bg: "#09090b",
@@ -363,7 +363,7 @@ function FullPreview({ t, storeName }: { t: TemplateOption; storeName?: string }
             />
           </>
         )}
-        {t.key === "startup" && (
+        {t.key === "launch" && (
           <>
             <div
               className="absolute inset-0 pointer-events-none"
@@ -385,7 +385,7 @@ function FullPreview({ t, storeName }: { t: TemplateOption; storeName?: string }
             className="text-[10px] font-medium uppercase tracking-[0.2em] mb-2"
             style={{ color: p.accent }}
           >
-            {({ silk: "Curated Collection", aurora: "Northern Lights", ember: "Handcrafted Goods", frost: "Crystal Clear Quality", midnight: "Midnight Collection", startup: "Build. Launch. Grow." } as Record<string, string>)[t.key] || "Digital Storefront"}
+            {({ silk: "Curated Collection", aurora: "Northern Lights", ember: "Handcrafted Goods", frost: "Crystal Clear Quality", midnight: "Midnight Collection", launch: "Your Products. Your Brand." } as Record<string, string>)[t.key] || "Digital Storefront"}
           </p>
           <h2 className="text-xl font-bold mb-2" style={{ color: p.textColor }}>
             {name}
