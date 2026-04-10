@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { authStorage } from "./storage";
 import { z } from "zod";
 import { sendWelcomeEmail } from "../../emails";
+import { audit, auditMeta } from "../../audit";
 
 declare module "express-session" {
   interface SessionData {
@@ -56,6 +57,7 @@ export async function setupAuth(app: Express) {
   app.use(getSession());
 
   app.post("/api/auth/register", async (req, res) => {
+    const meta = auditMeta(req as any);
     try {
       const parsed = registerSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -66,29 +68,27 @@ export async function setupAuth(app: Express) {
 
       const existing = await authStorage.getUserByEmail(email);
       if (existing) {
+        audit({ event: "auth.register.failed", email, details: "Email already exists", ...meta });
         return res.status(409).json({ message: "An account with this email already exists" });
       }
 
       const passwordHash = await bcrypt.hash(password, 12);
-      const user = await authStorage.upsertUser({
-        email,
-        passwordHash,
-        firstName,
-        lastName,
-      });
+      const user = await authStorage.upsertUser({ email, passwordHash, firstName, lastName });
 
       req.session.userId = user.id;
+      audit({ event: "auth.register.success", userId: user.id, email, ...meta });
 
       sendWelcomeEmail({ email, firstName });
-
       res.json({ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName });
     } catch (error) {
       console.error("Registration error:", error);
+      audit({ event: "auth.register.failed", details: "Internal error", ...meta });
       res.status(500).json({ message: "Registration failed" });
     }
   });
 
   app.post("/api/auth/login", async (req, res) => {
+    const meta = auditMeta(req as any);
     try {
       const parsed = loginSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -99,15 +99,18 @@ export async function setupAuth(app: Express) {
 
       const user = await authStorage.getUserByEmail(email);
       if (!user || !user.passwordHash) {
+        audit({ event: "auth.login.failed", email, details: "User not found or no password", ...meta });
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
       const valid = await bcrypt.compare(password, user.passwordHash);
       if (!valid) {
+        audit({ event: "auth.login.failed", userId: user.id, email, details: "Invalid password", ...meta });
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
       req.session.userId = user.id;
+      audit({ event: "auth.login.success", userId: user.id, email, ...meta });
       res.json({ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName });
     } catch (error) {
       console.error("Login error:", error);
@@ -116,18 +119,24 @@ export async function setupAuth(app: Express) {
   });
 
   app.post("/api/auth/logout", (req, res) => {
+    const userId = (req as any).session?.userId;
+    const meta = auditMeta(req as any);
     req.session.destroy((err) => {
       if (err) {
         console.error("Logout error:", err);
         return res.status(500).json({ message: "Logout failed" });
       }
+      if (userId) audit({ event: "auth.logout", userId, ...meta });
       res.clearCookie("connect.sid");
       res.json({ message: "Logged out" });
     });
   });
 
   app.get("/api/logout", (req, res) => {
+    const userId = (req as any).session?.userId;
+    const meta = auditMeta(req as any);
     req.session.destroy(() => {
+      if (userId) audit({ event: "auth.logout", userId, ...meta });
       res.clearCookie("connect.sid");
       res.redirect("/");
     });

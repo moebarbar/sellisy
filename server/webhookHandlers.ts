@@ -1,5 +1,6 @@
 import { getUncachableStripeClient } from './stripeClient';
 import { storage } from './storage';
+import { audit } from './audit';
 import { randomBytes } from 'crypto';
 import { sendOrderCompletionEmails } from './orderEmailHelper';
 import { db } from './db';
@@ -7,6 +8,12 @@ import { coupons } from '@shared/schema';
 import type { PlanTier } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
 import { authStorage } from './replit_integrations/auth/storage';
+
+// In-memory dedup store for processed webhook event IDs.
+// Capped at 10k entries to prevent unbounded memory growth.
+// Sufficient for single-instance deployments; swap for Redis if multi-instance.
+const processedEventIds = new Set<string>();
+const MAX_PROCESSED_EVENT_IDS = 10_000;
 
 export class WebhookHandlers {
   static getBaseUrl(): string {
@@ -41,7 +48,29 @@ export class WebhookHandlers {
     if (!webhookSecret) {
       throw new Error('STRIPE_WEBHOOK_SECRET is not set — rejecting unverified webhook. Set this environment variable to enable webhook processing.');
     }
+
+    // constructEvent also validates the timestamp internally (rejects events > 5 min old by default)
     const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+
+    // Timestamp validation — reject events older than 5 minutes (replay attack prevention)
+    const eventAge = Date.now() / 1000 - event.created;
+    if (eventAge > 300) {
+      throw new Error(`Webhook event ${event.id} rejected: timestamp too old (${Math.round(eventAge)}s)`);
+    }
+
+    // Idempotency — deduplicate by event ID to prevent double-processing
+    if (processedEventIds.has(event.id)) {
+      audit({ event: "webhook.duplicate", details: `Duplicate Stripe event ${event.id} (${event.type}) ignored` });
+      return;
+    }
+
+    // Evict oldest entries if cap is reached (simple FIFO via iteration order)
+    if (processedEventIds.size >= MAX_PROCESSED_EVENT_IDS) {
+      const first = processedEventIds.values().next().value;
+      if (first !== undefined) processedEventIds.delete(first);
+    }
+    processedEventIds.add(event.id);
+    audit({ event: "webhook.received", details: `Stripe event ${event.id} (${event.type}) processing` });
 
     await WebhookHandlers.handleEvent(event);
   }

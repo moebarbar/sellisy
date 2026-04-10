@@ -17,6 +17,9 @@ process.on("unhandledRejection", (reason) => {
 const app = express();
 const httpServer = createServer(app);
 
+// Remove fingerprinting header
+app.disable("x-powered-by");
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
@@ -154,14 +157,44 @@ app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-DNS-Prefetch-Control", "off");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  // Only set X-Frame-Options for non-embed routes (embed routes need to be embeddable)
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+
+  // Cross-origin isolation headers (for non-embed routes)
   if (!req.path.startsWith("/api/embed/")) {
     res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
   }
+
   if (process.env.NODE_ENV === "production") {
-    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
   }
+
+  // Content-Security-Policy
+  // - 'unsafe-inline' on style-src: required for React inline styles + Vite HMR in dev
+  // - 'unsafe-inline' on script-src in dev only: required for Vite HMR module injection
+  const isDev = process.env.NODE_ENV !== "production";
+  const scriptSrc = isDev
+    ? `'self' 'unsafe-inline' 'unsafe-eval' https://studio.pickaxe.co`
+    : `'self' https://js.stripe.com https://studio.pickaxe.co`;
+
+  const csp = [
+    `default-src 'self'`,
+    `script-src ${scriptSrc}`,
+    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+    `font-src 'self' https://fonts.gstatic.com data:`,
+    `img-src 'self' data: blob: https://cdn.sellisy.com https://*.googleapis.com https://*.gstatic.com https://*.unsplash.com`,
+    `connect-src 'self' https://api.sellisy.com https://cdn.sellisy.com https://fonts.googleapis.com ${isDev ? "ws: wss:" : ""}`.trim(),
+    `frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.paypal.com`,
+    `frame-ancestors 'self'`,
+    `base-uri 'self'`,
+    `form-action 'self'`,
+    `object-src 'none'`,
+    `upgrade-insecure-requests`,
+  ].join("; ");
+
+  res.setHeader("Content-Security-Policy", csp);
+
   next();
 });
 

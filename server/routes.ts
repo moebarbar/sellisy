@@ -21,6 +21,7 @@ import { getRevenueAnalytics, getProductAnalytics, getCustomerAnalytics, getCoup
 import { users } from "@shared/models/auth";
 import { emailLogs } from "@shared/schema";
 import cookieParser from "cookie-parser";
+import { audit, auditMeta } from "./audit";
 
 function getUserId(req: Request): string {
   return (req as any).session?.userId;
@@ -335,7 +336,9 @@ ${urls}</urlset>`;
     const schema = z.object({ planTier: z.enum(["basic", "pro", "max"]) });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid plan tier" });
+    const adminId = getUserId(req);
     const profile = await storage.updateUserPlan(req.params.userId as string, parsed.data.planTier);
+    audit({ event: "admin.plan_change", userId: adminId, details: `Changed plan for user ${req.params.userId} to ${parsed.data.planTier}`, ...auditMeta(req) });
     res.json(profile);
   });
 
@@ -345,7 +348,9 @@ ${urls}</urlset>`;
     const schema = z.object({ isAdmin: z.boolean() });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+    const adminId2 = getUserId(req);
     const profile = await storage.setUserAdmin(req.params.userId as string, parsed.data.isAdmin);
+    audit({ event: "admin.role_change", userId: adminId2, details: `Set isAdmin=${parsed.data.isAdmin} for user ${req.params.userId}`, ...auditMeta(req) });
     res.json(profile);
   });
 
@@ -3299,6 +3304,7 @@ ${urls}</urlset>`;
     }
 
     await sendMagicLinkEmail({ email, magicLink, storeName });
+    audit({ event: "auth.magic_link.sent", email, ...auditMeta(req) });
 
     res.json({
       message: "A login link has been sent to your email address. Please check your inbox (and spam folder).",
