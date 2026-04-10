@@ -38,14 +38,10 @@ export class WebhookHandlers {
     // which uses the store's own Stripe client to verify payment status.
     const stripe = await getUncachableStripeClient();
 
-    let event: any;
-    if (webhookSecret) {
-      const verified = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-      event = verified;
-    } else {
-      console.warn('STRIPE_WEBHOOK_SECRET not set — webhook signature verification is disabled. Set it for production security.');
-      event = JSON.parse(payload.toString());
+    if (!webhookSecret) {
+      throw new Error('STRIPE_WEBHOOK_SECRET is not set — rejecting unverified webhook. Set this environment variable to enable webhook processing.');
     }
+    const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
 
     await WebhookHandlers.handleEvent(event);
   }

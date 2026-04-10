@@ -88,10 +88,58 @@ const downloadLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const couponLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { message: "Too many coupon attempts. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const claimFreeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: { message: "Too many free claim attempts. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const subscribeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { message: "Too many subscription attempts. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const eventLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { message: "Too many requests." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const customerLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: "Too many login attempts. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use("/api/auth/login", loginLimiter);
 app.use("/api/auth/register", registerLimiter);
 app.use("/api/checkout", checkoutLimiter);
 app.use("/api/download", downloadLimiter);
+app.use("/api/coupons/validate", couponLimiter);
+app.use("/api/claim-free", claimFreeLimiter);
+app.use("/api/storefront", (req, res, next) => {
+  if (req.method === "POST" && req.path.endsWith("/subscribe")) return subscribeLimiter(req, res, next);
+  next();
+});
+app.use("/api/store-events", eventLimiter);
+app.use("/api/customer/login", customerLoginLimiter);
 
 const allowedOrigins = [
   "https://sellisy.com",
@@ -101,13 +149,29 @@ const allowedOrigins = [
   process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : undefined,
 ].filter(Boolean) as string[];
 
+// Security headers — applied to all responses
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-DNS-Prefetch-Control", "off");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  // Only set X-Frame-Options for non-embed routes (embed routes need to be embeddable)
+  if (!req.path.startsWith("/api/embed/")) {
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  }
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/embed/")) {
     return next();
   }
 
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.some(allowed => origin === allowed || origin.endsWith(".sellisy.com"))) {
+  if (origin && allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");

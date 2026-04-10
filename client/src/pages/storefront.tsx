@@ -22,6 +22,7 @@ type StorefrontData = {
   testimonials?: StoreTestimonial[];
   faqs?: StoreFaq[];
   reviews?: StoreReview[];
+  subscriberCount?: number;
 };
 
 const legacyTemplates = ["neon", "silk"];
@@ -37,7 +38,7 @@ export default function StorefrontPage({ params: propParams }: { params?: { slug
   usePageMeta({
     title: data?.store ? (data.store.seoTitle || data.store.name) : undefined,
     description: data?.store ? ((data.store.seoDescription || data.store.tagline || `Shop digital products from ${data.store.name}`).slice(0, 160)) : undefined,
-    ogImage: data?.store?.bannerUrl || data?.store?.logoUrl || undefined,
+    ogImage: data?.store?.heroBannerUrl || data?.store?.logoUrl || undefined,
     ogType: "website",
     ogSiteName: data?.store?.name || undefined,
     ogUrl: typeof window !== "undefined" ? window.location.href.split("?")[0] : undefined,
@@ -49,7 +50,7 @@ export default function StorefrontPage({ params: propParams }: { params?: { slug
       "@type": "Store",
       name: data.store.name,
       description: data.store.tagline || `Digital products from ${data.store.name}`,
-      image: data.store.bannerUrl || data.store.logoUrl || undefined,
+      image: data.store.heroBannerUrl || data.store.logoUrl || undefined,
       url: typeof window !== "undefined" ? window.location.href.split("?")[0] : undefined,
     } : undefined,
   });

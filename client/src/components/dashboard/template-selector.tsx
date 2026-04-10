@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Zap, Gem, Eye, ShoppingBag, Package, Star, X, Sunrise, Flame, Snowflake, Moon } from "lucide-react";
+import { Check, Zap, Gem, Eye, ShoppingBag, Package, Star, X, Sunrise, Flame, Snowflake, Moon, Rocket } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
@@ -160,6 +160,28 @@ const TEMPLATES: TemplateOption[] = [
       buttonText: "#ffffff",
       tagBg: "rgba(129,140,248,0.15)",
       tagText: "#a5b4fc",
+    },
+  },
+  {
+    key: "launch",
+    name: "Launch",
+    subtitle: "Dark & High-Converting",
+    icon: Rocket,
+    preview: {
+      bg: "#09090b",
+      accent: "#3b82f6",
+      accentLight: "#60a5fa",
+      cardBg: "linear-gradient(135deg, rgba(39,39,42,0.8), rgba(24,24,27,0.9))",
+      cardBorder: "rgba(63,63,70,0.8)",
+      textColor: "#fafafa",
+      textMuted: "rgba(250,250,250,0.45)",
+      heroBg: "#09090b",
+      headerBg: "rgba(9,9,11,0.95)",
+      headerBorder: "rgba(63,63,70,0.6)",
+      buttonBg: "linear-gradient(135deg, #3b82f6, #2563eb)",
+      buttonText: "#ffffff",
+      tagBg: "rgba(59,130,246,0.12)",
+      tagText: "#60a5fa",
     },
   },
 ];
@@ -341,12 +363,29 @@ function FullPreview({ t, storeName }: { t: TemplateOption; storeName?: string }
             />
           </>
         )}
+        {t.key === "launch" && (
+          <>
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: `linear-gradient(rgba(59,130,246,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.05) 1px, transparent 1px)`,
+                backgroundSize: "32px 32px",
+              }}
+            />
+            <div
+              className="absolute top-[-40px] left-1/2 -translate-x-1/2 w-[280px] h-[160px] rounded-full pointer-events-none"
+              style={{ background: "radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)" }}
+            />
+            <div className="absolute top-0 bottom-0 left-1/3 w-px pointer-events-none" style={{ background: "linear-gradient(to bottom, transparent, rgba(59,130,246,0.3), transparent)" }} />
+            <div className="absolute top-0 bottom-0 right-1/3 w-px pointer-events-none" style={{ background: "linear-gradient(to bottom, transparent, rgba(59,130,246,0.2), transparent)" }} />
+          </>
+        )}
         <div className="relative z-10">
           <p
             className="text-[10px] font-medium uppercase tracking-[0.2em] mb-2"
             style={{ color: p.accent }}
           >
-            {({ silk: "Curated Collection", aurora: "Northern Lights", ember: "Handcrafted Goods", frost: "Crystal Clear Quality", midnight: "Midnight Collection" } as Record<string, string>)[t.key] || "Digital Storefront"}
+            {({ silk: "Curated Collection", aurora: "Northern Lights", ember: "Handcrafted Goods", frost: "Crystal Clear Quality", midnight: "Midnight Collection", launch: "Your Products. Your Brand." } as Record<string, string>)[t.key] || "Digital Storefront"}
           </p>
           <h2 className="text-xl font-bold mb-2" style={{ color: p.textColor }}>
             {name}
