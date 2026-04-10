@@ -26,6 +26,17 @@ function getUserId(req: Request): string {
   return (req as any).session?.userId;
 }
 
+/**
+ * Returns a safe base URL for building links in emails/redirects.
+ * Prefers APP_URL env var to prevent host-header injection attacks.
+ */
+function getAppUrl(req: Request): string {
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+  if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  // Dev fallback only — in production APP_URL must be set
+  return `${req.protocol}://${req.hostname}`;
+}
+
 function generateSlug(title: string, fallback = "item"): string {
   return title
     .toLowerCase()
@@ -205,6 +216,7 @@ export async function registerRoutes(
   });
 
   app.get("/robots.txt", (_req, res) => {
+    const siteUrl = process.env.APP_URL || "https://sellisy.com";
     res.type("text/plain").send(`User-agent: *
 Allow: /s/
 Allow: /product/
@@ -213,7 +225,7 @@ Disallow: /api/
 Disallow: /dashboard/
 Disallow: /auth
 
-Sitemap: ${_req.protocol}://${_req.get("host")}/sitemap.xml`);
+Sitemap: ${siteUrl}/sitemap.xml`);
   });
 
   app.get("/sitemap.xml", async (req, res) => {
@@ -223,7 +235,7 @@ Sitemap: ${_req.protocol}://${_req.get("host")}/sitemap.xml`);
         .from(stores)
         .where(isNull(stores.deletedAt));
 
-      const baseUrl = `${req.headers["x-forwarded-proto"] || req.protocol}://${req.get("host")}`;
+      const baseUrl = getAppUrl(req);
       let urls = "";
 
       for (const store of allStores) {
@@ -267,7 +279,7 @@ ${urls}</urlset>`;
     }
   });
 
-  app.get("/api/debug-headers", async (req, res) => {
+  app.get("/api/debug-headers", isAuthenticated, async (req, res) => {
     const xCustomHost = (req.headers["x-custom-host"] as string) || null;
     const hostname = xCustomHost?.split(":")[0] || null;
     let storeMatch = null;
@@ -1725,7 +1737,7 @@ ${urls}</urlset>`;
     if (pages.length === 0) return res.status(400).json({ message: "Add at least one page before creating a product." });
 
     const kbSlug = kb.slug || kb.id;
-    let accessUrl = `https://${req.get("host")}/kb/${kbSlug}`;
+    let accessUrl = `${getAppUrl(req)}/kb/${kbSlug}`;
 
     let linkedStore: any = null;
     if (kb.productId) {
@@ -2497,7 +2509,7 @@ ${urls}</urlset>`;
 
   app.get("/api/embed/:slug/product/:productId", async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("X-Frame-Options", "ALLOWALL");
+    
     const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
@@ -2524,7 +2536,7 @@ ${urls}</urlset>`;
 
   app.get("/api/embed/:slug/bundle/:bundleId", async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("X-Frame-Options", "ALLOWALL");
+    
     const store = await storage.getStoreBySlug(req.params.slug as string);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
@@ -2631,7 +2643,7 @@ ${urls}</urlset>`;
     }
 
     const finalTotalCents = totalCents;
-    const appUrl = `https://${req.headers.host}`;
+    const appUrl = getAppUrl(req);
 
     if (finalTotalCents === 0) {
       const tokenHash = randomBytes(32).toString("hex");
@@ -2897,7 +2909,7 @@ ${urls}</urlset>`;
           await storage.linkOrdersByEmail(payerEmail, customer.id);
         }
 
-        const baseUrl = `${req.protocol}://${req.get("host")}`;
+        const baseUrl = getAppUrl(req);
         sendOrderCompletionEmails(order.id, baseUrl);
 
         return res.redirect(`/checkout/success?order_id=${order.id}`);
@@ -3006,7 +3018,7 @@ ${urls}</urlset>`;
       if (upsellProduct && upsellBundle) break;
     }
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const baseUrl = getAppUrl(req);
 
     if (order.status === "COMPLETED" && !order.emailSent) {
       sendOrderCompletionEmails(order.id, baseUrl);
@@ -3074,7 +3086,7 @@ ${urls}</urlset>`;
     }
 
     const store = await storage.getStoreById(order.storeId);
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const baseUrl = getAppUrl(req);
 
     sendDownloadLinkEmail({
       buyerEmail: email,
@@ -3163,7 +3175,7 @@ ${urls}</urlset>`;
       path: "/",
     });
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const baseUrl = getAppUrl(req);
     sendLeadMagnetEmail({
       buyerEmail: email,
       storeName: store.name,
@@ -3275,7 +3287,7 @@ ${urls}</urlset>`;
       expiresAt,
     });
 
-    const appUrl = `https://${req.headers.host}`;
+    const appUrl = getAppUrl(req);
     const storeSlug = req.body.storeSlug || "";
     const redirectParam = storeSlug ? `&redirect=${encodeURIComponent(`/s/${storeSlug}/portal`)}` : "";
     const magicLink = `${appUrl}/account/verify?token=${rawToken}${redirectParam}`;
@@ -3738,7 +3750,7 @@ ${urls}</urlset>`;
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: "Email address required" });
 
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const baseUrl = getAppUrl(req);
     const results = await sendAllTestEmails(email, baseUrl);
     res.json({ results });
   });
