@@ -1,5 +1,9 @@
 import { sendEmail } from './sendgridClient';
 
+function sanitizeHeader(value: string): string {
+  return value.replace(/[\r\n\0]/g, '');
+}
+
 const BRAND_COLOR = '#6366f1';
 const BRAND_NAME = 'Sellisy';
 const BRAND_URL = 'https://sellisy.com';
@@ -106,8 +110,8 @@ export async function sendOrderConfirmationEmail(params: {
   try {
     await sendEmail(
       buyerEmail,
-      `Order Confirmed - ${storeName}`,
-      baseLayout(content, `Your order from ${storeName} is confirmed. Download your products now.`)
+      `Order Confirmed - ${sanitizeHeader(storeName)}`,
+      baseLayout(content, `Your order from ${sanitizeHeader(storeName)} is confirmed. Download your products now.`)
     );
   } catch (err) {
     console.error('Failed to send order confirmation email:', err);
@@ -139,8 +143,8 @@ export async function sendDownloadLinkEmail(params: {
   try {
     await sendEmail(
       buyerEmail,
-      `Your Download - ${storeName}`,
-      baseLayout(content, `Your download from ${storeName} is ready.`)
+      `Your Download - ${sanitizeHeader(storeName)}`,
+      baseLayout(content, `Your download from ${sanitizeHeader(storeName)} is ready.`)
     );
   } catch (err) {
     console.error('Failed to send download link email:', err);
@@ -174,8 +178,8 @@ export async function sendLeadMagnetEmail(params: {
   try {
     await sendEmail(
       buyerEmail,
-      `Your Free Download: ${productTitle}`,
-      baseLayout(content, `Your free download of ${productTitle} from ${storeName} is ready.`)
+      `Your Free Download: ${sanitizeHeader(productTitle)}`,
+      baseLayout(content, `Your free download of ${sanitizeHeader(productTitle)} from ${sanitizeHeader(storeName)} is ready.`)
     );
   } catch (err) {
     console.error('Failed to send lead magnet email:', err);
@@ -215,8 +219,8 @@ export async function sendNewOrderNotificationEmail(params: {
   try {
     await sendEmail(
       ownerEmail,
-      `New Sale on ${storeName} - ${formatCents(totalCents)}`,
-      baseLayout(content, `You made a ${formatCents(totalCents)} sale on ${storeName}.`)
+      `New Sale on ${sanitizeHeader(storeName)} - ${formatCents(totalCents)}`,
+      baseLayout(content, `You made a ${formatCents(totalCents)} sale on ${sanitizeHeader(storeName)}.`)
     );
   } catch (err) {
     console.error('Failed to send new order notification email:', err);
@@ -302,7 +306,7 @@ export async function sendMagicLinkEmail(params: {
   try {
     await sendEmail(
       email,
-      `Your Login Link${storeName ? ` - ${storeName}` : ''}`,
+      `Your Login Link${storeName ? ` - ${sanitizeHeader(storeName)}` : ''}`,
       baseLayout(content, `Sign in to access your purchases${storeName ? ` from ${storeName}` : ''}.`)
     );
   } catch (err) {

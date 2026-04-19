@@ -369,9 +369,9 @@ ${urls}</urlset>`;
 
   app.post("/api/stores", isAuthenticated, async (req, res) => {
     const schema = z.object({
-      name: z.string().min(1),
-      slug: z.string().min(1).regex(/^[a-z0-9-]+$/),
-      templateKey: z.enum(["neon", "silk", "aurora", "ember", "frost", "midnight"]),
+      name: z.string().min(1).max(100),
+      slug: z.string().min(1).max(60).regex(/^[a-z0-9-]+$/),
+      templateKey: z.enum(["neon", "silk", "aurora", "ember", "frost", "midnight", "launch"]),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid store data" });
@@ -402,43 +402,43 @@ ${urls}</urlset>`;
       return res.status(404).json({ message: "Store not found" });
     }
     const schema = z.object({
-      name: z.string().min(1).optional(),
-      slug: z.string().min(1).regex(/^[a-z0-9-]+$/).optional(),
-      templateKey: z.enum(["neon", "silk", "aurora", "ember", "frost", "midnight"]).optional(),
-      tagline: z.string().optional().nullable(),
-      logoUrl: z.string().optional().nullable(),
-      accentColor: z.string().optional().nullable(),
-      heroBannerUrl: z.string().optional().nullable(),
+      name: z.string().min(1).max(100).optional(),
+      slug: z.string().min(1).max(60).regex(/^[a-z0-9-]+$/).optional(),
+      templateKey: z.enum(["neon", "silk", "aurora", "ember", "frost", "midnight", "launch"]).optional(),
+      tagline: z.string().max(200).optional().nullable(),
+      logoUrl: z.string().max(500).optional().nullable(),
+      accentColor: z.string().max(20).optional().nullable(),
+      heroBannerUrl: z.string().max(500).optional().nullable(),
       paymentProvider: z.enum(["stripe", "paypal"]).optional(),
-      paypalClientId: z.string().optional().nullable(),
-      paypalClientSecret: z.string().optional().nullable(),
-      stripePublishableKey: z.string().refine(v => !v || v.startsWith("pk_"), { message: "Publishable key must start with pk_" }).optional().nullable(),
-      stripeSecretKey: z.string().refine(v => !v || v.startsWith("sk_"), { message: "Secret key must start with sk_" }).optional().nullable(),
+      paypalClientId: z.string().max(200).optional().nullable(),
+      paypalClientSecret: z.string().max(200).optional().nullable(),
+      stripePublishableKey: z.string().max(200).refine(v => !v || v.startsWith("pk_"), { message: "Publishable key must start with pk_" }).optional().nullable(),
+      stripeSecretKey: z.string().max(200).refine(v => !v || v.startsWith("sk_"), { message: "Secret key must start with sk_" }).optional().nullable(),
       blogEnabled: z.boolean().optional(),
-      announcementText: z.string().optional().nullable(),
-      announcementLink: z.string().optional().nullable(),
-      footerText: z.string().optional().nullable(),
-      socialTwitter: z.string().optional().nullable(),
-      socialInstagram: z.string().optional().nullable(),
-      socialYoutube: z.string().optional().nullable(),
-      socialTiktok: z.string().optional().nullable(),
-      socialWebsite: z.string().optional().nullable(),
-      faviconUrl: z.string().optional().nullable(),
-      seoTitle: z.string().optional().nullable(),
-      seoDescription: z.string().optional().nullable(),
+      announcementText: z.string().max(500).optional().nullable(),
+      announcementLink: z.string().max(500).optional().nullable(),
+      footerText: z.string().max(500).optional().nullable(),
+      socialTwitter: z.string().max(100).optional().nullable(),
+      socialInstagram: z.string().max(100).optional().nullable(),
+      socialYoutube: z.string().max(200).optional().nullable(),
+      socialTiktok: z.string().max(100).optional().nullable(),
+      socialWebsite: z.string().max(500).optional().nullable(),
+      faviconUrl: z.string().max(500).optional().nullable(),
+      seoTitle: z.string().max(200).optional().nullable(),
+      seoDescription: z.string().max(500).optional().nullable(),
       allowImageDownload: z.boolean().optional(),
       aboutEnabled: z.boolean().optional(),
-      aboutHeadline: z.string().optional().nullable(),
-      aboutText: z.string().optional().nullable(),
-      aboutImageUrl: z.string().optional().nullable(),
-      aboutCtaText: z.string().optional().nullable(),
-      aboutCtaUrl: z.string().optional().nullable(),
+      aboutHeadline: z.string().max(200).optional().nullable(),
+      aboutText: z.string().max(5000).optional().nullable(),
+      aboutImageUrl: z.string().max(500).optional().nullable(),
+      aboutCtaText: z.string().max(100).optional().nullable(),
+      aboutCtaUrl: z.string().max(500).optional().nullable(),
       testimonialsEnabled: z.boolean().optional(),
       faqEnabled: z.boolean().optional(),
       newsletterEnabled: z.boolean().optional(),
-      newsletterHeadline: z.string().optional().nullable(),
-      newsletterSubtext: z.string().optional().nullable(),
-      sectionOrder: z.string().optional().nullable(),
+      newsletterHeadline: z.string().max(200).optional().nullable(),
+      newsletterSubtext: z.string().max(500).optional().nullable(),
+      sectionOrder: z.string().max(500).optional().nullable(),
       reviewsEnabled: z.boolean().optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -473,10 +473,10 @@ ${urls}</urlset>`;
     const store = await storage.getStoreById(req.params.id as string);
     if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
     const schema = z.object({
-      name: z.string().min(1),
-      role: z.string().optional(),
-      quote: z.string().min(1),
-      avatarUrl: z.string().optional(),
+      name: z.string().min(1).max(100),
+      role: z.string().max(100).optional(),
+      quote: z.string().min(1).max(1000),
+      avatarUrl: z.string().max(500).optional(),
       sortOrder: z.number().optional().default(0),
     });
     const parsed = schema.safeParse(req.body);
@@ -488,10 +488,10 @@ ${urls}</urlset>`;
     const store = await storage.getStoreById(req.params.id as string);
     if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
     const schema = z.object({
-      name: z.string().optional(),
-      role: z.string().optional().nullable(),
-      quote: z.string().optional(),
-      avatarUrl: z.string().optional().nullable(),
+      name: z.string().max(100).optional(),
+      role: z.string().max(100).optional().nullable(),
+      quote: z.string().max(1000).optional(),
+      avatarUrl: z.string().max(500).optional().nullable(),
       sortOrder: z.number().optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -523,8 +523,8 @@ ${urls}</urlset>`;
     const store = await storage.getStoreById(req.params.id as string);
     if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
     const schema = z.object({
-      question: z.string().min(1),
-      answer: z.string().min(1),
+      question: z.string().min(1).max(300),
+      answer: z.string().min(1).max(5000),
       sortOrder: z.number().optional().default(0),
     });
     const parsed = schema.safeParse(req.body);
@@ -536,8 +536,8 @@ ${urls}</urlset>`;
     const store = await storage.getStoreById(req.params.id as string);
     if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
     const schema = z.object({
-      question: z.string().optional(),
-      answer: z.string().optional(),
+      question: z.string().max(300).optional(),
+      answer: z.string().max(5000).optional(),
       sortOrder: z.number().optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -592,7 +592,7 @@ ${urls}</urlset>`;
   app.post("/api/stores/:id/newsletter-campaigns", isAuthenticated, async (req, res) => {
     const store = await storage.getStoreById(req.params.id as string);
     if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
-    const schema = z.object({ subject: z.string().min(1) });
+    const schema = z.object({ subject: z.string().min(1).max(200) });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Subject is required" });
     const campaign = await storage.createCampaign({ storeId: store.id, subject: parsed.data.subject });
@@ -605,7 +605,7 @@ ${urls}</urlset>`;
     const campaign = await storage.getCampaignById(req.params.campaignId as string);
     if (!campaign || campaign.storeId !== store.id) return res.status(404).json({ message: "Not found" });
     if (campaign.status === "sent") return res.status(400).json({ message: "Cannot edit a sent campaign" });
-    const schema = z.object({ subject: z.string().min(1).optional() });
+    const schema = z.object({ subject: z.string().min(1).max(200).optional() });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
     const updated = await storage.updateCampaign(campaign.id, parsed.data);
@@ -935,25 +935,25 @@ ${urls}</urlset>`;
       isPrimary: z.boolean(),
     });
     const schema = z.object({
-      title: z.string().min(1),
-      description: z.string().optional().nullable(),
-      tagline: z.string().optional().nullable(),
-      category: z.string().optional().nullable(),
+      title: z.string().min(1).max(200),
+      description: z.string().max(20000).optional().nullable(),
+      tagline: z.string().max(300).optional().nullable(),
+      category: z.string().max(100).optional().nullable(),
       priceCents: z.number().int().min(0),
       originalPriceCents: z.number().int().min(0).optional().nullable(),
-      thumbnailUrl: z.string().optional().nullable(),
-      fileUrl: z.string().optional().nullable(),
+      thumbnailUrl: z.string().max(500).optional().nullable(),
+      fileUrl: z.string().max(500).optional().nullable(),
       status: z.enum(["DRAFT", "ACTIVE"]).optional(),
       productType: z.enum(["digital", "software", "template", "ebook", "course", "graphics"]).optional(),
-      deliveryInstructions: z.string().optional().nullable(),
-      accessUrl: z.string().optional().nullable(),
-      redemptionCode: z.string().optional().nullable(),
-      tags: z.array(z.string()).optional().nullable(),
-      highlights: z.array(z.string()).optional().nullable(),
-      version: z.string().optional().nullable(),
-      fileSize: z.string().optional().nullable(),
+      deliveryInstructions: z.string().max(5000).optional().nullable(),
+      accessUrl: z.string().max(500).optional().nullable(),
+      redemptionCode: z.string().max(200).optional().nullable(),
+      tags: z.array(z.string().max(50)).max(20).optional().nullable(),
+      highlights: z.array(z.string().max(200)).max(20).optional().nullable(),
+      version: z.string().max(50).optional().nullable(),
+      fileSize: z.string().max(50).optional().nullable(),
       requiredTier: z.enum(["basic", "pro", "max"]).optional(),
-      images: z.array(imageSchema).optional(),
+      images: z.array(imageSchema).max(10).optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid product data" });
@@ -1395,7 +1395,7 @@ ${urls}</urlset>`;
   });
 
   app.post("/api/coupons/validate", async (req, res) => {
-    const schema = z.object({ storeId: z.string(), code: z.string() });
+    const schema = z.object({ storeId: z.string().max(100), code: z.string().max(50) });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
 
@@ -1630,13 +1630,13 @@ ${urls}</urlset>`;
 
   app.post("/api/store-events", async (req, res) => {
     const schema = z.object({
-      storeId: z.string().min(1),
-      sessionId: z.string().min(1),
+      storeId: z.string().min(1).max(100),
+      sessionId: z.string().min(1).max(100),
       eventType: z.enum(["page_view", "product_view", "bundle_view", "checkout_start", "add_to_cart"]),
-      productId: z.string().optional(),
-      bundleId: z.string().optional(),
-      path: z.string().optional(),
-      referrer: z.string().optional(),
+      productId: z.string().max(100).optional(),
+      bundleId: z.string().max(100).optional(),
+      path: z.string().max(500).optional(),
+      referrer: z.string().max(500).optional(),
     });
 
     const parsed = schema.safeParse(req.body);
