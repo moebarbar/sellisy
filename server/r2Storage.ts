@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand, type PutObjectCommandInput } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 
@@ -29,6 +29,17 @@ function getS3Client(): S3Client {
     });
   }
   return _s3Client;
+}
+
+export async function putObject(key: string, body: Buffer, contentType: string): Promise<void> {
+  const client = getS3Client();
+  const command = new PutObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+  } as PutObjectCommandInput);
+  await client.send(command);
 }
 
 export async function getUploadPresignedUrl(prefix: string = 'uploads'): Promise<{ uploadURL: string; objectPath: string; publicUrl: string }> {
