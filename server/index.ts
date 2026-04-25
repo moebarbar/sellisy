@@ -302,6 +302,12 @@ app.use((req, res, next) => {
       runStartupCheck().catch(err => {
         console.error("[integrity] Startup check failed:", err);
       });
+      if (process.env.REDIS_URL) {
+        const { startWorkers } = require('./queue/workers');
+        startWorkers();
+      } else {
+        console.warn('[queue] REDIS_URL not set — background job workers not started');
+      }
     },
   );
 })();
