@@ -1,23 +1,17 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
-import { gumroadImports, gumroadProductShells, products, stores } from '@shared/schema';
+import { gumroadImports, gumroadProductShells, products, stores, storeProducts } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { encryptToken } from '../crypto/token-encryption';
 import { gumroadImportQueue } from '../queue/queues';
 import * as gumroad from '../gumroad/client';
 import { GumroadAPIError } from '../gumroad/types';
+import { isAuthenticated } from '../replit_integrations/auth';
 
 export const gumroadImportRouter = Router();
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
-
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!(req as any).session?.userId) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-}
 
 function getUserId(req: Request): string {
   return (req as any).session?.userId;
@@ -57,7 +51,7 @@ setInterval(() => {
 
 // ── POST /verify ─────────────────────────────────────────────────────────────
 
-gumroadImportRouter.post('/verify', requireAuth, async (req, res) => {
+gumroadImportRouter.post('/verify', isAuthenticated, async (req, res) => {
   const userId = getUserId(req);
 
   if (!checkRateLimit(verifyRateMap, userId, 5, 60_000)) {
@@ -97,7 +91,8 @@ gumroadImportRouter.post('/verify', requireAuth, async (req, res) => {
       price: p.price,
       currency: p.currency,
       thumbnailUrl: p.thumbnail_url,
-      productType: p.subscription_duration ? 'membership' : 'digital',
+      productType: 'digital',  // membership products imported as digital; flag shown in UI
+      isSubscription: !!p.subscription_duration,
       isPublished: p.published,
       hasCustomFields: (p.custom_fields ?? []).length > 0,
     }));
@@ -126,7 +121,7 @@ gumroadImportRouter.post('/verify', requireAuth, async (req, res) => {
 
 // ── POST /start ───────────────────────────────────────────────────────────────
 
-gumroadImportRouter.post('/start', requireAuth, async (req, res) => {
+gumroadImportRouter.post('/start', isAuthenticated, async (req, res) => {
   const userId = getUserId(req);
 
   if (!checkRateLimit(startRateMap, userId, 3, 60 * 60_000)) {
@@ -172,7 +167,7 @@ gumroadImportRouter.post('/start', requireAuth, async (req, res) => {
 
 // ── GET /status/:importId ─────────────────────────────────────────────────────
 
-gumroadImportRouter.get('/status/:importId', requireAuth, async (req, res) => {
+gumroadImportRouter.get('/status/:importId', isAuthenticated, async (req, res) => {
   const userId = getUserId(req);
   const importId = req.params.importId as string;
 
@@ -198,7 +193,7 @@ gumroadImportRouter.get('/status/:importId', requireAuth, async (req, res) => {
 
 // ── GET /shells/:importId ─────────────────────────────────────────────────────
 
-gumroadImportRouter.get('/shells/:importId', requireAuth, async (req, res) => {
+gumroadImportRouter.get('/shells/:importId', isAuthenticated, async (req, res) => {
   const userId = getUserId(req);
   const importId = req.params.importId as string;
 
@@ -228,7 +223,7 @@ gumroadImportRouter.get('/shells/:importId', requireAuth, async (req, res) => {
 
 // ── POST /files/attach ────────────────────────────────────────────────────────
 
-gumroadImportRouter.post('/files/attach', requireAuth, async (req, res) => {
+gumroadImportRouter.post('/files/attach', isAuthenticated, async (req, res) => {
   const userId = getUserId(req);
   const schema = z.object({
     shellId: z.string().min(1).max(100),
@@ -256,7 +251,7 @@ gumroadImportRouter.post('/files/attach', requireAuth, async (req, res) => {
 
 // ── POST /files/skip ──────────────────────────────────────────────────────────
 
-gumroadImportRouter.post('/files/skip', requireAuth, async (req, res) => {
+gumroadImportRouter.post('/files/skip', isAuthenticated, async (req, res) => {
   const userId = getUserId(req);
   const schema = z.object({ shellId: z.string().min(1).max(100) });
   const parsed = schema.safeParse(req.body);
@@ -275,7 +270,7 @@ gumroadImportRouter.post('/files/skip', requireAuth, async (req, res) => {
 
 // ── POST /finish/:importId ────────────────────────────────────────────────────
 
-gumroadImportRouter.post('/finish/:importId', requireAuth, async (req, res) => {
+gumroadImportRouter.post('/finish/:importId', isAuthenticated, async (req, res) => {
   const userId = getUserId(req);
   const importId = req.params.importId as string;
 
@@ -284,6 +279,10 @@ gumroadImportRouter.post('/finish/:importId', requireAuth, async (req, res) => {
 
   const store = await getOwnedStore(userId, importRecord.storeId);
   if (!store) return res.status(403).json({ error: 'Access denied' });
+
+  if (importRecord.status !== 'awaiting_files') {
+    return res.status(400).json({ error: 'Import is not ready to finish.' });
+  }
 
   const shells = await db.select().from(gumroadProductShells).where(eq(gumroadProductShells.importId, importId));
   const missing = shells.filter(s => s.fileStatus === 'missing');
@@ -295,10 +294,8 @@ gumroadImportRouter.post('/finish/:importId', requireAuth, async (req, res) => {
     });
   }
 
-  // Publish all imported products as storeProducts (mark them visible)
+  // Publish all imported products — upsert storeProducts row with isPublished=true
   for (const shell of shells) {
-    const { storeProducts } = await import('@shared/schema');
-    // Insert store-product link if it doesn't exist, else update isPublished
     const [existing] = await db
       .select()
       .from(storeProducts)
@@ -320,7 +317,7 @@ gumroadImportRouter.post('/finish/:importId', requireAuth, async (req, res) => {
   await db.update(gumroadImports).set({
     status: 'completed',
     completedAt: new Date(),
-    accessTokenEncrypted: '',  // zero out the token — no longer needed
+    accessTokenEncrypted: '',
   }).where(eq(gumroadImports.id, importId));
 
   return res.json({ success: true });
@@ -328,7 +325,7 @@ gumroadImportRouter.post('/finish/:importId', requireAuth, async (req, res) => {
 
 // ── POST /disconnect/:importId ────────────────────────────────────────────────
 
-gumroadImportRouter.post('/disconnect/:importId', requireAuth, async (req, res) => {
+gumroadImportRouter.post('/disconnect/:importId', isAuthenticated, async (req, res) => {
   const userId = getUserId(req);
   const importId = req.params.importId as string;
 
@@ -344,7 +341,7 @@ gumroadImportRouter.post('/disconnect/:importId', requireAuth, async (req, res) 
 
 // ── POST /send-welcome-emails/:importId ───────────────────────────────────────
 
-gumroadImportRouter.post('/send-welcome-emails/:importId', requireAuth, async (req, res) => {
+gumroadImportRouter.post('/send-welcome-emails/:importId', isAuthenticated, async (req, res) => {
   const userId = getUserId(req);
   const importId = req.params.importId as string;
 
