@@ -165,6 +165,8 @@ export const products = pgTable("products", {
   highlights: text("highlights").array(),
   version: text("version"),
   fileSize: text("file_size"),
+  gumroadProductId: text("gumroad_product_id").unique(),
+  importedFromGumroad: boolean("imported_from_gumroad").notNull().default(false),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -594,3 +596,52 @@ export const newsletterCampaignBlocks = pgTable("newsletter_campaign_blocks", {
 export const insertNewsletterCampaignBlockSchema = createInsertSchema(newsletterCampaignBlocks).omit({ id: true });
 export type InsertNewsletterCampaignBlock = z.infer<typeof insertNewsletterCampaignBlockSchema>;
 export type NewsletterCampaignBlock = typeof newsletterCampaignBlocks.$inferSelect;
+
+// ── Gumroad Importer ───────────────────────────────────────────────
+
+export const gumroadImportStatusEnum = pgEnum("gumroad_import_status", [
+  "pending",
+  "importing",
+  "awaiting_files",
+  "completed",
+  "failed",
+]);
+
+export const gumroadImports = pgTable("gumroad_imports", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull().references(() => stores.id, { onDelete: "cascade" }),
+  ownerId: varchar("owner_id", { length: 64 }).notNull(),
+  status: gumroadImportStatusEnum("status").notNull().default("pending"),
+  gumroadEmail: text("gumroad_email"),
+  gumroadUserId: text("gumroad_user_id"),
+  accessTokenEncrypted: text("access_token_encrypted").notNull().default(""),
+  productsTotal: integer("products_total").notNull().default(0),
+  productsImported: integer("products_imported").notNull().default(0),
+  customersTotal: integer("customers_total").notNull().default(0),
+  customersImported: integer("customers_imported").notNull().default(0),
+  salesTotal: integer("sales_total").notNull().default(0),
+  salesImported: integer("sales_imported").notNull().default(0),
+  errorMessage: text("error_message"),
+  welcomeEmailsSentAt: timestamp("welcome_emails_sent_at"),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertGumroadImportSchema = createInsertSchema(gumroadImports).omit({ id: true, startedAt: true });
+export type InsertGumroadImport = z.infer<typeof insertGumroadImportSchema>;
+export type GumroadImport = typeof gumroadImports.$inferSelect;
+
+export const gumroadProductShells = pgTable("gumroad_product_shells", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  importId: varchar("import_id", { length: 64 }).notNull().references(() => gumroadImports.id, { onDelete: "cascade" }),
+  sellisyProductId: varchar("sellisy_product_id", { length: 64 }).notNull().unique().references(() => products.id, { onDelete: "cascade" }),
+  gumroadProductId: text("gumroad_product_id").notNull(),
+  gumroadShortUrl: text("gumroad_short_url"),
+  fileStatus: text("file_status").notNull().default("missing"),
+  fileMatchHint: text("file_match_hint"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertGumroadProductShellSchema = createInsertSchema(gumroadProductShells).omit({ id: true, createdAt: true });
+export type InsertGumroadProductShell = z.infer<typeof insertGumroadProductShellSchema>;
+export type GumroadProductShell = typeof gumroadProductShells.$inferSelect;
