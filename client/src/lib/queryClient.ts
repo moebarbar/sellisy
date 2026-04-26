@@ -6,7 +6,7 @@ async function throwIfResNotOk(res: Response) {
     let message = text;
     try {
       const json = JSON.parse(text);
-      if (json.message) message = json.message;
+      if (json.error || json.message) message = json.error ?? json.message;
     } catch {}
     throw new Error(message);
   }

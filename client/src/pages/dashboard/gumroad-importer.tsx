@@ -184,10 +184,12 @@ function StepSelectProducts({
   preview,
   onStart,
   onBack,
+  isStarting,
 }: {
   preview: VerifyResponse;
   onStart: (selectedIds: string[], options: ImportOptions) => void;
   onBack: () => void;
+  isStarting: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(preview.products.map(p => p.gumroadProductId))
@@ -318,11 +320,14 @@ function StepSelectProducts({
         </Button>
         <Button
           className="flex-1 gap-2"
-          disabled={selected.size === 0}
+          disabled={selected.size === 0 || isStarting}
           onClick={() => onStart(Array.from(selected), options)}
         >
-          Start Import ({selected.size} product{selected.size !== 1 ? "s" : ""})
-          <ArrowRight className="w-4 h-4" />
+          {isStarting ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Starting…</>
+          ) : (
+            <>Start Import ({selected.size} product{selected.size !== 1 ? "s" : ""}) <ArrowRight className="w-4 h-4" /></>
+          )}
         </Button>
       </div>
     </div>
@@ -500,12 +505,28 @@ function StepFiles({
   const finish = async () => {
     setFinishing(true);
     try {
-      await apiRequest("POST", `/api/integrations/gumroad/finish/${importId}`);
+      const res = await fetch(`/api/integrations/gumroad/finish/${importId}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const body = await res.json() as any;
+      if (!res.ok) {
+        // Reset any shells the server says are still missing so they re-show upload controls
+        if (Array.isArray(body.missingShellIds) && body.missingShellIds.length > 0) {
+          setLocalStatuses(prev => {
+            const next = { ...prev };
+            for (const id of body.missingShellIds) delete next[id];
+            return next;
+          });
+        }
+        toast({ title: "Could not finish import", description: body.error ?? "Unexpected error", variant: "destructive" });
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/store-products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       onFinished();
-    } catch (err: any) {
-      toast({ title: "Could not finish import", description: err.message, variant: "destructive" });
+    } catch {
+      toast({ title: "Could not finish import", description: "Network error", variant: "destructive" });
     } finally {
       setFinishing(false);
     }
@@ -674,6 +695,7 @@ function StepComplete({
       const res = await apiRequest("GET", `/api/integrations/gumroad/status/${importId}`);
       return res.json();
     },
+    staleTime: 0,
   });
 
   const sendWelcomeEmails = async () => {
@@ -821,13 +843,8 @@ export default function GumroadImporterPage() {
           preview={verifyData}
           onBack={() => setStep("connect")}
           onStart={(ids, opts) => startImport.mutate({ selectedProductIds: ids, options: opts })}
+          isStarting={startImport.isPending}
         />
-      )}
-
-      {step === "select" && startImport.isPending && (
-        <div className="flex items-center gap-2 text-muted-foreground mt-4">
-          <Loader2 className="w-4 h-4 animate-spin" /> Starting import…
-        </div>
       )}
 
       {step === "progress" && importId && (
