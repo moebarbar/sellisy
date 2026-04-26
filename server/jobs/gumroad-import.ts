@@ -11,6 +11,7 @@ import {
 } from '../../shared/schema';
 import { decryptToken } from '../crypto/token-encryption';
 import * as gumroad from '../gumroad/client';
+import { GumroadAPIError } from '../gumroad/types';
 import { isR2Available, putObject, getPublicUrl } from '../r2Storage';
 import { randomUUID } from 'crypto';
 
@@ -242,9 +243,12 @@ export async function processGumroadImport(job: Job) {
     }).where(eq(gumroadImports.id, importId));
 
   } catch (err: any) {
+    const friendlyMessage = (err instanceof GumroadAPIError && err.statusCode === 401)
+      ? 'Gumroad access token was revoked or expired. Please start a new import with a valid token.'
+      : (err.message ?? 'Unknown error');
     await db.update(gumroadImports).set({
       status: 'failed',
-      errorMessage: err.message ?? 'Unknown error',
+      errorMessage: friendlyMessage,
       accessTokenEncrypted: '',
     }).where(eq(gumroadImports.id, importId));
     throw err;

@@ -624,7 +624,7 @@ function StepFiles({
   );
   const readyToUploadCount = pendingShells.filter(s => fileMatches.get(s.shellId)?.accepted).length;
   const trulyUnhandledCount = pendingShells.length - readyToUploadCount;
-  const allHandled = shells && shells.length > 0 && pendingShells.length === 0;
+  const allHandled = shells != null && pendingShells.length === 0;
 
   // Merge new files into the existing pool (deduplicate by name) then recompute
   const handleDroppedFiles = useCallback((newFiles: File[]) => {
@@ -815,7 +815,9 @@ function StepFiles({
       </div>
 
       {shells && shells.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-4">No products were imported.</p>
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No new files to upload — all selected products were already in your store.
+        </p>
       )}
 
       <div className="flex items-center justify-between">
@@ -1121,19 +1123,30 @@ export default function GumroadImporterPage() {
       selectedProductIds: string[];
       options: ImportOptions;
     }) => {
-      const res = await apiRequest("POST", "/api/integrations/gumroad/start", {
-        accessToken,
-        storeId: activeStoreId,
-        selectedProductIds,
-        options,
+      const res = await fetch("/api/integrations/gumroad/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ accessToken, storeId: activeStoreId, selectedProductIds, options }),
       });
-      return res.json() as Promise<{ importId: string }>;
+      const body = await res.json() as any;
+      if (!res.ok) throw Object.assign(new Error(body.error ?? "Failed to start import"), { importId: body.importId ?? null });
+      return { importId: body.importId as string };
     },
     onSuccess: ({ importId: id }) => {
       setImportId(id);
       setStep("progress");
     },
-    onError: (err: Error) => toast({ title: "Failed to start import", description: err.message, variant: "destructive" }),
+    onError: (err: any) => {
+      if (err.importId) {
+        // An import is already running — jump straight to its progress
+        setImportId(err.importId);
+        setStep("progress");
+        toast({ title: "Import already in progress", description: "Showing the status of your existing import." });
+        return;
+      }
+      toast({ title: "Failed to start import", description: err.message, variant: "destructive" });
+    },
   });
 
   const handleVerified = (token: string, data: VerifyResponse) => {

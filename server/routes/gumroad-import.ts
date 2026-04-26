@@ -2,7 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod';
 import { db } from '../db';
 import { gumroadImports, gumroadProductShells, products, stores, storeProducts } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { encryptToken } from '../crypto/token-encryption';
 import { gumroadImportQueue } from '../queue/queues';
 import * as gumroad from '../gumroad/client';
@@ -145,6 +145,29 @@ gumroadImportRouter.post('/start', isAuthenticated, async (req, res) => {
 
   const store = await getOwnedStore(userId, storeId);
   if (!store) return res.status(403).json({ error: 'Store not found or access denied' });
+
+  // Block duplicate imports; recover stale ones (stuck > 30 min)
+  const STALE_MS = 30 * 60 * 1000;
+  const [activeImport] = await db
+    .select({ id: gumroadImports.id, startedAt: gumroadImports.startedAt })
+    .from(gumroadImports)
+    .where(and(
+      eq(gumroadImports.storeId, storeId),
+      inArray(gumroadImports.status, ['pending', 'importing']),
+    ));
+
+  if (activeImport) {
+    const age = Date.now() - activeImport.startedAt.getTime();
+    if (age < STALE_MS) {
+      return res.status(409).json({
+        error: 'An import is already in progress for this store.',
+        importId: activeImport.id,
+      });
+    }
+    await db.update(gumroadImports)
+      .set({ status: 'failed', errorMessage: 'Import timed out and was superseded.', accessTokenEncrypted: '' })
+      .where(eq(gumroadImports.id, activeImport.id));
+  }
 
   const encryptedToken = encryptToken(accessToken);
 
