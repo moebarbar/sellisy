@@ -622,18 +622,22 @@ function StepFiles({
   const pendingShells = (shells ?? []).filter(
     s => !localStatuses[s.shellId] && s.fileStatus === 'missing'
   );
+  const readyToUploadCount = pendingShells.filter(s => fileMatches.get(s.shellId)?.accepted).length;
+  const trulyUnhandledCount = pendingShells.length - readyToUploadCount;
   const allHandled = shells && shells.length > 0 && pendingShells.length === 0;
 
-  // Recompute matches when files or shells change
-  const handleDroppedFiles = useCallback((files: File[]) => {
-    setDroppedFiles(files);
+  // Merge new files into the existing pool (deduplicate by name) then recompute
+  const handleDroppedFiles = useCallback((newFiles: File[]) => {
+    const existingNames = new Set(droppedFiles.map(f => f.name));
+    const merged = [...droppedFiles, ...newFiles.filter(f => !existingNames.has(f.name))];
+    setDroppedFiles(merged);
     if (!shells) return;
     const onlyPending = shells.filter(s => !localStatuses[s.shellId] && s.fileStatus === 'missing');
-    const { matches, unmatched } = computeMatches(files, onlyPending);
+    const { matches, unmatched } = computeMatches(merged, onlyPending);
     setFileMatches(matches);
     setUnmatchedFiles(unmatched);
     setBatchUploadStates({});
-  }, [shells, localStatuses]);
+  }, [shells, localStatuses, droppedFiles]);
 
   const toggleAccept = (shellId: string) => {
     setFileMatches(prev => {
@@ -816,9 +820,13 @@ function StepFiles({
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {pendingShells.length > 0
-            ? `${pendingShells.length} product${pendingShells.length !== 1 ? 's' : ''} still need${pendingShells.length === 1 ? 's' : ''} a file or skip`
-            : 'All products handled'}
+          {pendingShells.length === 0
+            ? 'All products handled'
+            : readyToUploadCount > 0 && trulyUnhandledCount === 0
+            ? `${readyToUploadCount} match${readyToUploadCount !== 1 ? 'es' : ''} ready — click "Upload matched files"`
+            : readyToUploadCount > 0
+            ? `${readyToUploadCount} ready to upload · ${trulyUnhandledCount} still need a file or skip`
+            : `${trulyUnhandledCount} product${trulyUnhandledCount !== 1 ? 's' : ''} still need${trulyUnhandledCount === 1 ? 's' : ''} a file or skip`}
         </p>
         <Button onClick={finish} disabled={!allHandled || finishing} className="gap-2">
           {finishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -863,6 +871,7 @@ function ShellRow({
     if (result) onManualUploaded(result.objectPath, file.name, file.size);
   };
 
+  const [showAllFiles, setShowAllFiles] = useState(false);
   const conf = match ? confidenceLabel(match.score) : null;
   const isUploaded = effectiveStatus === 'uploaded' || batchState === 'done';
   const isSkipped = effectiveStatus === 'skipped';
@@ -900,14 +909,14 @@ function ShellRow({
           <Progress value={isUploading ? progress : undefined} className="h-1 w-32" />
         )}
         {isBatchError && (
-          <p className="text-xs text-destructive">Upload failed — use manual upload below</p>
+          <p className="text-xs text-destructive">Batch upload failed — upload manually or skip.</p>
         )}
 
         {/* Unmatched file quick-assign (dropdown style) */}
         {!match && !isUploaded && !isSkipped && unmatchedFiles.length > 0 && (
           <div className="flex items-center gap-1 flex-wrap mt-1">
             <span className="text-xs text-muted-foreground">Assign:</span>
-            {unmatchedFiles.slice(0, 3).map(f => (
+            {(showAllFiles ? unmatchedFiles : unmatchedFiles.slice(0, 3)).map(f => (
               <button
                 key={f.name}
                 onClick={() => onAssignFile(f)}
@@ -916,8 +925,13 @@ function ShellRow({
                 {f.name}
               </button>
             ))}
-            {unmatchedFiles.length > 3 && (
-              <span className="text-xs text-muted-foreground">+{unmatchedFiles.length - 3} more</span>
+            {!showAllFiles && unmatchedFiles.length > 3 && (
+              <button
+                onClick={() => setShowAllFiles(true)}
+                className="text-xs text-primary underline"
+              >
+                +{unmatchedFiles.length - 3} more
+              </button>
             )}
           </div>
         )}
@@ -937,24 +951,8 @@ function ShellRow({
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Loader2 className="w-3 h-3 animate-spin" /> Uploading…
           </div>
-        ) : match ? (
-          /* Matched — accept/reject controls */
-          <div className="flex items-center gap-1">
-            <Button
-              size="sm"
-              variant={match.accepted ? 'default' : 'outline'}
-              onClick={onToggleAccept}
-              className="h-7 px-2 text-xs gap-1"
-            >
-              <Check className="w-3 h-3" />
-              {match.accepted ? 'Accepted' : 'Accept'}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={onClearMatch} className="h-7 w-7 p-0 text-muted-foreground">
-              <X className="w-3 h-3" />
-            </Button>
-          </div>
-        ) : (
-          /* No match — manual upload or skip */
+        ) : isBatchError || !match ? (
+          /* Batch error OR no match — show manual upload/skip */
           <div className="flex gap-1.5">
             <input
               ref={fileInputRef}
@@ -984,6 +982,22 @@ function ShellRow({
               className="h-7 px-2 gap-1 text-xs text-muted-foreground"
             >
               <SkipForward className="w-3 h-3" /> Skip
+            </Button>
+          </div>
+        ) : (
+          /* Matched and no error — accept/reject controls */
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant={match.accepted ? 'default' : 'outline'}
+              onClick={onToggleAccept}
+              className="h-7 px-2 text-xs gap-1"
+            >
+              <Check className="w-3 h-3" />
+              {match.accepted ? 'Accepted' : 'Accept'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onClearMatch} className="h-7 w-7 p-0 text-muted-foreground">
+              <X className="w-3 h-3" />
             </Button>
           </div>
         )}
