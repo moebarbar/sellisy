@@ -230,6 +230,7 @@ export const orders = pgTable("orders", {
   totalCents: integer("total_cents").notNull().default(0),
   stripeSessionId: text("stripe_session_id"),
   paypalOrderId: text("paypal_order_id"),
+  gumroadSaleId: text("gumroad_sale_id").unique(),
   couponId: varchar("coupon_id", { length: 64 }),
   status: orderStatusEnum("status").notNull().default("PENDING"),
   emailSent: boolean("email_sent").notNull().default(false),

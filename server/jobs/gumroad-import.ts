@@ -1,5 +1,5 @@
 import type { Job } from 'bullmq';
-import { sql, eq } from 'drizzle-orm';
+import { sql, eq, and } from 'drizzle-orm';
 import { db } from '../db';
 import {
   gumroadImports,
@@ -210,26 +210,37 @@ export async function processGumroadImport(job: Job) {
             }
           }
 
-          // Insert order
+          // Insert order (idempotent — skip if gumroadSaleId already exists)
           if (options.importSales) {
-            const [order] = await db.insert(orders).values({
-              storeId: importRecord.storeId,
-              buyerEmail: sale.email,
-              customerId,
-              totalCents: sale.price_cents,
-              status: 'COMPLETED',
-              emailSent: false,
-            }).returning();
+            const [existingOrder] = await db
+              .select({ id: orders.id })
+              .from(orders)
+              .where(and(
+                eq(orders.storeId, importRecord.storeId),
+                eq(orders.gumroadSaleId, sale.id),
+              ));
 
-            await db.insert(orderItems).values({
-              orderId: order.id,
-              productId: sellisyProductId,
-              priceCents: sale.price_cents,
-            });
+            if (!existingOrder) {
+              const [order] = await db.insert(orders).values({
+                storeId: importRecord.storeId,
+                buyerEmail: sale.email,
+                customerId,
+                totalCents: sale.price_cents,
+                status: 'COMPLETED',
+                emailSent: false,
+                gumroadSaleId: sale.id,
+              }).returning();
 
-            await db.update(gumroadImports)
-              .set({ salesImported: incrementField(gumroadImports.salesImported) })
-              .where(eq(gumroadImports.id, importId));
+              await db.insert(orderItems).values({
+                orderId: order.id,
+                productId: sellisyProductId,
+                priceCents: sale.price_cents,
+              });
+
+              await db.update(gumroadImports)
+                .set({ salesImported: incrementField(gumroadImports.salesImported) })
+                .where(eq(gumroadImports.id, importId));
+            }
           }
         }
       }
