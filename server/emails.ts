@@ -4,6 +4,10 @@ function sanitizeHeader(value: string): string {
   return value.replace(/[\r\n\0]/g, '');
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 const BRAND_COLOR = '#6366f1';
 const BRAND_NAME = 'Sellisy';
 const BRAND_URL = 'https://sellisy.com';
@@ -325,16 +329,18 @@ export async function sendGumroadMigrationEmail(params: {
 }) {
   const { buyerEmail, buyerName, storeName, storePortalUrl, products } = params;
 
-  const greeting = buyerName ? `Hi ${buyerName.split(' ')[0]},` : 'Hi there,';
+  const safeStoreName = escapeHtml(storeName);
+  const firstName = buyerName ? escapeHtml(buyerName.split(' ')[0]) : null;
+  const greeting = firstName ? `Hi ${firstName},` : 'Hi there,';
   const productList = products.length > 0
-    ? `<ul style="margin:0 0 20px;padding:0 0 0 20px;">${products.map(t => `<li style="color:#4b5563;font-size:14px;line-height:1.8;">${t}</li>`).join('')}</ul>`
+    ? `<ul style="margin:0 0 20px;padding:0 0 0 20px;">${products.map(t => `<li style="color:#4b5563;font-size:14px;line-height:1.8;">${escapeHtml(t)}</li>`).join('')}</ul>`
     : '';
 
   const content = `
     ${junkFolderNote()}
-    ${sectionHeading(`Your ${storeName} purchases are ready`)}
-    ${bodyText(`${greeting} Great news — your past purchases are now available on <strong>${storeName}</strong>. Everything you bought before has been migrated over so you don't lose access to anything.`)}
-    ${products.length > 0 ? `<p style="margin:0 0 8px;color:#374151;font-size:14px;font-weight:600;">Your purchases:</p>${productList}` : ''}
+    ${sectionHeading(`Your ${safeStoreName} purchases are ready`)}
+    ${bodyText(`${greeting} Great news — your past purchases are now available on <strong>${safeStoreName}</strong>. Everything you bought before has been migrated over so you don't lose access to anything.`)}
+    ${productList ? `<p style="margin:0 0 8px;color:#374151;font-size:14px;font-weight:600;">Your purchases:</p>${productList}` : ''}
     ${bodyText(`You can access your downloads and purchase history anytime from your customer portal.`)}
     ${ctaButton('Access My Purchases', storePortalUrl)}
     ${divider()}
@@ -343,7 +349,7 @@ export async function sendGumroadMigrationEmail(params: {
   await sendEmail(
     buyerEmail,
     sanitizeHeader(`Your ${storeName} purchases are now available`),
-    baseLayout(content, `Your past ${storeName} purchases are now ready to access.`),
+    baseLayout(content, `Your past ${safeStoreName} purchases are now ready to access.`),
   );
 }
 

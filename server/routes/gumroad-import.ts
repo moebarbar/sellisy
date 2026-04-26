@@ -351,6 +351,10 @@ gumroadImportRouter.post('/send-welcome-emails/:importId', isAuthenticated, asyn
   const store = await getOwnedStore(userId, importRecord.storeId);
   if (!store) return res.status(403).json({ error: 'Access denied' });
 
+  if (!['completed', 'awaiting_files'].includes(importRecord.status)) {
+    return res.status(400).json({ error: 'Import must be completed before sending welcome emails.' });
+  }
+
   if (importRecord.welcomeEmailsSentAt) {
     return res.status(409).json({ error: 'Welcome emails already sent for this import.' });
   }

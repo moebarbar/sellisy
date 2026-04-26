@@ -1,5 +1,5 @@
 import type { Job } from 'bullmq';
-import { eq, inArray, and } from 'drizzle-orm';
+import { eq, inArray, and, isNull } from 'drizzle-orm';
 import { db } from '../db';
 import {
   gumroadImports,
@@ -30,20 +30,29 @@ interface EmailEntry {
 export async function processGumroadWelcomeEmails(job: Job) {
   const { importId, storeId } = job.data as { importId: string; storeId: string };
 
-  // ── Load & lock ─────────────────────────────────────────────────────
+  // ── Atomic lock — one UPDATE beats two concurrent workers ───────────
+  // Using WHERE welcomeEmailsSentAt IS NULL so only one process wins.
+  // Pre-stamp semantics: if the job crashes mid-send, retries skip rather
+  // than duplicate. Combined with the route's status guard this only fires
+  // on completed imports, so early-trigger data loss is prevented there.
 
-  const [importRecord] = await db.select().from(gumroadImports).where(eq(gumroadImports.id, importId));
-  if (!importRecord) throw new Error(`Import ${importId} not found`);
+  const locked = await db.update(gumroadImports)
+    .set({ welcomeEmailsSentAt: new Date() })
+    .where(and(
+      eq(gumroadImports.id, importId),
+      isNull(gumroadImports.welcomeEmailsSentAt),
+    ))
+    .returning({ id: gumroadImports.id });
 
-  if (importRecord.welcomeEmailsSentAt) {
+  if (locked.length === 0) {
     console.log(`[gumroad-welcome-emails] ${importId} already sent, skipping`);
     return;
   }
 
-  // Mark as sent immediately to prevent duplicate runs on retry
-  await db.update(gumroadImports)
-    .set({ welcomeEmailsSentAt: new Date() })
-    .where(eq(gumroadImports.id, importId));
+  // Confirm the record exists (import missing would mean locked.length === 0 above)
+  const [importRecord] = await db.select({ storeId: gumroadImports.storeId })
+    .from(gumroadImports).where(eq(gumroadImports.id, importId));
+  if (!importRecord) throw new Error(`Import ${importId} not found`);
 
   // ── Load store ───────────────────────────────────────────────────────
 
@@ -167,5 +176,9 @@ export async function processGumroadWelcomeEmails(job: Job) {
     }
   }
 
-  console.log(`[gumroad-welcome-emails] ${importId} done — sent:${sent} failed:${failed}`);
+  if (failed > 0) {
+    console.error(`[gumroad-welcome-emails] ${importId} partial failure — sent:${sent} failed:${failed}. Some buyers did not receive a welcome email.`);
+  } else {
+    console.log(`[gumroad-welcome-emails] ${importId} done — sent:${sent}`);
+  }
 }
