@@ -314,6 +314,39 @@ export async function sendMagicLinkEmail(params: {
   }
 }
 
+// ─── 7. GUMROAD MIGRATION WELCOME ────────────────────────────────────
+
+export async function sendGumroadMigrationEmail(params: {
+  buyerEmail: string;
+  buyerName: string | null;
+  storeName: string;
+  storePortalUrl: string;
+  products: string[];  // product titles purchased
+}) {
+  const { buyerEmail, buyerName, storeName, storePortalUrl, products } = params;
+
+  const greeting = buyerName ? `Hi ${buyerName.split(' ')[0]},` : 'Hi there,';
+  const productList = products.length > 0
+    ? `<ul style="margin:0 0 20px;padding:0 0 0 20px;">${products.map(t => `<li style="color:#4b5563;font-size:14px;line-height:1.8;">${t}</li>`).join('')}</ul>`
+    : '';
+
+  const content = `
+    ${junkFolderNote()}
+    ${sectionHeading(`Your ${storeName} purchases are ready`)}
+    ${bodyText(`${greeting} Great news — your past purchases are now available on <strong>${storeName}</strong>. Everything you bought before has been migrated over so you don't lose access to anything.`)}
+    ${products.length > 0 ? `<p style="margin:0 0 8px;color:#374151;font-size:14px;font-weight:600;">Your purchases:</p>${productList}` : ''}
+    ${bodyText(`You can access your downloads and purchase history anytime from your customer portal.`)}
+    ${ctaButton('Access My Purchases', storePortalUrl)}
+    ${divider()}
+    ${bodyText(`If you have any questions about your purchases, reply to this email or contact the store directly. Your downloads are waiting for you.`)}`;
+
+  await sendEmail(
+    buyerEmail,
+    sanitizeHeader(`Your ${storeName} purchases are now available`),
+    baseLayout(content, `Your past ${storeName} purchases are now ready to access.`),
+  );
+}
+
 // ─── TEST UTILITY: Send all email types ─────────────────────────────
 
 export async function sendAllTestEmails(toEmail: string, baseUrl: string) {
