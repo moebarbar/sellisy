@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import {
   ArrowLeft, ArrowRight, Check, Upload, SkipForward, Loader2,
   Package, Users, ShoppingCart, Sparkles, AlertCircle, ExternalLink,
+  FileUp, X, Link2, Folder,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -476,7 +477,122 @@ function ProgressRow({
   );
 }
 
+// ── Fuzzy matching ────────────────────────────────────────────────────────────
+
+function normalizeForMatch(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/\.[^.]+$/, '')       // strip file extension
+    .replace(/[^a-z0-9]+/g, ' ')  // non-alnum → space
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function fuzzyScore(fileName: string, productName: string): number {
+  const a = normalizeForMatch(fileName);
+  const b = normalizeForMatch(productName);
+  if (a.length === 0 || b.length === 0) return 0;
+
+  const aStr = a.join(' ');
+  const bStr = b.join(' ');
+  if (aStr === bStr) return 1;
+  if (aStr.includes(bStr) || bStr.includes(aStr)) return 0.88;
+
+  const aSet = new Set(a);
+  const bSet = new Set(b);
+  const aArr = Array.from(aSet);
+  const bArr = Array.from(bSet);
+  const intersection = aArr.filter(t => bSet.has(t)).length;
+  const union = new Set([...aArr, ...bArr]).size;
+  const jaccard = intersection / union;
+
+  const prefixBonus = bArr.some(bt => aArr.some(at => at.startsWith(bt) || bt.startsWith(at))) ? 0.1 : 0;
+
+  return Math.min(1, jaccard + prefixBonus);
+}
+
+const MATCH_THRESHOLD = 0.3;
+const AUTO_ACCEPT_THRESHOLD = 0.6;
+
+interface FileMatch {
+  shellId: string;
+  file: File;
+  score: number;
+  accepted: boolean;
+}
+
+function computeMatches(files: File[], shells: Shell[]): {
+  matches: Map<string, FileMatch>;
+  unmatched: File[];
+} {
+  const matches = new Map<string, FileMatch>();
+  const usedFiles = new Set<number>();
+
+  // For each shell, find the best-scoring available file
+  for (const shell of shells) {
+    let best: { file: File; score: number; idx: number } | null = null;
+    for (let idx = 0; idx < files.length; idx++) {
+      if (usedFiles.has(idx)) continue;
+      const score = fuzzyScore(files[idx].name, shell.fileMatchHint ?? shell.productName);
+      if (score >= MATCH_THRESHOLD && (!best || score > best.score)) {
+        best = { file: files[idx], score, idx };
+      }
+    }
+    if (best) {
+      usedFiles.add(best.idx);
+      matches.set(shell.shellId, {
+        shellId: shell.shellId,
+        file: best.file,
+        score: best.score,
+        accepted: best.score >= AUTO_ACCEPT_THRESHOLD,
+      });
+    }
+  }
+
+  const unmatched = files.filter((_, idx) => !usedFiles.has(idx));
+  return { matches, unmatched };
+}
+
+function confidenceLabel(score: number): { label: string; className: string } {
+  if (score >= 0.75) return { label: 'High', className: 'text-green-600 border-green-300 bg-green-50' };
+  if (score >= 0.5)  return { label: 'Medium', className: 'text-yellow-600 border-yellow-300 bg-yellow-50' };
+  return { label: 'Low', className: 'text-orange-600 border-orange-300 bg-orange-50' };
+}
+
+// ── Drop zone ─────────────────────────────────────────────────────────────────
+
+function FileDropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handle = (files: FileList | null) => {
+    if (files && files.length > 0) onFiles(Array.from(files));
+  };
+
+  return (
+    <div
+      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+        dragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30'
+      }`}
+      onClick={() => inputRef.current?.click()}
+      onDragOver={e => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={e => { e.preventDefault(); setDragging(false); handle(e.dataTransfer.files); }}
+    >
+      <input ref={inputRef} type="file" multiple className="hidden" onChange={e => handle(e.target.files)} />
+      <Folder className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+      <p className="font-medium text-sm">Drop all your product files here</p>
+      <p className="text-xs text-muted-foreground mt-1">
+        We'll auto-match files to products by name. Or browse to select files.
+      </p>
+    </div>
+  );
+}
+
 // ── Step 4: Upload Files ──────────────────────────────────────────────────────
+
+type UploadState = 'idle' | 'uploading' | 'done' | 'error';
 
 function StepFiles({
   importId,
@@ -486,32 +602,128 @@ function StepFiles({
   onFinished: () => void;
 }) {
   const { toast } = useToast();
-  const [localStatuses, setLocalStatuses] = useState<Record<string, "uploaded" | "skipped">>({});
+  const [localStatuses, setLocalStatuses] = useState<Record<string, 'uploaded' | 'skipped'>>({});
   const [finishing, setFinishing] = useState(false);
 
-  const { data: shells, refetch } = useQuery<Shell[]>({
-    queryKey: ["/api/integrations/gumroad/shells", importId],
+  // Fuzzy match state
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
+  const [fileMatches, setFileMatches] = useState<Map<string, FileMatch>>(new Map());
+  const [unmatchedFiles, setUnmatchedFiles] = useState<File[]>([]);
+  const [batchUploadStates, setBatchUploadStates] = useState<Record<string, UploadState>>({});
+
+  const { data: shells } = useQuery<Shell[]>({
+    queryKey: ['/api/integrations/gumroad/shells', importId],
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/integrations/gumroad/shells/${importId}`);
+      const res = await apiRequest('GET', `/api/integrations/gumroad/shells/${importId}`);
       return res.json();
     },
   });
 
-  const pending = (shells ?? []).filter(
-    s => !localStatuses[s.shellId] && s.fileStatus === "missing"
+  const pendingShells = (shells ?? []).filter(
+    s => !localStatuses[s.shellId] && s.fileStatus === 'missing'
   );
-  const allHandled = shells && shells.length > 0 && pending.length === 0;
+  const allHandled = shells && shells.length > 0 && pendingShells.length === 0;
+
+  // Recompute matches when files or shells change
+  const handleDroppedFiles = useCallback((files: File[]) => {
+    setDroppedFiles(files);
+    if (!shells) return;
+    const onlyPending = shells.filter(s => !localStatuses[s.shellId] && s.fileStatus === 'missing');
+    const { matches, unmatched } = computeMatches(files, onlyPending);
+    setFileMatches(matches);
+    setUnmatchedFiles(unmatched);
+    setBatchUploadStates({});
+  }, [shells, localStatuses]);
+
+  const toggleAccept = (shellId: string) => {
+    setFileMatches(prev => {
+      const next = new Map(prev);
+      const m = next.get(shellId);
+      if (m) next.set(shellId, { ...m, accepted: !m.accepted });
+      return next;
+    });
+  };
+
+  const clearMatch = (shellId: string) => {
+    setFileMatches(prev => {
+      const next = new Map(prev);
+      next.delete(shellId);
+      return next;
+    });
+  };
+
+  // Assign an unmatched file to a specific shell
+  const assignFile = (shellId: string, file: File) => {
+    setFileMatches(prev => {
+      const next = new Map(prev);
+      next.set(shellId, { shellId, file, score: 1, accepted: true });
+      return next;
+    });
+    setUnmatchedFiles(prev => prev.filter(f => f !== file));
+  };
+
+  // Upload a single file and attach it to a shell
+  const uploadAndAttach = async (shellId: string, file: File): Promise<boolean> => {
+    setBatchUploadStates(s => ({ ...s, [shellId]: 'uploading' }));
+    try {
+      // Step 1: get presigned URL
+      const urlRes = await fetch('/api/uploads/request-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || 'application/octet-stream' }),
+      });
+      if (!urlRes.ok) throw new Error('Failed to get upload URL');
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+
+      // Step 2: PUT to presigned URL
+      const putRes = await fetch(uploadURL, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error('Failed to upload file');
+
+      // Step 3: attach
+      await apiRequest('POST', '/api/integrations/gumroad/files/attach', {
+        shellId,
+        r2Key: objectPath,
+        fileName: file.name,
+        fileSize: file.size,
+      });
+
+      setBatchUploadStates(s => ({ ...s, [shellId]: 'done' }));
+      setLocalStatuses(s => ({ ...s, [shellId]: 'uploaded' }));
+      return true;
+    } catch (err: any) {
+      setBatchUploadStates(s => ({ ...s, [shellId]: 'error' }));
+      return false;
+    }
+  };
+
+  const uploadAllAccepted = async () => {
+    const toUpload = Array.from(fileMatches.entries()).filter(([, m]) => m.accepted);
+    const results = await Promise.allSettled(
+      toUpload.map(([shellId, m]) => uploadAndAttach(shellId, m.file))
+    );
+    const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value)).length;
+    if (failed > 0) {
+      toast({ title: `${failed} upload${failed > 1 ? 's' : ''} failed`, description: 'Check the highlighted rows and try again.', variant: 'destructive' });
+    }
+  };
+
+  const acceptedCount = Array.from(fileMatches.values()).filter(m => m.accepted).length;
+  const batchInProgress = Object.values(batchUploadStates).some(s => s === 'uploading');
 
   const finish = async () => {
     setFinishing(true);
     try {
       const res = await fetch(`/api/integrations/gumroad/finish/${importId}`, {
-        method: "POST",
-        credentials: "include",
+        method: 'POST',
+        credentials: 'include',
       });
       const body = await res.json() as any;
       if (!res.ok) {
-        // Reset any shells the server says are still missing so they re-show upload controls
         if (Array.isArray(body.missingShellIds) && body.missingShellIds.length > 0) {
           setLocalStatuses(prev => {
             const next = { ...prev };
@@ -519,14 +731,14 @@ function StepFiles({
             return next;
           });
         }
-        toast({ title: "Could not finish import", description: body.error ?? "Unexpected error", variant: "destructive" });
+        toast({ title: 'Could not finish import', description: body.error ?? 'Unexpected error', variant: 'destructive' });
         return;
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/store-products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ['/api/store-products'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
       onFinished();
     } catch {
-      toast({ title: "Could not finish import", description: "Network error", variant: "destructive" });
+      toast({ title: 'Could not finish import', description: 'Network error', variant: 'destructive' });
     } finally {
       setFinishing(false);
     }
@@ -537,38 +749,65 @@ function StepFiles({
       <div>
         <h2 className="text-xl font-semibold mb-1">Upload product files</h2>
         <p className="text-muted-foreground text-sm">
-          Gumroad doesn't expose downloadable files via API. Upload each product's file below,
-          or skip products you'll add later.
+          Gumroad doesn't expose files via API. Drop all your files below — we'll match them
+          to the right products automatically, or upload individually.
         </p>
       </div>
 
+      {/* Drop zone */}
+      <FileDropZone onFiles={handleDroppedFiles} />
+
+      {/* Batch match summary */}
+      {droppedFiles.length > 0 && (
+        <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-2 text-sm">
+          <span className="text-muted-foreground">
+            {droppedFiles.length} file{droppedFiles.length !== 1 ? 's' : ''} dropped
+            {unmatchedFiles.length > 0 && ` · ${unmatchedFiles.length} unmatched`}
+          </span>
+          {acceptedCount > 0 && (
+            <Button size="sm" disabled={batchInProgress} onClick={uploadAllAccepted} className="gap-1.5">
+              {batchInProgress
+                ? <><Loader2 className="w-3 h-3 animate-spin" /> Uploading…</>
+                : <><FileUp className="w-3 h-3" /> Upload {acceptedCount} matched file{acceptedCount !== 1 ? 's' : ''}</>
+              }
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Product list */}
       <div className="border rounded-lg divide-y">
-        {(shells ?? []).map(shell => (
-          <ShellRow
-            key={shell.shellId}
-            shell={shell}
-            localStatus={localStatuses[shell.shellId] ?? null}
-            onUploaded={(r2Key, fileName, fileSize) => {
-              apiRequest("POST", "/api/integrations/gumroad/files/attach", {
-                shellId: shell.shellId,
-                r2Key,
-                fileName,
-                fileSize,
-              }).then(() => {
-                setLocalStatuses(s => ({ ...s, [shell.shellId]: "uploaded" }));
-              }).catch((err: Error) => {
-                toast({ title: "Failed to attach file", description: err.message, variant: "destructive" });
-              });
-            }}
-            onSkipped={() => {
-              apiRequest("POST", "/api/integrations/gumroad/files/skip", { shellId: shell.shellId })
-                .then(() => setLocalStatuses(s => ({ ...s, [shell.shellId]: "skipped" })))
-                .catch((err: Error) => {
-                  toast({ title: "Failed to skip", description: err.message, variant: "destructive" });
-                });
-            }}
-          />
-        ))}
+        {(shells ?? []).map(shell => {
+          const match = fileMatches.get(shell.shellId) ?? null;
+          const localStatus = localStatuses[shell.shellId] ?? null;
+          const effectiveStatus = localStatus ?? (shell.fileStatus !== 'missing' ? shell.fileStatus : null);
+          const batchState = batchUploadStates[shell.shellId] ?? null;
+
+          return (
+            <ShellRow
+              key={shell.shellId}
+              shell={shell}
+              effectiveStatus={effectiveStatus}
+              match={match}
+              batchState={batchState}
+              unmatchedFiles={unmatchedFiles}
+              onToggleAccept={() => toggleAccept(shell.shellId)}
+              onClearMatch={() => clearMatch(shell.shellId)}
+              onAssignFile={file => assignFile(shell.shellId, file)}
+              onManualUploaded={(r2Key, fileName, fileSize) => {
+                apiRequest('POST', '/api/integrations/gumroad/files/attach', {
+                  shellId: shell.shellId, r2Key, fileName, fileSize,
+                }).then(() => setLocalStatuses(s => ({ ...s, [shell.shellId]: 'uploaded' })))
+                  .catch((err: Error) => toast({ title: 'Failed to attach file', description: err.message, variant: 'destructive' }));
+              }}
+              onSkipped={() => {
+                apiRequest('POST', '/api/integrations/gumroad/files/skip', { shellId: shell.shellId })
+                  .then(() => setLocalStatuses(s => ({ ...s, [shell.shellId]: 'skipped' })))
+                  .catch((err: Error) => toast({ title: 'Failed to skip', description: err.message, variant: 'destructive' }));
+              }}
+            />
+          );
+        })}
       </div>
 
       {shells && shells.length === 0 && (
@@ -577,9 +816,9 @@ function StepFiles({
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {pending.length > 0
-            ? `${pending.length} product${pending.length !== 1 ? "s" : ""} still need${pending.length === 1 ? "s" : ""} a file or skip`
-            : "All products handled"}
+          {pendingShells.length > 0
+            ? `${pendingShells.length} product${pendingShells.length !== 1 ? 's' : ''} still need${pendingShells.length === 1 ? 's' : ''} a file or skip`
+            : 'All products handled'}
         </p>
         <Button onClick={finish} disabled={!allHandled || finishing} className="gap-2">
           {finishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -591,87 +830,164 @@ function StepFiles({
 }
 
 function ShellRow({
-  shell, localStatus, onUploaded, onSkipped,
+  shell,
+  effectiveStatus,
+  match,
+  batchState,
+  unmatchedFiles,
+  onToggleAccept,
+  onClearMatch,
+  onAssignFile,
+  onManualUploaded,
+  onSkipped,
 }: {
   shell: Shell;
-  localStatus: "uploaded" | "skipped" | null;
-  onUploaded: (r2Key: string, fileName: string, fileSize: number) => void;
+  effectiveStatus: string | null;
+  match: FileMatch | null;
+  batchState: UploadState | null;
+  unmatchedFiles: File[];
+  onToggleAccept: () => void;
+  onClearMatch: () => void;
+  onAssignFile: (file: File) => void;
+  onManualUploaded: (r2Key: string, fileName: string, fileSize: number) => void;
   onSkipped: () => void;
 }) {
   const { toast } = useToast();
   const { uploadFile, isUploading, progress } = useUpload({
-    onError: (err) => toast({ title: "Upload failed", description: err.message, variant: "destructive" }),
+    onError: err => toast({ title: 'Upload failed', description: err.message, variant: 'destructive' }),
   });
-
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const effectiveStatus = localStatus ?? (shell.fileStatus !== "missing" ? shell.fileStatus : null);
 
-  const handleFile = async (file: File) => {
+  const handleManualFile = async (file: File) => {
     const result = await uploadFile(file);
-    if (result) {
-      onUploaded(result.objectPath, file.name, file.size);
-    }
+    if (result) onManualUploaded(result.objectPath, file.name, file.size);
   };
 
+  const conf = match ? confidenceLabel(match.score) : null;
+  const isUploaded = effectiveStatus === 'uploaded' || batchState === 'done';
+  const isSkipped = effectiveStatus === 'skipped';
+  const isBatchUploading = batchState === 'uploading';
+  const isBatchError = batchState === 'error';
+
   return (
-    <div className="flex items-center gap-3 p-3">
+    <div className={`flex items-start gap-3 p-3 ${isBatchError ? 'bg-destructive/5' : ''}`}>
+      {/* Thumbnail */}
       {shell.thumbnailUrl ? (
-        <img src={shell.thumbnailUrl} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
+        <img src={shell.thumbnailUrl} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0 mt-0.5" />
       ) : (
-        <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
+        <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
           <Package className="w-5 h-5 text-muted-foreground" />
         </div>
       )}
 
-      <div className="flex-1 min-w-0">
+      {/* Product info + match details */}
+      <div className="flex-1 min-w-0 space-y-1">
         <p className="font-medium text-sm truncate">{shell.productName}</p>
-        {shell.fileMatchHint && (
-          <p className="text-xs text-muted-foreground truncate">Hint: {shell.fileMatchHint}</p>
+
+        {/* Match suggestion */}
+        {match && !isUploaded && !isSkipped && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Link2 className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+            <span className="text-xs text-muted-foreground truncate max-w-[180px]">{match.file.name}</span>
+            <Badge variant="outline" className={`text-xs px-1.5 py-0 ${conf?.className}`}>
+              {Math.round(match.score * 100)}% {conf?.label}
+            </Badge>
+          </div>
         )}
-        {isUploading && <Progress value={progress} className="h-1 mt-1 w-32" />}
+
+        {/* Upload / batch progress */}
+        {(isUploading || isBatchUploading) && (
+          <Progress value={isUploading ? progress : undefined} className="h-1 w-32" />
+        )}
+        {isBatchError && (
+          <p className="text-xs text-destructive">Upload failed — use manual upload below</p>
+        )}
+
+        {/* Unmatched file quick-assign (dropdown style) */}
+        {!match && !isUploaded && !isSkipped && unmatchedFiles.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap mt-1">
+            <span className="text-xs text-muted-foreground">Assign:</span>
+            {unmatchedFiles.slice(0, 3).map(f => (
+              <button
+                key={f.name}
+                onClick={() => onAssignFile(f)}
+                className="text-xs px-1.5 py-0.5 rounded border border-dashed hover:bg-muted truncate max-w-[120px]"
+              >
+                {f.name}
+              </button>
+            ))}
+            {unmatchedFiles.length > 3 && (
+              <span className="text-xs text-muted-foreground">+{unmatchedFiles.length - 3} more</span>
+            )}
+          </div>
+        )}
       </div>
 
-      {effectiveStatus === "uploaded" ? (
-        <Badge variant="outline" className="text-green-600 border-green-300 gap-1">
-          <Check className="w-3 h-3" /> Uploaded
-        </Badge>
-      ) : effectiveStatus === "skipped" ? (
-        <Badge variant="outline" className="text-muted-foreground gap-1">
-          <SkipForward className="w-3 h-3" /> Skipped
-        </Badge>
-      ) : (
-        <div className="flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={e => {
-              const f = e.target.files?.[0];
-              if (f) handleFile(f);
-              e.target.value = "";
-            }}
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={isUploading}
-            onClick={() => fileInputRef.current?.click()}
-            className="gap-1 text-xs"
-          >
-            {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-            Upload
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={isUploading}
-            onClick={onSkipped}
-            className="gap-1 text-xs text-muted-foreground"
-          >
-            <SkipForward className="w-3 h-3" /> Skip
-          </Button>
-        </div>
-      )}
+      {/* Right side actions */}
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {isUploaded ? (
+          <Badge variant="outline" className="text-green-600 border-green-300 gap-1">
+            <Check className="w-3 h-3" /> Uploaded
+          </Badge>
+        ) : isSkipped ? (
+          <Badge variant="outline" className="text-muted-foreground gap-1">
+            <SkipForward className="w-3 h-3" /> Skipped
+          </Badge>
+        ) : isBatchUploading ? (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Loader2 className="w-3 h-3 animate-spin" /> Uploading…
+          </div>
+        ) : match ? (
+          /* Matched — accept/reject controls */
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant={match.accepted ? 'default' : 'outline'}
+              onClick={onToggleAccept}
+              className="h-7 px-2 text-xs gap-1"
+            >
+              <Check className="w-3 h-3" />
+              {match.accepted ? 'Accepted' : 'Accept'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onClearMatch} className="h-7 w-7 p-0 text-muted-foreground">
+              <X className="w-3 h-3" />
+            </Button>
+          </div>
+        ) : (
+          /* No match — manual upload or skip */
+          <div className="flex gap-1.5">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0];
+                if (f) handleManualFile(f);
+                e.target.value = '';
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isUploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="h-7 px-2 gap-1 text-xs"
+            >
+              {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+              Upload
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={isUploading}
+              onClick={onSkipped}
+              className="h-7 px-2 gap-1 text-xs text-muted-foreground"
+            >
+              <SkipForward className="w-3 h-3" /> Skip
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
