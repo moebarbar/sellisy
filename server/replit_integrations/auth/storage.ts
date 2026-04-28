@@ -1,11 +1,20 @@
-import { users, type User, type UpsertUser } from "@shared/models/auth";
+import { users, type User } from "@shared/models/auth";
 import { db } from "../../db";
 import { eq } from "drizzle-orm";
+
+interface UpsertByClerkArgs {
+  clerkUserId: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  profileImageUrl: string | null;
+}
 
 export interface IAuthStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  getUserByClerkId(clerkUserId: string): Promise<User | undefined>;
+  upsertUserByClerkId(args: UpsertByClerkArgs): Promise<User>;
 }
 
 class AuthStorage implements IAuthStorage {
@@ -19,14 +28,28 @@ class AuthStorage implements IAuthStorage {
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
+  async getUserByClerkId(clerkUserId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.clerkUserId, clerkUserId));
+    return user;
+  }
+
+  async upsertUserByClerkId(args: UpsertByClerkArgs): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values(userData)
+      .values({
+        clerkUserId: args.clerkUserId,
+        email: args.email,
+        firstName: args.firstName,
+        lastName: args.lastName,
+        profileImageUrl: args.profileImageUrl,
+      })
       .onConflictDoUpdate({
-        target: users.id,
+        target: users.clerkUserId,
         set: {
-          ...userData,
+          email: args.email,
+          firstName: args.firstName,
+          lastName: args.lastName,
+          profileImageUrl: args.profileImageUrl,
           updatedAt: new Date(),
         },
       })

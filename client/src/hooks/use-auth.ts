@@ -1,49 +1,32 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useUser, useClerk } from "@clerk/react";
+import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/models/auth";
 
-type SafeUser = Omit<User, "passwordHash">;
-
-async function fetchUser(): Promise<SafeUser | null> {
-  const response = await fetch("/api/auth/user", {
-    credentials: "include",
-  });
-
-  if (response.status === 401) {
-    return null;
-  }
-
-  if (!response.ok) {
-    throw new Error(`${response.status}: ${response.statusText}`);
-  }
-
-  return response.json();
-}
-
+// The Clerk hook gives us identity; the local user row carries Sellisy-specific
+// fields (id, profile, plan tier resolution). We query /api/auth/user once a
+// Clerk session exists, then expose a unified shape so existing callers don't
+// have to change.
 export function useAuth() {
-  const queryClient = useQueryClient();
-  const { data: user, isLoading } = useQuery<SafeUser | null>({
+  const { isLoaded, isSignedIn, user: clerkUser } = useUser();
+  const clerk = useClerk();
+
+  const { data: sellisyUser, isLoading: isLoadingLocal } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
-    queryFn: fetchUser,
-    retry: false,
+    enabled: !!isSignedIn,
     staleTime: 1000 * 60 * 5,
+    retry: false,
   });
 
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("POST", "/api/auth/logout");
-    },
-    onSuccess: () => {
-      queryClient.setQueryData(["/api/auth/user"], null);
-      window.location.href = "/";
-    },
-  });
+  const logout = () => {
+    clerk.signOut({ redirectUrl: "/" });
+  };
 
   return {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
-    logout: logoutMutation.mutate,
-    isLoggingOut: logoutMutation.isPending,
+    user: sellisyUser ?? null,
+    clerkUser,
+    isLoading: !isLoaded || (isSignedIn && isLoadingLocal),
+    isAuthenticated: !!isSignedIn,
+    logout,
+    isLoggingOut: false,
   };
 }

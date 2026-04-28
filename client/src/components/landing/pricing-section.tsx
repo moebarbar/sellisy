@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Loader2, Eye, EyeOff, X } from "lucide-react";
+import { useUser } from "@clerk/react";
+import { Loader2, X, ArrowRight, Lock } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 type PlanKey = "basic" | "pro" | "max";
 
@@ -9,45 +11,36 @@ const PLANS: Record<PlanKey, { label: string; price: string }> = {
   max: { label: "Empire", price: "$69" },
 };
 
-function SignupModal({ plan, onClose }: { plan: PlanKey; onClose: () => void }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+function SubscribeModal({ plan, onClose }: { plan: PlanKey; onClose: () => void }) {
+  const { isLoaded, isSignedIn, user } = useUser();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const info = PLANS[plan];
+
+  const handleSubscribe = async () => {
     setError("");
     setLoading(true);
-
     try {
-      const res = await fetch("/api/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, email, firstName, lastName, password }),
-      });
-
+      const res = await apiRequest("POST", "/api/subscribe", { plan });
       const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || "Something went wrong");
-        setLoading(false);
-        return;
-      }
-
       if (data.url) {
         window.location.href = data.url;
+        return;
       }
-    } catch {
-      setError("Network error. Please try again.");
+      setError("Could not start checkout.");
+    } catch (err: any) {
+      setError(err?.message ?? "Network error. Please try again.");
+    } finally {
       setLoading(false);
     }
   };
 
-  const info = PLANS[plan];
+  const goToAuth = () => {
+    // Stash the chosen plan so /auth can hand it back after sign-in
+    sessionStorage.setItem("pendingPlan", plan);
+    window.location.href = "/auth";
+  };
 
   return (
     <div
@@ -94,10 +87,7 @@ function SignupModal({ plan, onClose }: { plan: PlanKey; onClose: () => void }) 
         </button>
 
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <p
-            className="s-label"
-            style={{ color: "var(--s-yellow)", marginBottom: 8 }}
-          >
+          <p className="s-label" style={{ color: "var(--s-yellow)", marginBottom: 8 }}>
             {info.label} Plan
           </p>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 4 }}>
@@ -108,199 +98,137 @@ function SignupModal({ plan, onClose }: { plan: PlanKey; onClose: () => void }) 
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label
-                className="s-label"
-                style={{ color: "rgba(250,250,245,0.5)", fontSize: 10, marginBottom: 6, display: "block" }}
-              >
-                First Name
-              </label>
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-                placeholder="John"
-                data-testid="input-signup-first-name"
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  background: "rgba(255,255,255,0.04)",
-                  color: "var(--s-white)",
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 14,
-                  outline: "none",
-                }}
-              />
-            </div>
-            <div>
-              <label
-                className="s-label"
-                style={{ color: "rgba(250,250,245,0.5)", fontSize: 10, marginBottom: 6, display: "block" }}
-              >
-                Last Name
-              </label>
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-                placeholder="Doe"
-                data-testid="input-signup-last-name"
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  background: "rgba(255,255,255,0.04)",
-                  color: "var(--s-white)",
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 14,
-                  outline: "none",
-                }}
-              />
-            </div>
+        {!isLoaded ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: "24px 0" }}>
+            <Loader2 size={20} className="animate-spin" style={{ color: "rgba(250,250,245,0.4)" }} />
           </div>
-
-          <div>
-            <label
-              className="s-label"
-              style={{ color: "rgba(250,250,245,0.5)", fontSize: 10, marginBottom: 6, display: "block" }}
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="you@example.com"
-              data-testid="input-signup-email"
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(255,255,255,0.04)",
-                color: "var(--s-white)",
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 14,
-                outline: "none",
-              }}
-            />
-          </div>
-
-          <div>
-            <label
-              className="s-label"
-              style={{ color: "rgba(250,250,245,0.5)", fontSize: 10, marginBottom: 6, display: "block" }}
-            >
-              Password
-            </label>
-            <div style={{ position: "relative" }}>
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                placeholder="At least 8 characters"
-                data-testid="input-signup-password"
-                style={{
-                  width: "100%",
-                  padding: "10px 14px",
-                  paddingRight: 42,
-                  borderRadius: 8,
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  background: "rgba(255,255,255,0.04)",
-                  color: "var(--s-white)",
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 14,
-                  outline: "none",
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: "absolute",
-                  right: 12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "none",
-                  border: "none",
-                  color: "rgba(250,250,245,0.4)",
-                  cursor: "pointer",
-                }}
-                data-testid="button-toggle-signup-password"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          {error && (
-            <p
-              style={{
-                color: "#ef4444",
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 13,
-                textAlign: "center",
-                margin: 0,
-              }}
-              data-testid="text-signup-error"
-            >
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            data-testid="button-subscribe"
-            style={{
-              padding: "14px 0",
-              borderRadius: 10,
-              background: "var(--s-yellow)",
-              color: "var(--s-black)",
-              fontFamily: "'Space Mono', monospace",
-              fontSize: 13,
-              textTransform: "uppercase",
-              letterSpacing: 1,
-              fontWeight: 700,
-              border: "none",
-              cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.7 : 1,
+        ) : !isSignedIn ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-          >
-            {loading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Processing...
-              </>
-            ) : (
-              `Subscribe — ${info.price}/mo →`
-            )}
-          </button>
+              gap: 10,
+              padding: "12px 14px",
+              borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(255,255,255,0.02)",
+            }}>
+              <Lock size={16} style={{ color: "var(--s-yellow)", flexShrink: 0 }} />
+              <p style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 13,
+                color: "rgba(250,250,245,0.65)",
+                margin: 0,
+                lineHeight: 1.4,
+              }}>
+                You'll create an account first, then we'll bring you back to checkout.
+              </p>
+            </div>
+            <button
+              onClick={goToAuth}
+              data-testid="button-go-to-auth"
+              style={{
+                padding: "14px 0",
+                borderRadius: 10,
+                background: "var(--s-yellow)",
+                color: "var(--s-black)",
+                fontFamily: "'Space Mono', monospace",
+                fontSize: 13,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+                fontWeight: 700,
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              Create Account & Continue
+              <ArrowRight size={16} />
+            </button>
+            <p style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 11,
+              color: "rgba(250,250,245,0.3)",
+              textAlign: "center",
+              margin: 0,
+            }}>
+              Already have an account? Click the same button — you can sign in there.
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <p style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 14,
+              color: "rgba(250,250,245,0.7)",
+              textAlign: "center",
+              margin: 0,
+            }}>
+              Subscribing as <strong style={{ color: "var(--s-white)" }}>{user?.primaryEmailAddress?.emailAddress}</strong>
+            </p>
 
-          <p style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: 11,
-            color: "rgba(250,250,245,0.3)",
-            textAlign: "center",
-            margin: 0,
-          }}>
-            You'll be redirected to Stripe for secure payment. Cancel anytime.
-          </p>
-        </form>
+            {error && (
+              <p
+                style={{
+                  color: "#ef4444",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 13,
+                  textAlign: "center",
+                  margin: 0,
+                }}
+                data-testid="text-signup-error"
+              >
+                {error}
+              </p>
+            )}
+
+            <button
+              onClick={handleSubscribe}
+              disabled={loading}
+              data-testid="button-subscribe"
+              style={{
+                padding: "14px 0",
+                borderRadius: 10,
+                background: "var(--s-yellow)",
+                color: "var(--s-black)",
+                fontFamily: "'Space Mono', monospace",
+                fontSize: 13,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+                fontWeight: 700,
+                border: "none",
+                cursor: loading ? "not-allowed" : "pointer",
+                opacity: loading ? 0.7 : 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                `Subscribe — ${info.price}/mo →`
+              )}
+            </button>
+
+            <p style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 11,
+              color: "rgba(250,250,245,0.3)",
+              textAlign: "center",
+              margin: 0,
+            }}>
+              You'll be redirected to Stripe for secure payment. Cancel anytime.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -337,6 +265,7 @@ export function PricingSection() {
     "Dedicated support",
     "Everything in Growth",
   ];
+
 
   return (
     <section
@@ -653,7 +582,7 @@ export function PricingSection() {
       </p>
 
       {selectedPlan && (
-        <SignupModal plan={selectedPlan} onClose={() => setSelectedPlan(null)} />
+        <SubscribeModal plan={selectedPlan} onClose={() => setSelectedPlan(null)} />
       )}
     </section>
   );
