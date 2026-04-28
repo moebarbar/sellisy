@@ -90,31 +90,24 @@ export class WebhookHandlers {
 
   static async handleSubscriptionSignup(session: any): Promise<void> {
     const meta = session.metadata;
-    if (!meta?.email) {
-      console.error('[subscriptions] Webhook: missing email in metadata');
+    if (!meta?.sellisyUserId) {
+      console.error('[subscriptions] Webhook: missing sellisyUserId in metadata');
       return;
     }
 
     try {
-      const existing = await authStorage.getUserByEmail(meta.email);
-      if (existing) {
-        console.log(`[subscriptions] User ${meta.email} already exists, skipping creation`);
+      const user = await authStorage.getUser(meta.sellisyUserId);
+      if (!user) {
+        console.error(`[subscriptions] Webhook: user ${meta.sellisyUserId} not found`);
         return;
       }
-
-      const user = await authStorage.upsertUser({
-        email: meta.email,
-        passwordHash: meta.passwordHash,
-        firstName: meta.firstName,
-        lastName: meta.lastName,
-      });
 
       const tier = (meta.planTier || 'basic') as PlanTier;
       await storage.updateUserPlan(user.id, tier);
 
-      console.log(`[subscriptions] Created user ${meta.email} with plan ${tier} via Stripe subscription`);
+      console.log(`[subscriptions] Activated plan ${tier} for user ${user.email ?? user.id}`);
     } catch (error: any) {
-      console.error('[subscriptions] Error creating user from webhook:', error);
+      console.error('[subscriptions] Error activating plan from webhook:', error);
     }
   }
 

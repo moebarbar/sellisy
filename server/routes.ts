@@ -25,7 +25,7 @@ import { audit, auditMeta } from "./audit";
 import { gumroadImportRouter } from "./routes/gumroad-import";
 
 function getUserId(req: Request): string {
-  return (req as any).session?.userId;
+  return req.sellisyUserId!;
 }
 
 /**

@@ -14,7 +14,7 @@ export const gumroadImportRouter = Router();
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
 function getUserId(req: Request): string {
-  return (req as any).session?.userId;
+  return req.sellisyUserId!;
 }
 
 async function getOwnedStore(userId: string, storeId: string) {

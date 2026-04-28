@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useAuth } from "@/lib/auth";
+import { useSignIn, useSignUp, useUser } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,19 +18,29 @@ function ShowcaseCard({ children, className = "", delay = "0s" }: { children: Re
   );
 }
 
+type Mode = "sign-in" | "sign-up";
+
 export default function AuthPage() {
   const searchString = useSearch();
   const params = new URLSearchParams(searchString);
   const subscribed = params.get("subscribed") === "true";
   const plan = params.get("plan");
   const [, navigate] = useLocation();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const { isLoaded: isUserLoaded, isSignedIn } = useUser();
   const { toast } = useToast();
 
+  const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [code, setCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const { signIn } = useSignIn();
+  const { signUp } = useSignUp();
 
   useEffect(() => {
     if (subscribed) {
@@ -41,32 +49,78 @@ export default function AuthPage() {
         description: "Your subscription is active. Log in with your credentials to get started.",
       });
     }
-  }, [subscribed]);
+  }, [subscribed, toast]);
 
-  const loginMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/auth/login", { email, password });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      navigate("/dashboard");
-    },
-    onError: (err: any) => {
-      toast({ title: "Login failed", description: err.message, variant: "destructive" });
-    },
-  });
+  useEffect(() => {
+    if (isUserLoaded && isSignedIn) navigate("/dashboard");
+  }, [isUserLoaded, isSignedIn, navigate]);
 
-  const isPending = loginMutation.isPending;
-
-  if (user) {
-    navigate("/dashboard");
-    return null;
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    loginMutation.mutate();
+    if (!signIn) return;
+    setSubmitting(true);
+    const { error } = await signIn.password({ identifier: email, password });
+    if (error) {
+      toast({ title: "Login failed", description: error.message, variant: "destructive" });
+      setSubmitting(false);
+      return;
+    }
+    if (signIn.status === "complete") {
+      const { error: finalizeError } = await signIn.finalize();
+      if (finalizeError) {
+        toast({ title: "Login failed", description: finalizeError.message, variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
+      navigate("/dashboard");
+    } else {
+      toast({ title: "Additional steps required", description: "Please complete verification." });
+    }
+    setSubmitting(false);
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signUp) return;
+    setSubmitting(true);
+    const { error } = await signUp.password({ emailAddress: email, password, firstName, lastName });
+    if (error) {
+      toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
+      setSubmitting(false);
+      return;
+    }
+    const { error: sendError } = await signUp.verifications.sendEmailCode();
+    if (sendError) {
+      toast({ title: "Could not send verification code", description: sendError.message, variant: "destructive" });
+      setSubmitting(false);
+      return;
+    }
+    setPendingVerification(true);
+    setSubmitting(false);
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signUp) return;
+    setSubmitting(true);
+    const { error } = await signUp.verifications.verifyEmailCode({ code });
+    if (error) {
+      toast({ title: "Verification failed", description: error.message, variant: "destructive" });
+      setSubmitting(false);
+      return;
+    }
+    if (signUp.status === "complete") {
+      const { error: finalizeError } = await signUp.finalize();
+      if (finalizeError) {
+        toast({ title: "Sign up failed", description: finalizeError.message, variant: "destructive" });
+        setSubmitting(false);
+        return;
+      }
+      navigate("/dashboard");
+    } else {
+      toast({ title: "Verification incomplete", description: "Please try again." });
+    }
+    setSubmitting(false);
   };
 
   const planLabels: Record<string, string> = {
@@ -172,65 +226,112 @@ export default function AuthPage() {
         )}
 
         <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm p-6">
-          <h2 className="text-xl font-bold text-foreground mb-1" data-testid="text-auth-title">Welcome Back</h2>
-          <p className="text-sm text-muted-foreground mb-6" data-testid="text-auth-description">Sign in to your account</p>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="bg-white/[0.04] border-white/[0.08] focus:border-primary/50"
-                data-testid="input-email"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  required
-                  className="pr-10 bg-white/[0.04] border-white/[0.08] focus:border-primary/50"
-                  data-testid="input-password"
-                />
+          {pendingVerification ? (
+            <>
+              <h2 className="text-xl font-bold text-foreground mb-1">Verify your email</h2>
+              <p className="text-sm text-muted-foreground mb-6">We sent a 6-digit code to {email}.</p>
+              <form onSubmit={handleVerify} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="code" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Verification code</Label>
+                  <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" required className="bg-white/[0.04] border-white/[0.08] focus:border-primary/50" />
+                </div>
+                <Button type="submit" className="w-full font-semibold cta-mono" disabled={submitting}>
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify & continue"}
+                </Button>
+              </form>
+            </>
+          ) : (
+            <>
+              <div className="flex gap-2 mb-6 text-xs font-mono uppercase tracking-wider">
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setShowPassword(!showPassword)}
-                  data-testid="button-toggle-password"
+                  onClick={() => setMode("sign-in")}
+                  className={`flex-1 py-2 rounded-md transition-colors ${mode === "sign-in" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  data-testid="tab-sign-in"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("sign-up")}
+                  className={`flex-1 py-2 rounded-md transition-colors ${mode === "sign-up" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  data-testid="tab-sign-up"
+                >
+                  Create Account
                 </button>
               </div>
-            </div>
-            <Button type="submit" className="w-full font-semibold cta-mono" disabled={isPending} data-testid="button-auth-submit">
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Sign In"
-              )}
-            </Button>
-          </form>
 
-          <div className="mt-5 text-center text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <a
-              href="/#pricing"
-              className="text-primary hover:underline font-medium cta-mono text-xs"
-              data-testid="link-view-plans"
-            >
-              View Plans
-            </a>
-          </div>
+              <h2 className="text-xl font-bold text-foreground mb-1" data-testid="text-auth-title">
+                {mode === "sign-in" ? "Welcome Back" : "Create your account"}
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                {mode === "sign-in" ? "Sign in to your account" : "Start your digital empire"}
+              </p>
+
+              <form onSubmit={mode === "sign-in" ? handleSignIn : handleSignUp} className="space-y-4">
+                {mode === "sign-up" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="firstName" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">First name</Label>
+                      <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="bg-white/[0.04] border-white/[0.08] focus:border-primary/50" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="lastName" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Last name</Label>
+                      <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required className="bg-white/[0.04] border-white/[0.08] focus:border-primary/50" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    className="bg-white/[0.04] border-white/[0.08] focus:border-primary/50"
+                    data-testid="input-email"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="password" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={mode === "sign-up" ? "At least 8 characters" : "Enter your password"}
+                      required
+                      minLength={mode === "sign-up" ? 8 : undefined}
+                      className="pr-10 bg-white/[0.04] border-white/[0.08] focus:border-primary/50"
+                      data-testid="input-password"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => setShowPassword(!showPassword)}
+                      data-testid="button-toggle-password"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <Button type="submit" className="w-full font-semibold cta-mono" disabled={submitting} data-testid="button-auth-submit">
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (mode === "sign-in" ? "Sign In" : "Create Account")}
+                </Button>
+              </form>
+
+              {mode === "sign-in" && (
+                <div className="mt-5 text-center text-sm text-muted-foreground">
+                  Don't have an account?{" "}
+                  <button onClick={() => setMode("sign-up")} className="text-primary hover:underline font-medium cta-mono text-xs">Create one</button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

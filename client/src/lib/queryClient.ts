@@ -1,5 +1,19 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Set by ClerkAuthBridge once Clerk has loaded. We hold a getter rather than a
+// token so each request gets a fresh JWT (Clerk rotates them).
+let getClerkToken: (() => Promise<string | null>) | null = null;
+
+export function setClerkTokenGetter(fn: (() => Promise<string | null>) | null) {
+  getClerkToken = fn;
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  if (!getClerkToken) return {};
+  const token = await getClerkToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -18,9 +32,13 @@ export async function apiRequest(
   data?: unknown | undefined,
   signal?: AbortSignal,
 ): Promise<Response> {
+  const headers: Record<string, string> = {
+    ...(await authHeaders()),
+    ...(data ? { "Content-Type": "application/json" } : {}),
+  };
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
     signal,
@@ -36,8 +54,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const headers = await authHeaders();
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
+      headers,
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme";
 import { DashboardLayout } from "@/components/dashboard/layout";
 import { isCustomDomain } from "@/lib/utils";
+import { ClerkAuthBridge } from "@/lib/clerk-bridge";
 
 const LandingPage = lazy(() => import("@/pages/landing"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -267,6 +268,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ClerkAuthBridge />
       <ThemeProvider>
         <TooltipProvider>
           <Toaster />

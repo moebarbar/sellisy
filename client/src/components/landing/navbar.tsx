@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useUser } from "@clerk/react";
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -10,7 +10,8 @@ const navLinks = [
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
-  const { data: user } = useQuery<{ id: string } | null>({ queryKey: ["/api/auth/me"] });
+  const { isSignedIn } = useUser();
+  const user = isSignedIn ? { id: "signed-in" } : null;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);

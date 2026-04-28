@@ -3,7 +3,6 @@ import { db } from "./db";
 import { products, marketingStrategies } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { eq } from "drizzle-orm";
-import bcrypt from "bcryptjs";
 
 const platformProducts = [
   {
@@ -74,35 +73,21 @@ export async function seedDatabase() {
 
 export async function seedAdminUser() {
   const adminEmail = process.env.ADMIN_EMAIL;
-  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminEmail) return;
 
-  if (!adminEmail || !adminPassword) {
-    return;
-  }
-
+  // With Clerk, the admin user must sign up through Clerk first.
+  // This seeder just promotes them once they exist locally.
   const [existing] = await db.select().from(users).where(eq(users.email, adminEmail));
-  if (existing) {
-    const passwordHash = await bcrypt.hash(adminPassword, 12);
-    await db.update(users).set({ passwordHash }).where(eq(users.id, existing.id));
-    const profile = await storage.getUserProfile(existing.id);
-    if (!profile?.isAdmin) {
-      await storage.setUserAdmin(existing.id, true);
-      console.log("Existing admin user promoted to admin:", adminEmail);
-    }
-    console.log("Admin password synced from env var:", adminEmail);
+  if (!existing) {
+    console.log(`[seed] Admin email ${adminEmail} not yet provisioned. Sign up via Clerk first; the next boot will promote.`);
     return;
   }
 
-  const passwordHash = await bcrypt.hash(adminPassword, 12);
-  const [admin] = await db.insert(users).values({
-    email: adminEmail,
-    passwordHash,
-    firstName: "Admin",
-    lastName: "User",
-  }).returning();
-
-  await storage.upsertUserProfile({ userId: admin.id, planTier: "max", isAdmin: true });
-  console.log("Admin user created:", adminEmail);
+  const profile = await storage.getUserProfile(existing.id);
+  if (!profile?.isAdmin) {
+    await storage.setUserAdmin(existing.id, true);
+    console.log("Promoted to admin:", adminEmail);
+  }
 }
 
 export async function seedMarketingIfNeeded() {

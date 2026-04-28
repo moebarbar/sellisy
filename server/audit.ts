@@ -16,6 +16,7 @@ export type AuditEvent =
   | "auth.magic_link.sent"
   | "auth.magic_link.verified"
   | "auth.magic_link.failed"
+  | "auth.provision.failed"
   | "authz.denied"
   | "admin.role_change"
   | "admin.plan_change"
