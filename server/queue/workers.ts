@@ -1,9 +1,9 @@
 import { Worker } from 'bullmq';
 import { redisConnection } from './connection';
 
-export function startWorkers() {
+export async function startWorkers() {
   try {
-    const { processGumroadImport } = require('../jobs/gumroad-import');
+    const { processGumroadImport } = await import('../jobs/gumroad-import');
     const gumroadImportWorker = new Worker(
       'gumroad-import',
       async (job) => processGumroadImport(job),
@@ -21,7 +21,7 @@ export function startWorkers() {
   }
 
   try {
-    const { processGumroadWelcomeEmails } = require('../jobs/gumroad-welcome-emails');
+    const { processGumroadWelcomeEmails } = await import('../jobs/gumroad-welcome-emails');
     const welcomeEmailsWorker = new Worker(
       'gumroad-welcome-emails',
       async (job) => processGumroadWelcomeEmails(job),
