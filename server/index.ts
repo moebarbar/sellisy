@@ -255,7 +255,9 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      // In production response bodies frequently carry buyer emails, totals,
+      // download tokens — never log them. Dev keeps the dump for debugging.
+      if (capturedJsonResponse && process.env.NODE_ENV !== "production") {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
@@ -271,7 +273,13 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    const isProd = process.env.NODE_ENV === "production";
+    // For 4xx errors trust the application's message (intended for the user).
+    // For 5xx in production, never expose internal error text — could leak
+    // SQL fragments, file paths, or stack info.
+    const message = status < 500
+      ? (err.message || "Bad Request")
+      : (isProd ? "Internal Server Error" : (err.message || "Internal Server Error"));
 
     console.error("Internal Server Error:", err);
 
@@ -304,4 +312,26 @@ app.use((req, res, next) => {
       });
     },
   );
+
+  // Graceful shutdown: drain in-flight requests, close DB pool, then exit.
+  // Railway sends SIGTERM and waits ~30s before SIGKILL. Without this we
+  // truncate active responses on every redeploy.
+  let shuttingDown = false;
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[shutdown] received ${signal}, draining...`);
+    httpServer.close(() => console.log("[shutdown] http server closed"));
+    try {
+      const { pool } = await import("./db");
+      await pool.end();
+      console.log("[shutdown] db pool closed");
+    } catch (err) {
+      console.error("[shutdown] error closing db pool:", err);
+    }
+    // Give pending writes a moment, then exit.
+    setTimeout(() => process.exit(0), 1500).unref();
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 })();
