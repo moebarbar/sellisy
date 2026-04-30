@@ -338,6 +338,10 @@ export default function AuthPage() {
                 <Button type="submit" className="w-full font-semibold cta-mono" disabled={submitting} data-testid="button-auth-submit">
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (mode === "sign-in" ? "Sign In" : "Create Account")}
                 </Button>
+                {/* Required by Clerk for bot protection on sign-up. Clerk's
+                    SDK injects an invisible CAPTCHA challenge into this div.
+                    Without it, sign-up verifications fail in production. */}
+                <div id="clerk-captcha" />
               </form>
 
               {mode === "sign-in" && (
