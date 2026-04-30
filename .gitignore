@@ -12,3 +12,4 @@ replit.nix
 .cache
 .config
 attached_assets
+.claude/

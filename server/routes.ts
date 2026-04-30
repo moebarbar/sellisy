@@ -24,7 +24,7 @@ import cookieParser from "cookie-parser";
 import { audit, auditMeta } from "./audit";
 
 function getUserId(req: Request): string {
-  return (req as any).session?.userId;
+  return req.sellisyUserId!;
 }
 
 /**

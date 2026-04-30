@@ -72,7 +72,7 @@ const TIER_BADGE_STYLES: Record<string, string> = {
 
 export function AppSidebar() {
   const [location] = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { tier, isAdmin } = useUserProfile();
   const { setOpenMobile } = useSidebar();
 
@@ -150,7 +150,7 @@ export function AppSidebar() {
           <Button
             size="icon"
             variant="ghost"
-            onClick={async () => { await fetch("/api/auth/logout", { method: "POST", credentials: "include" }); window.location.href = "/auth"; }}
+            onClick={() => logout()}
             data-testid="button-logout"
           >
             <LogOut className="h-4 w-4" />

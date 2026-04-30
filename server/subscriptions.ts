@@ -1,9 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
-import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { getUncachableStripeClient } from "./stripeClient";
-import { authStorage } from "./replit_integrations/auth/storage";
+import { authStorage, isAuthenticated } from "./replit_integrations/auth";
 import type { PlanTier } from "@shared/schema";
 
 const PLAN_CONFIG: Record<string, { name: string; price: number; tier: PlanTier }> = {
@@ -67,10 +66,6 @@ async function ensureStripePrices(): Promise<Record<string, string>> {
 
 const subscribeSchema = z.object({
   plan: z.enum(["basic", "pro", "max"]),
-  email: z.string().email().transform((e) => e.trim().toLowerCase()),
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  password: z.string().min(8),
 });
 
 const subscribeLimiter = rateLimit({
@@ -84,27 +79,23 @@ const subscribeLimiter = rateLimit({
 export function registerSubscriptionRoutes(app: Express) {
   app.use("/api/subscribe", subscribeLimiter);
 
-  app.post("/api/subscribe", async (req: Request, res: Response) => {
+  app.post("/api/subscribe", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const parsed = subscribeSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.errors[0].message });
       }
 
-      const { plan, email, firstName, lastName, password } = parsed.data;
+      const { plan } = parsed.data;
 
-      const existing = await authStorage.getUserByEmail(email);
-      if (existing) {
-        return res.status(409).json({ message: "An account with this email already exists. Please log in instead." });
-      }
+      const user = await authStorage.getUser(req.sellisyUserId!);
+      if (!user) return res.status(404).json({ message: "User not found" });
 
       const priceIds = await ensureStripePrices();
       const priceId = priceIds[plan];
       if (!priceId) {
         return res.status(500).json({ message: "Pricing configuration error" });
       }
-
-      const passwordHash = await bcrypt.hash(password, 12);
 
       const stripe = await getUncachableStripeClient();
 
@@ -115,20 +106,18 @@ export function registerSubscriptionRoutes(app: Express) {
         mode: "subscription",
         payment_method_types: ["card"],
         line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${baseUrl}/auth?subscribed=true&plan=${plan}`,
+        success_url: `${baseUrl}/dashboard?subscribed=true&plan=${plan}`,
         cancel_url: `${baseUrl}/#pricing`,
         metadata: {
           sellisy_signup: "true",
-          email,
-          firstName,
-          lastName,
-          passwordHash,
+          sellisyUserId: user.id,
           planTier: plan,
         },
-        customer_email: email,
+        customer_email: user.email ?? undefined,
         subscription_data: {
           metadata: {
             sellisy_signup: "true",
+            sellisyUserId: user.id,
             planTier: plan,
           },
         },
