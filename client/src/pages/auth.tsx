@@ -121,20 +121,43 @@ export default function AuthPage() {
     setSubmitting(true);
     const { error } = await signUp.verifications.verifyEmailCode({ code });
     if (error) {
+      // Log full error so we can see Clerk's underlying code in DevTools.
+      console.error("[clerk] verifyEmailCode error:", error);
       toast({ title: "Verification failed", description: error.message, variant: "destructive" });
       setSubmitting(false);
       return;
     }
+    // Always try finalize() — if Clerk says "missing requirements" the
+    // finalize call surfaces a useful error we can show the user. Logging
+    // the full signUp object also lets us see what's still missing.
+    console.log("[clerk] signUp after verify:", {
+      status: signUp.status,
+      unverifiedFields: signUp.unverifiedFields,
+      hasPassword: signUp.hasPassword,
+      emailAddress: signUp.emailAddress,
+    });
     if (signUp.status === "complete") {
       const { error: finalizeError } = await signUp.finalize();
       if (finalizeError) {
+        console.error("[clerk] finalize error:", finalizeError);
         toast({ title: "Sign up failed", description: finalizeError.message, variant: "destructive" });
         setSubmitting(false);
         return;
       }
       navigate("/dashboard");
     } else {
-      toast({ title: "Verification incomplete", description: "Please try again." });
+      // Try finalize() anyway — sometimes works even when status looks off.
+      const { error: finalizeError } = await signUp.finalize();
+      console.log("[clerk] tried finalize fallback:", { finalizeError, statusAfter: signUp.status });
+      if (!finalizeError && signUp.status === "complete") {
+        navigate("/dashboard");
+      } else {
+        toast({
+          title: "Verification incomplete",
+          description: finalizeError?.message ?? `Status: ${signUp.status}. Check console for details.`,
+          variant: "destructive",
+        });
+      }
     }
     setSubmitting(false);
   };
