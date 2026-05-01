@@ -27,21 +27,23 @@ const clerkAppearance = {
   variables: {
     colorPrimary: "#f5d142",
     colorBackground: "#0a0a0a",
-    colorInputBackground: "rgba(255,255,255,0.04)",
+    colorInputBackground: "rgba(255,255,255,0.06)",
     colorInputText: "#ffffff",
     colorText: "#ffffff",
-    colorTextSecondary: "rgba(250,250,245,0.5)",
+    // Bumped from 0.5 — at 0.5 opacity headers/subtitles/help text were
+    // hard to read against the dark backdrop.
+    colorTextSecondary: "rgba(250,250,245,0.75)",
     colorDanger: "#ef4444",
     colorSuccess: "#10b981",
-    colorNeutral: "rgba(255,255,255,0.1)",
+    colorNeutral: "rgba(255,255,255,0.18)",
     fontFamily: "'DM Sans', sans-serif",
     borderRadius: "10px",
   },
   elements: {
     rootBox: { width: "100%" },
     card: {
-      backgroundColor: "rgba(255,255,255,0.03)",
-      border: "1px solid rgba(255,255,255,0.08)",
+      backgroundColor: "rgba(255,255,255,0.04)",
+      border: "1px solid rgba(255,255,255,0.1)",
       boxShadow: "none",
       backdropFilter: "blur(8px)",
     },
@@ -50,7 +52,7 @@ const clerkAppearance = {
       color: "#ffffff",
     },
     headerSubtitle: {
-      color: "rgba(250,250,245,0.5)",
+      color: "rgba(250,250,245,0.8)",
     },
     formButtonPrimary: {
       backgroundColor: "#f5d142",
@@ -62,26 +64,48 @@ const clerkAppearance = {
       "&:hover": { backgroundColor: "#ffe066" },
     },
     formFieldInput: {
-      backgroundColor: "rgba(255,255,255,0.04)",
-      borderColor: "rgba(255,255,255,0.08)",
+      backgroundColor: "rgba(255,255,255,0.06)",
+      borderColor: "rgba(255,255,255,0.15)",
       color: "#ffffff",
+      "&::placeholder": { color: "rgba(250,250,245,0.4)" },
     },
     formFieldLabel: {
-      color: "rgba(250,250,245,0.6)",
+      color: "rgba(250,250,245,0.85)",
       fontSize: "11px",
       letterSpacing: "1px",
       textTransform: "uppercase" as const,
       fontFamily: "'Space Mono', monospace",
     },
+    formFieldHintText: { color: "rgba(250,250,245,0.7)" },
+    formFieldSuccessText: { color: "#10b981" },
+    formFieldErrorText: { color: "#f87171" },
+    formFieldWarningText: { color: "#fbbf24" },
     socialButtonsIconButton: {
-      borderColor: "rgba(255,255,255,0.1)",
-      backgroundColor: "rgba(255,255,255,0.03)",
+      borderColor: "rgba(255,255,255,0.15)",
+      backgroundColor: "rgba(255,255,255,0.05)",
+      "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
     },
+    dividerLine: { backgroundColor: "rgba(255,255,255,0.15)" },
+    dividerText: { color: "rgba(250,250,245,0.6)" },
+    footerActionText: { color: "rgba(250,250,245,0.8)" },
     footerActionLink: {
       color: "#f5d142",
+      fontWeight: 600,
+      "&:hover": { color: "#ffe066" },
     },
+    identityPreviewText: { color: "rgba(250,250,245,0.85)" },
     identityPreviewEditButton: { color: "#f5d142" },
-    formResendCodeLink: { color: "#f5d142" },
+    formResendCodeLink: { color: "#f5d142", fontWeight: 600 },
+    otpCodeFieldInput: {
+      backgroundColor: "rgba(255,255,255,0.06)",
+      borderColor: "rgba(255,255,255,0.18)",
+      color: "#ffffff",
+    },
+    alternativeMethodsBlockButton: {
+      borderColor: "rgba(255,255,255,0.15)",
+      color: "rgba(250,250,245,0.85)",
+    },
+    footer: { backgroundColor: "transparent" },
   },
 };
 
