@@ -106,6 +106,9 @@ const clerkAppearance = {
       color: "rgba(250,250,245,0.85)",
     },
     footer: { backgroundColor: "transparent" },
+    // Clerk's "Secured by clerk" branding — bump contrast.
+    logoBox: { opacity: 0.85 },
+    logoImage: { opacity: 0.85 },
   },
 };
 
@@ -156,6 +159,20 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] relative overflow-hidden flex items-center justify-center px-4 py-12">
+      {/* Fallback CSS for Clerk internals that the appearance API doesn't
+          expose by name — keeps the "Secured by Clerk" badge readable
+          regardless of which class names Clerk's current build uses. */}
+      <style>{`
+        .cl-footer, .cl-internal-1bz0xnv, .cl-internal-1bsw1jm,
+        [class*="cl-footer"], [class*="cl-poweredBy"],
+        [class*="cl-internal-"][class*="branding"] {
+          opacity: 0.85 !important;
+        }
+        .cl-footer a, [class*="cl-footer"] a,
+        .cl-footer span, [class*="cl-footer"] span {
+          color: rgba(250, 250, 245, 0.75) !important;
+        }
+      `}</style>
       <div className="absolute inset-0 s-hero-grid opacity-30" />
 
       <div className="s-ambient-orb s-ambient-orb-1 top-[10%] left-[15%] w-[600px] h-[600px] bg-[hsl(53_91%_61%/0.04)] blur-[140px]" />
