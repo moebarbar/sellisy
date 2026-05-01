@@ -41,6 +41,7 @@ const DataHealthPage = lazy(() => import("@/pages/dashboard/data-health"));
 const AuthPage = lazy(() => import("@/pages/auth"));
 const PrivacyPage = lazy(() => import("@/pages/privacy"));
 const DataDeletionPage = lazy(() => import("@/pages/data-deletion"));
+const TermsPage = lazy(() => import("@/pages/terms"));
 const AccountLoginPage = lazy(() => import("@/pages/account/login"));
 const AccountVerifyPage = lazy(() => import("@/pages/account/verify"));
 const AccountPurchasesPage = lazy(() => import("@/pages/account/purchases"));
@@ -242,6 +243,7 @@ function Router() {
               <Route path="/auth" component={AuthPage} />
               <Route path="/privacy" component={PrivacyPage} />
               <Route path="/data-deletion" component={DataDeletionPage} />
+              <Route path="/terms" component={TermsPage} />
               <Route path="/account" component={AccountLoginPage} />
               <Route path="/account/verify" component={AccountVerifyPage} />
               <Route path="/account/purchases" component={AccountPurchasesPage} />
