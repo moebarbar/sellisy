@@ -106,25 +106,23 @@ export default function AuthPage() {
     }
   }, [subscribed, toast]);
 
-  // Once Clerk reports the user as signed in, navigate them out of /auth.
-  // If they came from a pricing CTA (sessionStorage.pendingPlan), kick off
-  // the Stripe checkout instead of going straight to dashboard.
+  // Pending pricing CTA: if the user clicked a plan while signed-out and got
+  // routed here, kick off Stripe checkout right after Clerk completes auth.
+  // Otherwise we let Clerk's <SignIn /> / <SignUp /> handle the redirect via
+  // their own forceRedirectUrl prop — duplicating the navigate here causes
+  // a redirect race with /dashboard.
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
     const pendingPlan = sessionStorage.getItem("pendingPlan");
-    if (pendingPlan === "basic" || pendingPlan === "pro" || pendingPlan === "max") {
-      sessionStorage.removeItem("pendingPlan");
-      apiRequest("POST", "/api/subscribe", { plan: pendingPlan })
-        .then(r => r.json())
-        .then(data => {
-          if (data.url) window.location.href = data.url;
-          else navigate("/dashboard");
-        })
-        .catch(() => navigate("/dashboard"));
-      return;
-    }
-    navigate("/dashboard");
-  }, [isLoaded, isSignedIn, navigate]);
+    if (pendingPlan !== "basic" && pendingPlan !== "pro" && pendingPlan !== "max") return;
+    sessionStorage.removeItem("pendingPlan");
+    apiRequest("POST", "/api/subscribe", { plan: pendingPlan })
+      .then(r => r.json())
+      .then(data => {
+        if (data.url) window.location.href = data.url;
+      })
+      .catch(() => { /* Clerk will redirect to dashboard on its own */ });
+  }, [isLoaded, isSignedIn]);
 
   const planLabels: Record<string, string> = {
     basic: "Starter",
