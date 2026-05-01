@@ -687,3 +687,19 @@
 .s-ambient-orb-3 {
   animation: s-ambient-drift-3 22s ease-in-out infinite;
 }
+
+/* Loading skeleton shimmer (used on /auth while Clerk initializes) */
+@keyframes s-skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.s-skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.10) 50%,
+    rgba(255,255,255,0.04) 100%
+  ) !important;
+  background-size: 800px 100% !important;
+  animation: s-skeleton-shimmer 1.6s ease-in-out infinite;
+}

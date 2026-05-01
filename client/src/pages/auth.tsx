@@ -1,9 +1,66 @@
 import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
-import { SignIn, SignUp, useUser } from "@clerk/react";
+import { SignIn, SignUp, useUser, ClerkLoading, ClerkLoaded } from "@clerk/react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, TrendingUp, Package, Zap } from "lucide-react";
+
+// Visible immediately while Clerk's SDK is downloading + initializing.
+// Roughly mirrors the dimensions of the real form so the swap-in doesn't
+// jump the layout.
+function AuthSkeleton({ mode }: { mode: "sign-in" | "sign-up" }) {
+  const Bar = ({ w, h = 12 }: { w: string; h?: number }) => (
+    <div
+      className="rounded-md s-skeleton-shimmer"
+      style={{ width: w, height: h, background: "rgba(255,255,255,0.06)" }}
+    />
+  );
+  return (
+    <div
+      style={{
+        backgroundColor: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        borderRadius: 10,
+        padding: 24,
+        backdropFilter: "blur(8px)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+        <Bar w="180px" h={18} />
+        <Bar w="240px" h={12} />
+      </div>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
+        <Bar w="56px" h={36} />
+        <Bar w="56px" h={36} />
+        <Bar w="56px" h={36} />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
+        <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+        <Bar w="20px" h={10} />
+        <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+      </div>
+      {mode === "sign-up" && (
+        <>
+          <Bar w="80px" />
+          <Bar w="100%" h={36} />
+        </>
+      )}
+      <Bar w="120px" />
+      <Bar w="100%" h={36} />
+      {mode === "sign-up" && (
+        <>
+          <Bar w="80px" />
+          <Bar w="100%" h={36} />
+        </>
+      )}
+      <div style={{ height: 4 }} />
+      <Bar w="100%" h={40} />
+    </div>
+  );
+}
 
 function ShowcaseCard({ children, className = "", delay = "0s" }: { children: React.ReactNode; className?: string; delay?: string }) {
   return (
@@ -279,21 +336,29 @@ export default function AuthPage() {
           </button>
         </div>
 
-        {mode === "sign-in" ? (
-          <SignIn
-            routing="hash"
-            signUpUrl="/auth"
-            forceRedirectUrl="/dashboard"
-            appearance={clerkAppearance}
-          />
-        ) : (
-          <SignUp
-            routing="hash"
-            signInUrl="/auth"
-            forceRedirectUrl="/dashboard"
-            appearance={clerkAppearance}
-          />
-        )}
+        {/* While Clerk's SDK is initializing, show a Sellisy-styled
+            skeleton so the page feels instant. <ClerkLoaded> is the gate
+            that swaps in the real form when the SDK is ready. */}
+        <ClerkLoading>
+          <AuthSkeleton mode={mode} />
+        </ClerkLoading>
+        <ClerkLoaded>
+          {mode === "sign-in" ? (
+            <SignIn
+              routing="hash"
+              signUpUrl="/auth"
+              forceRedirectUrl="/dashboard"
+              appearance={clerkAppearance}
+            />
+          ) : (
+            <SignUp
+              routing="hash"
+              signInUrl="/auth"
+              forceRedirectUrl="/dashboard"
+              appearance={clerkAppearance}
+            />
+          )}
+        </ClerkLoaded>
       </div>
     </div>
   );

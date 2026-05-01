@@ -12,6 +12,11 @@
     <meta name="twitter:title" content="Sellisy - Create & Sell Digital Products" />
     <meta name="twitter:description" content="Build your digital storefront in minutes. Import products, accept payments, and deliver secure downloads." />
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <!-- Hint the browser to start the TLS+TCP handshake to the Clerk auth
+         domain in parallel with the rest of the page so the auth SDK
+         loads faster on /auth. -->
+    <link rel="preconnect" href="https://clerk.sellisy.com" crossorigin>
+    <link rel="dns-prefetch" href="https://clerk.sellisy.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <!-- Core UI fonts: landing page, dashboard, storefront themes (display=optional prevents flash) -->
