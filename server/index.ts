@@ -192,7 +192,7 @@ app.use((req, res, next) => {
     `script-src ${scriptSrc}`,
     `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
     `font-src 'self' https://fonts.gstatic.com data:`,
-    `img-src 'self' data: blob: https://cdn.sellisy.com https://*.googleapis.com https://*.gstatic.com https://*.unsplash.com https://img.clerk.com https://${clerkHost} https://${clerkDevHost}`,
+    `img-src 'self' data: blob: https://cdn.sellisy.com https://*.googleapis.com https://*.gstatic.com https://*.unsplash.com https://img.clerk.com https://${clerkHost} https://${clerkDevHost} https://public-files.gumroad.com https://*.gumroad.com`,
     `connect-src 'self' https://api.sellisy.com https://cdn.sellisy.com https://fonts.googleapis.com https://${clerkHost} https://${clerkDevHost} https://cloudflareinsights.com ${isDev ? "ws: wss:" : ""}`.trim(),
     `frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.paypal.com https://challenges.cloudflare.com`,
     `worker-src 'self' blob:`,

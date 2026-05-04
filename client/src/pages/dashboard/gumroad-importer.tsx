@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, authHeaders, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
 import { useUpload } from "@/hooks/use-upload";
 import { useToast } from "@/hooks/use-toast";
@@ -796,7 +796,7 @@ function StepFiles({
       // Step 1: get presigned URL
       const urlRes = await fetch('/api/uploads/request-url', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         credentials: 'include',
         body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || 'application/octet-stream' }),
       });
@@ -845,8 +845,12 @@ function StepFiles({
   const finish = async () => {
     setFinishing(true);
     try {
+      // Raw fetch (not apiRequest) because we need to read the body on
+      // non-2xx responses (specifically missingShellIds from a 400).
+      // Manually attach the Clerk JWT — apiRequest does this for us.
       const res = await fetch(`/api/integrations/gumroad/finish/${importId}`, {
         method: 'POST',
+        headers: await authHeaders(),
         credentials: 'include',
       });
       const body = await res.json() as any;
@@ -1246,9 +1250,12 @@ export default function GumroadImporterPage() {
       selectedProductIds: string[];
       options: ImportOptions;
     }) => {
+      // Raw fetch (not apiRequest) because we need to read the body on
+      // non-2xx responses (specifically the importId from a 409 conflict).
+      // Manually attach the Clerk JWT — apiRequest does this for us.
       const res = await fetch("/api/integrations/gumroad/start", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeaders()) },
         credentials: "include",
         body: JSON.stringify({ accessToken, storeId: activeStoreId, selectedProductIds, options }),
       });

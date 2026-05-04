@@ -8,7 +8,9 @@ export function setClerkTokenGetter(fn: (() => Promise<string | null>) | null) {
   getClerkToken = fn;
 }
 
-async function authHeaders(): Promise<Record<string, string>> {
+// Exported so call sites that need raw fetch (because they want to read the
+// body of an error response) can still attach the Clerk JWT.
+export async function authHeaders(): Promise<Record<string, string>> {
   if (!getClerkToken) return {};
   const token = await getClerkToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
