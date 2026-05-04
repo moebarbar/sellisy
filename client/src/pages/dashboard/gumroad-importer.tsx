@@ -118,55 +118,121 @@ function StepConnect({
   onVerified: (token: string, preview: VerifyResponse) => void;
 }) {
   const [token, setToken] = useState("");
+  const [showManual, setShowManual] = useState(false);
+  const [oauthStarting, setOauthStarting] = useState(false);
+  const [autoClaimError, setAutoClaimError] = useState<string | null>(null);
   const { activeStoreId } = useActiveStore();
   const { toast } = useToast();
 
   const verify = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (accessToken: string) => {
       const res = await apiRequest("POST", "/api/integrations/gumroad/verify", {
-        accessToken: token.trim(),
+        accessToken,
         storeId: activeStoreId,
       });
       return res.json() as Promise<VerifyResponse>;
     },
-    onSuccess: (data) => onVerified(token.trim(), data),
+    onSuccess: (data, accessToken) => onVerified(accessToken, data),
     onError: (err: Error) => toast({ title: "Verification failed", description: err.message, variant: "destructive" }),
   });
+
+  // OAuth round-trip handling. After the user returns from Gumroad with
+  // ?oauth=connected&stash=xxx, we POST that stash id to /oauth/claim
+  // (single-use, server-side delete) to retrieve the access token, then
+  // run the normal /verify call to load product previews.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthError = params.get("oauth_error");
+    const stash = params.get("stash");
+    const oauthStatus = params.get("oauth");
+
+    // Strip OAuth params from the URL regardless of outcome so a refresh
+    // doesn't re-trigger the claim or show the error twice.
+    if (oauthError || stash || oauthStatus) {
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, "", cleanUrl);
+    }
+
+    if (oauthError) {
+      setAutoClaimError(oauthError);
+      return;
+    }
+    if (oauthStatus === "connected" && stash && activeStoreId) {
+      apiRequest("POST", "/api/integrations/gumroad/oauth/claim", { stashId: stash })
+        .then(r => r.json() as Promise<{ accessToken: string; storeId: string }>)
+        .then(data => verify.mutate(data.accessToken))
+        .catch((err: Error) => setAutoClaimError(err.message));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStoreId]);
+
+  const startOAuth = async () => {
+    if (!activeStoreId) return;
+    setOauthStarting(true);
+    setAutoClaimError(null);
+    try {
+      const res = await apiRequest(
+        "GET",
+        `/api/integrations/gumroad/oauth/start?storeId=${encodeURIComponent(activeStoreId)}`,
+      );
+      const data = await res.json() as { url: string };
+      // Full-page navigation to Gumroad's authorize screen. After consent,
+      // they redirect us back to /dashboard/import/gumroad with ?stash=...
+      window.location.href = data.url;
+    } catch (err: any) {
+      setOauthStarting(false);
+      toast({
+        title: "Couldn't start the connection",
+        description: err?.message ?? "Please try again or use the access token method below.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Auto-claim already in flight (returned from OAuth, talking to Gumroad).
+  if (verify.isPending && !showManual) {
+    return (
+      <div className="max-w-lg space-y-6">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <p className="text-sm">Finishing connection with Gumroad…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-lg space-y-6">
       <div>
         <h2 className="text-xl font-semibold mb-1">Connect your Gumroad account</h2>
         <p className="text-muted-foreground text-sm">
-          Enter your Gumroad API access token. You can find it under{" "}
-          <span className="font-medium">Gumroad Settings → Advanced → Applications</span>.
+          Sign in to Gumroad once to import your products, sales, and customers — no token-copying required.
         </p>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="token">Gumroad Access Token</Label>
-        <Input
-          id="token"
-          type="password"
-          placeholder="Paste your access token here"
-          value={token}
-          onChange={e => setToken(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && token.trim() && verify.mutate()}
-        />
-        <p className="text-xs text-muted-foreground">
-          Your token is encrypted before being stored and is deleted after the import completes.
-        </p>
-      </div>
+      {autoClaimError && (
+        <div className="flex items-start gap-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
+          <AlertCircle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-destructive">Couldn't connect to Gumroad</p>
+            <p className="text-xs text-muted-foreground">{autoClaimError}</p>
+          </div>
+        </div>
+      )}
 
       <Button
-        onClick={() => verify.mutate()}
-        disabled={!token.trim() || !activeStoreId || verify.isPending}
-        className="w-full"
+        onClick={startOAuth}
+        disabled={!activeStoreId || oauthStarting}
+        className="w-full gap-2"
+        size="lg"
       >
-        {verify.isPending ? (
-          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Connecting…</>
+        {oauthStarting ? (
+          <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting to Gumroad…</>
         ) : (
-          <><ArrowRight className="w-4 h-4 mr-2" /> Verify & Continue</>
+          <>
+            <Link2 className="w-4 h-4" />
+            Connect Gumroad Account
+          </>
         )}
       </Button>
 
@@ -174,6 +240,46 @@ function StepConnect({
         <p className="text-xs text-destructive flex items-center gap-1">
           <AlertCircle className="w-3 h-3" /> No store selected. Please select a store first.
         </p>
+      )}
+
+      <div className="text-center">
+        <button
+          type="button"
+          onClick={() => setShowManual(s => !s)}
+          className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+        >
+          {showManual ? "Hide manual token option" : "Use a personal access token instead"}
+        </button>
+      </div>
+
+      {showManual && (
+        <div className="space-y-2 pt-2 border-t border-border">
+          <Label htmlFor="token">Gumroad Access Token</Label>
+          <Input
+            id="token"
+            type="password"
+            placeholder="Paste your access token here"
+            value={token}
+            onChange={e => setToken(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && token.trim() && verify.mutate(token.trim())}
+          />
+          <p className="text-xs text-muted-foreground">
+            Find it under <span className="font-medium">Gumroad Settings → Advanced → Applications</span>.
+            Token is encrypted on our side and deleted after the import completes.
+          </p>
+          <Button
+            onClick={() => verify.mutate(token.trim())}
+            disabled={!token.trim() || !activeStoreId || verify.isPending}
+            variant="outline"
+            className="w-full"
+          >
+            {verify.isPending ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying…</>
+            ) : (
+              <><ArrowRight className="w-4 h-4 mr-2" /> Verify token</>
+            )}
+          </Button>
+        </div>
       )}
     </div>
   );

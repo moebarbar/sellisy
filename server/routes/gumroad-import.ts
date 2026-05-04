@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
+import { randomBytes } from 'crypto';
 import { db } from '../db';
 import { gumroadImports, gumroadProductShells, products, stores, storeProducts } from '@shared/schema';
 import { eq, and, inArray } from 'drizzle-orm';
@@ -8,6 +9,7 @@ import { gumroadImportQueue } from '../queue/queues';
 import * as gumroad from '../gumroad/client';
 import { GumroadAPIError } from '../gumroad/types';
 import { isAuthenticated } from '../replit_integrations/auth';
+import { redisConnection } from '../queue/connection';
 
 export const gumroadImportRouter = Router();
 
@@ -48,6 +50,184 @@ setInterval(() => {
     if (times.every((t: number) => t < cutoff)) startRateMap.delete(k);
   }
 }, 10 * 60 * 1000);
+
+// ── OAuth flow ───────────────────────────────────────────────────────────────
+// Three-step OAuth handshake with Gumroad:
+//   1. GET  /oauth/start    — authenticated user clicks "Connect Gumroad",
+//                              we mint a CSRF state token and return the
+//                              authorize URL to redirect them to.
+//   2. GET  /oauth/callback — Gumroad redirects the user's browser back
+//                              with ?code & ?state. We exchange the code
+//                              for an access_token, stash it in Redis
+//                              under a one-shot key, then redirect the
+//                              browser to the wizard with ?stash=<key>.
+//   3. POST /oauth/claim    — wizard pulls the stashed token using the
+//                              stash key (one-time read, then deleted).
+//
+// State and stashed tokens both live in Redis with short TTLs so they
+// can't be replayed and don't pollute the DB.
+
+const GUMROAD_AUTHORIZE_URL = 'https://gumroad.com/oauth/authorize';
+const GUMROAD_TOKEN_URL = 'https://api.gumroad.com/oauth/token';
+const GUMROAD_OAUTH_SCOPES = 'view_sales view_profile';
+const OAUTH_STATE_TTL_SEC = 600;   // 10 min to complete the consent screen
+const OAUTH_STASH_TTL_SEC = 300;   // 5 min for the wizard to claim the token
+
+function getRedirectUri(): string {
+  const explicit = process.env.GUMROAD_OAUTH_REDIRECT_URI;
+  if (explicit) return explicit;
+  const base = (process.env.APP_URL || 'https://sellisy.com').replace(/\/$/, '');
+  return `${base}/api/integrations/gumroad/oauth/callback`;
+}
+
+gumroadImportRouter.get('/oauth/start', isAuthenticated, async (req, res) => {
+  const userId = getUserId(req);
+  const storeId = (req.query.storeId as string | undefined) ?? '';
+  if (!storeId) return res.status(400).json({ error: 'Missing storeId' });
+
+  const store = await getOwnedStore(userId, storeId);
+  if (!store) return res.status(403).json({ error: 'Store not found or access denied' });
+
+  const clientId = process.env.GUMROAD_CLIENT_ID;
+  if (!clientId) {
+    return res.status(500).json({ error: 'Gumroad OAuth is not configured on this server.' });
+  }
+
+  // CSRF state — random 32 bytes, hex-encoded. Bind it to the originating
+  // user + store so we can verify ownership in the callback.
+  const state = randomBytes(32).toString('hex');
+  await redisConnection.set(
+    `gumroad:oauth:state:${state}`,
+    JSON.stringify({ userId, storeId }),
+    'EX',
+    OAUTH_STATE_TTL_SEC,
+  );
+
+  const url = new URL(GUMROAD_AUTHORIZE_URL);
+  url.searchParams.set('client_id', clientId);
+  url.searchParams.set('redirect_uri', getRedirectUri());
+  url.searchParams.set('scope', GUMROAD_OAUTH_SCOPES);
+  url.searchParams.set('state', state);
+  url.searchParams.set('response_type', 'code');
+
+  return res.json({ url: url.toString() });
+});
+
+gumroadImportRouter.get('/oauth/callback', async (req, res) => {
+  const code = typeof req.query.code === 'string' ? req.query.code : '';
+  const state = typeof req.query.state === 'string' ? req.query.state : '';
+  const error = typeof req.query.error === 'string' ? req.query.error : '';
+  const oauthError = typeof req.query.error_description === 'string'
+    ? req.query.error_description
+    : error;
+
+  // Always redirect the browser back to the wizard so the user sees a
+  // friendly UI rather than raw JSON, regardless of success/failure.
+  const wizardBase = `/dashboard/import/gumroad`;
+  const redirectWithError = (msg: string) =>
+    res.redirect(`${wizardBase}?oauth_error=${encodeURIComponent(msg)}`);
+
+  if (error || oauthError) {
+    return redirectWithError(oauthError || 'Authorization denied');
+  }
+  if (!code || !state) {
+    return redirectWithError('Missing OAuth code or state');
+  }
+
+  const stateKey = `gumroad:oauth:state:${state}`;
+  const raw = await redisConnection.get(stateKey);
+  if (!raw) return redirectWithError('OAuth session expired. Please try again.');
+  await redisConnection.del(stateKey);  // single-use
+
+  let stateData: { userId: string; storeId: string };
+  try {
+    stateData = JSON.parse(raw);
+  } catch {
+    return redirectWithError('Invalid OAuth session');
+  }
+
+  const clientId = process.env.GUMROAD_CLIENT_ID;
+  const clientSecret = process.env.GUMROAD_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    return redirectWithError('Server OAuth misconfigured');
+  }
+
+  // Exchange authorization code for an access token.
+  let tokenJson: { access_token?: string; refresh_token?: string; error?: string; error_description?: string };
+  try {
+    const tokenRes = await fetch(GUMROAD_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: getRedirectUri(),
+        grant_type: 'authorization_code',
+      }).toString(),
+    });
+    tokenJson = await tokenRes.json() as any;
+    if (!tokenRes.ok || !tokenJson.access_token) {
+      const msg = tokenJson.error_description || tokenJson.error || `Token exchange failed (${tokenRes.status})`;
+      console.error('[gumroad-oauth] token exchange failed:', msg);
+      return redirectWithError(msg);
+    }
+  } catch (err: any) {
+    console.error('[gumroad-oauth] token exchange threw:', err.message);
+    return redirectWithError('Could not reach Gumroad to exchange the code');
+  }
+
+  // Stash the token under a one-shot key. The wizard polls /oauth/claim
+  // to read it once, then it's deleted. Token never lives in localStorage
+  // or in the URL beyond this stash id.
+  const stashId = randomBytes(16).toString('hex');
+  await redisConnection.set(
+    `gumroad:oauth:stash:${stashId}`,
+    JSON.stringify({
+      userId: stateData.userId,
+      storeId: stateData.storeId,
+      accessToken: tokenJson.access_token,
+      refreshToken: tokenJson.refresh_token ?? null,
+    }),
+    'EX',
+    OAUTH_STASH_TTL_SEC,
+  );
+
+  return res.redirect(
+    `${wizardBase}?oauth=connected&stash=${stashId}&storeId=${encodeURIComponent(stateData.storeId)}`,
+  );
+});
+
+gumroadImportRouter.post('/oauth/claim', isAuthenticated, async (req, res) => {
+  const userId = getUserId(req);
+  const schema = z.object({ stashId: z.string().min(1).max(64) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid request' });
+
+  const stashKey = `gumroad:oauth:stash:${parsed.data.stashId}`;
+  const raw = await redisConnection.get(stashKey);
+  if (!raw) return res.status(404).json({ error: 'OAuth session expired or already used' });
+  await redisConnection.del(stashKey);  // single-use
+
+  let stash: { userId: string; storeId: string; accessToken: string; refreshToken: string | null };
+  try {
+    stash = JSON.parse(raw);
+  } catch {
+    return res.status(500).json({ error: 'Corrupt OAuth stash' });
+  }
+
+  // Defense in depth: only the user who initiated the OAuth flow can
+  // claim its token. Prevents one Sellisy account from hijacking another's
+  // pending OAuth callback even if they got the stashId.
+  if (stash.userId !== userId) {
+    return res.status(403).json({ error: 'OAuth session belongs to a different account' });
+  }
+
+  return res.json({
+    accessToken: stash.accessToken,
+    storeId: stash.storeId,
+  });
+});
 
 // ── POST /verify ─────────────────────────────────────────────────────────────
 
