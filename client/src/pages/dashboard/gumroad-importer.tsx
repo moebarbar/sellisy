@@ -1275,7 +1275,15 @@ export default function GumroadImporterPage() {
         toast({ title: "Import already in progress", description: "Showing the status of your existing import." });
         return;
       }
-      toast({ title: "Failed to start import", description: err.message, variant: "destructive" });
+      // Use the server's error message as the title when present so the
+      // user sees what actually happened (rate limits, store mismatch,
+      // etc.) instead of a generic 'Failed to start import' on every kind
+      // of failure.
+      toast({
+        title: err.message || "Failed to start import",
+        description: err.message ? undefined : "Unexpected error. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 

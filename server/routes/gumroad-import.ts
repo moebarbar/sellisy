@@ -337,8 +337,11 @@ gumroadImportRouter.post('/verify', isAuthenticated, async (req, res) => {
 gumroadImportRouter.post('/start', isAuthenticated, async (req, res) => {
   const userId = getUserId(req);
 
-  if (!checkRateLimit(startRateMap, userId, 3, 60 * 60_000)) {
-    return res.status(429).json({ error: 'Too many import attempts. Please wait an hour.' });
+  // 10 import attempts per hour is generous enough for normal use + iteration
+  // during testing, but still prevents accidental loops from creating dozens
+  // of in-flight imports.
+  if (!checkRateLimit(startRateMap, userId, 10, 60 * 60_000)) {
+    return res.status(429).json({ error: 'Too many import attempts. Please wait a few minutes.' });
   }
 
   const schema = z.object({
