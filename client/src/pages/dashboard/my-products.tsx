@@ -15,6 +15,7 @@ import { useUpload } from "@/hooks/use-upload";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download, Star, X, ArrowUpToLine, Package, FileUp } from "lucide-react";
+import { Link } from "wouter";
 import { ProductPlaceholder } from "@/components/product-placeholder";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import type { Product, Store, ProductImage, Category } from "@shared/schema";
@@ -99,6 +100,12 @@ export default function MyProductsPage() {
               Bulk Upload CSV
             </Button>
           )}
+          <Link href="/dashboard/import/gumroad">
+            <Button variant="outline">
+              <FileUp className="mr-2 h-4 w-4" />
+              Import from Gumroad
+            </Button>
+          </Link>
           <Button onClick={() => setCreateOpen(true)} data-testid="button-create-product">
             <Plus className="mr-2 h-4 w-4" />
             Create Product

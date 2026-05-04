@@ -22,6 +22,7 @@ import { users } from "@shared/models/auth";
 import { emailLogs } from "@shared/schema";
 import cookieParser from "cookie-parser";
 import { audit, auditMeta } from "./audit";
+import { gumroadImportRouter } from "./routes/gumroad-import";
 
 function getUserId(req: Request): string {
   return req.sellisyUserId!;
@@ -155,6 +156,7 @@ export async function registerRoutes(
   registerObjectStorageRoutes(app);
   registerSubscriptionRoutes(app);
   app.use(cookieParser());
+  app.use('/api/integrations/gumroad', gumroadImportRouter);
 
   app.use(async (req, res, next) => {
     const originalHost = (req.headers["x-custom-host"] as string) || (req.headers["x-forwarded-host"] as string) || req.hostname;

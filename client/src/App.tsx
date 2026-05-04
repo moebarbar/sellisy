@@ -37,6 +37,7 @@ const BlogEditorPage = lazy(() => import("@/pages/dashboard/blog-editor"));
 const NewsletterCampaignsPage = lazy(() => import("@/pages/dashboard/newsletter-campaigns"));
 const NewsletterCampaignEditorPage = lazy(() => import("@/pages/dashboard/newsletter-campaign-editor"));
 const DataHealthPage = lazy(() => import("@/pages/dashboard/data-health"));
+const GumroadImporterPage = lazy(() => import("@/pages/dashboard/gumroad-importer"));
 
 const AuthPage = lazy(() => import("@/pages/auth"));
 const PrivacyPage = lazy(() => import("@/pages/privacy"));
@@ -169,6 +170,7 @@ function DashboardRouter() {
             <Route path="/dashboard/newsletter/:id" component={NewsletterCampaignEditorPage} />
             <Route path="/dashboard/newsletter" component={NewsletterCampaignsPage} />
             <Route path="/dashboard/data-health" component={DataHealthPage} />
+            <Route path="/dashboard/import/gumroad" component={GumroadImporterPage} />
           </Switch>
         </FadeIn>
       </Suspense>
