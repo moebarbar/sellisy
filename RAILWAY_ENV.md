@@ -54,6 +54,27 @@ Required environment variables for deploying Sellisy on Railway.
 
 Store owners configure their own PayPal credentials per-store. No platform-level PayPal env vars needed.
 
+## Gumroad (Optional — required only for the one-click "Connect Gumroad" import flow)
+
+Without these set, the importer falls back to letting users paste a personal access token manually.
+
+| Variable | Description |
+|---|---|
+| `GUMROAD_CLIENT_ID` | OAuth Application ID from your Gumroad app |
+| `GUMROAD_CLIENT_SECRET` | OAuth Application Secret from your Gumroad app |
+| `GUMROAD_OAUTH_REDIRECT_URI` | Optional override; defaults to `${APP_URL}/api/integrations/gumroad/oauth/callback` |
+
+### Registering the Gumroad app
+
+1. Sign in to Gumroad as the platform owner
+2. Go to **Settings → Advanced → Applications** (https://app.gumroad.com/settings/advanced)
+3. Click **Create application**
+4. **Name:** `Sellisy` (or any name your users will see on the consent screen)
+5. **Redirect URI:** `https://sellisy.com/api/integrations/gumroad/oauth/callback` — must match `GUMROAD_OAUTH_REDIRECT_URI` exactly (or `${APP_URL}/api/integrations/gumroad/oauth/callback` if you didn't set the override)
+6. **Icon:** upload your logo (optional, shown on the consent screen)
+7. Save → copy the **Application ID** to `GUMROAD_CLIENT_ID` and **Application Secret** to `GUMROAD_CLIENT_SECRET` in Railway
+8. Restart the service so the new env vars load
+
 ## Quick Setup
 
 1. Create a new Railway project and add a PostgreSQL plugin
