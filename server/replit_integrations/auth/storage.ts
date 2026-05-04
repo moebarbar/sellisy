@@ -34,27 +34,46 @@ class AuthStorage implements IAuthStorage {
   }
 
   async upsertUserByClerkId(args: UpsertByClerkArgs): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values({
-        clerkUserId: args.clerkUserId,
+    // 1. Existing row with this Clerk ID: refresh its profile fields and return.
+    const byClerk = await this.getUserByClerkId(args.clerkUserId);
+    if (byClerk) {
+      const [updated] = await db.update(users).set({
         email: args.email,
         firstName: args.firstName,
         lastName: args.lastName,
         profileImageUrl: args.profileImageUrl,
-      })
-      .onConflictDoUpdate({
-        target: users.clerkUserId,
-        set: {
-          email: args.email,
+        updatedAt: new Date(),
+      }).where(eq(users.id, byClerk.id)).returning();
+      return updated;
+    }
+
+    // 2. No Clerk match, but an existing row with this email exists (probably
+    //    from an earlier test instance whose users we never cleaned up).
+    //    Adopt that row by stamping the new clerkUserId onto it instead of
+    //    creating a duplicate that would violate the unique-email index.
+    if (args.email) {
+      const byEmail = await this.getUserByEmail(args.email);
+      if (byEmail) {
+        const [adopted] = await db.update(users).set({
+          clerkUserId: args.clerkUserId,
           firstName: args.firstName,
           lastName: args.lastName,
           profileImageUrl: args.profileImageUrl,
           updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+        }).where(eq(users.id, byEmail.id)).returning();
+        return adopted;
+      }
+    }
+
+    // 3. Brand new user: insert.
+    const [created] = await db.insert(users).values({
+      clerkUserId: args.clerkUserId,
+      email: args.email,
+      firstName: args.firstName,
+      lastName: args.lastName,
+      profileImageUrl: args.profileImageUrl,
+    }).returning();
+    return created;
   }
 }
 

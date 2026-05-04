@@ -180,7 +180,7 @@ export default function PurchaseDetailPage() {
                     <div className="flex items-center gap-4">
                       <div className="h-16 w-16 rounded-md bg-muted overflow-hidden shrink-0">
                         {item.thumbnailUrl ? (
-                          <img src={item.thumbnailUrl} alt={item.title} className="h-full w-full object-cover" />
+                          <img loading="lazy" decoding="async" src={item.thumbnailUrl} alt={item.title} className="h-full w-full object-cover" />
                         ) : (
                           <div className="h-full w-full flex items-center justify-center">
                             <Package className="h-5 w-5 text-muted-foreground" />
@@ -230,7 +230,7 @@ export default function PurchaseDetailPage() {
                           <div className="flex items-center gap-3">
                             <div className="h-12 w-12 rounded-md bg-muted overflow-hidden shrink-0">
                               {product.thumbnailUrl ? (
-                                <img src={product.thumbnailUrl} alt={product.title} className="h-full w-full object-cover" />
+                                <img loading="lazy" decoding="async" src={product.thumbnailUrl} alt={product.title} className="h-full w-full object-cover" />
                               ) : (
                                 <div className="h-full w-full flex items-center justify-center">
                                   <Package className="h-4 w-4 text-muted-foreground" />

@@ -1,11 +1,66 @@
 import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useSignIn, useSignUp, useUser } from "@clerk/react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { SignIn, SignUp, useUser, ClerkLoading, ClerkLoaded } from "@clerk/react";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Eye, EyeOff, CheckCircle2, TrendingUp, Package, Zap } from "lucide-react";
+import { CheckCircle2, TrendingUp, Package, Zap } from "lucide-react";
+
+// Visible immediately while Clerk's SDK is downloading + initializing.
+// Roughly mirrors the dimensions of the real form so the swap-in doesn't
+// jump the layout.
+function AuthSkeleton({ mode }: { mode: "sign-in" | "sign-up" }) {
+  const Bar = ({ w, h = 12 }: { w: string; h?: number }) => (
+    <div
+      className="rounded-md s-skeleton-shimmer"
+      style={{ width: w, height: h, background: "rgba(255,255,255,0.06)" }}
+    />
+  );
+  return (
+    <div
+      style={{
+        backgroundColor: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        borderRadius: 10,
+        padding: 24,
+        backdropFilter: "blur(8px)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+        <Bar w="180px" h={18} />
+        <Bar w="240px" h={12} />
+      </div>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
+        <Bar w="56px" h={36} />
+        <Bar w="56px" h={36} />
+        <Bar w="56px" h={36} />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
+        <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+        <Bar w="20px" h={10} />
+        <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+      </div>
+      {mode === "sign-up" && (
+        <>
+          <Bar w="80px" />
+          <Bar w="100%" h={36} />
+        </>
+      )}
+      <Bar w="120px" />
+      <Bar w="100%" h={36} />
+      {mode === "sign-up" && (
+        <>
+          <Bar w="80px" />
+          <Bar w="100%" h={36} />
+        </>
+      )}
+      <div style={{ height: 4 }} />
+      <Bar w="100%" h={40} />
+    </div>
+  );
+}
 
 function ShowcaseCard({ children, className = "", delay = "0s" }: { children: React.ReactNode; className?: string; delay?: string }) {
   return (
@@ -18,6 +73,102 @@ function ShowcaseCard({ children, className = "", delay = "0s" }: { children: Re
   );
 }
 
+// Theme passed to Clerk's <SignIn /> / <SignUp /> so they match Sellisy's
+// dark+yellow aesthetic. Clerk's appearance API maps to internal element
+// names — kept minimal here, deeper customization can be added later.
+const clerkAppearance = {
+  layout: {
+    socialButtonsPlacement: "top" as const,
+    socialButtonsVariant: "iconButton" as const,
+  },
+  variables: {
+    colorPrimary: "#f5d142",
+    colorBackground: "#0a0a0a",
+    colorInputBackground: "rgba(255,255,255,0.06)",
+    colorInputText: "#ffffff",
+    colorText: "#ffffff",
+    // Bumped from 0.5 — at 0.5 opacity headers/subtitles/help text were
+    // hard to read against the dark backdrop.
+    colorTextSecondary: "rgba(250,250,245,0.75)",
+    colorDanger: "#ef4444",
+    colorSuccess: "#10b981",
+    colorNeutral: "rgba(255,255,255,0.18)",
+    fontFamily: "'DM Sans', sans-serif",
+    borderRadius: "10px",
+  },
+  elements: {
+    rootBox: { width: "100%" },
+    card: {
+      backgroundColor: "rgba(255,255,255,0.04)",
+      border: "1px solid rgba(255,255,255,0.1)",
+      boxShadow: "none",
+      backdropFilter: "blur(8px)",
+    },
+    headerTitle: {
+      fontFamily: "'DM Sans', sans-serif",
+      color: "#ffffff",
+    },
+    headerSubtitle: {
+      color: "rgba(250,250,245,0.8)",
+    },
+    formButtonPrimary: {
+      backgroundColor: "#f5d142",
+      color: "#050505",
+      fontWeight: 700,
+      textTransform: "uppercase" as const,
+      letterSpacing: "1px",
+      fontSize: "13px",
+      "&:hover": { backgroundColor: "#ffe066" },
+    },
+    formFieldInput: {
+      backgroundColor: "rgba(255,255,255,0.06)",
+      borderColor: "rgba(255,255,255,0.15)",
+      color: "#ffffff",
+      "&::placeholder": { color: "rgba(250,250,245,0.4)" },
+    },
+    formFieldLabel: {
+      color: "rgba(250,250,245,0.85)",
+      fontSize: "11px",
+      letterSpacing: "1px",
+      textTransform: "uppercase" as const,
+      fontFamily: "'Space Mono', monospace",
+    },
+    formFieldHintText: { color: "rgba(250,250,245,0.7)" },
+    formFieldSuccessText: { color: "#10b981" },
+    formFieldErrorText: { color: "#f87171" },
+    formFieldWarningText: { color: "#fbbf24" },
+    socialButtonsIconButton: {
+      borderColor: "rgba(255,255,255,0.15)",
+      backgroundColor: "rgba(255,255,255,0.05)",
+      "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+    },
+    dividerLine: { backgroundColor: "rgba(255,255,255,0.15)" },
+    dividerText: { color: "rgba(250,250,245,0.6)" },
+    footerActionText: { color: "rgba(250,250,245,0.8)" },
+    footerActionLink: {
+      color: "#f5d142",
+      fontWeight: 600,
+      "&:hover": { color: "#ffe066" },
+    },
+    identityPreviewText: { color: "rgba(250,250,245,0.85)" },
+    identityPreviewEditButton: { color: "#f5d142" },
+    formResendCodeLink: { color: "#f5d142", fontWeight: 600 },
+    otpCodeFieldInput: {
+      backgroundColor: "rgba(255,255,255,0.06)",
+      borderColor: "rgba(255,255,255,0.18)",
+      color: "#ffffff",
+    },
+    alternativeMethodsBlockButton: {
+      borderColor: "rgba(255,255,255,0.15)",
+      color: "rgba(250,250,245,0.85)",
+    },
+    footer: { backgroundColor: "transparent" },
+    // Clerk's "Secured by clerk" branding — bump contrast.
+    logoBox: { opacity: 0.85 },
+    logoImage: { opacity: 0.85 },
+  },
+};
+
 type Mode = "sign-in" | "sign-up";
 
 export default function AuthPage() {
@@ -26,21 +177,9 @@ export default function AuthPage() {
   const subscribed = params.get("subscribed") === "true";
   const plan = params.get("plan");
   const [, navigate] = useLocation();
-  const { isLoaded: isUserLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useUser();
   const { toast } = useToast();
-
   const [mode, setMode] = useState<Mode>("sign-in");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [pendingVerification, setPendingVerification] = useState(false);
-  const [code, setCode] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const { signIn } = useSignIn();
-  const { signUp } = useSignUp();
 
   useEffect(() => {
     if (subscribed) {
@@ -51,77 +190,23 @@ export default function AuthPage() {
     }
   }, [subscribed, toast]);
 
+  // Pending pricing CTA: if the user clicked a plan while signed-out and got
+  // routed here, kick off Stripe checkout right after Clerk completes auth.
+  // Otherwise we let Clerk's <SignIn /> / <SignUp /> handle the redirect via
+  // their own forceRedirectUrl prop — duplicating the navigate here causes
+  // a redirect race with /dashboard.
   useEffect(() => {
-    if (isUserLoaded && isSignedIn) navigate("/dashboard");
-  }, [isUserLoaded, isSignedIn, navigate]);
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!signIn) return;
-    setSubmitting(true);
-    const { error } = await signIn.password({ identifier: email, password });
-    if (error) {
-      toast({ title: "Login failed", description: error.message, variant: "destructive" });
-      setSubmitting(false);
-      return;
-    }
-    if (signIn.status === "complete") {
-      const { error: finalizeError } = await signIn.finalize();
-      if (finalizeError) {
-        toast({ title: "Login failed", description: finalizeError.message, variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
-      navigate("/dashboard");
-    } else {
-      toast({ title: "Additional steps required", description: "Please complete verification." });
-    }
-    setSubmitting(false);
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!signUp) return;
-    setSubmitting(true);
-    const { error } = await signUp.password({ emailAddress: email, password, firstName, lastName });
-    if (error) {
-      toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
-      setSubmitting(false);
-      return;
-    }
-    const { error: sendError } = await signUp.verifications.sendEmailCode();
-    if (sendError) {
-      toast({ title: "Could not send verification code", description: sendError.message, variant: "destructive" });
-      setSubmitting(false);
-      return;
-    }
-    setPendingVerification(true);
-    setSubmitting(false);
-  };
-
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!signUp) return;
-    setSubmitting(true);
-    const { error } = await signUp.verifications.verifyEmailCode({ code });
-    if (error) {
-      toast({ title: "Verification failed", description: error.message, variant: "destructive" });
-      setSubmitting(false);
-      return;
-    }
-    if (signUp.status === "complete") {
-      const { error: finalizeError } = await signUp.finalize();
-      if (finalizeError) {
-        toast({ title: "Sign up failed", description: finalizeError.message, variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
-      navigate("/dashboard");
-    } else {
-      toast({ title: "Verification incomplete", description: "Please try again." });
-    }
-    setSubmitting(false);
-  };
+    if (!isLoaded || !isSignedIn) return;
+    const pendingPlan = sessionStorage.getItem("pendingPlan");
+    if (pendingPlan !== "basic" && pendingPlan !== "pro" && pendingPlan !== "max") return;
+    sessionStorage.removeItem("pendingPlan");
+    apiRequest("POST", "/api/subscribe", { plan: pendingPlan })
+      .then(r => r.json())
+      .then(data => {
+        if (data.url) window.location.href = data.url;
+      })
+      .catch(() => { /* Clerk will redirect to dashboard on its own */ });
+  }, [isLoaded, isSignedIn]);
 
   const planLabels: Record<string, string> = {
     basic: "Starter",
@@ -130,7 +215,21 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] relative overflow-hidden flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#050505] relative overflow-hidden flex items-center justify-center px-4 py-12">
+      {/* Fallback CSS for Clerk internals that the appearance API doesn't
+          expose by name — keeps the "Secured by Clerk" badge readable
+          regardless of which class names Clerk's current build uses. */}
+      <style>{`
+        .cl-footer, .cl-internal-1bz0xnv, .cl-internal-1bsw1jm,
+        [class*="cl-footer"], [class*="cl-poweredBy"],
+        [class*="cl-internal-"][class*="branding"] {
+          opacity: 0.85 !important;
+        }
+        .cl-footer a, [class*="cl-footer"] a,
+        .cl-footer span, [class*="cl-footer"] span {
+          color: rgba(250, 250, 245, 0.75) !important;
+        }
+      `}</style>
       <div className="absolute inset-0 s-hero-grid opacity-30" />
 
       <div className="s-ambient-orb s-ambient-orb-1 top-[10%] left-[15%] w-[600px] h-[600px] bg-[hsl(53_91%_61%/0.04)] blur-[140px]" />
@@ -149,14 +248,7 @@ export default function AuthPage() {
           <span className="text-[10px] text-emerald-400 font-mono">+23.5%</span>
           <div className="flex-1 h-6">
             <svg viewBox="0 0 100 24" className="w-full h-full">
-              <polyline
-                fill="none"
-                stroke="hsl(53 91% 61%)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                points="0,20 15,16 30,18 45,10 60,12 75,6 90,4 100,2"
-              />
+              <polyline fill="none" stroke="hsl(53 91% 61%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points="0,20 15,16 30,18 45,10 60,12 75,6 90,4 100,2" />
             </svg>
           </div>
         </div>
@@ -218,121 +310,55 @@ export default function AuthPage() {
           <div className="flex items-center justify-center gap-2 mb-6 py-3 px-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5" data-testid="text-subscription-success">
             <CheckCircle2 className="h-5 w-5 text-emerald-400" />
             <span className="text-sm font-medium text-emerald-400">
-              {plan && planLabels[plan]
-                ? `${planLabels[plan]} plan activated!`
-                : "Subscription activated!"}
+              {plan && planLabels[plan] ? `${planLabels[plan]} plan activated!` : "Subscription activated!"}
             </span>
           </div>
         )}
 
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm p-6">
-          {pendingVerification ? (
-            <>
-              <h2 className="text-xl font-bold text-foreground mb-1">Verify your email</h2>
-              <p className="text-sm text-muted-foreground mb-6">We sent a 6-digit code to {email}.</p>
-              <form onSubmit={handleVerify} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="code" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Verification code</Label>
-                  <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" required className="bg-white/[0.04] border-white/[0.08] focus:border-primary/50" />
-                </div>
-                <Button type="submit" className="w-full font-semibold cta-mono" disabled={submitting}>
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify & continue"}
-                </Button>
-              </form>
-            </>
-          ) : (
-            <>
-              <div className="flex gap-2 mb-6 text-xs font-mono uppercase tracking-wider">
-                <button
-                  type="button"
-                  onClick={() => setMode("sign-in")}
-                  className={`flex-1 py-2 rounded-md transition-colors ${mode === "sign-in" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                  data-testid="tab-sign-in"
-                >
-                  Sign In
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode("sign-up")}
-                  className={`flex-1 py-2 rounded-md transition-colors ${mode === "sign-up" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                  data-testid="tab-sign-up"
-                >
-                  Create Account
-                </button>
-              </div>
-
-              <h2 className="text-xl font-bold text-foreground mb-1" data-testid="text-auth-title">
-                {mode === "sign-in" ? "Welcome Back" : "Create your account"}
-              </h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                {mode === "sign-in" ? "Sign in to your account" : "Start your digital empire"}
-              </p>
-
-              <form onSubmit={mode === "sign-in" ? handleSignIn : handleSignUp} className="space-y-4">
-                {mode === "sign-up" && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="firstName" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">First name</Label>
-                      <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="bg-white/[0.04] border-white/[0.08] focus:border-primary/50" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="lastName" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Last name</Label>
-                      <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required className="bg-white/[0.04] border-white/[0.08] focus:border-primary/50" />
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    required
-                    className="bg-white/[0.04] border-white/[0.08] focus:border-primary/50"
-                    data-testid="input-email"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="password" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder={mode === "sign-up" ? "At least 8 characters" : "Enter your password"}
-                      required
-                      minLength={mode === "sign-up" ? 8 : undefined}
-                      className="pr-10 bg-white/[0.04] border-white/[0.08] focus:border-primary/50"
-                      data-testid="input-password"
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => setShowPassword(!showPassword)}
-                      data-testid="button-toggle-password"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-                <Button type="submit" className="w-full font-semibold cta-mono" disabled={submitting} data-testid="button-auth-submit">
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (mode === "sign-in" ? "Sign In" : "Create Account")}
-                </Button>
-              </form>
-
-              {mode === "sign-in" && (
-                <div className="mt-5 text-center text-sm text-muted-foreground">
-                  Don't have an account?{" "}
-                  <button onClick={() => setMode("sign-up")} className="text-primary hover:underline font-medium cta-mono text-xs">Create one</button>
-                </div>
-              )}
-            </>
-          )}
+        {/* Sellisy-themed tab toggle. The actual auth UI below comes from
+            Clerk's <SignIn /> / <SignUp /> components. */}
+        <div className="flex gap-2 mb-4 text-xs font-mono uppercase tracking-wider">
+          <button
+            type="button"
+            onClick={() => setMode("sign-in")}
+            className={`flex-1 py-2 rounded-md transition-colors ${mode === "sign-in" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-white/[0.04]"}`}
+            data-testid="tab-sign-in"
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("sign-up")}
+            className={`flex-1 py-2 rounded-md transition-colors ${mode === "sign-up" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-white/[0.04]"}`}
+            data-testid="tab-sign-up"
+          >
+            Create Account
+          </button>
         </div>
+
+        {/* While Clerk's SDK is initializing, show a Sellisy-styled
+            skeleton so the page feels instant. <ClerkLoaded> is the gate
+            that swaps in the real form when the SDK is ready. */}
+        <ClerkLoading>
+          <AuthSkeleton mode={mode} />
+        </ClerkLoading>
+        <ClerkLoaded>
+          {mode === "sign-in" ? (
+            <SignIn
+              routing="hash"
+              signUpUrl="/auth"
+              forceRedirectUrl="/dashboard"
+              appearance={clerkAppearance}
+            />
+          ) : (
+            <SignUp
+              routing="hash"
+              signInUrl="/auth"
+              forceRedirectUrl="/dashboard"
+              appearance={clerkAppearance}
+            />
+          )}
+        </ClerkLoaded>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useAuth } from "@/hooks/use-auth";
+import { useUser } from "@clerk/react";
 import { StoreProvider, useActiveStore } from "@/lib/store-context";
 import { getStorePublicUrl } from "@/lib/utils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -22,9 +22,14 @@ import { useLocation } from "wouter";
 import { CreateStoreDialog } from "@/components/dashboard/sidebar";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  // Gate rendering on Clerk's auth state directly. Using the local
+  // /api/auth/user record introduced a redirect loop: Clerk completes auth
+  // and lands on /dashboard before the backend has finished provisioning
+  // the local user row, so user is briefly null and we'd bounce back to
+  // /auth, where Clerk would redirect us to /dashboard, etc.
+  const { isLoaded, isSignedIn } = useUser();
 
-  if (isLoading) {
+  if (!isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="space-y-3 text-center">
@@ -35,7 +40,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) {
+  if (!isSignedIn) {
     window.location.href = "/auth";
     return null;
   }

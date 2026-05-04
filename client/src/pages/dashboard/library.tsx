@@ -1038,7 +1038,7 @@ function AddProductDialog({ open, onClose }: { open: boolean; onClose: () => voi
                   className={`relative w-24 h-24 rounded-md overflow-hidden border-2 ${img.isThumbnail ? "border-primary" : "border-transparent"}`}
                   data-testid={`img-preview-${idx}`}
                 >
-                  <img src={img.url} alt={`Image ${idx + 1}`} className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={img.url} alt={`Image ${idx + 1}`} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-center justify-center gap-1 opacity-0 hover:opacity-100">
                     <Button
                       size="icon"

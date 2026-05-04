@@ -174,18 +174,28 @@ app.use((req, res, next) => {
   // - 'unsafe-inline' on style-src: required for React inline styles + Vite HMR in dev
   // - 'unsafe-inline' on script-src in dev only: required for Vite HMR module injection
   const isDev = process.env.NODE_ENV !== "production";
+  // Clerk loads its JS bundle, makes XHR calls, posts CAPTCHA challenges,
+  // and serves user avatar images all from the custom auth domain. Allow
+  // the configured domain (or fall back to the Clerk dev hosts when the
+  // custom one isn't set yet).
+  const clerkHost = process.env.CLERK_AUTH_DOMAIN ?? "clerk.sellisy.com";
+  const clerkDevHost = "*.clerk.accounts.dev";
+
+  // Cloudflare auto-injects beacon.min.js for Web Analytics on proxied
+  // domains. Allowlist it here so it doesn't fire CSP violations.
   const scriptSrc = isDev
-    ? `'self' 'unsafe-inline' 'unsafe-eval' https://studio.pickaxe.co`
-    : `'self' https://js.stripe.com https://studio.pickaxe.co`;
+    ? `'self' 'unsafe-inline' 'unsafe-eval' https://${clerkHost} https://${clerkDevHost} https://challenges.cloudflare.com https://static.cloudflareinsights.com`
+    : `'self' https://js.stripe.com https://${clerkHost} https://${clerkDevHost} https://challenges.cloudflare.com https://static.cloudflareinsights.com`;
 
   const csp = [
     `default-src 'self'`,
     `script-src ${scriptSrc}`,
     `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
     `font-src 'self' https://fonts.gstatic.com data:`,
-    `img-src 'self' data: blob: https://cdn.sellisy.com https://*.googleapis.com https://*.gstatic.com https://*.unsplash.com`,
-    `connect-src 'self' https://api.sellisy.com https://cdn.sellisy.com https://fonts.googleapis.com ${isDev ? "ws: wss:" : ""}`.trim(),
-    `frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.paypal.com`,
+    `img-src 'self' data: blob: https://cdn.sellisy.com https://*.googleapis.com https://*.gstatic.com https://*.unsplash.com https://img.clerk.com https://${clerkHost} https://${clerkDevHost}`,
+    `connect-src 'self' https://api.sellisy.com https://cdn.sellisy.com https://fonts.googleapis.com https://${clerkHost} https://${clerkDevHost} https://cloudflareinsights.com ${isDev ? "ws: wss:" : ""}`.trim(),
+    `frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.paypal.com https://challenges.cloudflare.com`,
+    `worker-src 'self' blob:`,
     `frame-ancestors 'self'`,
     `base-uri 'self'`,
     `form-action 'self'`,
@@ -255,7 +265,9 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      // In production response bodies frequently carry buyer emails, totals,
+      // download tokens — never log them. Dev keeps the dump for debugging.
+      if (capturedJsonResponse && process.env.NODE_ENV !== "production") {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
@@ -271,7 +283,13 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    const isProd = process.env.NODE_ENV === "production";
+    // For 4xx errors trust the application's message (intended for the user).
+    // For 5xx in production, never expose internal error text — could leak
+    // SQL fragments, file paths, or stack info.
+    const message = status < 500
+      ? (err.message || "Bad Request")
+      : (isProd ? "Internal Server Error" : (err.message || "Internal Server Error"));
 
     console.error("Internal Server Error:", err);
 
@@ -310,4 +328,26 @@ app.use((req, res, next) => {
       }
     },
   );
+
+  // Graceful shutdown: drain in-flight requests, close DB pool, then exit.
+  // Railway sends SIGTERM and waits ~30s before SIGKILL. Without this we
+  // truncate active responses on every redeploy.
+  let shuttingDown = false;
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[shutdown] received ${signal}, draining...`);
+    httpServer.close(() => console.log("[shutdown] http server closed"));
+    try {
+      const { pool } = await import("./db");
+      await pool.end();
+      console.log("[shutdown] db pool closed");
+    } catch (err) {
+      console.error("[shutdown] error closing db pool:", err);
+    }
+    // Give pending writes a moment, then exit.
+    setTimeout(() => process.exit(0), 1500).unref();
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 })();

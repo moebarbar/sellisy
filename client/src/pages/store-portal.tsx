@@ -111,7 +111,7 @@ function StoreHeader({ store, theme, customer, onLogout, logoutPending, basePath
         <Link href={`${basePath || "/"}`}>
           <div className="flex items-center gap-3 cursor-pointer" data-testid="link-store-home">
             {store.logoUrl ? (
-              <img src={store.logoUrl} alt={store.name} className="h-8 w-8 rounded-md object-cover" />
+              <img loading="lazy" decoding="async" src={store.logoUrl} alt={store.name} className="h-8 w-8 rounded-md object-cover" />
             ) : (
               <div className={`h-8 w-8 rounded-md flex items-center justify-center ${theme.accentBg}`}>
                 <StoreIcon className={`h-4 w-4 ${theme.accent}`} />
@@ -177,7 +177,7 @@ function PortalLogin({ store, theme, onLogin }: {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           {store.logoUrl ? (
-            <img src={store.logoUrl} alt={store.name} className="mx-auto h-16 w-16 rounded-xl object-cover mb-4" />
+            <img loading="lazy" decoding="async" src={store.logoUrl} alt={store.name} className="mx-auto h-16 w-16 rounded-xl object-cover mb-4" />
           ) : (
             <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${theme.accentBg} mb-4`}>
               <Package className={`h-7 w-7 ${theme.accent}`} />
@@ -316,7 +316,7 @@ function PortalPurchases({ store, theme, purchases, isLoading, basePath }: {
                     {order.items.slice(0, 3).map((item) => (
                       <div key={item.id} className={`h-12 w-12 rounded-md border-2 overflow-hidden ${theme.isNeon ? "bg-[#1a1a2e] border-[#0a0a0f]" : "bg-[#f0ede8] border-[#faf9f6]"}`}>
                         {item.thumbnailUrl ? (
-                          <img src={item.thumbnailUrl} alt={item.title} className="h-full w-full object-cover" />
+                          <img loading="lazy" decoding="async" src={item.thumbnailUrl} alt={item.title} className="h-full w-full object-cover" />
                         ) : (
                           <div className="h-full w-full flex items-center justify-center">
                             <Package className={`h-4 w-4 ${theme.textMuted}`} />
@@ -480,7 +480,7 @@ function PortalOrderDetail({ store, theme, orderId, basePath }: {
                   <div className="flex items-center gap-4 p-4">
                     <div className={`h-16 w-16 rounded-md overflow-hidden shrink-0 ${theme.isNeon ? "bg-[#1a1a2e]" : "bg-[#f0ede8]"}`}>
                       {item.thumbnailUrl ? (
-                        <img src={item.thumbnailUrl} alt={item.title} className="h-full w-full object-cover" />
+                        <img loading="lazy" decoding="async" src={item.thumbnailUrl} alt={item.title} className="h-full w-full object-cover" />
                       ) : (
                         <div className="h-full w-full flex items-center justify-center">
                           <Package className={`h-5 w-5 ${theme.textMuted}`} />
@@ -639,7 +639,7 @@ function PortalOrderDetail({ store, theme, orderId, basePath }: {
                       <div className="flex items-center gap-3">
                         <div className={`h-12 w-12 rounded-md overflow-hidden shrink-0 ${theme.isNeon ? "bg-[#1a1a2e]" : "bg-[#f0ede8]"}`}>
                           {product.thumbnailUrl ? (
-                            <img src={product.thumbnailUrl} alt={product.title} className="h-full w-full object-cover" />
+                            <img loading="lazy" decoding="async" src={product.thumbnailUrl} alt={product.title} className="h-full w-full object-cover" />
                           ) : (
                             <div className="h-full w-full flex items-center justify-center">
                               <Package className={`h-4 w-4 ${theme.textMuted}`} />

@@ -740,7 +740,7 @@ export function NeonTemplate({ store, products, bundles }: { store: Store; produ
                 >
                   {post.coverImageUrl && (
                     <div className="aspect-video overflow-hidden">
-                      <img src={post.coverImageUrl} alt={post.title} className="w-full h-full object-cover" />
+                      <img loading="lazy" decoding="async" src={post.coverImageUrl} alt={post.title} className="w-full h-full object-cover" />
                     </div>
                   )}
                   <div className="p-4">

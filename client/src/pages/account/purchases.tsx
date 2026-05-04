@@ -160,7 +160,7 @@ export default function PurchasesPage() {
                                 {order.items.slice(0, 3).map((item) => (
                                   <div key={item.id} className="h-12 w-12 rounded-md bg-muted border-2 border-background overflow-hidden">
                                     {item.thumbnailUrl ? (
-                                      <img src={item.thumbnailUrl} alt={item.title} className="h-full w-full object-cover" />
+                                      <img loading="lazy" decoding="async" src={item.thumbnailUrl} alt={item.title} className="h-full w-full object-cover" />
                                     ) : (
                                       <div className="h-full w-full flex items-center justify-center">
                                         <Package className="h-4 w-4 text-muted-foreground" />

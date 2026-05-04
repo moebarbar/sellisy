@@ -204,7 +204,7 @@ export default function BlogListingPage({ params: propParams }: { params?: { slu
           </Link>
           <div className="flex items-center gap-3 flex-1">
             {store.logoUrl && (
-              <img src={store.logoUrl} alt={store.name} className="w-8 h-8 rounded-full object-cover" />
+              <img loading="lazy" decoding="async" src={store.logoUrl} alt={store.name} className="w-8 h-8 rounded-full object-cover" />
             )}
             <div>
               <h1 className="font-bold text-base" data-testid="text-blog-store-name">{store.name}</h1>
