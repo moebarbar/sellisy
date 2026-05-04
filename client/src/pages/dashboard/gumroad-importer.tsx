@@ -1232,6 +1232,82 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
 
 // ── Root wizard page ──────────────────────────────────────────────────────────
 
+interface InProgressImport {
+  importId: string;
+  productsImported: number;
+  pendingFiles: number;
+  totalShells: number;
+  startedAt: string;
+}
+
+function ResumeImportCard({
+  inProgress,
+  onResume,
+  onStartOver,
+}: {
+  inProgress: InProgressImport;
+  onResume: () => void;
+  onStartOver: () => void;
+}) {
+  const startedDate = new Date(inProgress.startedAt);
+  const minutesAgo = Math.max(1, Math.round((Date.now() - startedDate.getTime()) / 60_000));
+  const timeAgo = minutesAgo < 60
+    ? `${minutesAgo} minute${minutesAgo === 1 ? "" : "s"} ago`
+    : minutesAgo < 1440
+      ? `${Math.round(minutesAgo / 60)} hour${Math.round(minutesAgo / 60) === 1 ? "" : "s"} ago`
+      : startedDate.toLocaleDateString();
+
+  return (
+    <div className="space-y-5">
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <FileUp className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-base">You have an import in progress</CardTitle>
+              <CardDescription className="text-sm mt-0.5">
+                Started {timeAgo} &mdash; products are imported, files still need to be uploaded.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="rounded-lg border bg-background p-3">
+              <p className="text-2xl font-semibold">{inProgress.productsImported}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Products imported</p>
+            </div>
+            <div className="rounded-lg border bg-background p-3">
+              <p className="text-2xl font-semibold text-amber-500">{inProgress.pendingFiles}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Files to upload</p>
+            </div>
+            <div className="rounded-lg border bg-background p-3">
+              <p className="text-2xl font-semibold text-emerald-500">{inProgress.totalShells - inProgress.pendingFiles}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Files attached</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button onClick={onResume} className="flex-1 gap-2" data-testid="button-resume-import">
+              <ArrowRight className="w-4 h-4" />
+              Resume File Upload
+            </Button>
+            <Button onClick={onStartOver} variant="outline" data-testid="button-start-over">
+              Start a new import
+            </Button>
+          </div>
+
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Resuming picks up exactly where you left off &mdash; the same products, the same matched files. Starting a new import won't duplicate products you've already imported.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function GumroadImporterPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -1241,6 +1317,28 @@ export default function GumroadImporterPage() {
   const [accessToken, setAccessToken] = useState("");
   const [verifyData, setVerifyData] = useState<VerifyResponse | null>(null);
   const [importId, setImportId] = useState<string | null>(null);
+  const [resumeDismissed, setResumeDismissed] = useState(false);
+
+  // Detect any prior import for this store that's stuck at the file-upload
+  // step. If the user navigates away mid-wizard or the upload step fails
+  // silently (which it has, in early versions), the products are imported
+  // but their delivery files are missing — they'd be stuck without a
+  // recovery path. This query gives them a "Resume" card on the wizard
+  // landing page so they don't have to manually edit each product.
+  const { data: inProgressData } = useQuery<{ inProgress: InProgressImport | null }>({
+    queryKey: ["/api/integrations/gumroad/in-progress", activeStoreId],
+    queryFn: async () => {
+      const res = await apiRequest(
+        "GET",
+        `/api/integrations/gumroad/in-progress?storeId=${encodeURIComponent(activeStoreId!)}`,
+      );
+      return res.json();
+    },
+    enabled: !!activeStoreId && step === "connect" && !resumeDismissed,
+    staleTime: 0,
+  });
+
+  const inProgress = inProgressData?.inProgress ?? null;
 
   const startImport = useMutation({
     mutationFn: async ({
@@ -1315,7 +1413,18 @@ export default function GumroadImporterPage() {
 
       <StepIndicator current={step} />
 
-      {step === "connect" && (
+      {step === "connect" && inProgress && (
+        <ResumeImportCard
+          inProgress={inProgress}
+          onResume={() => {
+            setImportId(inProgress.importId);
+            setStep("files");
+          }}
+          onStartOver={() => setResumeDismissed(true)}
+        />
+      )}
+
+      {step === "connect" && !inProgress && (
         <StepConnect onVerified={handleVerified} />
       )}
 

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { randomBytes } from 'crypto';
 import { db } from '../db';
 import { gumroadImports, gumroadProductShells, products, stores, storeProducts } from '@shared/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, desc } from 'drizzle-orm';
 import { encryptToken } from '../crypto/token-encryption';
 import { gumroadImportQueue } from '../queue/queues';
 import * as gumroad from '../gumroad/client';
@@ -402,6 +402,58 @@ gumroadImportRouter.post('/start', isAuthenticated, async (req, res) => {
   });
 
   return res.json({ importId: importRecord.id });
+});
+
+// ── GET /in-progress?storeId=… ────────────────────────────────────────────────
+// Returns the most recent import for the given store that's still in
+// `awaiting_files` state — i.e. products imported but files not yet
+// uploaded. Lets the wizard offer a "Resume" path instead of forcing the
+// user to start over (which would skip duplicate products and produce
+// zero shells, leaving them unable to attach files at all).
+gumroadImportRouter.get('/in-progress', isAuthenticated, async (req, res) => {
+  const userId = getUserId(req);
+  const storeId = (req.query.storeId as string | undefined) ?? '';
+  if (!storeId) return res.status(400).json({ error: 'Missing storeId' });
+
+  const store = await getOwnedStore(userId, storeId);
+  if (!store) return res.status(403).json({ error: 'Store not found or access denied' });
+
+  const [pending] = await db
+    .select({
+      id: gumroadImports.id,
+      status: gumroadImports.status,
+      productsTotal: gumroadImports.productsTotal,
+      productsImported: gumroadImports.productsImported,
+      startedAt: gumroadImports.startedAt,
+    })
+    .from(gumroadImports)
+    .where(and(
+      eq(gumroadImports.storeId, storeId),
+      eq(gumroadImports.status, 'awaiting_files'),
+    ))
+    .orderBy(desc(gumroadImports.startedAt))
+    .limit(1);
+
+  if (!pending) return res.json({ inProgress: null });
+
+  // Count how many shells still need a file or skip decision so the UI
+  // can show the user exactly how much work is left.
+  const shells = await db
+    .select({ id: gumroadProductShells.id, fileStatus: gumroadProductShells.fileStatus })
+    .from(gumroadProductShells)
+    .where(eq(gumroadProductShells.importId, pending.id));
+
+  const pendingFiles = shells.filter(s => s.fileStatus === 'missing').length;
+
+  return res.json({
+    inProgress: {
+      importId: pending.id,
+      productsImported: pending.productsImported,
+      pendingFiles,
+      totalShells: shells.length,
+      startedAt: pending.startedAt,
+    },
+  });
 });
 
 // ── GET /status/:importId ─────────────────────────────────────────────────────

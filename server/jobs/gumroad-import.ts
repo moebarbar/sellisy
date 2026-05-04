@@ -79,6 +79,46 @@ async function rewriteDescription(productName: string, original: string): Promis
   return json?.content?.[0]?.text ?? original;
 }
 
+// Gumroad returns product descriptions as HTML markup. We render them as
+// plain text on Sellisy, so raw <p>/<ul>/<li>/<strong> tags would display
+// visibly to buyers. This converter:
+//   - Drops <script>/<style> blocks entirely
+//   - Inserts blank line after </p>, <br>, <h1-6>
+//   - Prefixes "- " to <li> items
+//   - Strips remaining tags but keeps their text content
+//   - Decodes the most common HTML entities
+//   - Collapses runs of >2 blank lines to exactly 2
+// Output is human-readable text that lines up with how Sellisy renders
+// it (whitespace-pre-wrap on the storefront and dashboard).
+function htmlToCleanText(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<\/(p|div|h[1-6])>/gi, '\n\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '- ')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')        // strip remaining tags
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&rsquo;/g, "’")
+    .replace(/&lsquo;/g, "‘")
+    .replace(/&rdquo;/g, "”")
+    .replace(/&ldquo;/g, "“")
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&hellip;/g, '…')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/[ \t]+\n/g, '\n')     // trailing whitespace per line
+    .replace(/\n{3,}/g, '\n\n')     // cap at 2 blank lines
+    .trim();
+}
+
 function incrementField(field: any) {
   return sql`${field} + 1`;
 }
@@ -136,7 +176,11 @@ export async function processGumroadImport(job: Job) {
         ? await reHostThumbnail(gp.thumbnail_url, importRecord.ownerId)
         : null;
 
-      let description = gp.description ?? '';
+      // Gumroad returns descriptions as HTML (<p>, <ul>, <li>, <strong>...).
+      // Sellisy stores plain text and renders with whitespace-pre-wrap, so
+      // raw HTML would show up as visible markup. Convert to clean text
+      // first — preserving paragraph breaks, list bullets, and headings.
+      let description = htmlToCleanText(gp.description ?? '');
       if (options.rewriteDescriptionsWithAI && description.trim()) {
         description = await rewriteDescription(gp.name, description);
       }
