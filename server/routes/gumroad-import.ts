@@ -168,30 +168,41 @@ gumroadImportRouter.get('/oauth/callback', async (req, res) => {
     });
     tokenJson = await tokenRes.json() as any;
     if (!tokenRes.ok || !tokenJson.access_token) {
-      const msg = tokenJson.error_description || tokenJson.error || `Token exchange failed (${tokenRes.status})`;
-      console.error('[gumroad-oauth] token exchange failed:', msg);
-      return redirectWithError(msg);
+      const rawMsg = tokenJson.error_description || tokenJson.error || `Token exchange failed (${tokenRes.status})`;
+      console.error('[gumroad-oauth] token exchange failed:', rawMsg);
+      // Cap length to defend against attacker-controlled (or just very long)
+      // error_description being injected into our UI as a confusing message.
+      const safeMsg = String(rawMsg).slice(0, 200);
+      return redirectWithError(safeMsg);
     }
   } catch (err: any) {
     console.error('[gumroad-oauth] token exchange threw:', err.message);
     return redirectWithError('Could not reach Gumroad to exchange the code');
   }
 
-  // Stash the token under a one-shot key. The wizard polls /oauth/claim
+  // Stash the token under a one-shot key. The wizard calls /oauth/claim
   // to read it once, then it's deleted. Token never lives in localStorage
   // or in the URL beyond this stash id.
   const stashId = randomBytes(16).toString('hex');
-  await redisConnection.set(
-    `gumroad:oauth:stash:${stashId}`,
-    JSON.stringify({
-      userId: stateData.userId,
-      storeId: stateData.storeId,
-      accessToken: tokenJson.access_token,
-      refreshToken: tokenJson.refresh_token ?? null,
-    }),
-    'EX',
-    OAUTH_STASH_TTL_SEC,
-  );
+  try {
+    await redisConnection.set(
+      `gumroad:oauth:stash:${stashId}`,
+      JSON.stringify({
+        userId: stateData.userId,
+        storeId: stateData.storeId,
+        accessToken: tokenJson.access_token,
+        refreshToken: tokenJson.refresh_token ?? null,
+      }),
+      'EX',
+      OAUTH_STASH_TTL_SEC,
+    );
+  } catch (err: any) {
+    // If Redis is down at this point we have a valid token in memory but
+    // no way to deliver it to the wizard. Surface a friendly error rather
+    // than crashing the request and leaving the user on a blank page.
+    console.error('[gumroad-oauth] could not stash token:', err.message);
+    return redirectWithError('Temporary connection issue. Please try again.');
+  }
 
   return res.redirect(
     `${wizardBase}?oauth=connected&stash=${stashId}&storeId=${encodeURIComponent(stateData.storeId)}`,
@@ -207,22 +218,44 @@ gumroadImportRouter.post('/oauth/claim', isAuthenticated, async (req, res) => {
   const stashKey = `gumroad:oauth:stash:${parsed.data.stashId}`;
   const raw = await redisConnection.get(stashKey);
   if (!raw) return res.status(404).json({ error: 'OAuth session expired or already used' });
-  await redisConnection.del(stashKey);  // single-use
 
   let stash: { userId: string; storeId: string; accessToken: string; refreshToken: string | null };
   try {
     stash = JSON.parse(raw);
   } catch {
+    // Corrupt entry — drop it so a retry doesn't keep tripping over it.
+    await redisConnection.del(stashKey);
     return res.status(500).json({ error: 'Corrupt OAuth stash' });
   }
 
   // Defense in depth: only the user who initiated the OAuth flow can
   // claim its token. Prevents one Sellisy account from hijacking another's
   // pending OAuth callback even if they got the stashId.
+  // IMPORTANT: do this check BEFORE deleting the key — a wrong-user
+  // attempt must not consume the stash and lock the legitimate user out.
   if (stash.userId !== userId) {
     return res.status(403).json({ error: 'OAuth session belongs to a different account' });
   }
 
+  // Re-verify store ownership in case it changed during the ~5-min stash
+  // window (deletion, transfer). Don't delete the stash so the user can
+  // recover by switching to a store they still own and retrying.
+  const store = await getOwnedStore(userId, stash.storeId);
+  if (!store) {
+    return res.status(403).json({ error: 'You no longer have access to that store.' });
+  }
+
+  // Single-use: only delete after every check has passed.
+  await redisConnection.del(stashKey);
+
+  // NOTE: this response includes the raw access token. It's protected by:
+  //   - HTTPS in transit
+  //   - the response-body logger in server/index.ts skips logging in
+  //     production (gated on NODE_ENV)
+  //   - the React app stores it in component state only, never localStorage
+  //   - the import worker wipes it from gumroad_imports after the job
+  // If you ever change the prod log middleware, make sure /oauth/claim
+  // responses stay redacted.
   return res.json({
     accessToken: stash.accessToken,
     storeId: stash.storeId,

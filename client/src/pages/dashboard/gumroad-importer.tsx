@@ -124,15 +124,15 @@ function StepConnect({
   const { activeStoreId } = useActiveStore();
   const { toast } = useToast();
 
+  // verify takes both accessToken and storeId so the OAuth round-trip can
+  // pass the storeId that was bound at /oauth/start time. Manual-paste
+  // calls pass the current activeStoreId.
   const verify = useMutation({
-    mutationFn: async (accessToken: string) => {
-      const res = await apiRequest("POST", "/api/integrations/gumroad/verify", {
-        accessToken,
-        storeId: activeStoreId,
-      });
+    mutationFn: async ({ accessToken, storeId }: { accessToken: string; storeId: string }) => {
+      const res = await apiRequest("POST", "/api/integrations/gumroad/verify", { accessToken, storeId });
       return res.json() as Promise<VerifyResponse>;
     },
-    onSuccess: (data, accessToken) => onVerified(accessToken, data),
+    onSuccess: (data, vars) => onVerified(vars.accessToken, data),
     onError: (err: Error) => toast({ title: "Verification failed", description: err.message, variant: "destructive" }),
   });
 
@@ -140,31 +140,48 @@ function StepConnect({
   // ?oauth=connected&stash=xxx, we POST that stash id to /oauth/claim
   // (single-use, server-side delete) to retrieve the access token, then
   // run the normal /verify call to load product previews.
+  //
+  // We use a ref to ensure the claim runs only once per page load even
+  // if React re-renders the component (StrictMode in dev double-invokes
+  // effects). Without this guard, the second invocation would 404 because
+  // the first already consumed the stash.
+  const oauthHandledRef = useRef(false);
   useEffect(() => {
+    if (oauthHandledRef.current) return;
+
     const params = new URLSearchParams(window.location.search);
     const oauthError = params.get("oauth_error");
     const stash = params.get("stash");
     const oauthStatus = params.get("oauth");
 
-    // Strip OAuth params from the URL regardless of outcome so a refresh
-    // doesn't re-trigger the claim or show the error twice.
-    if (oauthError || stash || oauthStatus) {
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, "", cleanUrl);
-    }
+    if (!oauthError && !stash && !oauthStatus) return;
+
+    oauthHandledRef.current = true;
+
+    // Strip OAuth params from the URL so a refresh doesn't re-trigger
+    // the claim (which would 404 since the stash is already consumed)
+    // or show a stale error toast.
+    window.history.replaceState({}, "", window.location.pathname);
 
     if (oauthError) {
       setAutoClaimError(oauthError);
       return;
     }
-    if (oauthStatus === "connected" && stash && activeStoreId) {
+
+    if (oauthStatus === "connected" && stash) {
       apiRequest("POST", "/api/integrations/gumroad/oauth/claim", { stashId: stash })
         .then(r => r.json() as Promise<{ accessToken: string; storeId: string }>)
-        .then(data => verify.mutate(data.accessToken))
+        // Use the storeId returned from the stash (bound at /oauth/start time)
+        // rather than activeStoreId — the user might have switched stores
+        // while away on Gumroad's consent screen.
+        .then(data => verify.mutate({ accessToken: data.accessToken, storeId: data.storeId }))
         .catch((err: Error) => setAutoClaimError(err.message));
     }
+    // Empty deps — this should run once on mount only. The oauthHandledRef
+    // guards against React StrictMode double-invocation in dev. We don't
+    // want re-renders to retrigger the claim because the stash is one-shot.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeStoreId]);
+  }, []);
 
   const startOAuth = async () => {
     if (!activeStoreId) return;
@@ -261,14 +278,14 @@ function StepConnect({
             placeholder="Paste your access token here"
             value={token}
             onChange={e => setToken(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && token.trim() && verify.mutate(token.trim())}
+            onKeyDown={e => e.key === "Enter" && token.trim() && activeStoreId && verify.mutate({ accessToken: token.trim(), storeId: activeStoreId })}
           />
           <p className="text-xs text-muted-foreground">
             Find it under <span className="font-medium">Gumroad Settings → Advanced → Applications</span>.
             Token is encrypted on our side and deleted after the import completes.
           </p>
           <Button
-            onClick={() => verify.mutate(token.trim())}
+            onClick={() => activeStoreId && verify.mutate({ accessToken: token.trim(), storeId: activeStoreId })}
             disabled={!token.trim() || !activeStoreId || verify.isPending}
             variant="outline"
             className="w-full"
