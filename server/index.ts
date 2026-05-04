@@ -181,9 +181,11 @@ app.use((req, res, next) => {
   const clerkHost = process.env.CLERK_AUTH_DOMAIN ?? "clerk.sellisy.com";
   const clerkDevHost = "*.clerk.accounts.dev";
 
+  // Cloudflare auto-injects beacon.min.js for Web Analytics on proxied
+  // domains. Allowlist it here so it doesn't fire CSP violations.
   const scriptSrc = isDev
-    ? `'self' 'unsafe-inline' 'unsafe-eval' https://studio.pickaxe.co https://${clerkHost} https://${clerkDevHost} https://challenges.cloudflare.com`
-    : `'self' https://js.stripe.com https://studio.pickaxe.co https://${clerkHost} https://${clerkDevHost} https://challenges.cloudflare.com`;
+    ? `'self' 'unsafe-inline' 'unsafe-eval' https://${clerkHost} https://${clerkDevHost} https://challenges.cloudflare.com https://static.cloudflareinsights.com`
+    : `'self' https://js.stripe.com https://${clerkHost} https://${clerkDevHost} https://challenges.cloudflare.com https://static.cloudflareinsights.com`;
 
   const csp = [
     `default-src 'self'`,
@@ -191,7 +193,7 @@ app.use((req, res, next) => {
     `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
     `font-src 'self' https://fonts.gstatic.com data:`,
     `img-src 'self' data: blob: https://cdn.sellisy.com https://*.googleapis.com https://*.gstatic.com https://*.unsplash.com https://img.clerk.com https://${clerkHost} https://${clerkDevHost}`,
-    `connect-src 'self' https://api.sellisy.com https://cdn.sellisy.com https://fonts.googleapis.com https://${clerkHost} https://${clerkDevHost} ${isDev ? "ws: wss:" : ""}`.trim(),
+    `connect-src 'self' https://api.sellisy.com https://cdn.sellisy.com https://fonts.googleapis.com https://${clerkHost} https://${clerkDevHost} https://cloudflareinsights.com ${isDev ? "ws: wss:" : ""}`.trim(),
     `frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.paypal.com https://challenges.cloudflare.com`,
     `worker-src 'self' blob:`,
     `frame-ancestors 'self'`,

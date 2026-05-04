@@ -665,7 +665,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
                 >
                   {post.coverImageUrl && (
                     <div className="aspect-video overflow-hidden">
-                      <img src={post.coverImageUrl} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <img loading="lazy" decoding="async" src={post.coverImageUrl} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     </div>
                   )}
                   <div className="p-5">

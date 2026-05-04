@@ -75,7 +75,7 @@ function BlogBlockRenderer({ block }: { block: BlogBlock }) {
       if (!content) return null;
       return (
         <figure className="my-8">
-          <img src={content} alt="" className="rounded-xl max-w-full mx-auto shadow-sm" />
+          <img loading="lazy" decoding="async" src={content} alt="" className="rounded-xl max-w-full mx-auto shadow-sm" />
         </figure>
       );
     case "video":
@@ -286,7 +286,7 @@ export default function BlogPostPage({ params: propParams }: { params?: { slug: 
           </Link>
           <div className="flex items-center gap-3 flex-1">
             {store.logoUrl && (
-              <img src={store.logoUrl} alt={store.name} className="w-7 h-7 rounded-full object-cover" />
+              <img loading="lazy" decoding="async" src={store.logoUrl} alt={store.name} className="w-7 h-7 rounded-full object-cover" />
             )}
             <span className="font-medium text-sm">{store.name}</span>
           </div>

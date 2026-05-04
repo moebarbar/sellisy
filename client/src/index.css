@@ -483,6 +483,13 @@
   border-radius: 50%;
   filter: blur(120px);
   will-change: transform;
+  /* Promote to its own composited layer so the blurred bitmap doesn't
+     re-rasterize when the rest of the page scrolls. Combined with the
+     much slower animation cadence below, this drops the orbs' frame
+     cost from 'always painting' to 'rarely painting'. */
+  transform: translateZ(0);
+  contain: layout paint;
+  pointer-events: none;
 }
 
 .s-ambient-orb--yellow {
@@ -491,7 +498,7 @@
   top: 5%;
   left: 15%;
   background: radial-gradient(circle, rgba(245, 230, 66, 0.045) 0%, transparent 70%);
-  animation: s-ambient-drift-1 25s ease-in-out infinite;
+  animation: s-ambient-drift-1 90s ease-in-out infinite;
 }
 
 .s-ambient-orb--teal {
@@ -500,7 +507,7 @@
   top: 40%;
   right: 10%;
   background: radial-gradient(circle, rgba(0, 245, 212, 0.035) 0%, transparent 70%);
-  animation: s-ambient-drift-2 30s ease-in-out infinite;
+  animation: s-ambient-drift-2 105s ease-in-out infinite;
 }
 
 .s-ambient-orb--pink {
@@ -509,7 +516,7 @@
   bottom: 15%;
   left: 25%;
   background: radial-gradient(circle, rgba(255, 60, 172, 0.035) 0%, transparent 70%);
-  animation: s-ambient-drift-3 28s ease-in-out infinite;
+  animation: s-ambient-drift-3 95s ease-in-out infinite;
 }
 
 .landing-page .s-heading {
@@ -677,15 +684,15 @@
 .s-creator-tabs::-webkit-scrollbar { display: none; }
 
 .s-ambient-orb-1 {
-  animation: s-ambient-drift-1 20s ease-in-out infinite;
+  animation: s-ambient-drift-1 90s ease-in-out infinite;
 }
 
 .s-ambient-orb-2 {
-  animation: s-ambient-drift-2 25s ease-in-out infinite;
+  animation: s-ambient-drift-2 105s ease-in-out infinite;
 }
 
 .s-ambient-orb-3 {
-  animation: s-ambient-drift-3 22s ease-in-out infinite;
+  animation: s-ambient-drift-3 95s ease-in-out infinite;
 }
 
 /* Loading skeleton shimmer (used on /auth while Clerk initializes) */
@@ -702,4 +709,28 @@
   ) !important;
   background-size: 800px 100% !important;
   animation: s-skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+/* === Scroll-perf: backdrop-filter containment ===========================
+   Every element with backdrop-blur becomes its own composited layer so
+   that scrolling content beneath it doesn't re-rasterize the blur on
+   every frame. On small screens / reduced-motion preference, drop the
+   blur entirely — it's the single most expensive paint op and barely
+   visible on phones. */
+[style*="backdrop-filter"],
+[style*="backdropFilter"],
+.backdrop-blur-sm, .backdrop-blur, .backdrop-blur-md,
+.backdrop-blur-lg, .backdrop-blur-xl, .backdrop-blur-2xl {
+  contain: paint;
+  transform: translateZ(0);
+}
+
+@media (max-width: 768px), (prefers-reduced-motion: reduce) {
+  [style*="backdrop-filter"],
+  [style*="backdropFilter"],
+  .backdrop-blur-sm, .backdrop-blur, .backdrop-blur-md,
+  .backdrop-blur-lg, .backdrop-blur-xl, .backdrop-blur-2xl {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
 }
