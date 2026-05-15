@@ -39,7 +39,6 @@ export default function CheckoutSuccessPage() {
   const orderId = params.get("order_id");
 
   const identifier = sessionId || orderId;
-  const storeBasePath = useMemo(() => data?.store ? getStoreBasePath(data.store.slug) : "", [data?.store?.slug]);
 
   usePageMeta({
     title: "Order Confirmation",
@@ -55,6 +54,8 @@ export default function CheckoutSuccessPage() {
       return false;
     },
   });
+
+  const storeBasePath = useMemo(() => data?.store ? getStoreBasePath(data.store.slug) : "", [data?.store?.slug]);
 
   if (!identifier) {
     return (

@@ -42,17 +42,40 @@ export async function putObject(key: string, body: Buffer, contentType: string):
   await client.send(command);
 }
 
-export async function getUploadPresignedUrl(prefix: string = 'uploads'): Promise<{ uploadURL: string; objectPath: string; publicUrl: string }> {
+export interface PresignOptions {
+  prefix?: string;
+  contentType?: string;
+  contentLength?: number;
+}
+
+export async function getUploadPresignedUrl(
+  prefixOrOptions: string | PresignOptions = 'uploads',
+): Promise<{ uploadURL: string; objectPath: string; publicUrl: string }> {
+  const opts: PresignOptions = typeof prefixOrOptions === 'string'
+    ? { prefix: prefixOrOptions }
+    : prefixOrOptions;
+
   const client = getS3Client();
   const objectId = randomUUID();
-  const key = `${prefix}/${objectId}`;
+  const key = `${opts.prefix ?? 'uploads'}/${objectId}`;
 
+  // Pin both the content-type and the byte-length into the signature so a
+  // client can't swap them at upload time.
   const command = new PutObjectCommand({
     Bucket: R2_BUCKET_NAME,
     Key: key,
-  });
+    ContentType: opts.contentType,
+    ContentLength: opts.contentLength,
+  } as PutObjectCommandInput);
 
-  const uploadURL = await getSignedUrl(client, command, { expiresIn: 900 });
+  const signableHeaders = new Set<string>();
+  if (opts.contentType) signableHeaders.add('content-type');
+  if (opts.contentLength) signableHeaders.add('content-length');
+
+  const uploadURL = await getSignedUrl(client, command, {
+    expiresIn: 900,
+    signableHeaders: signableHeaders.size ? signableHeaders : undefined,
+  });
   const publicUrl = `${R2_PUBLIC_URL.replace(/\/$/, '')}/${key}`;
 
   return { uploadURL, objectPath: publicUrl, publicUrl };

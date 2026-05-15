@@ -216,7 +216,7 @@ export default function NewsletterCampaignEditorPage() {
     return (
       <div className="p-8 text-center text-muted-foreground">
         <p>Campaign not found.</p>
-        <Button variant="link" onClick={() => navigate("/dashboard/newsletter")}>Back to Campaigns</Button>
+        <Button variant="ghost" onClick={() => navigate("/dashboard/newsletter")}>Back to Campaigns</Button>
       </div>
     );
   }

@@ -213,7 +213,7 @@ function formatDate(date: string | Date) {
 export default function BlogPostPage({ params: propParams }: { params?: { slug: string; postSlug: string } } = {}) {
   const [, routeParams] = useRoute("/s/:slug/blog/:postSlug");
   const [, customRouteParams] = useRoute("/blog/:postSlug");
-  const slug = propParams?.slug || routeParams?.slug || customRouteParams?.slug;
+  const slug = propParams?.slug || routeParams?.slug;
   const postSlug = propParams?.postSlug || routeParams?.postSlug || customRouteParams?.postSlug;
   const basePath = useMemo(() => getStoreBasePath(slug || ""), [slug]);
 

@@ -96,7 +96,7 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
   const prefetchProduct = useCallback((productId: string) => {
     queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "product", productId] });
   }, [store.slug]);
-  const prefetchBundle = useCallback((bundleId: number) => {
+  const prefetchBundle = useCallback((bundleId: string) => {
     queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "bundle", bundleId] });
   }, [store.slug]);
   const [leadModalProduct, setLeadModalProduct] = useState<StorefrontProduct | null>(null);

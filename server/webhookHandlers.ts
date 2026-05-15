@@ -4,16 +4,34 @@ import { audit } from './audit';
 import { randomBytes } from 'crypto';
 import { sendOrderCompletionEmails } from './orderEmailHelper';
 import { db } from './db';
-import { coupons } from '@shared/schema';
+import { coupons, downloadTokens, orders, webhookEvents } from '@shared/schema';
 import type { PlanTier } from '@shared/schema';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { authStorage } from './replit_integrations/auth/storage';
 
-// In-memory dedup store for processed webhook event IDs.
-// Capped at 10k entries to prevent unbounded memory growth.
-// Sufficient for single-instance deployments; swap for Redis if multi-instance.
-const processedEventIds = new Set<string>();
-const MAX_PROCESSED_EVENT_IDS = 10_000;
+/**
+ * Atomically claim a webhook event ID for processing. Returns true if this is
+ * the first time we've seen the event, false if a previous webhook attempt
+ * already inserted it (i.e. a duplicate that should be skipped).
+ *
+ * Uses ON CONFLICT DO NOTHING + RETURNING so two concurrent webhook receivers
+ * cannot both think they were first.
+ */
+async function claimWebhookEvent(provider: "stripe" | "paypal" | "sendgrid", eventId: string, eventType?: string): Promise<boolean> {
+  const inserted = await db
+    .insert(webhookEvents)
+    .values({ provider, eventId, eventType: eventType ?? null })
+    .onConflictDoNothing({ target: [webhookEvents.provider, webhookEvents.eventId] })
+    .returning({ id: webhookEvents.id });
+  return inserted.length > 0;
+}
+
+async function revokeOrderDownloadTokens(orderId: string): Promise<void> {
+  await db
+    .update(downloadTokens)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(downloadTokens.orderId, orderId), isNull(downloadTokens.revokedAt)));
+}
 
 export class WebhookHandlers {
   static getBaseUrl(): string {
@@ -39,17 +57,13 @@ export class WebhookHandlers {
     }
 
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    // NOTE: This webhook handler uses the platform-level Stripe client.
-    // For stores with their own Stripe keys, order completion is handled
-    // by the checkout success endpoint polling (GET /api/checkout/success/:id)
-    // which uses the store's own Stripe client to verify payment status.
     const stripe = await getUncachableStripeClient();
 
     if (!webhookSecret) {
       throw new Error('STRIPE_WEBHOOK_SECRET is not set — rejecting unverified webhook. Set this environment variable to enable webhook processing.');
     }
 
-    // constructEvent also validates the timestamp internally (rejects events > 5 min old by default)
+    // constructEvent validates the timestamp internally (rejects events > 5 min old by default)
     const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
 
     // Timestamp validation — reject events older than 5 minutes (replay attack prevention)
@@ -58,18 +72,12 @@ export class WebhookHandlers {
       throw new Error(`Webhook event ${event.id} rejected: timestamp too old (${Math.round(eventAge)}s)`);
     }
 
-    // Idempotency — deduplicate by event ID to prevent double-processing
-    if (processedEventIds.has(event.id)) {
+    // DB-backed idempotency — survives restart and works across instances.
+    const claimed = await claimWebhookEvent("stripe", event.id, event.type);
+    if (!claimed) {
       audit({ event: "webhook.duplicate", details: `Duplicate Stripe event ${event.id} (${event.type}) ignored` });
       return;
     }
-
-    // Evict oldest entries if cap is reached (simple FIFO via iteration order)
-    if (processedEventIds.size >= MAX_PROCESSED_EVENT_IDS) {
-      const first = processedEventIds.values().next().value;
-      if (first !== undefined) processedEventIds.delete(first);
-    }
-    processedEventIds.add(event.id);
     audit({ event: "webhook.received", details: `Stripe event ${event.id} (${event.type}) processing` });
 
     await WebhookHandlers.handleEvent(event);
@@ -77,13 +85,19 @@ export class WebhookHandlers {
 
   static async handleEvent(event: any): Promise<void> {
     switch (event.type) {
-      case 'checkout.session.completed':
+      case 'checkout.session.completed': {
         const session = event.data.object;
         if (session.metadata?.sellisy_signup === 'true') {
           await WebhookHandlers.handleSubscriptionSignup(session);
         } else {
           await WebhookHandlers.handleCheckoutCompleted(session);
         }
+        break;
+      }
+      case 'charge.refunded':
+      case 'refund.created':
+      case 'refund.updated':
+        await WebhookHandlers.handleStripeRefund(event.data.object, event.type);
         break;
     }
   }
@@ -153,7 +167,19 @@ export class WebhookHandlers {
 
     const couponId = session.metadata?.couponId;
     if (couponId) {
-      await db.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, couponId));
+      // Best-effort atomic conditional increment — payment is already captured,
+      // so a race overshoot on coupon cap is logged for ops, not failed back.
+      const claimed = await db
+        .update(coupons)
+        .set({ currentUses: sql`${coupons.currentUses} + 1` })
+        .where(and(
+          eq(coupons.id, couponId),
+          sql`(${coupons.maxUses} IS NULL OR ${coupons.currentUses} < ${coupons.maxUses})`,
+        ))
+        .returning({ id: coupons.id });
+      if (claimed.length === 0) {
+        console.warn(`[coupon] race overshoot — Stripe order ${orderId} used coupon ${couponId} but cap was reached`);
+      }
     }
 
     await sendOrderCompletionEmails(orderId, WebhookHandlers.getBaseUrl());
@@ -161,6 +187,205 @@ export class WebhookHandlers {
     console.log('Webhook: order completed, emails triggered:', orderId);
     } catch (error: any) {
       console.error('Webhook: handleCheckoutCompleted error for order:', orderId, error);
+    }
+  }
+
+  /**
+   * Handle Stripe refund events. We accept both `charge.refunded` (refund on a
+   * Charge) and `refund.created` / `refund.updated` (refund-first model).
+   * The shape differs between these — `charge.refunded` payload is the Charge
+   * with `refunds.data[]`; `refund.*` payload is the Refund itself.
+   */
+  static async handleStripeRefund(obj: any, eventType: string): Promise<void> {
+    try {
+      let paymentIntentId: string | undefined;
+      let refundId: string | undefined;
+      let refundedAmount = 0;
+      let isFullRefund = false;
+      let reason: string | undefined;
+
+      if (eventType === "charge.refunded") {
+        paymentIntentId = obj.payment_intent ?? undefined;
+        const totalAmount = obj.amount ?? 0;
+        refundedAmount = obj.amount_refunded ?? 0;
+        isFullRefund = totalAmount > 0 && refundedAmount >= totalAmount;
+        const latestRefund = (obj.refunds?.data ?? [])[0];
+        refundId = latestRefund?.id;
+        reason = latestRefund?.reason ?? undefined;
+      } else {
+        // refund.created / refund.updated — obj is a Refund
+        paymentIntentId = obj.payment_intent ?? undefined;
+        refundId = obj.id;
+        refundedAmount = obj.amount ?? 0;
+        reason = obj.reason ?? undefined;
+      }
+
+      if (!paymentIntentId) {
+        console.warn(`Webhook: refund event ${eventType} has no payment_intent, cannot match to order`);
+        return;
+      }
+
+      // Find the matching order. Stripe's checkout.session.completed sets the
+      // order's stripeSessionId to the session ID; the payment_intent is
+      // attached to that session. We look up via the session's payment_intent.
+      const stripe = await getUncachableStripeClient();
+      const sessions = await stripe.checkout.sessions.list({ payment_intent: paymentIntentId, limit: 1 });
+      const sessionId = sessions.data[0]?.id;
+      if (!sessionId) {
+        console.warn(`Webhook: refund for payment_intent ${paymentIntentId} — no Stripe session found`);
+        return;
+      }
+
+      const order = await storage.getOrderByStripeSession(sessionId);
+      if (!order) {
+        console.warn(`Webhook: refund for session ${sessionId} — no Sellisy order found`);
+        return;
+      }
+
+      const newStatus = isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED";
+
+      await db.update(orders).set({
+        status: newStatus,
+        refundedAt: new Date(),
+        refundedAmountCents: refundedAmount,
+        refundReason: reason ?? null,
+        stripeRefundId: refundId ?? null,
+        updatedAt: new Date(),
+      }).where(eq(orders.id, order.id));
+
+      // Revoke any outstanding download tokens for the refunded order so the
+      // buyer can no longer obtain the digital goods after getting their money back.
+      if (isFullRefund) {
+        await revokeOrderDownloadTokens(order.id);
+      }
+
+      audit({
+        event: "order.refunded",
+        details: `Order ${order.id} refunded (${refundedAmount} of ${order.totalCents}) via Stripe ${refundId ?? "?"}`,
+      });
+    } catch (error: any) {
+      console.error("Webhook: handleStripeRefund error:", error);
+    }
+  }
+
+  /**
+   * Verify a PayPal webhook payload using PayPal's verify-webhook-signature
+   * endpoint. Returns true if the signature is valid.
+   *
+   * Requires:
+   *   PAYPAL_WEBHOOK_ID    — the webhook resource id from the PayPal dashboard
+   *   PAYPAL_CLIENT_ID     — platform-level PayPal app
+   *   PAYPAL_CLIENT_SECRET — platform-level PayPal app
+   *   PAYPAL_API_BASE      — defaults to https://api-m.paypal.com
+   */
+  static async verifyPaypalSignature(headers: Record<string, string | string[] | undefined>, body: any): Promise<boolean> {
+    const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+    const clientId = process.env.PAYPAL_CLIENT_ID;
+    const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+    if (!webhookId || !clientId || !clientSecret) {
+      console.error("PayPal webhook env not configured (PAYPAL_WEBHOOK_ID, PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET)");
+      return false;
+    }
+    const apiBase = process.env.PAYPAL_API_BASE ?? "https://api-m.paypal.com";
+    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+
+    // Token exchange
+    const tokenRes = await fetch(`${apiBase}/v1/oauth2/token`, {
+      method: "POST",
+      headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
+      body: "grant_type=client_credentials",
+    });
+    if (!tokenRes.ok) return false;
+    const { access_token } = await tokenRes.json() as { access_token: string };
+
+    const h = (k: string) => {
+      const v = headers[k.toLowerCase()] ?? headers[k];
+      return Array.isArray(v) ? v[0] : v;
+    };
+
+    const verifyRes = await fetch(`${apiBase}/v1/notifications/verify-webhook-signature`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        auth_algo: h("paypal-auth-algo"),
+        cert_url: h("paypal-cert-url"),
+        transmission_id: h("paypal-transmission-id"),
+        transmission_sig: h("paypal-transmission-sig"),
+        transmission_time: h("paypal-transmission-time"),
+        webhook_id: webhookId,
+        webhook_event: body,
+      }),
+    });
+    if (!verifyRes.ok) return false;
+    const result = await verifyRes.json() as { verification_status?: string };
+    return result.verification_status === "SUCCESS";
+  }
+
+  /**
+   * Process a verified PayPal webhook event. Handles refunds; the original
+   * order/capture flow stays in routes.ts under /api/paypal/capture.
+   */
+  static async processPaypalEvent(event: any): Promise<void> {
+    const eventId = event.id as string | undefined;
+    if (!eventId) {
+      console.warn("PayPal webhook: no event id, skipping");
+      return;
+    }
+    const claimed = await claimWebhookEvent("paypal", eventId, event.event_type);
+    if (!claimed) {
+      audit({ event: "webhook.duplicate", details: `Duplicate PayPal event ${eventId} (${event.event_type}) ignored` });
+      return;
+    }
+    audit({ event: "webhook.received", details: `PayPal event ${eventId} (${event.event_type}) processing` });
+
+    const type = event.event_type as string;
+    if (type === "PAYMENT.CAPTURE.REFUNDED" || type === "PAYMENT.CAPTURE.REVERSED") {
+      await WebhookHandlers.handlePaypalRefund(event.resource);
+    }
+  }
+
+  static async handlePaypalRefund(resource: any): Promise<void> {
+    try {
+      // The refund resource links back to its capture via HATEOAS links.
+      const captureLink = resource?.links?.find((l: any) => l.rel === "up");
+      const captureId = captureLink ? captureLink.href.split("/").pop() : undefined;
+      const refundId = resource?.id;
+      const refundedAmount = Math.round(parseFloat(resource?.amount?.value ?? "0") * 100);
+
+      // Match the capture id back to a Sellisy order. The capture flow at
+      // /api/paypal/capture stores the captureId in paypalOrderId for matching.
+      let order = captureId ? await storage.getOrderByPaypalOrderId(captureId) : null;
+      if (!order && resource?.custom_id) {
+        // Fallback: some PayPal flows pass the Sellisy order ID as custom_id.
+        order = await storage.getOrderById(resource.custom_id);
+      }
+      if (!order) {
+        console.warn(`PayPal webhook: refund ${refundId} — no Sellisy order match (capture=${captureId}, custom_id=${resource?.custom_id})`);
+        return;
+      }
+
+      const isFullRefund = refundedAmount >= order.totalCents;
+      const newStatus = isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED";
+
+      await db.update(orders).set({
+        status: newStatus,
+        refundedAt: new Date(),
+        refundedAmountCents: refundedAmount,
+        refundReason: resource?.note_to_payer ?? null,
+        paypalRefundId: refundId ?? null,
+        updatedAt: new Date(),
+      }).where(eq(orders.id, order.id));
+
+      if (isFullRefund) {
+        await revokeOrderDownloadTokens(order.id);
+      }
+
+      audit({
+        event: "order.refunded",
+        details: `Order ${order.id} refunded (${refundedAmount} of ${order.totalCents}) via PayPal ${refundId ?? "?"}`,
+      });
+    } catch (error: any) {
+      console.error("PayPal webhook: handlePaypalRefund error:", error);
     }
   }
 }

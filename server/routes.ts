@@ -15,11 +15,11 @@ import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClie
 import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendMagicLinkEmail, sendAllTestEmails, baseLayout, sectionHeading, bodyText, ctaButton, divider } from "./emails";
 import { registerSubscriptionRoutes } from "./subscriptions";
 import { sendOrderCompletionEmails } from "./orderEmailHelper";
-import { setEmailLogger, sendEmailStaggered } from "./sendgridClient";
+import { setEmailLogger, sendEmailStaggered, setSuppressionCheck } from "./sendgridClient";
 import { runHealthCheck, runRepair } from "./integrity";
 import { getRevenueAnalytics, getProductAnalytics, getCustomerAnalytics, getCouponAnalytics, getTrafficAnalytics } from "./analytics";
 import { users } from "@shared/models/auth";
-import { emailLogs } from "@shared/schema";
+import { emailLogs, emailSuppression } from "@shared/schema";
 import cookieParser from "cookie-parser";
 import { audit, auditMeta } from "./audit";
 import { gumroadImportRouter } from "./routes/gumroad-import";
@@ -165,7 +165,7 @@ export async function registerRoutes(
       return next();
     }
     try {
-      const [store] = await db.select().from(stores).where(eq(stores.customDomain, hostname)).limit(1);
+      const [store] = await db.select().from(stores).where(and(eq(stores.customDomain, hostname), isNull(stores.deletedAt))).limit(1);
       if (store) {
         if (req.path.startsWith("/api/") || req.path.startsWith("/assets/") || req.path.startsWith("/objects/")) {
           return next();
@@ -203,6 +203,8 @@ export async function registerRoutes(
       error: error || null,
     });
   });
+
+  setSuppressionCheck(async (email) => storage.isEmailSuppressed(email));
 
   await seedDatabase();
   await seedMarketingIfNeeded();
@@ -2053,7 +2055,7 @@ ${urls}</urlset>`;
       const accessToken = req.query.token as string | undefined;
       if (accessToken) {
         const dl = await db.select().from(downloadTokens).where(eq(downloadTokens.tokenHash, accessToken)).then(r => r[0]);
-        if (dl && (!dl.expiresAt || dl.expiresAt > new Date())) {
+        if (dl && !dl.revokedAt && (!dl.expiresAt || dl.expiresAt > new Date())) {
           hasAccess = true;
         }
       }
@@ -2107,7 +2109,7 @@ ${urls}</urlset>`;
       const accessToken = req.query.token as string | undefined;
       if (accessToken) {
         const dl = await db.select().from(downloadTokens).where(eq(downloadTokens.tokenHash, accessToken)).then(r => r[0]);
-        if (dl && (!dl.expiresAt || dl.expiresAt > new Date())) {
+        if (dl && !dl.revokedAt && (!dl.expiresAt || dl.expiresAt > new Date())) {
           hasAccess = true;
         }
       }
@@ -2685,11 +2687,31 @@ ${urls}</urlset>`;
         });
 
         if (couponId) {
-          await tx.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, couponId));
+          // Atomic conditional increment — only succeeds if maxUses is null or
+          // currentUses is still under the cap. Prevents race where two parallel
+          // checkouts both pass the read-check at line 2639 and over-redeem.
+          const claimed = await tx
+            .update(coupons)
+            .set({ currentUses: sql`${coupons.currentUses} + 1` })
+            .where(and(
+              eq(coupons.id, couponId),
+              sql`(${coupons.maxUses} IS NULL OR ${coupons.currentUses} < ${coupons.maxUses})`,
+            ))
+            .returning({ id: coupons.id });
+          if (claimed.length === 0) {
+            throw new Error("COUPON_LIMIT_REACHED");
+          }
         }
 
         return order;
+      }).catch((err: any) => {
+        if (err?.message === "COUPON_LIMIT_REACHED") return null;
+        throw err;
       });
+
+      if (!result) {
+        return res.status(400).json({ message: "Coupon usage limit reached" });
+      }
 
       sendOrderCompletionEmails(result.id, appUrl).catch(err =>
         console.error("Free order email error:", err)
@@ -2906,7 +2928,20 @@ ${urls}</urlset>`;
           });
 
           if (order.couponId) {
-            await tx.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, order.couponId));
+            // Best-effort atomic increment. Payment is already captured —
+            // don't reject the order if the coupon happens to be exhausted
+            // by a race; just record the over-use for ops to reconcile.
+            const claimed = await tx
+              .update(coupons)
+              .set({ currentUses: sql`${coupons.currentUses} + 1` })
+              .where(and(
+                eq(coupons.id, order.couponId),
+                sql`(${coupons.maxUses} IS NULL OR ${coupons.currentUses} < ${coupons.maxUses})`,
+              ))
+              .returning({ id: coupons.id });
+            if (claimed.length === 0) {
+              console.warn(`[coupon] race overshoot — order ${order.id} used coupon ${order.couponId} but cap was reached`);
+            }
           }
         });
 
@@ -3248,6 +3283,19 @@ ${urls}</urlset>`;
     });
   }, 5 * 60 * 1000);
 
+  // Periodic pruning of expired customer_sessions and stale webhook_events.
+  // Both grow unboundedly without this — the webhook dedup table only needs
+  // to remember events for slightly longer than the provider's retry window
+  // (Stripe ≈ 3 days, PayPal ≈ 25 days). Keep 30 days to be safe.
+  setInterval(async () => {
+    try {
+      await db.execute(sql`DELETE FROM customer_sessions WHERE expires_at < NOW()`);
+      await db.execute(sql`DELETE FROM webhook_events WHERE processed_at < NOW() - INTERVAL '30 days'`);
+    } catch (err) {
+      console.error("[cleanup] periodic prune failed:", err);
+    }
+  }, 60 * 60 * 1000);
+
   async function getCustomerFromCookie(req: Request): Promise<{ customerId: string } | null> {
     const sessionToken = req.cookies?.customer_session;
     if (!sessionToken) return null;
@@ -3326,11 +3374,17 @@ ${urls}</urlset>`;
       return res.status(400).json({ message: "Login link has expired. Please request a new one." });
     }
 
+    // Atomic single-use consumption — if a concurrent verify already consumed this
+    // token, our delete returns 0 rows and we reject the duplicate attempt.
+    const consumed = await storage.consumeCustomerSession(session.id);
+    if (!consumed) {
+      return res.status(400).json({ message: "This login link has already been used. Please request a new one." });
+    }
+
     const newSessionToken = randomBytes(32).toString("hex");
     const newTokenHash = hashToken(newSessionToken);
     const newExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    await storage.deleteCustomerSession(session.id);
     await storage.createCustomerSession({
       customerId: session.customerId,
       tokenHash: newTokenHash,
@@ -3339,7 +3393,7 @@ ${urls}</urlset>`;
 
     res.cookie("customer_session", newSessionToken, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 30 * 24 * 60 * 60 * 1000,
       path: "/",
@@ -3512,6 +3566,10 @@ ${urls}</urlset>`;
   app.get("/api/download/:token", async (req, res) => {
     const downloadToken = await storage.getDownloadTokenByHash(req.params.token as string);
     if (!downloadToken) return res.status(404).json({ message: "Invalid download token" });
+
+    if (downloadToken.revokedAt) {
+      return res.status(410).json({ message: "Download link has been revoked (order was refunded)." });
+    }
 
     if (new Date() > downloadToken.expiresAt) {
       return res.status(410).json({ message: "Download link expired" });
@@ -3768,12 +3826,37 @@ ${urls}</urlset>`;
     const profile = await storage.getUserProfile(userId);
     if (!profile?.isAdmin) return res.status(403).json({ message: "Admin access required" });
 
+    const statusFilter = (req.query.status as string | undefined)?.toLowerCase();
+    const limit = Math.min(parseInt((req.query.limit as string) ?? "100", 10) || 100, 500);
+
+    const where = statusFilter === "failed" || statusFilter === "sent"
+      ? eq(emailLogs.status, statusFilter as "sent" | "failed")
+      : undefined;
+
     const logs = await db
       .select()
       .from(emailLogs)
+      .where(where as any)
       .orderBy(sql`${emailLogs.sentAt} DESC`)
-      .limit(100);
+      .limit(limit);
     res.json(logs);
+  });
+
+  // ── Email suppression list (bounces, complaints, manual unsubscribes) ──
+
+  app.get("/api/admin/email-suppression", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const rows = await db.select().from(emailSuppression).orderBy(sql`${emailSuppression.suppressedAt} DESC`).limit(500);
+    res.json(rows);
+  });
+
+  app.delete("/api/admin/email-suppression/:email", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const email = decodeURIComponent(req.params.email as string);
+    await storage.unsuppressEmail(email);
+    res.json({ ok: true });
   });
 
   app.get("/api/admin/health-check", isAuthenticated, async (req, res) => {
