@@ -4,8 +4,14 @@ function sanitizeHeader(value: string): string {
   return value.replace(/[\r\n\0]/g, '');
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function escapeHtml(value: string | undefined | null): string {
+  if (value == null) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 const BRAND_COLOR = '#6366f1';
@@ -79,8 +85,10 @@ export async function sendOrderConfirmationEmail(params: {
 }) {
   const { buyerEmail, storeName, orderId, totalCents, items, downloadToken, baseUrl } = params;
 
+  const safeStoreName = escapeHtml(storeName);
+
   const itemRows = items.map(i =>
-    `<tr><td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;color:#374151;font-size:14px;">${i.title}</td>
+    `<tr><td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;color:#374151;font-size:14px;">${escapeHtml(i.title)}</td>
      <td style="padding:10px 12px;border-bottom:1px solid #f3f4f6;color:#374151;text-align:right;font-size:14px;white-space:nowrap;">${formatCents(i.priceCents)}</td></tr>`
   ).join('');
 
@@ -89,7 +97,7 @@ export async function sendOrderConfirmationEmail(params: {
   const content = `
     ${junkFolderNote()}
     ${sectionHeading('Your order is confirmed')}
-    ${bodyText(`Thanks for your purchase from <strong>${storeName}</strong>. Your digital products are ready for download right now.`)}
+    ${bodyText(`Thanks for your purchase from <strong>${safeStoreName}</strong>. Your digital products are ready for download right now.`)}
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:24px;">
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr style="background:#f3f4f6;">
@@ -105,11 +113,11 @@ export async function sendOrderConfirmationEmail(params: {
     </div>
     ${ctaButton('Download Your Products', downloadUrl)}
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;"><tr><td align="center">
-      <a href="${baseUrl}/s/${params.storeSlug}/portal" style="display:inline-block;background:#ffffff;color:${BRAND_COLOR};text-decoration:none;padding:12px 32px;border-radius:8px;font-weight:600;font-size:14px;border:2px solid ${BRAND_COLOR};">View Your Customer Portal</a>
+      <a href="${baseUrl}/s/${encodeURIComponent(params.storeSlug)}/portal" style="display:inline-block;background:#ffffff;color:${BRAND_COLOR};text-decoration:none;padding:12px 32px;border-radius:8px;font-weight:600;font-size:14px;border:2px solid ${BRAND_COLOR};">View Your Customer Portal</a>
     </td></tr></table>
     ${divider()}
-    <p style="margin:0 0 4px;color:#9ca3af;font-size:13px;text-align:center;">Order ID: <strong>${orderId}</strong></p>
-    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">This download link is valid for 7 days. You can also access your purchases anytime from the <a href="${baseUrl}/s/${params.storeSlug}/portal" style="color:${BRAND_COLOR};text-decoration:none;">Customer Portal</a>.</p>`;
+    <p style="margin:0 0 4px;color:#9ca3af;font-size:13px;text-align:center;">Order ID: <strong>${escapeHtml(orderId)}</strong></p>
+    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">This download link is valid for 7 days. You can also access your purchases anytime from the <a href="${baseUrl}/s/${encodeURIComponent(params.storeSlug)}/portal" style="color:${BRAND_COLOR};text-decoration:none;">Customer Portal</a>.</p>`;
 
   try {
     await sendEmail(
@@ -131,12 +139,13 @@ export async function sendDownloadLinkEmail(params: {
   baseUrl: string;
 }) {
   const { buyerEmail, storeName, downloadToken, baseUrl } = params;
+  const safeStoreName = escapeHtml(storeName);
   const downloadUrl = `${baseUrl}/download/${downloadToken}`;
 
   const content = `
     ${junkFolderNote()}
     ${sectionHeading('Your download is ready')}
-    ${bodyText(`Here is the download link for your purchase from <strong>${storeName}</strong>. Click the button below to access your files instantly.`)}
+    ${bodyText(`Here is the download link for your purchase from <strong>${safeStoreName}</strong>. Click the button below to access your files instantly.`)}
     ${ctaButton('Download Now', downloadUrl)}
     ${divider()}
     <p style="margin:0 0 4px;color:#6b7280;font-size:13px;"><strong>Having trouble?</strong></p>
@@ -165,15 +174,17 @@ export async function sendLeadMagnetEmail(params: {
   baseUrl: string;
 }) {
   const { buyerEmail, storeName, productTitle, downloadToken, baseUrl } = params;
+  const safeStoreName = escapeHtml(storeName);
+  const safeProductTitle = escapeHtml(productTitle);
   const downloadUrl = `${baseUrl}/download/${downloadToken}`;
 
   const content = `
     ${junkFolderNote()}
     ${sectionHeading('Your free download is ready')}
-    ${bodyText(`Great news! You have successfully claimed <strong>${productTitle}</strong> from <strong>${storeName}</strong>. Your file is ready to download right now.`)}
+    ${bodyText(`Great news! You have successfully claimed <strong>${safeProductTitle}</strong> from <strong>${safeStoreName}</strong>. Your file is ready to download right now.`)}
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px 20px;margin-bottom:8px;text-align:center;">
-      <p style="margin:0 0 4px;color:#166534;font-weight:700;font-size:16px;">${productTitle}</p>
-      <p style="margin:0;color:#15803d;font-size:13px;">Free download from ${storeName}</p>
+      <p style="margin:0 0 4px;color:#166534;font-weight:700;font-size:16px;">${safeProductTitle}</p>
+      <p style="margin:0;color:#15803d;font-size:13px;">Free download from ${safeStoreName}</p>
     </div>
     ${ctaButton('Download Your Free Product', downloadUrl)}
     ${divider()}
@@ -201,24 +212,26 @@ export async function sendNewOrderNotificationEmail(params: {
   items: { title: string; priceCents: number }[];
 }) {
   const { ownerEmail, storeName, buyerEmail, orderId, totalCents, items } = params;
+  const safeStoreName = escapeHtml(storeName);
+  const safeBuyerEmail = escapeHtml(buyerEmail);
 
   const itemList = items.map(i =>
-    `<li style="padding:6px 0;color:#374151;font-size:14px;">${i.title} &mdash; <span style="color:#6b7280;">${formatCents(i.priceCents)}</span></li>`
+    `<li style="padding:6px 0;color:#374151;font-size:14px;">${escapeHtml(i.title)} &mdash; <span style="color:#6b7280;">${formatCents(i.priceCents)}</span></li>`
   ).join('');
 
   const content = `
     ${sectionHeading('You just made a sale')}
-    ${bodyText(`Congratulations! A customer just purchased from <strong>${storeName}</strong>. Here are the details of the order.`)}
+    ${bodyText(`Congratulations! A customer just purchased from <strong>${safeStoreName}</strong>. Here are the details of the order.`)}
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px;margin-bottom:24px;text-align:center;">
       <p style="margin:0 0 2px;color:#15803d;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Revenue</p>
       <p style="margin:0 0 8px;color:#166534;font-weight:700;font-size:28px;">${formatCents(totalCents)}</p>
-      <p style="margin:0;color:#4b5563;font-size:13px;">Paid by <strong>${buyerEmail}</strong></p>
+      <p style="margin:0;color:#4b5563;font-size:13px;">Paid by <strong>${safeBuyerEmail}</strong></p>
     </div>
     <p style="margin:0 0 8px;color:#374151;font-weight:600;font-size:14px;">Products sold:</p>
     <ul style="margin:0 0 20px;padding-left:20px;">${itemList}</ul>
     ${ctaButton('View in Dashboard', `${BRAND_URL}/dashboard`)}
     ${divider()}
-    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">Order ID: <strong>${orderId}</strong></p>`;
+    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">Order ID: <strong>${escapeHtml(orderId)}</strong></p>`;
 
   try {
     await sendEmail(
@@ -238,10 +251,11 @@ export async function sendWelcomeEmail(params: {
   firstName: string;
 }) {
   const { email, firstName } = params;
+  const safeFirstName = escapeHtml(firstName);
 
   const content = `
     ${junkFolderNote()}
-    ${sectionHeading(`Welcome to ${BRAND_NAME}, ${firstName}`)}
+    ${sectionHeading(`Welcome to ${BRAND_NAME}, ${safeFirstName}`)}
     ${bodyText(`Thanks for creating your account. ${BRAND_NAME} gives you everything you need to sell digital products online — storefronts, payments, content creation, and more. Here is what you can do right away:`)}
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr>
@@ -279,7 +293,7 @@ export async function sendWelcomeEmail(params: {
     await sendEmail(
       email,
       `Welcome to ${BRAND_NAME} - Let's get started`,
-      baseLayout(content, `Welcome to ${BRAND_NAME}, ${firstName}! Your account is ready.`)
+      baseLayout(content, `Welcome to ${BRAND_NAME}, ${safeFirstName}! Your account is ready.`)
     );
   } catch (err) {
     console.error('Failed to send welcome email:', err);
@@ -294,7 +308,8 @@ export async function sendMagicLinkEmail(params: {
   storeName?: string;
 }) {
   const { email, magicLink, storeName } = params;
-  const context = storeName ? ` for <strong>${storeName}</strong>` : '';
+  const safeStoreName = storeName ? escapeHtml(storeName) : '';
+  const context = safeStoreName ? ` for <strong>${safeStoreName}</strong>` : '';
 
   const content = `
     ${junkFolderNote()}
@@ -311,7 +326,7 @@ export async function sendMagicLinkEmail(params: {
     await sendEmail(
       email,
       `Your Login Link${storeName ? ` - ${sanitizeHeader(storeName)}` : ''}`,
-      baseLayout(content, `Sign in to access your purchases${storeName ? ` from ${storeName}` : ''}.`)
+      baseLayout(content, `Sign in to access your purchases${safeStoreName ? ` from ${safeStoreName}` : ''}.`)
     );
   } catch (err) {
     console.error('Failed to send magic link email:', err);

@@ -4,6 +4,17 @@ import { convert } from 'html-to-text';
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 1000;
 
+let _isSuppressedFn: ((email: string) => Promise<boolean>) | null = null;
+
+/**
+ * Wire up a suppression-check function. Called at the top of sendEmail; if
+ * it returns true, the send is skipped and logged as 'failed' with reason
+ * 'suppressed'. Set from server/index.ts during route registration.
+ */
+export function setSuppressionCheck(fn: (email: string) => Promise<boolean>) {
+  _isSuppressedFn = fn;
+}
+
 async function getCredentials() {
   try {
     const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
@@ -65,6 +76,17 @@ function sleep(ms: number): Promise<void> {
 }
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  if (_isSuppressedFn) {
+    try {
+      if (await _isSuppressedFn(to)) {
+        await logEmailSend(to, subject, 'failed', 'suppressed: address is on the bounce/complaint list');
+        return;
+      }
+    } catch (err) {
+      console.error('Failed to check suppression list:', err);
+    }
+  }
+
   const { client, fromEmail } = await getUncachableSendGridClient();
 
   const plainText = htmlToPlainText(html);
@@ -99,7 +121,7 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       lastError = err;
       const statusCode = err?.code || err?.response?.statusCode;
       if (statusCode && statusCode >= 400 && statusCode < 500 && statusCode !== 429) {
-        await logEmailSend(to, subject, 'failed', `${err.message || err}`);
+        await logEmailSend(to, subject, 'failed', formatEmailError(err));
         throw err;
       }
       if (attempt < MAX_RETRIES) {
@@ -110,8 +132,20 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     }
   }
 
-  await logEmailSend(to, subject, 'failed', `${lastError?.message || lastError}`);
+  await logEmailSend(to, subject, 'failed', formatEmailError(lastError));
   throw lastError;
+}
+
+function formatEmailError(err: any): string {
+  if (!err) return "unknown error";
+  const code = err?.code ?? err?.response?.statusCode;
+  const body = err?.response?.body;
+  const bodyStr = body ? (typeof body === "string" ? body : JSON.stringify(body)) : "";
+  return [
+    code ? `code=${code}` : null,
+    err.message,
+    bodyStr ? `body=${bodyStr.slice(0, 500)}` : null,
+  ].filter(Boolean).join(" | ");
 }
 
 export async function sendEmailStaggered(emails: Array<{ to: string; subject: string; html: string }>) {

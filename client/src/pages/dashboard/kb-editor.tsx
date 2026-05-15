@@ -69,9 +69,13 @@ import { useUpload } from "@/hooks/use-upload";
 import { Upload, X, Paperclip, Download, FileUp } from "lucide-react";
 import type { KnowledgeBase, KbPage, KbBlock, KbPageAttachment } from "@shared/schema";
 
-type BlockType = "text" | "heading1" | "heading2" | "heading3" | "image" | "video" | "link" | "bullet_list" | "numbered_list" | "todo" | "toggle" | "code" | "quote" | "divider" | "callout" | "file_attachment";
+type BlockType = "text" | "heading1" | "heading2" | "heading3" | "image" | "video" | "link" | "bullet_list" | "numbered_list" | "todo" | "toggle" | "code" | "quote" | "divider" | "callout";
 
-const BLOCK_TYPES: { type: BlockType; label: string; icon: any; description: string; category: string }[] = [
+// "file_attachment" is a slash-menu item, not a stored block type — selecting it
+// triggers the kb_page_attachments flow instead of creating a kbBlocks row.
+type SlashItemType = BlockType | "file_attachment";
+
+const BLOCK_TYPES: { type: SlashItemType; label: string; icon: any; description: string; category: string }[] = [
   { type: "text", label: "Text", icon: Type, description: "Plain text paragraph", category: "Basic" },
   { type: "heading1", label: "Heading 1", icon: Heading1, description: "Large section heading", category: "Basic" },
   { type: "heading2", label: "Heading 2", icon: Heading2, description: "Medium section heading", category: "Basic" },
@@ -944,7 +948,7 @@ function SlashCommandMenu({
   selectedIndex,
 }: {
   filter: string;
-  onSelect: (type: BlockType) => void;
+  onSelect: (type: SlashItemType) => void;
   onClose: () => void;
   selectedIndex: number;
 }) {
@@ -1681,7 +1685,7 @@ function BlockEditor({
                       return (
                         <DropdownMenuItem
                           key={bt.type}
-                          onClick={() => handleTypeChange(block.id, bt.type, true)}
+                          onClick={() => handleTypeChange(block.id, bt.type as BlockType, true)}
                           data-testid={`action-turn-${bt.type}-${block.id}`}
                         >
                           <Icon className="h-3.5 w-3.5 mr-2" /> {bt.label}
@@ -1777,6 +1781,7 @@ function BlockContent({
   registerRef,
   contentFilter,
   contentWrapper,
+  onAttachFile,
 }: {
   block: KbBlock;
   blockIndex: number;
@@ -2160,7 +2165,7 @@ function BlockContent({
     }
   };
 
-  const selectSlashType = (type: BlockType) => {
+  const selectSlashType = (type: SlashItemType) => {
     setShowSlashMenu(false);
     setSlashFilter("");
     if (ref.current) ref.current.innerText = "";

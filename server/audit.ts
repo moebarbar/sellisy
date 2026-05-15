@@ -28,6 +28,7 @@ export type AuditEvent =
   | "webhook.received"
   | "webhook.duplicate"
   | "webhook.replay_rejected"
+  | "order.refunded"
   | "rate_limit.hit"
   | "data.export";
 

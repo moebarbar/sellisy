@@ -15,11 +15,11 @@ import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClie
 import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendMagicLinkEmail, sendAllTestEmails, baseLayout, sectionHeading, bodyText, ctaButton, divider } from "./emails";
 import { registerSubscriptionRoutes } from "./subscriptions";
 import { sendOrderCompletionEmails } from "./orderEmailHelper";
-import { setEmailLogger, sendEmailStaggered } from "./sendgridClient";
+import { setEmailLogger, sendEmailStaggered, setSuppressionCheck } from "./sendgridClient";
 import { runHealthCheck, runRepair } from "./integrity";
 import { getRevenueAnalytics, getProductAnalytics, getCustomerAnalytics, getCouponAnalytics, getTrafficAnalytics } from "./analytics";
 import { users } from "@shared/models/auth";
-import { emailLogs } from "@shared/schema";
+import { emailLogs, emailSuppression } from "@shared/schema";
 import cookieParser from "cookie-parser";
 import { audit, auditMeta } from "./audit";
 import { gumroadImportRouter } from "./routes/gumroad-import";
@@ -165,7 +165,7 @@ export async function registerRoutes(
       return next();
     }
     try {
-      const [store] = await db.select().from(stores).where(eq(stores.customDomain, hostname)).limit(1);
+      const [store] = await db.select().from(stores).where(and(eq(stores.customDomain, hostname), isNull(stores.deletedAt))).limit(1);
       if (store) {
         if (req.path.startsWith("/api/") || req.path.startsWith("/assets/") || req.path.startsWith("/objects/")) {
           return next();
@@ -204,6 +204,8 @@ export async function registerRoutes(
     });
   });
 
+  setSuppressionCheck(async (email) => storage.isEmailSuppressed(email));
+
   await seedDatabase();
   await seedMarketingIfNeeded();
   await seedAdminUser();
@@ -219,62 +221,128 @@ export async function registerRoutes(
   });
 
   app.get("/robots.txt", (_req, res) => {
-    const siteUrl = process.env.APP_URL || "https://sellisy.com";
+    const siteUrl = (process.env.APP_URL || "https://sellisy.com").replace(/\/$/, "");
+    // Cache for an hour at the edge; clients can revalidate sooner.
+    res.set("Cache-Control", "public, max-age=3600");
     res.type("text/plain").send(`User-agent: *
+Allow: /
 Allow: /s/
 Allow: /product/
 Allow: /bundle/
+Allow: /products
 Disallow: /api/
 Disallow: /dashboard/
 Disallow: /auth
+Disallow: /account
+Disallow: /checkout
+Disallow: /claim
+Disallow: /embed/
+Disallow: /objects/
+Disallow: /assets/
+Disallow: /*?token=
+Disallow: /*?session_id=
+Disallow: /*?order_id=
+
+# Block aggressive AI/SEO scrapers (allowlist only good citizens).
+User-agent: GPTBot
+Disallow: /
+User-agent: Google-Extended
+Disallow: /
+User-agent: CCBot
+Disallow: /
+User-agent: anthropic-ai
+Disallow: /
+User-agent: ClaudeBot
+Disallow: /
+User-agent: PerplexityBot
+Disallow: /
+User-agent: ImagesiftBot
+Disallow: /
+User-agent: Bytespider
+Disallow: /
 
 Sitemap: ${siteUrl}/sitemap.xml`);
   });
 
   app.get("/sitemap.xml", async (req, res) => {
     try {
+      const baseUrl = getAppUrl(req);
+      const xmlEscape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+      const isoOrUndefined = (d: Date | string | null | undefined) => d ? new Date(d).toISOString() : undefined;
+
       const allStores = await db
-        .select({ slug: stores.slug, name: stores.name, customDomain: stores.customDomain, domainStatus: stores.domainStatus })
+        .select({
+          id: stores.id,
+          slug: stores.slug,
+          name: stores.name,
+          customDomain: stores.customDomain,
+          domainStatus: stores.domainStatus,
+          updatedAt: stores.updatedAt,
+        })
         .from(stores)
         .where(isNull(stores.deletedAt));
 
-      const baseUrl = getAppUrl(req);
       let urls = "";
+
+      // Marketing pages
+      urls += `  <url><loc>${baseUrl}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n`;
+      urls += `  <url><loc>${baseUrl}/products</loc><changefreq>daily</changefreq><priority>0.9</priority></url>\n`;
+      urls += `  <url><loc>${baseUrl}/privacy</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
+      urls += `  <url><loc>${baseUrl}/terms</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
+      urls += `  <url><loc>${baseUrl}/data-deletion</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
 
       for (const store of allStores) {
         const hasCustomDomain = !!(store.customDomain && store.domainStatus === "active");
         const storeBase = hasCustomDomain ? `https://${store.customDomain}` : `${baseUrl}/s/${store.slug}`;
-        urls += `  <url><loc>${storeBase}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>\n`;
+        const storeLastmod = isoOrUndefined(store.updatedAt);
 
-        const storeObj = await storage.getStoreBySlug(store.slug);
-        if (!storeObj) continue;
+        urls += `  <url><loc>${storeBase}</loc>${storeLastmod ? `<lastmod>${storeLastmod}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.8</priority></url>\n`;
 
-        const storeProductsList = await storage.getStoreProducts(storeObj.id);
+        const storeProductsList = await storage.getStoreProducts(store.id);
         for (const sp of storeProductsList) {
           if (!sp.isPublished) continue;
           const product = await storage.getProductById(sp.productId);
           if (!product || product.deletedAt) continue;
           const productSlug = product.slug || product.id;
-          urls += `  <url><loc>${storeBase}/product/${productSlug}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
+          const productUrl = `${storeBase}/product/${productSlug}`;
+          const lastmod = isoOrUndefined(product.updatedAt ?? product.createdAt);
+          const imageTag = product.thumbnailUrl
+            ? `<image:image><image:loc>${xmlEscape(product.thumbnailUrl)}</image:loc><image:title>${xmlEscape(product.title)}</image:title></image:image>`
+            : "";
+          urls += `  <url><loc>${productUrl}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.7</priority>${imageTag}</url>\n`;
         }
 
-        const storeBundles = await storage.getBundlesByStore(storeObj.id);
+        const storeBundles = await storage.getBundlesByStore(store.id);
         for (const bundle of storeBundles) {
           if (!bundle.isPublished || bundle.deletedAt) continue;
-          urls += `  <url><loc>${storeBase}/bundle/${bundle.id}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>\n`;
+          const bundleUrl = `${storeBase}/bundle/${bundle.id}`;
+          const lastmod = isoOrUndefined(bundle.updatedAt ?? bundle.createdAt);
+          const imageTag = bundle.thumbnailUrl
+            ? `<image:image><image:loc>${xmlEscape(bundle.thumbnailUrl)}</image:loc><image:title>${xmlEscape(bundle.name)}</image:title></image:image>`
+            : "";
+          urls += `  <url><loc>${bundleUrl}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.6</priority>${imageTag}</url>\n`;
         }
 
-        const blogPosts = await storage.getBlogPostsByStore(storeObj.id);
+        const blogPosts = await storage.getBlogPostsByStore(store.id);
+        if (blogPosts.some(p => p.isPublished && !p.deletedAt)) {
+          urls += `  <url><loc>${storeBase}/blog</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>\n`;
+        }
         for (const post of blogPosts) {
           if (post.deletedAt || !post.isPublished) continue;
-          urls += `  <url><loc>${storeBase}/blog/${post.slug}</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>\n`;
+          const postUrl = `${storeBase}/blog/${post.slug}`;
+          const lastmod = isoOrUndefined(post.updatedAt ?? post.publishedAt ?? post.createdAt);
+          const imageTag = post.coverImageUrl
+            ? `<image:image><image:loc>${xmlEscape(post.coverImageUrl)}</image:loc><image:title>${xmlEscape(post.title)}</image:title></image:image>`
+            : "";
+          urls += `  <url><loc>${postUrl}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.5</priority>${imageTag}</url>\n`;
         }
       }
 
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${urls}</urlset>`;
 
+      res.set("Cache-Control", "public, max-age=900");
       res.type("application/xml").send(xml);
     } catch (err) {
       console.error("Sitemap generation error:", err);
@@ -2053,7 +2121,7 @@ ${urls}</urlset>`;
       const accessToken = req.query.token as string | undefined;
       if (accessToken) {
         const dl = await db.select().from(downloadTokens).where(eq(downloadTokens.tokenHash, accessToken)).then(r => r[0]);
-        if (dl && (!dl.expiresAt || dl.expiresAt > new Date())) {
+        if (dl && !dl.revokedAt && (!dl.expiresAt || dl.expiresAt > new Date())) {
           hasAccess = true;
         }
       }
@@ -2107,7 +2175,7 @@ ${urls}</urlset>`;
       const accessToken = req.query.token as string | undefined;
       if (accessToken) {
         const dl = await db.select().from(downloadTokens).where(eq(downloadTokens.tokenHash, accessToken)).then(r => r[0]);
-        if (dl && (!dl.expiresAt || dl.expiresAt > new Date())) {
+        if (dl && !dl.revokedAt && (!dl.expiresAt || dl.expiresAt > new Date())) {
           hasAccess = true;
         }
       }
@@ -2685,11 +2753,31 @@ ${urls}</urlset>`;
         });
 
         if (couponId) {
-          await tx.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, couponId));
+          // Atomic conditional increment — only succeeds if maxUses is null or
+          // currentUses is still under the cap. Prevents race where two parallel
+          // checkouts both pass the read-check at line 2639 and over-redeem.
+          const claimed = await tx
+            .update(coupons)
+            .set({ currentUses: sql`${coupons.currentUses} + 1` })
+            .where(and(
+              eq(coupons.id, couponId),
+              sql`(${coupons.maxUses} IS NULL OR ${coupons.currentUses} < ${coupons.maxUses})`,
+            ))
+            .returning({ id: coupons.id });
+          if (claimed.length === 0) {
+            throw new Error("COUPON_LIMIT_REACHED");
+          }
         }
 
         return order;
+      }).catch((err: any) => {
+        if (err?.message === "COUPON_LIMIT_REACHED") return null;
+        throw err;
       });
+
+      if (!result) {
+        return res.status(400).json({ message: "Coupon usage limit reached" });
+      }
 
       sendOrderCompletionEmails(result.id, appUrl).catch(err =>
         console.error("Free order email error:", err)
@@ -2906,7 +2994,20 @@ ${urls}</urlset>`;
           });
 
           if (order.couponId) {
-            await tx.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, order.couponId));
+            // Best-effort atomic increment. Payment is already captured —
+            // don't reject the order if the coupon happens to be exhausted
+            // by a race; just record the over-use for ops to reconcile.
+            const claimed = await tx
+              .update(coupons)
+              .set({ currentUses: sql`${coupons.currentUses} + 1` })
+              .where(and(
+                eq(coupons.id, order.couponId),
+                sql`(${coupons.maxUses} IS NULL OR ${coupons.currentUses} < ${coupons.maxUses})`,
+              ))
+              .returning({ id: coupons.id });
+            if (claimed.length === 0) {
+              console.warn(`[coupon] race overshoot — order ${order.id} used coupon ${order.couponId} but cap was reached`);
+            }
           }
         });
 
@@ -3248,6 +3349,19 @@ ${urls}</urlset>`;
     });
   }, 5 * 60 * 1000);
 
+  // Periodic pruning of expired customer_sessions and stale webhook_events.
+  // Both grow unboundedly without this — the webhook dedup table only needs
+  // to remember events for slightly longer than the provider's retry window
+  // (Stripe ≈ 3 days, PayPal ≈ 25 days). Keep 30 days to be safe.
+  setInterval(async () => {
+    try {
+      await db.execute(sql`DELETE FROM customer_sessions WHERE expires_at < NOW()`);
+      await db.execute(sql`DELETE FROM webhook_events WHERE processed_at < NOW() - INTERVAL '30 days'`);
+    } catch (err) {
+      console.error("[cleanup] periodic prune failed:", err);
+    }
+  }, 60 * 60 * 1000);
+
   async function getCustomerFromCookie(req: Request): Promise<{ customerId: string } | null> {
     const sessionToken = req.cookies?.customer_session;
     if (!sessionToken) return null;
@@ -3326,11 +3440,17 @@ ${urls}</urlset>`;
       return res.status(400).json({ message: "Login link has expired. Please request a new one." });
     }
 
+    // Atomic single-use consumption — if a concurrent verify already consumed this
+    // token, our delete returns 0 rows and we reject the duplicate attempt.
+    const consumed = await storage.consumeCustomerSession(session.id);
+    if (!consumed) {
+      return res.status(400).json({ message: "This login link has already been used. Please request a new one." });
+    }
+
     const newSessionToken = randomBytes(32).toString("hex");
     const newTokenHash = hashToken(newSessionToken);
     const newExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    await storage.deleteCustomerSession(session.id);
     await storage.createCustomerSession({
       customerId: session.customerId,
       tokenHash: newTokenHash,
@@ -3339,7 +3459,7 @@ ${urls}</urlset>`;
 
     res.cookie("customer_session", newSessionToken, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 30 * 24 * 60 * 60 * 1000,
       path: "/",
@@ -3512,6 +3632,10 @@ ${urls}</urlset>`;
   app.get("/api/download/:token", async (req, res) => {
     const downloadToken = await storage.getDownloadTokenByHash(req.params.token as string);
     if (!downloadToken) return res.status(404).json({ message: "Invalid download token" });
+
+    if (downloadToken.revokedAt) {
+      return res.status(410).json({ message: "Download link has been revoked (order was refunded)." });
+    }
 
     if (new Date() > downloadToken.expiresAt) {
       return res.status(410).json({ message: "Download link expired" });
@@ -3768,12 +3892,37 @@ ${urls}</urlset>`;
     const profile = await storage.getUserProfile(userId);
     if (!profile?.isAdmin) return res.status(403).json({ message: "Admin access required" });
 
+    const statusFilter = (req.query.status as string | undefined)?.toLowerCase();
+    const limit = Math.min(parseInt((req.query.limit as string) ?? "100", 10) || 100, 500);
+
+    const where = statusFilter === "failed" || statusFilter === "sent"
+      ? eq(emailLogs.status, statusFilter as "sent" | "failed")
+      : undefined;
+
     const logs = await db
       .select()
       .from(emailLogs)
+      .where(where as any)
       .orderBy(sql`${emailLogs.sentAt} DESC`)
-      .limit(100);
+      .limit(limit);
     res.json(logs);
+  });
+
+  // ── Email suppression list (bounces, complaints, manual unsubscribes) ──
+
+  app.get("/api/admin/email-suppression", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const rows = await db.select().from(emailSuppression).orderBy(sql`${emailSuppression.suppressedAt} DESC`).limit(500);
+    res.json(rows);
+  });
+
+  app.delete("/api/admin/email-suppression/:email", isAuthenticated, async (req, res) => {
+    const admin = await isUserAdmin(getUserId(req));
+    if (!admin) return res.status(403).json({ message: "Admin access required" });
+    const email = decodeURIComponent(req.params.email as string);
+    await storage.unsuppressEmail(email);
+    res.json({ ok: true });
   });
 
   app.get("/api/admin/health-check", isAuthenticated, async (req, res) => {

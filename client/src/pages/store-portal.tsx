@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { useRoute, Link, useLocation } from "wouter";
 import { getStoreBasePath } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -672,6 +673,7 @@ export default function StorePortalPage({ params: propParams }: { params?: { slu
   const [, customPortalParams] = useRoute("/portal");
   const [, customOrderParams] = useRoute("/portal/:orderId");
   const [, navigate] = useLocation();
+  usePageMeta({ title: "Customer Portal", noindex: true });
 
   const slug = propParams?.slug || paramsOrder?.slug || paramsPortal?.slug || "";
   const orderId = propParams?.orderId || paramsOrder?.orderId || customOrderParams?.orderId;

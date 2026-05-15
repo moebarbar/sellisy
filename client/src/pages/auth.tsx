@@ -3,6 +3,7 @@ import { useLocation, useSearch } from "wouter";
 import { SignIn, SignUp, useUser, ClerkLoading, ClerkLoaded } from "@clerk/react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { CheckCircle2, TrendingUp, Package, Zap } from "lucide-react";
 
 // Visible immediately while Clerk's SDK is downloading + initializing.
@@ -180,6 +181,7 @@ export default function AuthPage() {
   const { isLoaded, isSignedIn } = useUser();
   const { toast } = useToast();
   const [mode, setMode] = useState<Mode>("sign-in");
+  usePageMeta({ title: "Sign in to Sellisy", noindex: true });
 
   useEffect(() => {
     if (subscribed) {

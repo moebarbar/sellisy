@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import {
   Package, ShoppingBag, LogOut, Loader2,
   ChevronRight, Store,
@@ -31,6 +32,7 @@ type Purchase = {
 
 export default function PurchasesPage() {
   const [, navigate] = useLocation();
+  usePageMeta({ title: "Your Purchases", noindex: true });
 
   const { data: customer, isLoading: meLoading } = useQuery<CustomerMe>({
     queryKey: ["/api/customer/me"],

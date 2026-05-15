@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, pgEnum, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -7,7 +7,7 @@ export * from "./models/auth";
 
 export const productSourceEnum = pgEnum("product_source", ["PLATFORM", "USER"]);
 export const productStatusEnum = pgEnum("product_status", ["DRAFT", "ACTIVE"]);
-export const orderStatusEnum = pgEnum("order_status", ["PENDING", "COMPLETED", "FAILED"]);
+export const orderStatusEnum = pgEnum("order_status", ["PENDING", "COMPLETED", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"]);
 export const planTierEnum = pgEnum("plan_tier", ["basic", "pro", "max"]);
 export const productTypeEnum = pgEnum("product_type", ["digital", "software", "template", "ebook", "course", "graphics"]);
 export const paymentProviderEnum = pgEnum("payment_provider", ["stripe", "paypal"]);
@@ -119,9 +119,13 @@ export const stores = pgTable("stores", {
   showSubscriberCount: boolean("show_subscriber_count").notNull().default(false),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("stores_owner_deleted_idx").on(t.ownerId, t.deletedAt),
+  index("stores_custom_domain_idx").on(t.customDomain, t.deletedAt),
+]);
 
-export const insertStoreSchema = createInsertSchema(stores).omit({ id: true, createdAt: true, deletedAt: true });
+export const insertStoreSchema = createInsertSchema(stores).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
 export type InsertStore = z.infer<typeof insertStoreSchema>;
 export type Store = typeof stores.$inferSelect;
 
@@ -169,9 +173,14 @@ export const products = pgTable("products", {
   importedFromGumroad: boolean("imported_from_gumroad").notNull().default(false),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("products_owner_deleted_idx").on(t.ownerId, t.deletedAt),
+  index("products_status_idx").on(t.status),
+  index("products_slug_idx").on(t.slug),
+]);
 
-export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, deletedAt: true });
+export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 
@@ -181,7 +190,9 @@ export const productImages = pgTable("product_images", {
   url: text("url").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   isPrimary: boolean("is_primary").notNull().default(false),
-});
+}, (t) => [
+  index("product_images_product_idx").on(t.productId),
+]);
 
 export const insertProductImageSchema = createInsertSchema(productImages).omit({ id: true });
 export type InsertProductImage = z.infer<typeof insertProductImageSchema>;
@@ -193,7 +204,9 @@ export const fileAssets = pgTable("file_assets", {
   storageKey: text("storage_key").notNull(),
   originalName: text("original_name").notNull(),
   sizeBytes: integer("size_bytes").notNull().default(0),
-});
+}, (t) => [
+  index("file_assets_product_idx").on(t.productId),
+]);
 
 export const insertFileAssetSchema = createInsertSchema(fileAssets).omit({ id: true });
 export type InsertFileAsset = z.infer<typeof insertFileAssetSchema>;
@@ -216,7 +229,11 @@ export const storeProducts = pgTable("store_products", {
   isFeatured: boolean("is_featured").notNull().default(false),
   upsellProductId: varchar("upsell_product_id", { length: 64 }),
   upsellBundleId: varchar("upsell_bundle_id", { length: 64 }),
-});
+}, (t) => [
+  index("store_products_store_idx").on(t.storeId),
+  index("store_products_product_idx").on(t.productId),
+  uniqueIndex("store_products_store_product_unique").on(t.storeId, t.productId),
+]);
 
 export const insertStoreProductSchema = createInsertSchema(storeProducts).omit({ id: true });
 export type InsertStoreProduct = z.infer<typeof insertStoreProductSchema>;
@@ -228,17 +245,31 @@ export const orders = pgTable("orders", {
   buyerEmail: text("buyer_email").notNull(),
   customerId: varchar("customer_id", { length: 64 }),
   totalCents: integer("total_cents").notNull().default(0),
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
   stripeSessionId: text("stripe_session_id"),
   paypalOrderId: text("paypal_order_id"),
   gumroadSaleId: text("gumroad_sale_id").unique(),
   couponId: varchar("coupon_id", { length: 64 }),
   status: orderStatusEnum("status").notNull().default("PENDING"),
   emailSent: boolean("email_sent").notNull().default(false),
+  refundedAt: timestamp("refunded_at"),
+  refundedAmountCents: integer("refunded_amount_cents").notNull().default(0),
+  refundReason: text("refund_reason"),
+  stripeRefundId: text("stripe_refund_id"),
+  paypalRefundId: text("paypal_refund_id"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("orders_store_deleted_idx").on(t.storeId, t.deletedAt),
+  index("orders_customer_idx").on(t.customerId),
+  index("orders_stripe_session_idx").on(t.stripeSessionId),
+  index("orders_paypal_idx").on(t.paypalOrderId),
+  index("orders_created_idx").on(t.createdAt),
+  index("orders_status_idx").on(t.status),
+]);
 
-export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, deletedAt: true });
+export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 
@@ -247,7 +278,10 @@ export const orderItems = pgTable("order_items", {
   orderId: varchar("order_id", { length: 64 }).notNull(),
   productId: varchar("product_id", { length: 64 }).notNull(),
   priceCents: integer("price_cents").notNull().default(0),
-});
+}, (t) => [
+  index("order_items_order_idx").on(t.orderId),
+  index("order_items_product_idx").on(t.productId),
+]);
 
 export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ id: true });
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
@@ -258,8 +292,12 @@ export const downloadTokens = pgTable("download_tokens", {
   orderId: varchar("order_id", { length: 64 }).notNull(),
   tokenHash: text("token_hash").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("download_tokens_order_idx").on(t.orderId),
+  index("download_tokens_revoked_idx").on(t.revokedAt),
+]);
 
 export const insertDownloadTokenSchema = createInsertSchema(downloadTokens).omit({ id: true, createdAt: true });
 export type InsertDownloadToken = z.infer<typeof insertDownloadTokenSchema>;
@@ -275,9 +313,12 @@ export const bundles = pgTable("bundles", {
   isPublished: boolean("is_published").notNull().default(false),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("bundles_store_deleted_idx").on(t.storeId, t.deletedAt),
+]);
 
-export const insertBundleSchema = createInsertSchema(bundles).omit({ id: true, createdAt: true, deletedAt: true });
+export const insertBundleSchema = createInsertSchema(bundles).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
 export type InsertBundle = z.infer<typeof insertBundleSchema>;
 export type Bundle = typeof bundles.$inferSelect;
 
@@ -285,7 +326,10 @@ export const bundleItems = pgTable("bundle_items", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
   bundleId: varchar("bundle_id", { length: 64 }).notNull(),
   productId: varchar("product_id", { length: 64 }).notNull(),
-});
+}, (t) => [
+  index("bundle_items_bundle_idx").on(t.bundleId),
+  index("bundle_items_product_idx").on(t.productId),
+]);
 
 export const insertBundleItemSchema = createInsertSchema(bundleItems).omit({ id: true });
 export type InsertBundleItem = z.infer<typeof insertBundleItemSchema>;
@@ -305,9 +349,13 @@ export const coupons = pgTable("coupons", {
   isActive: boolean("is_active").notNull().default(true),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("coupons_store_code_unique").on(t.storeId, t.code),
+  index("coupons_store_deleted_idx").on(t.storeId, t.deletedAt),
+]);
 
-export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, currentUses: true, createdAt: true, deletedAt: true });
+export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, currentUses: true, createdAt: true, updatedAt: true, deletedAt: true });
 export type InsertCoupon = z.infer<typeof insertCouponSchema>;
 export type Coupon = typeof coupons.$inferSelect;
 
@@ -316,9 +364,10 @@ export const customers = pgTable("customers", {
   email: text("email").notNull().unique(),
   name: text("name"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
+export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Customer = typeof customers.$inferSelect;
 
@@ -328,7 +377,10 @@ export const customerSessions = pgTable("customer_sessions", {
   tokenHash: text("token_hash").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("customer_sessions_customer_idx").on(t.customerId),
+  index("customer_sessions_expires_idx").on(t.expiresAt),
+]);
 
 export const insertCustomerSessionSchema = createInsertSchema(customerSessions).omit({ id: true, createdAt: true });
 export type InsertCustomerSession = z.infer<typeof insertCustomerSessionSchema>;
@@ -343,6 +395,7 @@ export const categories = pgTable("categories", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   uniqueIndex("categories_owner_slug_unique").on(table.ownerId, table.slug),
+  index("categories_owner_idx").on(table.ownerId),
 ]);
 
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true });
@@ -375,7 +428,9 @@ export const storeStrategyProgress = pgTable("store_strategy_progress", {
   strategyId: varchar("strategy_id", { length: 64 }).notNull(),
   status: strategyStatusEnum("status").notNull().default("not_started"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex("store_strategy_progress_unique").on(t.storeId, t.strategyId),
+]);
 
 export const insertStoreStrategyProgressSchema = createInsertSchema(storeStrategyProgress).omit({ id: true, updatedAt: true });
 export type InsertStoreStrategyProgress = z.infer<typeof insertStoreStrategyProgressSchema>;
@@ -398,9 +453,13 @@ export const knowledgeBases = pgTable("knowledge_bases", {
   authorImageUrl: text("author_image_url"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("kb_owner_deleted_idx").on(t.ownerId, t.deletedAt),
+  index("kb_product_idx").on(t.productId),
+]);
 
-export const insertKnowledgeBaseSchema = createInsertSchema(knowledgeBases).omit({ id: true, createdAt: true, deletedAt: true });
+export const insertKnowledgeBaseSchema = createInsertSchema(knowledgeBases).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
 export type InsertKnowledgeBase = z.infer<typeof insertKnowledgeBaseSchema>;
 export type KnowledgeBase = typeof knowledgeBases.$inferSelect;
 
@@ -411,7 +470,10 @@ export const kbPages = pgTable("kb_pages", {
   title: text("title").notNull().default("Untitled Page"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("kb_pages_kb_idx").on(t.knowledgeBaseId),
+  index("kb_pages_parent_idx").on(t.parentPageId),
+]);
 
 export const insertKbPageSchema = createInsertSchema(kbPages).omit({ id: true, createdAt: true });
 export type InsertKbPage = z.infer<typeof insertKbPageSchema>;
@@ -423,7 +485,9 @@ export const kbBlocks = pgTable("kb_blocks", {
   type: blockTypeEnum("type").notNull().default("text"),
   content: text("content").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
-});
+}, (t) => [
+  index("kb_blocks_page_idx").on(t.pageId),
+]);
 
 export const insertKbBlockSchema = createInsertSchema(kbBlocks).omit({ id: true });
 export type InsertKbBlock = z.infer<typeof insertKbBlockSchema>;
@@ -438,7 +502,9 @@ export const kbPageAttachments = pgTable("kb_page_attachments", {
   mimeType: text("mime_type"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("kb_attachments_page_idx").on(t.pageId),
+]);
 
 export const insertKbPageAttachmentSchema = createInsertSchema(kbPageAttachments).omit({ id: true, createdAt: true });
 export type InsertKbPageAttachment = z.infer<typeof insertKbPageAttachmentSchema>;
@@ -456,7 +522,10 @@ export const storeEvents = pgTable("store_events", {
   path: text("path"),
   referrer: text("referrer"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("store_events_store_created_idx").on(t.storeId, t.createdAt),
+  index("store_events_store_type_created_idx").on(t.storeId, t.eventType, t.createdAt),
+]);
 
 export const insertStoreEventSchema = createInsertSchema(storeEvents).omit({ id: true, createdAt: true });
 export type InsertStoreEvent = z.infer<typeof insertStoreEventSchema>;
@@ -471,9 +540,45 @@ export const emailLogs = pgTable("email_logs", {
   status: emailStatusEnum("status").notNull(),
   error: text("error"),
   sentAt: timestamp("sent_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("email_logs_to_idx").on(t.toEmail),
+  index("email_logs_sent_idx").on(t.sentAt),
+  index("email_logs_status_idx").on(t.status),
+]);
 
 export type EmailLog = typeof emailLogs.$inferSelect;
+
+// ── Email suppression list (bounces, complaints, manual unsubscribes) ──
+
+export const emailSuppressionReasonEnum = pgEnum("email_suppression_reason", ["bounce", "complaint", "unsubscribe", "manual"]);
+
+export const emailSuppression = pgTable("email_suppression", {
+  email: varchar("email", { length: 255 }).primaryKey(),
+  reason: emailSuppressionReasonEnum("reason").notNull(),
+  detail: text("detail"),
+  suppressedAt: timestamp("suppressed_at").defaultNow().notNull(),
+});
+
+export const insertEmailSuppressionSchema = createInsertSchema(emailSuppression).omit({ suppressedAt: true });
+export type InsertEmailSuppression = z.infer<typeof insertEmailSuppressionSchema>;
+export type EmailSuppression = typeof emailSuppression.$inferSelect;
+
+// ── Webhook event dedup (replaces in-memory Set) ──
+
+export const webhookProviderEnum = pgEnum("webhook_provider", ["stripe", "paypal", "sendgrid"]);
+
+export const webhookEvents = pgTable("webhook_events", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  provider: webhookProviderEnum("provider").notNull(),
+  eventId: varchar("event_id", { length: 255 }).notNull(),
+  eventType: text("event_type"),
+  processedAt: timestamp("processed_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("webhook_events_provider_event_unique").on(t.provider, t.eventId),
+  index("webhook_events_processed_idx").on(t.processedAt),
+]);
+
+export type WebhookEvent = typeof webhookEvents.$inferSelect;
 
 export const blogPosts = pgTable("blog_posts", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
@@ -491,9 +596,13 @@ export const blogPosts = pgTable("blog_posts", {
   authorImageUrl: text("author_image_url"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("blog_posts_store_deleted_idx").on(t.storeId, t.deletedAt),
+  uniqueIndex("blog_posts_store_slug_unique").on(t.storeId, t.slug),
+]);
 
-export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: true, createdAt: true, deletedAt: true });
+export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 export type BlogPost = typeof blogPosts.$inferSelect;
 
@@ -503,7 +612,9 @@ export const blogBlocks = pgTable("blog_blocks", {
   type: blockTypeEnum("type").notNull().default("text"),
   content: text("content").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
-});
+}, (t) => [
+  index("blog_blocks_post_idx").on(t.postId),
+]);
 
 export const insertBlogBlockSchema = createInsertSchema(blogBlocks).omit({ id: true });
 export type InsertBlogBlock = z.infer<typeof insertBlogBlockSchema>;
@@ -520,7 +631,9 @@ export const storeTestimonials = pgTable("store_testimonials", {
   avatarUrl: text("avatar_url"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("store_testimonials_store_idx").on(t.storeId),
+]);
 
 export const insertStoreTestimonialSchema = createInsertSchema(storeTestimonials).omit({ id: true, createdAt: true });
 export type InsertStoreTestimonial = z.infer<typeof insertStoreTestimonialSchema>;
@@ -533,7 +646,9 @@ export const storeFaqs = pgTable("store_faqs", {
   answer: text("answer").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("store_faqs_store_idx").on(t.storeId),
+]);
 
 export const insertStoreFaqSchema = createInsertSchema(storeFaqs).omit({ id: true, createdAt: true });
 export type InsertStoreFaq = z.infer<typeof insertStoreFaqSchema>;
@@ -564,6 +679,8 @@ export const storeReviews = pgTable("store_reviews", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   uniqueIndex("store_reviews_customer_product_idx").on(t.customerId, t.productId),
+  index("store_reviews_store_created_idx").on(t.storeId, t.createdAt),
+  index("store_reviews_product_idx").on(t.productId),
 ]);
 
 export const insertStoreReviewSchema = createInsertSchema(storeReviews).omit({ id: true, createdAt: true });
@@ -580,9 +697,12 @@ export const newsletterCampaigns = pgTable("newsletter_campaigns", {
   sentAt: timestamp("sent_at"),
   recipientCount: integer("recipient_count"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("newsletter_campaigns_store_idx").on(t.storeId),
+]);
 
-export const insertNewsletterCampaignSchema = createInsertSchema(newsletterCampaigns).omit({ id: true, createdAt: true });
+export const insertNewsletterCampaignSchema = createInsertSchema(newsletterCampaigns).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertNewsletterCampaign = z.infer<typeof insertNewsletterCampaignSchema>;
 export type NewsletterCampaign = typeof newsletterCampaigns.$inferSelect;
 
@@ -592,7 +712,9 @@ export const newsletterCampaignBlocks = pgTable("newsletter_campaign_blocks", {
   type: blockTypeEnum("type").notNull().default("text"),
   content: text("content").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
-});
+}, (t) => [
+  index("newsletter_campaign_blocks_campaign_idx").on(t.campaignId),
+]);
 
 export const insertNewsletterCampaignBlockSchema = createInsertSchema(newsletterCampaignBlocks).omit({ id: true });
 export type InsertNewsletterCampaignBlock = z.infer<typeof insertNewsletterCampaignBlockSchema>;

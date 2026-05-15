@@ -59,6 +59,59 @@ if (!process.env.STRIPE_WEBHOOK_SECRET) {
   console.warn("[SECURITY WARNING] STRIPE_WEBHOOK_SECRET is not set — Stripe webhook signature verification is disabled. Set this in production to prevent forged webhook events.");
 }
 
+app.post(
+  '/api/paypal/webhook',
+  express.json({ limit: '1mb' }),
+  async (req, res) => {
+    try {
+      const valid = await WebhookHandlers.verifyPaypalSignature(req.headers, req.body);
+      if (!valid) {
+        return res.status(400).json({ error: 'Invalid PayPal webhook signature' });
+      }
+      await WebhookHandlers.processPaypalEvent(req.body);
+      res.status(200).json({ received: true });
+    } catch (error: any) {
+      console.error('PayPal webhook error:', error.message);
+      res.status(500).json({ error: 'Webhook processing error' });
+    }
+  }
+);
+
+if (!process.env.PAYPAL_WEBHOOK_ID) {
+  console.warn("[SECURITY WARNING] PAYPAL_WEBHOOK_ID is not set — PayPal webhook verification is disabled. Set this in production to receive refund/chargeback events.");
+}
+
+// SendGrid event webhook — receives bounce, complaint (spam report), and
+// unsubscribe events. Configure URL in SendGrid: https://app.sendgrid.com/settings/mail_settings
+// Optionally verify with ED25519 signature using SENDGRID_WEBHOOK_PUBLIC_KEY.
+app.post(
+  '/api/sendgrid/webhook',
+  express.json({ limit: '512kb' }),
+  async (req, res) => {
+    try {
+      const events = Array.isArray(req.body) ? req.body : [];
+      // Lazy import so this module doesn't pull storage during top-level init.
+      const { storage } = await import('./storage');
+      for (const ev of events) {
+        const email = ev?.email;
+        const eventType = ev?.event;
+        if (typeof email !== 'string' || !email) continue;
+        if (eventType === 'bounce' || eventType === 'dropped') {
+          await storage.suppressEmail(email, 'bounce', ev.reason ?? ev.type ?? null);
+        } else if (eventType === 'spamreport') {
+          await storage.suppressEmail(email, 'complaint', ev.reason ?? null);
+        } else if (eventType === 'unsubscribe' || eventType === 'group_unsubscribe') {
+          await storage.suppressEmail(email, 'unsubscribe', ev.useragent ?? null);
+        }
+      }
+      res.status(200).json({ received: true, count: events.length });
+    } catch (error: any) {
+      console.error('SendGrid webhook error:', error.message);
+      res.status(500).json({ error: 'Webhook processing error' });
+    }
+  }
+);
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -143,6 +196,18 @@ app.use("/api/storefront", (req, res, next) => {
 });
 app.use("/api/store-events", eventLimiter);
 app.use("/api/customer/login", customerLoginLimiter);
+app.use("/api/customer/verify", customerLoginLimiter);
+
+// /api/resolve-domain is hit by every page load on a custom domain; throttle
+// abusive probing without breaking legitimate usage.
+const resolveDomainLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: { store: null },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/resolve-domain", resolveDomainLimiter);
 
 const allowedOrigins = [
   "https://sellisy.com",

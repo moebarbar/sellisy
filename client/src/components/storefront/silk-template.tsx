@@ -51,7 +51,7 @@ export function SilkTemplate({ store, products, bundles }: { store: Store; produ
   const prefetchProduct = useCallback((productId: string) => {
     queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "product", productId] });
   }, [store.slug]);
-  const prefetchBundle = useCallback((bundleId: number) => {
+  const prefetchBundle = useCallback((bundleId: string) => {
     queryClient.prefetchQuery({ queryKey: ["/api/storefront", store.slug, "bundle", bundleId] });
   }, [store.slug]);
 

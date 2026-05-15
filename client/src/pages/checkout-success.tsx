@@ -39,11 +39,11 @@ export default function CheckoutSuccessPage() {
   const orderId = params.get("order_id");
 
   const identifier = sessionId || orderId;
-  const storeBasePath = useMemo(() => data?.store ? getStoreBasePath(data.store.slug) : "", [data?.store?.slug]);
 
   usePageMeta({
     title: "Order Confirmation",
     description: "Your purchase is complete. Download your products here.",
+    noindex: true,
   });
 
   const { data, isLoading, error } = useQuery<SuccessData>({
@@ -55,6 +55,8 @@ export default function CheckoutSuccessPage() {
       return false;
     },
   });
+
+  const storeBasePath = useMemo(() => data?.store ? getStoreBasePath(data.store.slug) : "", [data?.store?.slug]);
 
   if (!identifier) {
     return (

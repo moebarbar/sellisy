@@ -5,7 +5,7 @@ import {
   bundles, bundleItems, coupons, productImages, categories, userProfiles,
   customers, customerSessions, knowledgeBases, kbPages, kbBlocks, kbPageAttachments, storeEvents, blogPosts, blogBlocks,
   storeTestimonials, storeFaqs, newsletterSubscribers, storeReviews,
-  newsletterCampaigns, newsletterCampaignBlocks,
+  newsletterCampaigns, newsletterCampaignBlocks, emailSuppression,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -72,6 +72,7 @@ export interface IStorage {
   createOrder(order: InsertOrder): Promise<Order>;
   getOrderById(id: string): Promise<Order | undefined>;
   getOrderByStripeSession(sessionId: string): Promise<Order | undefined>;
+  getOrderByPaypalOrderId(paypalOrderId: string): Promise<Order | undefined>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   updateOrderBuyerEmail(id: string, email: string): Promise<void>;
   createOrderItem(item: InsertOrderItem): Promise<OrderItem>;
@@ -124,6 +125,11 @@ export interface IStorage {
   createCustomerSession(data: InsertCustomerSession): Promise<CustomerSession>;
   getCustomerSessionByToken(tokenHash: string): Promise<CustomerSession | undefined>;
   deleteCustomerSession(id: string): Promise<void>;
+  consumeCustomerSession(id: string): Promise<boolean>;
+
+  isEmailSuppressed(email: string): Promise<boolean>;
+  suppressEmail(email: string, reason: "bounce" | "complaint" | "unsubscribe" | "manual", detail?: string): Promise<void>;
+  unsuppressEmail(email: string): Promise<void>;
   getOrdersByCustomer(customerId: string): Promise<(Order & { store: Store })[]>;
   setOrderCustomerId(orderId: string, customerId: string): Promise<void>;
   linkOrdersByEmail(email: string, customerId: string): Promise<void>;
@@ -389,6 +395,11 @@ export class DatabaseStorage implements IStorage {
     return order;
   }
 
+  async getOrderByPaypalOrderId(paypalOrderId: string) {
+    const [order] = await db.select().from(orders).where(and(eq(orders.paypalOrderId, paypalOrderId), isNull(orders.deletedAt)));
+    return order;
+  }
+
   async updateOrderStatus(id: string, status: string) {
     const [order] = await db.update(orders).set({ status: status as any }).where(eq(orders.id, id)).returning();
     return order;
@@ -639,6 +650,32 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCustomerSession(id: string) {
     await db.delete(customerSessions).where(eq(customerSessions.id, id));
+  }
+
+  async consumeCustomerSession(id: string): Promise<boolean> {
+    const deleted = await db.delete(customerSessions).where(eq(customerSessions.id, id)).returning({ id: customerSessions.id });
+    return deleted.length > 0;
+  }
+
+  async isEmailSuppressed(email: string): Promise<boolean> {
+    const [row] = await db.select({ email: emailSuppression.email })
+      .from(emailSuppression)
+      .where(eq(emailSuppression.email, email.toLowerCase()))
+      .limit(1);
+    return !!row;
+  }
+
+  async suppressEmail(email: string, reason: "bounce" | "complaint" | "unsubscribe" | "manual", detail?: string) {
+    await db.insert(emailSuppression)
+      .values({ email: email.toLowerCase(), reason, detail: detail ?? null })
+      .onConflictDoUpdate({
+        target: emailSuppression.email,
+        set: { reason, detail: detail ?? null, suppressedAt: new Date() },
+      });
+  }
+
+  async unsuppressEmail(email: string) {
+    await db.delete(emailSuppression).where(eq(emailSuppression.email, email.toLowerCase()));
   }
 
   async getOrdersByCustomer(customerId: string) {
