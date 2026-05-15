@@ -1,4 +1,5 @@
 import { useUser } from "@clerk/react";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { StoreProvider, useActiveStore } from "@/lib/store-context";
 import { getStorePublicUrl } from "@/lib/utils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -28,6 +29,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   // the local user row, so user is briefly null and we'd bounce back to
   // /auth, where Clerk would redirect us to /dashboard, etc.
   const { isLoaded, isSignedIn } = useUser();
+
+  // Dashboard pages must never be indexed — they're behind auth and contain
+  // owner-private state. The server middleware also stamps a noindex meta
+  // for /dashboard/* but this is a safety net for client-side navigation.
+  usePageMeta({ noindex: true });
 
   if (!isLoaded) {
     return (

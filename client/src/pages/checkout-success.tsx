@@ -43,6 +43,7 @@ export default function CheckoutSuccessPage() {
   usePageMeta({
     title: "Order Confirmation",
     description: "Your purchase is complete. Download your products here.",
+    noindex: true,
   });
 
   const { data, isLoading, error } = useQuery<SuccessData>({

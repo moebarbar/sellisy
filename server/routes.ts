@@ -221,62 +221,128 @@ export async function registerRoutes(
   });
 
   app.get("/robots.txt", (_req, res) => {
-    const siteUrl = process.env.APP_URL || "https://sellisy.com";
+    const siteUrl = (process.env.APP_URL || "https://sellisy.com").replace(/\/$/, "");
+    // Cache for an hour at the edge; clients can revalidate sooner.
+    res.set("Cache-Control", "public, max-age=3600");
     res.type("text/plain").send(`User-agent: *
+Allow: /
 Allow: /s/
 Allow: /product/
 Allow: /bundle/
+Allow: /products
 Disallow: /api/
 Disallow: /dashboard/
 Disallow: /auth
+Disallow: /account
+Disallow: /checkout
+Disallow: /claim
+Disallow: /embed/
+Disallow: /objects/
+Disallow: /assets/
+Disallow: /*?token=
+Disallow: /*?session_id=
+Disallow: /*?order_id=
+
+# Block aggressive AI/SEO scrapers (allowlist only good citizens).
+User-agent: GPTBot
+Disallow: /
+User-agent: Google-Extended
+Disallow: /
+User-agent: CCBot
+Disallow: /
+User-agent: anthropic-ai
+Disallow: /
+User-agent: ClaudeBot
+Disallow: /
+User-agent: PerplexityBot
+Disallow: /
+User-agent: ImagesiftBot
+Disallow: /
+User-agent: Bytespider
+Disallow: /
 
 Sitemap: ${siteUrl}/sitemap.xml`);
   });
 
   app.get("/sitemap.xml", async (req, res) => {
     try {
+      const baseUrl = getAppUrl(req);
+      const xmlEscape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+      const isoOrUndefined = (d: Date | string | null | undefined) => d ? new Date(d).toISOString() : undefined;
+
       const allStores = await db
-        .select({ slug: stores.slug, name: stores.name, customDomain: stores.customDomain, domainStatus: stores.domainStatus })
+        .select({
+          id: stores.id,
+          slug: stores.slug,
+          name: stores.name,
+          customDomain: stores.customDomain,
+          domainStatus: stores.domainStatus,
+          updatedAt: stores.updatedAt,
+        })
         .from(stores)
         .where(isNull(stores.deletedAt));
 
-      const baseUrl = getAppUrl(req);
       let urls = "";
+
+      // Marketing pages
+      urls += `  <url><loc>${baseUrl}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n`;
+      urls += `  <url><loc>${baseUrl}/products</loc><changefreq>daily</changefreq><priority>0.9</priority></url>\n`;
+      urls += `  <url><loc>${baseUrl}/privacy</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
+      urls += `  <url><loc>${baseUrl}/terms</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
+      urls += `  <url><loc>${baseUrl}/data-deletion</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
 
       for (const store of allStores) {
         const hasCustomDomain = !!(store.customDomain && store.domainStatus === "active");
         const storeBase = hasCustomDomain ? `https://${store.customDomain}` : `${baseUrl}/s/${store.slug}`;
-        urls += `  <url><loc>${storeBase}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>\n`;
+        const storeLastmod = isoOrUndefined(store.updatedAt);
 
-        const storeObj = await storage.getStoreBySlug(store.slug);
-        if (!storeObj) continue;
+        urls += `  <url><loc>${storeBase}</loc>${storeLastmod ? `<lastmod>${storeLastmod}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.8</priority></url>\n`;
 
-        const storeProductsList = await storage.getStoreProducts(storeObj.id);
+        const storeProductsList = await storage.getStoreProducts(store.id);
         for (const sp of storeProductsList) {
           if (!sp.isPublished) continue;
           const product = await storage.getProductById(sp.productId);
           if (!product || product.deletedAt) continue;
           const productSlug = product.slug || product.id;
-          urls += `  <url><loc>${storeBase}/product/${productSlug}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n`;
+          const productUrl = `${storeBase}/product/${productSlug}`;
+          const lastmod = isoOrUndefined(product.updatedAt ?? product.createdAt);
+          const imageTag = product.thumbnailUrl
+            ? `<image:image><image:loc>${xmlEscape(product.thumbnailUrl)}</image:loc><image:title>${xmlEscape(product.title)}</image:title></image:image>`
+            : "";
+          urls += `  <url><loc>${productUrl}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.7</priority>${imageTag}</url>\n`;
         }
 
-        const storeBundles = await storage.getBundlesByStore(storeObj.id);
+        const storeBundles = await storage.getBundlesByStore(store.id);
         for (const bundle of storeBundles) {
           if (!bundle.isPublished || bundle.deletedAt) continue;
-          urls += `  <url><loc>${storeBase}/bundle/${bundle.id}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>\n`;
+          const bundleUrl = `${storeBase}/bundle/${bundle.id}`;
+          const lastmod = isoOrUndefined(bundle.updatedAt ?? bundle.createdAt);
+          const imageTag = bundle.thumbnailUrl
+            ? `<image:image><image:loc>${xmlEscape(bundle.thumbnailUrl)}</image:loc><image:title>${xmlEscape(bundle.name)}</image:title></image:image>`
+            : "";
+          urls += `  <url><loc>${bundleUrl}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.6</priority>${imageTag}</url>\n`;
         }
 
-        const blogPosts = await storage.getBlogPostsByStore(storeObj.id);
+        const blogPosts = await storage.getBlogPostsByStore(store.id);
+        if (blogPosts.some(p => p.isPublished && !p.deletedAt)) {
+          urls += `  <url><loc>${storeBase}/blog</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>\n`;
+        }
         for (const post of blogPosts) {
           if (post.deletedAt || !post.isPublished) continue;
-          urls += `  <url><loc>${storeBase}/blog/${post.slug}</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>\n`;
+          const postUrl = `${storeBase}/blog/${post.slug}`;
+          const lastmod = isoOrUndefined(post.updatedAt ?? post.publishedAt ?? post.createdAt);
+          const imageTag = post.coverImageUrl
+            ? `<image:image><image:loc>${xmlEscape(post.coverImageUrl)}</image:loc><image:title>${xmlEscape(post.title)}</image:title></image:image>`
+            : "";
+          urls += `  <url><loc>${postUrl}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.5</priority>${imageTag}</url>\n`;
         }
       }
 
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${urls}</urlset>`;
 
+      res.set("Cache-Control", "public, max-age=900");
       res.type("application/xml").send(xml);
     } catch (err) {
       console.error("Sitemap generation error:", err);

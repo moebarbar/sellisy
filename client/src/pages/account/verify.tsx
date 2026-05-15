@@ -4,12 +4,14 @@ import { queryClient } from "@/lib/queryClient";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 export default function AccountVerifyPage() {
   const search = useSearch();
   const [, navigate] = useLocation();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
+  usePageMeta({ title: "Verifying sign-in", noindex: true });
 
   useEffect(() => {
     const params = new URLSearchParams(search);

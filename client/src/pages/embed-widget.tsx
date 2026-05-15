@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, useSearch } from "wouter";
 import { ExternalLink, Package, Layers } from "lucide-react";
 import { getStoreBasePath } from "@/lib/utils";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 function formatPrice(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -258,6 +259,7 @@ function EmbedCard({ type, slug, itemId }: { type: "product" | "bundle"; slug: s
 
 export default function EmbedProductWidget() {
   const params = useParams<{ slug: string; productId: string }>();
+  usePageMeta({ title: "Sellisy Embed", noindex: true });
   return (
     <div style={{ padding: 8 }}>
       <EmbedCard type="product" slug={params.slug} itemId={params.productId} />
@@ -267,6 +269,7 @@ export default function EmbedProductWidget() {
 
 export function EmbedBundleWidget() {
   const params = useParams<{ slug: string; bundleId: string }>();
+  usePageMeta({ title: "Sellisy Embed", noindex: true });
   return (
     <div style={{ padding: 8 }}>
       <EmbedCard type="bundle" slug={params.slug} itemId={params.bundleId} />

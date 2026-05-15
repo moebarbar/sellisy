@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { Link } from "wouter";
 import { Mail, Loader2, ArrowRight, Package, ExternalLink } from "lucide-react";
 
@@ -17,6 +18,7 @@ export default function AccountLoginPage() {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [devLink, setDevLink] = useState<string | null>(null);
+  usePageMeta({ title: "Customer Sign-in", noindex: true });
 
   const { data: customer, isLoading: meLoading } = useQuery<CustomerMe>({
     queryKey: ["/api/customer/me"],

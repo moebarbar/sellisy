@@ -14,6 +14,7 @@ type PageMeta = {
   keywords?: string;
   favicon?: string;
   jsonLd?: Record<string, any>;
+  noindex?: boolean;
 };
 
 function setMeta(name: string, content: string, property = false) {
@@ -104,14 +105,21 @@ export function usePageMeta(meta: PageMeta) {
     if (meta.favicon) setFavicon(meta.favicon);
     if (meta.jsonLd) setJsonLd(meta.jsonLd);
 
+    if (meta.noindex) {
+      setMeta("robots", "noindex,nofollow");
+    } else {
+      setMeta("robots", "index,follow,max-image-preview:large,max-snippet:-1");
+    }
+
     return () => {
       document.title = DEFAULT_TITLE;
       setMeta("description", DEFAULT_DESC);
       setMeta("og:title", DEFAULT_TITLE, true);
       setMeta("og:description", DEFAULT_DESC, true);
+      setMeta("robots", "index,follow,max-image-preview:large,max-snippet:-1");
       setFavicon(DEFAULT_FAVICON);
       removeJsonLd();
       removeCanonical();
     };
-  }, [meta.title, meta.description, meta.ogTitle, meta.ogDescription, meta.ogImage, meta.ogType, meta.ogUrl, meta.ogSiteName, meta.twitterCard, meta.canonicalUrl, meta.keywords, meta.favicon, meta.jsonLd]);
+  }, [meta.title, meta.description, meta.ogTitle, meta.ogDescription, meta.ogImage, meta.ogType, meta.ogUrl, meta.ogSiteName, meta.twitterCard, meta.canonicalUrl, meta.keywords, meta.favicon, meta.jsonLd, meta.noindex]);
 }

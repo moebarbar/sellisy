@@ -3,6 +3,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useRoute, Link } from "wouter";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,6 +48,7 @@ export default function PurchaseDetailPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const orderId = params?.orderId;
+  usePageMeta({ title: "Purchase Details", noindex: true });
 
   const { data: customer, isLoading: meLoading } = useQuery<CustomerMe>({
     queryKey: ["/api/customer/me"],

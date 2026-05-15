@@ -24,6 +24,7 @@ export default function ClaimSuccessPage() {
   usePageMeta({
     title: "Claim Your Download",
     description: "Access your free digital product download.",
+    noindex: true,
   });
   const storeSlug = params.get("store");
   const basePath = useMemo(() => getStoreBasePath(storeSlug || ""), [storeSlug]);
