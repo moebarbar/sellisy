@@ -12,6 +12,9 @@ export const planTierEnum = pgEnum("plan_tier", ["basic", "pro", "max"]);
 export const productTypeEnum = pgEnum("product_type", ["digital", "software", "template", "ebook", "course", "graphics"]);
 export const paymentProviderEnum = pgEnum("payment_provider", ["stripe", "paypal"]);
 export const campaignStatusEnum = pgEnum("campaign_status", ["draft", "sent"]);
+export const affiliateStatusEnum = pgEnum("affiliate_status", ["pending", "active", "paused", "rejected"]);
+export const commissionStatusEnum = pgEnum("commission_status", ["pending", "approved", "paid", "void"]);
+export const payoutStatusEnum = pgEnum("payout_status", ["processing", "paid", "failed"]);
 
 export const userProfiles = pgTable("user_profiles", {
   userId: varchar("user_id", { length: 64 }).primaryKey(),
@@ -29,13 +32,14 @@ export type PlanTier = typeof PLAN_TIERS[number];
 
 export const PLAN_FEATURES = {
   basic: {
-    importProducts: true,
-    editImportedProducts: true,
+    importProducts: false,
+    editImportedProducts: false,
     customBranding: false,
     rawFileDownload: false,
     sellSoftware: false,
     accessPremiumProducts: false,
     allowImageDownload: false,
+    affiliateProgram: false,
     maxStores: 1,
   },
   pro: {
@@ -46,6 +50,7 @@ export const PLAN_FEATURES = {
     sellSoftware: false,
     accessPremiumProducts: true,
     allowImageDownload: true,
+    affiliateProgram: true,
     maxStores: 3,
   },
   max: {
@@ -56,6 +61,7 @@ export const PLAN_FEATURES = {
     sellSoftware: true,
     accessPremiumProducts: true,
     allowImageDownload: true,
+    affiliateProgram: true,
     maxStores: 10,
   },
 } as const;
@@ -117,6 +123,11 @@ export const stores = pgTable("stores", {
   showRatingsOnCards: boolean("show_ratings_on_cards").notNull().default(true),
   showDiscountBadges: boolean("show_discount_badges").notNull().default(true),
   showSubscriberCount: boolean("show_subscriber_count").notNull().default(false),
+  affiliateProgramEnabled: boolean("affiliate_program_enabled").notNull().default(false),
+  affiliateDefaultRateBps: integer("affiliate_default_rate_bps").notNull().default(2000),
+  affiliateCookieDays: integer("affiliate_cookie_days").notNull().default(30),
+  affiliateMinPayoutCents: integer("affiliate_min_payout_cents").notNull().default(2500),
+  affiliateTermsHtml: text("affiliate_terms_html"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -257,6 +268,8 @@ export const orders = pgTable("orders", {
   refundReason: text("refund_reason"),
   stripeRefundId: text("stripe_refund_id"),
   paypalRefundId: text("paypal_refund_id"),
+  affiliateId: varchar("affiliate_id", { length: 64 }),
+  affiliateRateBps: integer("affiliate_rate_bps"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -267,6 +280,7 @@ export const orders = pgTable("orders", {
   index("orders_paypal_idx").on(t.paypalOrderId),
   index("orders_created_idx").on(t.createdAt),
   index("orders_status_idx").on(t.status),
+  index("orders_affiliate_idx").on(t.affiliateId),
 ]);
 
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
@@ -768,3 +782,89 @@ export const gumroadProductShells = pgTable("gumroad_product_shells", {
 export const insertGumroadProductShellSchema = createInsertSchema(gumroadProductShells).omit({ id: true, createdAt: true });
 export type InsertGumroadProductShell = z.infer<typeof insertGumroadProductShellSchema>;
 export type GumroadProductShell = typeof gumroadProductShells.$inferSelect;
+
+// ─── Affiliate program ────────────────────────────────────────────────
+
+export const affiliates = pgTable("affiliates", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 64 }).notNull(),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  code: text("code").notNull(),
+  status: affiliateStatusEnum("status").notNull().default("active"),
+  commissionRateBps: integer("commission_rate_bps").notNull().default(2000),
+  payoutEmail: text("payout_email"),
+  notes: text("notes"),
+  deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("affiliates_store_code_unique").on(t.storeId, t.code).where(sql`${t.deletedAt} IS NULL`),
+  uniqueIndex("affiliates_store_user_unique").on(t.storeId, t.userId).where(sql`${t.deletedAt} IS NULL`),
+  index("affiliates_store_deleted_idx").on(t.storeId, t.deletedAt),
+  index("affiliates_user_idx").on(t.userId),
+]);
+
+export const insertAffiliateSchema = createInsertSchema(affiliates).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
+export type InsertAffiliate = z.infer<typeof insertAffiliateSchema>;
+export type Affiliate = typeof affiliates.$inferSelect;
+
+export const affiliateClicks = pgTable("affiliate_clicks", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  affiliateId: varchar("affiliate_id", { length: 64 }).notNull(),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  landingPath: text("landing_path"),
+  referrer: text("referrer"),
+  userAgentHash: varchar("user_agent_hash", { length: 64 }),
+  ipHash: varchar("ip_hash", { length: 64 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("affiliate_clicks_affiliate_idx").on(t.affiliateId, t.createdAt),
+  index("affiliate_clicks_store_idx").on(t.storeId, t.createdAt),
+]);
+
+export const insertAffiliateClickSchema = createInsertSchema(affiliateClicks).omit({ id: true, createdAt: true });
+export type InsertAffiliateClick = z.infer<typeof insertAffiliateClickSchema>;
+export type AffiliateClick = typeof affiliateClicks.$inferSelect;
+
+export const affiliateCommissions = pgTable("affiliate_commissions", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  affiliateId: varchar("affiliate_id", { length: 64 }).notNull(),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  orderId: varchar("order_id", { length: 64 }).notNull().unique(),
+  subtotalCents: integer("subtotal_cents").notNull(),
+  commissionRateBps: integer("commission_rate_bps").notNull(),
+  commissionCents: integer("commission_cents").notNull(),
+  status: commissionStatusEnum("status").notNull().default("pending"),
+  payoutId: varchar("payout_id", { length: 64 }),
+  lockedUntil: timestamp("locked_until").notNull(),
+  voidReason: text("void_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("affiliate_commissions_affiliate_status_idx").on(t.affiliateId, t.status),
+  index("affiliate_commissions_store_status_idx").on(t.storeId, t.status),
+]);
+
+export const insertAffiliateCommissionSchema = createInsertSchema(affiliateCommissions).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAffiliateCommission = z.infer<typeof insertAffiliateCommissionSchema>;
+export type AffiliateCommission = typeof affiliateCommissions.$inferSelect;
+
+export const affiliatePayouts = pgTable("affiliate_payouts", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  affiliateId: varchar("affiliate_id", { length: 64 }).notNull(),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  totalCents: integer("total_cents").notNull(),
+  method: text("method").notNull().default("manual_paypal"),
+  externalRef: text("external_ref"),
+  status: payoutStatusEnum("status").notNull().default("processing"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("affiliate_payouts_affiliate_idx").on(t.affiliateId, t.createdAt),
+  index("affiliate_payouts_store_status_idx").on(t.storeId, t.status),
+]);
+
+export const insertAffiliatePayoutSchema = createInsertSchema(affiliatePayouts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAffiliatePayout = z.infer<typeof insertAffiliatePayoutSchema>;
+export type AffiliatePayout = typeof affiliatePayouts.$inferSelect;

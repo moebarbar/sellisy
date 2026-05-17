@@ -23,6 +23,8 @@ import { emailLogs, emailSuppression } from "@shared/schema";
 import cookieParser from "cookie-parser";
 import { audit, auditMeta } from "./audit";
 import { gumroadImportRouter } from "./routes/gumroad-import";
+import { affiliateRouter } from "./routes/affiliate";
+import { WebhookHandlers } from "./webhookHandlers";
 
 function getUserId(req: Request): string {
   return req.sellisyUserId!;
@@ -157,6 +159,7 @@ export async function registerRoutes(
   registerSubscriptionRoutes(app);
   app.use(cookieParser());
   app.use('/api/integrations/gumroad', gumroadImportRouter);
+  app.use('/api/affiliate', affiliateRouter);
 
   app.use(async (req, res, next) => {
     const originalHost = (req.headers["x-custom-host"] as string) || (req.headers["x-forwarded-host"] as string) || req.hostname;
@@ -230,6 +233,7 @@ Allow: /s/
 Allow: /product/
 Allow: /bundle/
 Allow: /products
+Allow: /vs/
 Disallow: /api/
 Disallow: /dashboard/
 Disallow: /auth
@@ -290,6 +294,15 @@ Sitemap: ${siteUrl}/sitemap.xml`);
       urls += `  <url><loc>${baseUrl}/privacy</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
       urls += `  <url><loc>${baseUrl}/terms</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
       urls += `  <url><loc>${baseUrl}/data-deletion</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
+
+      // Competitor comparison pages — keep slugs in sync with client/src/data/competitors.ts.
+      const versusSlugs = [
+        "gumroad", "lemon-squeezy", "payhip", "sellfy", "podia",
+        "sendowl", "ko-fi", "stan-store", "whop", "kajabi", "kit", "beacons",
+      ];
+      for (const slug of versusSlugs) {
+        urls += `  <url><loc>${baseUrl}/vs/${slug}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>\n`;
+      }
 
       for (const store of allStores) {
         const hasCustomDomain = !!(store.customDomain && store.domainStatus === "active");
@@ -1211,17 +1224,19 @@ ${urls}</urlset>`;
     const product = await storage.getProductById(parsed.data.productId);
     if (!product) return res.status(404).json({ message: "Product not found" });
 
+    const userTier = await getUserPlanTier(userId);
+    if (!PLAN_FEATURES[userTier].importProducts) {
+      return res.status(403).json({ message: "Library imports require a Growth plan or higher. Upgrade to import products from the Sellisy library." });
+    }
+
     if (product.requiredTier && product.requiredTier !== "basic") {
-      const tier = await getUserPlanTier(userId);
-      if (!canAccessTier(tier, product.requiredTier as PlanTier)) {
+      if (!canAccessTier(userTier, product.requiredTier as PlanTier)) {
         return res.status(403).json({ message: `This product requires a ${product.requiredTier} plan or higher. Upgrade to access it.` });
       }
     }
 
     if (product.productType === "software") {
-      const tier = await getUserPlanTier(userId);
-      const features = PLAN_FEATURES[tier];
-      if (!features.sellSoftware) {
+      if (!PLAN_FEATURES[userTier].sellSoftware) {
         return res.status(403).json({ message: "Software products require a max plan. Upgrade to sell software." });
       }
     }
@@ -2659,6 +2674,36 @@ ${urls}</urlset>`;
     const store = await storage.getStoreBySlug(parsed.data.storeId) || await storage.getStoreById(parsed.data.storeId);
     if (!store) return res.status(404).json({ message: "Store not found" });
 
+    // ── Affiliate attribution snapshot ─────────────────────────────────
+    // Read the storefront cookie set by the tracking script and resolve it
+    // to a live, active affiliate for THIS store. If anything fails to
+    // validate (program disabled, owner on free tier, affiliate paused,
+    // self-attribution) we silently drop attribution — the buyer's
+    // checkout proceeds normally.
+    let attributedAffiliateId: string | null = null;
+    let attributedRateBps: number | null = null;
+    const affCookie = req.cookies?.[`sellisy_aff_${store.slug}`];
+    if (affCookie && store.affiliateProgramEnabled) {
+      try {
+        const ownerProfile = await storage.getUserProfile(store.ownerId);
+        const ownerTier = (ownerProfile?.planTier as PlanTier) || "basic";
+        if (PLAN_FEATURES[ownerTier].affiliateProgram) {
+          const affiliate = await storage.getAffiliateById(affCookie);
+          if (
+            affiliate &&
+            affiliate.storeId === store.id &&
+            affiliate.status === "active" &&
+            affiliate.userId !== store.ownerId
+          ) {
+            attributedAffiliateId = affiliate.id;
+            attributedRateBps = affiliate.commissionRateBps;
+          }
+        }
+      } catch (err) {
+        console.warn("[affiliate] attribution lookup failed:", err);
+      }
+    }
+
     let totalCents = 0;
     let itemName = "";
     let itemDescription = "";
@@ -2740,6 +2785,8 @@ ${urls}</urlset>`;
           stripeSessionId: null,
           couponId,
           status: "COMPLETED",
+          affiliateId: attributedAffiliateId,
+          affiliateRateBps: attributedRateBps,
         }).returning();
 
         for (const item of itemsToAdd) {
@@ -2806,6 +2853,8 @@ ${urls}</urlset>`;
         stripeSessionId: null,
         couponId,
         status: "PENDING",
+        affiliateId: attributedAffiliateId,
+        affiliateRateBps: attributedRateBps,
       }).returning();
 
       for (const item of itemsToAdd) {
@@ -2889,6 +2938,7 @@ ${urls}</urlset>`;
             orderId: order.id,
             storeId: store.id,
             couponId: couponId || '',
+            affiliateId: attributedAffiliateId || '',
           },
           success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${appUrl}/s/${store.slug}`,
@@ -3019,6 +3069,11 @@ ${urls}</urlset>`;
 
         const baseUrl = getAppUrl(req);
         sendOrderCompletionEmails(order.id, baseUrl);
+
+        // Affiliate commission. Best-effort — never block the redirect.
+        WebhookHandlers.writeAffiliateCommissionForOrder(order.id).catch((err) =>
+          console.error("PayPal capture: affiliate commission write failed:", order.id, err)
+        );
 
         return res.redirect(`/checkout/success?order_id=${order.id}`);
       } else {

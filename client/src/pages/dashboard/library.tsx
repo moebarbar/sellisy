@@ -241,7 +241,7 @@ export default function LibraryPage() {
           {filteredProducts.map((product) => {
             const isImported = activeStoreId ? importedSet.has(product.id) : false;
             const requiredTier = (product.requiredTier || "basic") as PlanTier;
-            const isLocked = !canAccess(requiredTier);
+            const isLocked = !canAccess(requiredTier) || !PLAN_FEATURES[userTier].importProducts;
             const isSoftware = product.productType === "software";
 
             return (

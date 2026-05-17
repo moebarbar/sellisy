@@ -6,9 +6,9 @@ import { apiRequest } from "@/lib/queryClient";
 type PlanKey = "basic" | "pro" | "max";
 
 const PLANS: Record<PlanKey, { label: string; price: string }> = {
-  basic: { label: "Starter", price: "$19" },
-  pro: { label: "Growth", price: "$39" },
-  max: { label: "Empire", price: "$69" },
+  basic: { label: "Starter", price: "$9" },
+  pro: { label: "Growth", price: "$29" },
+  max: { label: "Empire", price: "$49" },
 };
 
 function SubscribeModal({ plan, onClose }: { plan: PlanKey; onClose: () => void }) {
@@ -239,13 +239,13 @@ export function PricingSection() {
 
   const starterFeatures = [
     "1 storefront",
-    "30 PLR imports",
     "Unlimited own products",
     "Customer portal",
     "Upsells & order bumps",
     "Stripe / PayPal",
     "6 templates",
     "Analytics dashboard",
+    "No PLR library access",
   ];
 
   const growthFeatures = [
@@ -253,6 +253,7 @@ export function PricingSection() {
     "150 PLR imports",
     "Custom domains",
     "Advanced analytics",
+    "Affiliate program",
     "Priority support",
     "Everything in Starter",
   ];
@@ -319,7 +320,7 @@ export function PricingSection() {
           </p>
           <div style={{ marginBottom: 8 }}>
             <span className="s-heading" style={{ fontSize: "clamp(48px, 10vw, 80px)", color: "var(--s-white)" }}>
-              $19
+              $9
             </span>
             <span className="s-label" style={{ color: "rgba(250,250,245,0.35)", marginLeft: 4 }}>
               /mo
@@ -410,7 +411,7 @@ export function PricingSection() {
           </p>
           <div style={{ marginBottom: 8 }}>
             <span className="s-heading" style={{ fontSize: "clamp(48px, 10vw, 80px)", color: "var(--s-black)" }}>
-              $39
+              $29
             </span>
             <span className="s-label" style={{ color: "rgba(5,5,5,0.4)", marginLeft: 4 }}>
               /mo
@@ -512,7 +513,7 @@ export function PricingSection() {
               </p>
               <div style={{ marginBottom: 8 }}>
                 <span className="s-heading" style={{ fontSize: "clamp(48px, 10vw, 80px)", color: "var(--s-white)" }}>
-                  $69
+                  $49
                 </span>
                 <span className="s-label" style={{ color: "rgba(250,250,245,0.35)", marginLeft: 4 }}>
                   /mo

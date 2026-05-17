@@ -6,6 +6,11 @@ import {
   customers, customerSessions, knowledgeBases, kbPages, kbBlocks, kbPageAttachments, storeEvents, blogPosts, blogBlocks,
   storeTestimonials, storeFaqs, newsletterSubscribers, storeReviews,
   newsletterCampaigns, newsletterCampaignBlocks, emailSuppression,
+  affiliates, affiliateClicks, affiliateCommissions, affiliatePayouts,
+  type Affiliate, type InsertAffiliate,
+  type AffiliateClick, type InsertAffiliateClick,
+  type AffiliateCommission, type InsertAffiliateCommission,
+  type AffiliatePayout, type InsertAffiliatePayout,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -1088,6 +1093,115 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCampaignBlock(id: string) {
     await db.delete(newsletterCampaignBlocks).where(eq(newsletterCampaignBlocks.id, id));
+  }
+
+  // ─── Affiliates ─────────────────────────────────────────────────────
+
+  async getAffiliateByCode(storeId: string, code: string): Promise<Affiliate | undefined> {
+    const [row] = await db.select().from(affiliates)
+      .where(and(eq(affiliates.storeId, storeId), eq(affiliates.code, code), isNull(affiliates.deletedAt)))
+      .limit(1);
+    return row;
+  }
+
+  async getAffiliateById(id: string): Promise<Affiliate | undefined> {
+    const [row] = await db.select().from(affiliates)
+      .where(and(eq(affiliates.id, id), isNull(affiliates.deletedAt)))
+      .limit(1);
+    return row;
+  }
+
+  async getAffiliatesByStore(storeId: string): Promise<Affiliate[]> {
+    return db.select().from(affiliates)
+      .where(and(eq(affiliates.storeId, storeId), isNull(affiliates.deletedAt)))
+      .orderBy(desc(affiliates.createdAt));
+  }
+
+  async getAffiliatesByUser(userId: string): Promise<Affiliate[]> {
+    return db.select().from(affiliates)
+      .where(and(eq(affiliates.userId, userId), isNull(affiliates.deletedAt)))
+      .orderBy(desc(affiliates.createdAt));
+  }
+
+  async createAffiliate(data: InsertAffiliate): Promise<Affiliate> {
+    const [row] = await db.insert(affiliates).values(data).returning();
+    return row;
+  }
+
+  async updateAffiliate(id: string, data: Partial<InsertAffiliate>): Promise<Affiliate | undefined> {
+    const [row] = await db.update(affiliates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(affiliates.id, id))
+      .returning();
+    return row;
+  }
+
+  async softDeleteAffiliate(id: string): Promise<void> {
+    await db.update(affiliates)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(affiliates.id, id));
+  }
+
+  // ─── Affiliate clicks ───────────────────────────────────────────────
+
+  async recordAffiliateClick(data: InsertAffiliateClick): Promise<AffiliateClick> {
+    const [row] = await db.insert(affiliateClicks).values(data).returning();
+    return row;
+  }
+
+  async hasRecentClick(affiliateId: string, ipHash: string, withinMinutes: number): Promise<boolean> {
+    const cutoff = new Date(Date.now() - withinMinutes * 60 * 1000);
+    const [row] = await db.select({ id: affiliateClicks.id }).from(affiliateClicks)
+      .where(and(
+        eq(affiliateClicks.affiliateId, affiliateId),
+        eq(affiliateClicks.ipHash, ipHash),
+        sql`${affiliateClicks.createdAt} > ${cutoff}`,
+      ))
+      .limit(1);
+    return !!row;
+  }
+
+  // ─── Affiliate commissions ──────────────────────────────────────────
+
+  async createCommission(data: InsertAffiliateCommission): Promise<AffiliateCommission> {
+    const [row] = await db.insert(affiliateCommissions).values(data).returning();
+    return row;
+  }
+
+  async getCommissionByOrderId(orderId: string): Promise<AffiliateCommission | undefined> {
+    const [row] = await db.select().from(affiliateCommissions)
+      .where(eq(affiliateCommissions.orderId, orderId))
+      .limit(1);
+    return row;
+  }
+
+  async voidCommissionsForOrder(orderId: string, reason: string): Promise<void> {
+    await db.update(affiliateCommissions)
+      .set({ status: "void", voidReason: reason, updatedAt: new Date() })
+      .where(and(
+        eq(affiliateCommissions.orderId, orderId),
+        sql`${affiliateCommissions.status} IN ('pending', 'approved')`,
+      ));
+  }
+
+  async getCommissionsByAffiliate(affiliateId: string): Promise<AffiliateCommission[]> {
+    return db.select().from(affiliateCommissions)
+      .where(eq(affiliateCommissions.affiliateId, affiliateId))
+      .orderBy(desc(affiliateCommissions.createdAt));
+  }
+
+  // ─── Affiliate payouts ──────────────────────────────────────────────
+
+  async createPayout(data: InsertAffiliatePayout): Promise<AffiliatePayout> {
+    const [row] = await db.insert(affiliatePayouts).values(data).returning();
+    return row;
+  }
+
+  async markCommissionsPaid(commissionIds: string[], payoutId: string): Promise<void> {
+    if (commissionIds.length === 0) return;
+    await db.update(affiliateCommissions)
+      .set({ status: "paid", payoutId, updatedAt: new Date() })
+      .where(inArray(affiliateCommissions.id, commissionIds));
   }
 }
 
