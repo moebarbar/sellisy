@@ -6,9 +6,9 @@ import { authStorage, isAuthenticated } from "./replit_integrations/auth";
 import type { PlanTier } from "@shared/schema";
 
 const PLAN_CONFIG: Record<string, { name: string; price: number; tier: PlanTier }> = {
-  basic: { name: "Sellisy Starter", price: 1900, tier: "basic" },
-  pro: { name: "Sellisy Growth", price: 3900, tier: "pro" },
-  max: { name: "Sellisy Empire", price: 6900, tier: "max" },
+  basic: { name: "Sellisy Starter", price: 900, tier: "basic" },
+  pro: { name: "Sellisy Growth", price: 2900, tier: "pro" },
+  max: { name: "Sellisy Empire", price: 4900, tier: "max" },
 };
 
 let cachedPriceIds: Record<string, string> = {};

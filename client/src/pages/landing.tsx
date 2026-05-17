@@ -13,6 +13,7 @@ import { FeaturesSection } from "@/components/landing/features-section";
 import { StoresSection } from "@/components/landing/stores-section";
 import { PricingSection } from "@/components/landing/pricing-section";
 import { FinalCTA } from "@/components/landing/final-cta";
+import { VersusGrid } from "@/components/landing/versus-grid";
 import { Footer } from "@/components/landing/footer";
 
 export default function LandingPage() {
@@ -72,6 +73,7 @@ export default function LandingPage() {
         <PricingSection />
       </div>
       <FinalCTA />
+      <VersusGrid />
       <Footer />
     </div>
   );

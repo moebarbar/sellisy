@@ -184,10 +184,78 @@ export class WebhookHandlers {
 
     await sendOrderCompletionEmails(orderId, WebhookHandlers.getBaseUrl());
 
+    // Affiliate commission. Best-effort — never block the order on this.
+    try {
+      await WebhookHandlers.writeAffiliateCommissionForOrder(orderId);
+    } catch (commErr) {
+      console.error('Webhook: affiliate commission write failed for order:', orderId, commErr);
+    }
+
     console.log('Webhook: order completed, emails triggered:', orderId);
     } catch (error: any) {
       console.error('Webhook: handleCheckoutCompleted error for order:', orderId, error);
     }
+  }
+
+  /**
+   * Write an affiliate_commissions row for an order if it was attributed at
+   * checkout time. Safe to call multiple times — the orderId is UNIQUE on
+   * affiliate_commissions, so a duplicate insert is a no-op caught here.
+   *
+   * Self-attribution guard: if the buyer email matches the affiliate's
+   * user-account email, void the would-be commission immediately.
+   */
+  static async writeAffiliateCommissionForOrder(orderId: string): Promise<void> {
+    const order = await storage.getOrderById(orderId);
+    if (!order || !order.affiliateId || !order.affiliateRateBps) return;
+    if (order.totalCents <= 0) return;
+
+    // Skip if a commission already exists for this order (idempotent webhook).
+    const existing = await storage.getCommissionByOrderId(orderId);
+    if (existing) return;
+
+    const affiliate = await storage.getAffiliateById(order.affiliateId);
+    if (!affiliate || affiliate.status !== "active") return;
+
+    // Self-attribution guard: affiliate cannot earn on a purchase they made
+    // themselves through an alt buyer email. We check the affiliate's user
+    // email against the order's buyerEmail.
+    try {
+      const affUser = await authStorage.getUser(affiliate.userId);
+      if (affUser?.email && order.buyerEmail && affUser.email.toLowerCase() === order.buyerEmail.toLowerCase()) {
+        audit({
+          event: "affiliate.self_attribution_blocked",
+          details: `Order ${orderId} matched affiliate ${affiliate.id} self-purchase, commission skipped`,
+        });
+        return;
+      }
+    } catch {
+      // If user lookup fails, fall through — better to write the commission
+      // than to silently drop a legit one.
+    }
+
+    const subtotalCents = order.totalCents;
+    const rateBps = order.affiliateRateBps;
+    const commissionCents = Math.floor((subtotalCents * rateBps) / 10000);
+    if (commissionCents <= 0) return;
+
+    const lockedUntil = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
+    await storage.createCommission({
+      affiliateId: affiliate.id,
+      storeId: order.storeId,
+      orderId,
+      subtotalCents,
+      commissionRateBps: rateBps,
+      commissionCents,
+      status: "pending",
+      lockedUntil,
+    });
+
+    audit({
+      event: "affiliate.commission_created",
+      details: `Order ${orderId} -> affiliate ${affiliate.id}: ${commissionCents}c (${rateBps}bps on ${subtotalCents}c)`,
+    });
   }
 
   /**
@@ -263,6 +331,15 @@ export class WebhookHandlers {
         event: "order.refunded",
         details: `Order ${order.id} refunded (${refundedAmount} of ${order.totalCents}) via Stripe ${refundId ?? "?"}`,
       });
+
+      // Clawback: void any pending/approved commission tied to this order.
+      // V1 simplification: any refund voids the full commission. Future:
+      // prorate partial refunds.
+      try {
+        await storage.voidCommissionsForOrder(order.id, isFullRefund ? "order_refunded" : "order_partially_refunded");
+      } catch (commErr) {
+        console.error("Webhook: commission clawback failed for order:", order.id, commErr);
+      }
     } catch (error: any) {
       console.error("Webhook: handleStripeRefund error:", error);
     }
@@ -384,6 +461,13 @@ export class WebhookHandlers {
         event: "order.refunded",
         details: `Order ${order.id} refunded (${refundedAmount} of ${order.totalCents}) via PayPal ${refundId ?? "?"}`,
       });
+
+      // Clawback: void any pending/approved commission tied to this order.
+      try {
+        await storage.voidCommissionsForOrder(order.id, isFullRefund ? "order_refunded" : "order_partially_refunded");
+      } catch (commErr) {
+        console.error("PayPal webhook: commission clawback failed for order:", order.id, commErr);
+      }
     } catch (error: any) {
       console.error("PayPal webhook: handlePaypalRefund error:", error);
     }

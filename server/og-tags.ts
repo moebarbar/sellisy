@@ -73,6 +73,36 @@ interface SeoBlock {
   articlePublishedTime?: string;
   articleModifiedTime?: string;
   articleAuthor?: string;
+  // If set, render the affiliate tracking script for this storefront slug
+  // so visitors hitting `?ref=<code>` get a same-site cookie dropped silently.
+  storefrontSlug?: string;
+}
+
+function renderAffiliateTrackingScript(storeSlug: string): string {
+  // Inline IIFE — runs on every storefront page load. Reads ?ref= from URL,
+  // POSTs to /api/affiliate/click (which validates), sets a same-site cookie,
+  // then strips ?ref= from the URL so the buyer doesn't share someone else's code.
+  // Slug is templated as a JS string literal; the server constrains slugs to
+  // lowercase alphanumeric+dashes so no escaping concerns.
+  const safeSlug = JSON.stringify(storeSlug);
+  return `<script>
+(function(){try{
+  var p=new URLSearchParams(location.search);
+  var r=p.get('ref');
+  if(!r)return;
+  var s=${safeSlug};
+  fetch('/api/affiliate/click',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({storeSlug:s,ref:r,path:location.pathname}),keepalive:true,credentials:'same-origin'})
+    .then(function(x){return x.json()})
+    .then(function(d){
+      if(!d||!d.affiliateId)return;
+      var days=d.cookieDays||30;
+      document.cookie='sellisy_aff_'+s+'='+d.affiliateId+';path=/;max-age='+(days*86400)+';SameSite=Lax';
+    }).catch(function(){});
+  p.delete('ref');
+  var q=p.toString();
+  history.replaceState(null,'',location.pathname+(q?'?'+q:'')+location.hash);
+}catch(e){}})();
+</script>`;
 }
 
 function renderMetaBlock(b: SeoBlock): string {
@@ -110,6 +140,7 @@ ${b.articlePublishedTime ? `<meta property="article:published_time" content="${e
 ${b.articleModifiedTime ? `<meta property="article:modified_time" content="${escapeHtml(b.articleModifiedTime)}">` : ""}
 ${b.articleAuthor ? `<meta property="article:author" content="${escapeHtml(b.articleAuthor)}">` : ""}
 ${jsonLdArr.map(j => `<script type="application/ld+json">${JSON.stringify(j)}</script>`).join("\n")}
+${b.storefrontSlug ? renderAffiliateTrackingScript(b.storefrontSlug) : ""}
 `.trim();
 }
 
@@ -179,6 +210,79 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
       ogImageHeight: 630,
       ogType: "website",
       jsonLd: [orgJsonLd, websiteJsonLd],
+    };
+  }
+
+  // ── 1b. Competitor comparison pages ───────────────────────────────
+  // Kept in sync with client/src/data/competitors.ts. Only the SEO essentials
+  // live here — the full page content is rendered by the React SPA.
+  const versusMatch = pathOnly.match(/^\/vs\/?$/) || pathOnly.match(/^\/vs\/([a-z0-9-]+)\/?$/);
+  if (versusMatch) {
+    const VERSUS_SEO: Record<string, { name: string; tagline: string; verdict: string }> = {
+      "gumroad":       { name: "Gumroad",        tagline: "Keep 100% instead of giving up 10% per sale",                               verdict: "Sellisy's flat $9 plan beats Gumroad's 10% cut once you cross ~$90/mo in sales." },
+      "lemon-squeezy": { name: "Lemon Squeezy",  tagline: "Same selling power without the 5% per-transaction tax",                    verdict: "Sellisy wins for creators who want 0% fees from $9/mo; Lemon Squeezy wins if you need a Merchant of Record." },
+      "payhip":        { name: "Payhip",         tagline: "More design control, more creator tools, similar flat pricing",            verdict: "Sellisy ($9) gets you 0% fees — Payhip needs $99 Pro for 0%. Bump to Sellisy Growth ($29) for the PLR library." },
+      "sellfy":        { name: "Sellfy",         tagline: "Same 0% fees, lower starting price, more bundled tools",                   verdict: "Sellisy starts at $9 vs Sellfy's $29. If you don't need print-on-demand, Sellisy wins." },
+      "podia":         { name: "Podia",          tagline: "Cheaper. Faster checkout. Better for product-led creators.",               verdict: "Sellisy is $9 with 0% fees from day one. Podia's first 0%-fee tier is $39/mo." },
+      "sendowl":       { name: "SendOwl",        tagline: "A real storefront instead of just a 'buy now' button",                     verdict: "Same $9 entry. Sellisy ships you a full storefront; SendOwl gives you a checkout layer for an existing site." },
+      "ko-fi":         { name: "Ko-fi",          tagline: "When a tip jar isn't enough — graduate to a real store",                   verdict: "Ko-fi is perfect for tips. Sellisy ($9) is for treating digital products like a real business." },
+      "stan-store":    { name: "Stan Store",     tagline: "More than a link-in-bio — a real storefront with templates",               verdict: "Sellisy is $9 vs Stan's $29, with a real desktop+mobile storefront instead of a link page." },
+      "whop":          { name: "Whop",           tagline: "Sell digital products without paying 3% on every sale",                    verdict: "Whop wins for paid Discord communities. Sellisy ($9 flat, 0% fee) wins for everything else digital." },
+      "kajabi":        { name: "Kajabi",         tagline: "Stop paying $149+/mo for features you don't use",                          verdict: "Sellisy saves ~$960/year vs Kajabi Kickstarter — if you don't need an LMS, it's the right call." },
+      "kit":           { name: "Kit (ConvertKit)", tagline: "Built to sell products — not email-first with a checkout bolted on",     verdict: "Kit wins if your newsletter is your main asset. Sellisy ($9, 0% fee) wins if your storefront is." },
+      "beacons":       { name: "Beacons",        tagline: "A real store instead of a fancy link page",                                verdict: "Beacons free takes 9% per sale. Sellisy is $9 flat with 0% — cheaper above ~$100/mo." },
+    };
+
+    const slug = Array.isArray(versusMatch) && versusMatch[1] ? versusMatch[1] : "";
+    const meta = slug && VERSUS_SEO[slug];
+
+    if (!slug || !meta) {
+      return {
+        title: "Compare Sellisy to every creator platform — Sellisy",
+        description: "Side-by-side comparisons of Sellisy vs Gumroad, Lemon Squeezy, Payhip, Sellfy, Podia, Kajabi, Whop, Kit, Beacons, and more.",
+        canonical,
+        ogImage: `${brandSiteUrl()}/og-image.png`,
+        ogType: "website",
+        jsonLd: {
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "Sellisy comparisons",
+          url: canonical,
+          isPartOf: { "@type": "WebSite", url: brandSiteUrl(), name: "Sellisy" },
+        },
+      };
+    }
+
+    const title = `Sellisy vs ${meta.name} — ${meta.tagline} | Sellisy`;
+    const description = `${meta.verdict} Compare Sellisy and ${meta.name} side-by-side: pricing, fees, features, and which fits your business.`;
+    return {
+      title,
+      description,
+      canonical,
+      ogImage: `${brandSiteUrl()}/og-image.png`,
+      ogImageWidth: 1200,
+      ogImageHeight: 630,
+      ogType: "website",
+      keywords: `sellisy vs ${meta.name.toLowerCase()}, ${meta.name.toLowerCase()} alternative, ${meta.name.toLowerCase()} comparison, digital product platform`,
+      jsonLd: [
+        {
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: `Sellisy vs ${meta.name}`,
+          url: canonical,
+          description: meta.tagline,
+          isPartOf: { "@type": "WebSite", url: brandSiteUrl(), name: "Sellisy" },
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: brandSiteUrl() + "/" },
+            { "@type": "ListItem", position: 2, name: "Compare", item: brandSiteUrl() + "/vs" },
+            { "@type": "ListItem", position: 3, name: meta.name, item: canonical },
+          ],
+        },
+      ],
     };
   }
 
@@ -282,6 +386,7 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
       siteName: store.name,
       keywords: product.tags?.length ? product.tags.join(", ") : undefined,
       jsonLd: [productJsonLd, breadcrumbJsonLd],
+      storefrontSlug: store.slug,
     };
   }
 
@@ -334,6 +439,7 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
       ogType: "product",
       siteName: store.name,
       jsonLd: [productJsonLd, breadcrumbJsonLd],
+      storefrontSlug: store.slug,
     };
   }
 
@@ -388,6 +494,7 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
       articleModifiedTime: publishedAt,
       articleAuthor: post.authorName ?? undefined,
       jsonLd: [articleJsonLd, breadcrumbJsonLd],
+      storefrontSlug: store.slug,
     };
   }
 
@@ -410,6 +517,7 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
         url: canonical,
         publisher: { "@type": "Organization", name: store.name },
       },
+      storefrontSlug: store.slug,
     };
   }
 
@@ -442,6 +550,7 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
       ogType: "website",
       siteName: store.name,
       jsonLd: storeJsonLd,
+      storefrontSlug: store.slug,
     };
   }
 
