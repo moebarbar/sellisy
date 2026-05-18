@@ -139,9 +139,35 @@ async function createPayPalOrder(
   return { approveUrl: approveLink.href, paypalOrderId: paypalOrder.id };
 }
 
+// Lazy-create the user_profiles row on first plan-tier check, with a free
+// 14-day Growth-tier trial auto-granted. Existing users with no row also get
+// the trial on their next request — no backfill cron needed.
+async function ensureUserProfile(userId: string) {
+  const existing = await storage.getUserProfile(userId);
+  if (existing) return existing;
+  const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  return storage.upsertUserProfile({
+    userId,
+    planTier: "basic",
+    isAdmin: false,
+    trialEndsAt,
+  });
+}
+
+// Effective tier: a basic-tier user with an active trial gets pro-tier
+// access. Once they convert to paid (Stripe webhook sets planTier=pro/max
+// AND clears trialEndsAt) the trial is moot. Once trialEndsAt is in the
+// past, they revert to basic.
+function effectiveTier(profile: { planTier: string | null; trialEndsAt: Date | null }): PlanTier {
+  const tier = (profile.planTier as PlanTier) || "basic";
+  if (tier !== "basic") return tier;
+  if (profile.trialEndsAt && profile.trialEndsAt > new Date()) return "pro";
+  return "basic";
+}
+
 async function getUserPlanTier(userId: string): Promise<PlanTier> {
-  const profile = await storage.getUserProfile(userId);
-  return (profile?.planTier as PlanTier) || "basic";
+  const profile = await ensureUserProfile(userId);
+  return effectiveTier(profile);
 }
 
 async function isUserAdmin(userId: string): Promise<boolean> {
@@ -393,14 +419,18 @@ ${urls}</urlset>`;
 
   app.get("/api/user/profile", isAuthenticated, async (req, res) => {
     const userId = getUserId(req);
-    let profile = await storage.getUserProfile(userId);
-    if (!profile) {
-      profile = await storage.upsertUserProfile({ userId, planTier: "basic", isAdmin: false });
-    }
-    const tier = profile.planTier as PlanTier;
+    const profile = await ensureUserProfile(userId);
+    const trueTier = profile.planTier as PlanTier;
+    const tier = effectiveTier(profile);
+    const isOnTrial = trueTier === "basic" && !!profile.trialEndsAt && profile.trialEndsAt > new Date();
     res.json({
       ...profile,
+      // The effective tier the client should use for feature gating.
+      // The raw planTier is still on the row (planTier) if anything needs it.
+      planTier: tier,
       features: PLAN_FEATURES[tier],
+      isOnTrial,
+      trialEndsAt: profile.trialEndsAt,
     });
   });
 
