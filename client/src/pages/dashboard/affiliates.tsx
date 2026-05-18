@@ -256,6 +256,28 @@ function AffiliatesList({ storeId, storeSlug, defaultRateBps }: { storeId: strin
     },
   });
 
+  const pending = (data || []).filter((a) => a.status === "pending");
+  const active = (data || []).filter((a) => a.status !== "pending");
+
+  const approveOne = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("POST", `/api/affiliate/affiliates/${id}/approve`);
+    },
+    onSuccess: () => {
+      toast({ title: "Affiliate approved", description: "They've been notified by email." });
+      queryClient.invalidateQueries({ queryKey: ["/api/affiliate/affiliates", storeId] });
+    },
+  });
+
+  const rejectOne = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("PATCH", `/api/affiliate/affiliates/${id}`, { status: "rejected" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/affiliate/affiliates", storeId] });
+    },
+  });
+
   const toggleStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "active" | "paused" }) => {
       await apiRequest("PATCH", `/api/affiliate/affiliates/${id}`, { status });
@@ -281,7 +303,58 @@ function AffiliatesList({ storeId, storeSlug, defaultRateBps }: { storeId: strin
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {pending.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold">Pending applications</h2>
+            <p className="text-sm text-muted-foreground">
+              People who applied via your public apply page. Approve to send them their link, or reject.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {pending.map((aff) => (
+              <Card key={aff.id} data-testid={`card-pending-${aff.id}`} className="border-primary/30">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <code className="font-mono font-bold">{aff.code}</code>
+                        <Badge variant="secondary">pending</Badge>
+                        <Badge variant="outline">{formatPercent(aff.commissionRateBps)}</Badge>
+                      </div>
+                      {aff.payoutEmail && <p className="text-sm mt-1">{aff.payoutEmail}</p>}
+                      {aff.notes && (
+                        <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line">{aff.notes}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => approveOne.mutate(aff.id)}
+                        disabled={approveOne.isPending}
+                        data-testid={`button-approve-${aff.id}`}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => rejectOne.mutate(aff.id)}
+                        disabled={rejectOne.isPending}
+                        data-testid={`button-reject-${aff.id}`}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h2 className="text-lg font-semibold">Your affiliates</h2>
         <InviteAffiliateDialog storeId={storeId} defaultRateBps={defaultRateBps} onSuccess={refetch} />
@@ -291,7 +364,7 @@ function AffiliatesList({ storeId, storeSlug, defaultRateBps }: { storeId: strin
         <div className="space-y-2">
           {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
         </div>
-      ) : !data || data.length === 0 ? (
+      ) : !active || active.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
@@ -306,7 +379,7 @@ function AffiliatesList({ storeId, storeSlug, defaultRateBps }: { storeId: strin
         </Card>
       ) : (
         <div className="space-y-2">
-          {data.map((aff) => (
+          {active.map((aff) => (
             <Card key={aff.id} data-testid={`card-affiliate-${aff.id}`}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-4 flex-wrap">
@@ -459,7 +532,7 @@ function CommissionsList({ storeId }: { storeId: string }) {
 
 // ── Settings tab ─────────────────────────────────────────────────────
 
-function SettingsForm({ storeId }: { storeId: string }) {
+function SettingsForm({ storeId, storeSlug }: { storeId: string; storeSlug: string }) {
   const { toast } = useToast();
   const { data, isLoading } = useQuery<Settings>({
     queryKey: ["/api/affiliate/settings", storeId],
@@ -589,6 +662,35 @@ function SettingsForm({ storeId }: { storeId: string }) {
         <Button onClick={() => save.mutate()} disabled={save.isPending} data-testid="button-save-settings">
           {save.isPending ? "Saving..." : "Save settings"}
         </Button>
+
+        {enabled && storeSlug && (
+          <div className="pt-6 border-t space-y-2">
+            <Label>Public apply link</Label>
+            <p className="text-xs text-muted-foreground">
+              Share this with people who want to become affiliates for your store. They can apply themselves
+              without you having to invite them by code.
+            </p>
+            <div className="flex items-center gap-2">
+              <Input
+                value={`${window.location.origin}/s/${storeSlug}/affiliate`}
+                readOnly
+                className="font-mono text-xs"
+                data-testid="input-public-apply-link"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/s/${storeSlug}/affiliate`);
+                  toast({ title: "Link copied" });
+                }}
+                data-testid="button-copy-public-apply-link"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -647,6 +749,7 @@ export default function AffiliatesPage() {
         <TabsList>
           <TabsTrigger value="affiliates" data-testid="tab-affiliates">Affiliates</TabsTrigger>
           <TabsTrigger value="commissions" data-testid="tab-commissions">Commissions</TabsTrigger>
+          <TabsTrigger value="payouts" data-testid="tab-payouts">Payouts</TabsTrigger>
           <TabsTrigger value="settings" data-testid="tab-settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -658,8 +761,12 @@ export default function AffiliatesPage() {
           <CommissionsList storeId={activeStoreId} />
         </TabsContent>
 
+        <TabsContent value="payouts">
+          <PayoutsTab storeId={activeStoreId} />
+        </TabsContent>
+
         <TabsContent value="settings">
-          <SettingsForm storeId={activeStoreId} />
+          <SettingsForm storeId={activeStoreId} storeSlug={activeStore?.slug ?? ""} />
         </TabsContent>
       </Tabs>
     </div>
@@ -686,4 +793,236 @@ function AffiliatesListContainer({ storeId, storeSlug }: { storeId: string; stor
     },
   });
   return <AffiliatesList storeId={storeId} storeSlug={storeSlug} defaultRateBps={settings?.defaultRateBps ?? 2000} />;
+}
+
+// ── Payouts tab ─────────────────────────────────────────────────────
+
+type EligibleRow = {
+  affiliateId: string;
+  code: string;
+  payoutEmail: string | null;
+  eligibleCents: number;
+  commissionIds: string[];
+  meetsThreshold: boolean;
+};
+
+type PayoutRow = {
+  id: string;
+  affiliateId: string;
+  totalCents: number;
+  method: string;
+  externalRef: string | null;
+  status: "processing" | "paid" | "failed";
+  paidAt: string | null;
+  createdAt: string;
+};
+
+function PayoutsTab({ storeId }: { storeId: string }) {
+  const { toast } = useToast();
+  const { data: eligible, isLoading } = useQuery<EligibleRow[]>({
+    queryKey: ["/api/affiliate/payouts/eligible", storeId],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/affiliate/payouts/eligible?storeId=${storeId}`);
+      return res.json();
+    },
+  });
+  const { data: history } = useQuery<PayoutRow[]>({
+    queryKey: ["/api/affiliate/payouts", storeId],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/affiliate/payouts?storeId=${storeId}`);
+      return res.json();
+    },
+  });
+
+  const [payingRow, setPayingRow] = useState<EligibleRow | null>(null);
+  const [method, setMethod] = useState<"manual_paypal" | "manual_wise" | "manual_bank" | "manual_other">("manual_paypal");
+  const [externalRef, setExternalRef] = useState("");
+
+  const createPayout = useMutation({
+    mutationFn: async () => {
+      if (!payingRow) return;
+      await apiRequest("POST", "/api/affiliate/payouts", {
+        affiliateId: payingRow.affiliateId,
+        commissionIds: payingRow.commissionIds,
+        method,
+        externalRef: externalRef.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Payout recorded", description: `Commissions marked as paid.` });
+      setPayingRow(null);
+      setExternalRef("");
+      queryClient.invalidateQueries({ queryKey: ["/api/affiliate/payouts/eligible", storeId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/affiliate/payouts", storeId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/affiliate/commissions", storeId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/affiliate/stats", storeId] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to record payout", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const markPaidNotify = useMutation({
+    mutationFn: async ({ id, ref }: { id: string; ref?: string }) => {
+      await apiRequest("PATCH", `/api/affiliate/payouts/${id}`, { externalRef: ref });
+    },
+    onSuccess: () => {
+      toast({ title: "Marked as paid", description: "The affiliate has been notified." });
+      queryClient.invalidateQueries({ queryKey: ["/api/affiliate/payouts", storeId] });
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Eligible for payout */}
+      <div>
+        <h2 className="text-lg font-semibold mb-2">Ready to pay out</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          These commissions are past their refund-lock window. Record a payout when you've sent the money
+          via PayPal, Wise, or another method.
+        </p>
+        {isLoading ? (
+          <Skeleton className="h-24" />
+        ) : !eligible || eligible.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center text-center py-12">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                <DollarSign className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="font-semibold mb-1">Nothing to pay out yet</p>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Commissions become eligible 14 days after the order (the refund window), assuming the
+                order wasn't refunded.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {eligible.map((row) => (
+              <Card key={row.affiliateId} data-testid={`card-eligible-${row.affiliateId}`}>
+                <CardContent className="p-4 flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <code className="font-mono font-bold">{row.code}</code>
+                      {!row.meetsThreshold && <Badge variant="outline">below threshold</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {row.payoutEmail || <em>no payout email set</em>} · {row.commissionIds.length} commission
+                      {row.commissionIds.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Owed</p>
+                      <p className="text-lg font-bold">{formatMoney(row.eligibleCents)}</p>
+                    </div>
+                    <Button onClick={() => setPayingRow(row)} data-testid={`button-pay-${row.affiliateId}`}>
+                      Pay {formatMoney(row.eligibleCents)}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Payout history */}
+      <div>
+        <h2 className="text-lg font-semibold mb-2">Payout history</h2>
+        {!history || history.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No payouts yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {history.map((p) => (
+              <Card key={p.id} data-testid={`card-payout-${p.id}`}>
+                <CardContent className="p-4 flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant={p.status === "paid" ? "default" : "secondary"}>{p.status}</Badge>
+                      <Badge variant="outline">{p.method.replace("manual_", "")}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(p.createdAt).toLocaleString()}
+                      {p.externalRef && <> · ref: <code className="font-mono">{p.externalRef}</code></>}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <p className="text-lg font-bold">{formatMoney(p.totalCents)}</p>
+                    {p.status !== "paid" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const ref = window.prompt("Enter payment reference (optional)");
+                          markPaidNotify.mutate({ id: p.id, ref: ref?.trim() || undefined });
+                        }}
+                        disabled={markPaidNotify.isPending}
+                        data-testid={`button-mark-paid-${p.id}`}
+                      >
+                        Mark sent
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Create payout dialog */}
+      <Dialog open={!!payingRow} onOpenChange={(o) => !o && setPayingRow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record payout</DialogTitle>
+            <DialogDescription>
+              You're recording that you've paid (or are about to pay) the affiliate. This marks the
+              commissions as paid and notifies them by email when you click "Mark sent".
+            </DialogDescription>
+          </DialogHeader>
+          {payingRow && (
+            <div className="space-y-4">
+              <div className="rounded-md bg-muted p-3 text-sm">
+                <p>
+                  <strong>{formatMoney(payingRow.eligibleCents)}</strong> to{" "}
+                  <code className="font-mono">{payingRow.code}</code>
+                  {payingRow.payoutEmail && <> ({payingRow.payoutEmail})</>}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Method</Label>
+                <Select value={method} onValueChange={(v: any) => setMethod(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual_paypal">PayPal</SelectItem>
+                    <SelectItem value="manual_wise">Wise</SelectItem>
+                    <SelectItem value="manual_bank">Bank transfer</SelectItem>
+                    <SelectItem value="manual_other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>External reference (optional)</Label>
+                <Input
+                  placeholder="PayPal transaction ID, Wise reference, etc."
+                  value={externalRef}
+                  onChange={(e) => setExternalRef(e.target.value)}
+                  data-testid="input-external-ref"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayingRow(null)}>Cancel</Button>
+            <Button onClick={() => createPayout.mutate()} disabled={createPayout.isPending} data-testid="button-confirm-payout">
+              {createPayout.isPending ? "Saving..." : "Record payout"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }

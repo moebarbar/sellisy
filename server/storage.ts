@@ -1123,6 +1123,28 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(affiliates.createdAt));
   }
 
+  // Returns affiliate rows matching this user via either userId or payout_email.
+  // Self-serve applicants get a placeholder userId (since they weren't logged in
+  // when they applied); we link by email until they sign in for the first time.
+  async getAffiliatesByUserOrEmail(userId: string, email: string | null): Promise<Affiliate[]> {
+    if (!email) return this.getAffiliatesByUser(userId);
+    const rows = await db.select().from(affiliates)
+      .where(and(
+        sql`(${affiliates.userId} = ${userId} OR ${affiliates.payoutEmail} = ${email})`,
+        isNull(affiliates.deletedAt),
+      ))
+      .orderBy(desc(affiliates.createdAt));
+    return rows;
+  }
+
+  // Lazy-link: when a self-serve applicant signs in, swap the placeholder
+  // userId on their affiliate rows with their real users.id.
+  async linkAffiliateToUser(affiliateId: string, userId: string): Promise<void> {
+    await db.update(affiliates)
+      .set({ userId, updatedAt: new Date() })
+      .where(eq(affiliates.id, affiliateId));
+  }
+
   async createAffiliate(data: InsertAffiliate): Promise<Affiliate> {
     const [row] = await db.insert(affiliates).values(data).returning();
     return row;
@@ -1202,6 +1224,44 @@ export class DatabaseStorage implements IStorage {
     await db.update(affiliateCommissions)
       .set({ status: "paid", payoutId, updatedAt: new Date() })
       .where(inArray(affiliateCommissions.id, commissionIds));
+  }
+
+  // Eligible = pending/approved + locked_until is past + not yet paid.
+  // These are the rows the owner picks when running a payout.
+  async getEligibleCommissionsForAffiliate(affiliateId: string): Promise<AffiliateCommission[]> {
+    return db.select().from(affiliateCommissions)
+      .where(and(
+        eq(affiliateCommissions.affiliateId, affiliateId),
+        sql`${affiliateCommissions.status} IN ('pending', 'approved')`,
+        sql`${affiliateCommissions.lockedUntil} <= NOW()`,
+        isNull(affiliateCommissions.payoutId),
+      ))
+      .orderBy(desc(affiliateCommissions.createdAt));
+  }
+
+  async getPayoutsByStore(storeId: string): Promise<AffiliatePayout[]> {
+    return db.select().from(affiliatePayouts)
+      .where(eq(affiliatePayouts.storeId, storeId))
+      .orderBy(desc(affiliatePayouts.createdAt));
+  }
+
+  async markPayoutPaid(payoutId: string, externalRef: string | null): Promise<AffiliatePayout | undefined> {
+    const [row] = await db.update(affiliatePayouts)
+      .set({ status: "paid", externalRef, paidAt: new Date(), updatedAt: new Date() })
+      .where(eq(affiliatePayouts.id, payoutId))
+      .returning();
+    return row;
+  }
+
+  async getAffiliateClickCount(affiliateId: string, sinceDays: number = 30): Promise<number> {
+    const cutoff = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+    const [row] = await db.select({ n: sql<number>`count(*)::int` })
+      .from(affiliateClicks)
+      .where(and(
+        eq(affiliateClicks.affiliateId, affiliateId),
+        sql`${affiliateClicks.createdAt} > ${cutoff}`,
+      ));
+    return row?.n ?? 0;
   }
 }
 
