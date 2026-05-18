@@ -286,7 +286,7 @@ export function PricingSection() {
           <span style={{ color: "var(--s-yellow)" }}>KEEP 100% OF EVERY SALE.</span>
         </h2>
         <p className="s-label" style={{ color: "rgba(250,250,245,0.4)" }}>
-          No free tier. No hidden fees. Just tools that pay for themselves.
+          14-day free trial of Growth. No hidden fees. Just tools that pay for themselves.
         </p>
       </div>
 

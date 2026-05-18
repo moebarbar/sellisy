@@ -76,7 +76,7 @@ const TIER_BADGE_STYLES: Record<string, string> = {
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
-  const { tier, isAdmin } = useUserProfile();
+  const { tier, isAdmin, isOnTrial } = useUserProfile();
   const { setOpenMobile } = useSidebar();
 
   // Show "Earnings" nav only if this user is an affiliate for at least one store.
@@ -164,7 +164,7 @@ export function AppSidebar() {
             </span>
             <Badge className={`text-[10px] border-0 gap-0.5 ${TIER_BADGE_STYLES[tier]}`} data-testid="badge-plan-tier">
               {tier === "max" ? <Crown className="h-2.5 w-2.5" /> : tier === "pro" ? <Sparkles className="h-2.5 w-2.5" /> : null}
-              {tier.toUpperCase()} plan
+              {isOnTrial ? "TRIAL" : `${tier.toUpperCase()} plan`}
             </Badge>
           </div>
           <Button

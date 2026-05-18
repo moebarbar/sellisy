@@ -606,12 +606,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserPlan(userId: string, planTier: PlanTier) {
+    // When promoting to a paid tier, clear any active trial — the user has
+    // converted, the trial is moot. We don't blank trialEndsAt on basic-set
+    // (so an admin demotion doesn't reset/extend a trial).
+    const clearTrial = planTier !== "basic";
     const existing = await this.getUserProfile(userId);
     if (!existing) {
-      const [created] = await db.insert(userProfiles).values({ userId, planTier }).returning();
+      const [created] = await db.insert(userProfiles)
+        .values({ userId, planTier, trialEndsAt: clearTrial ? null : undefined })
+        .returning();
       return created;
     }
-    const [updated] = await db.update(userProfiles).set({ planTier }).where(eq(userProfiles.userId, userId)).returning();
+    const updates: any = { planTier };
+    if (clearTrial) updates.trialEndsAt = null;
+    const [updated] = await db.update(userProfiles)
+      .set(updates)
+      .where(eq(userProfiles.userId, userId))
+      .returning();
     return updated;
   }
 

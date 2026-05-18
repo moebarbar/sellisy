@@ -20,6 +20,10 @@ export const userProfiles = pgTable("user_profiles", {
   userId: varchar("user_id", { length: 64 }).primaryKey(),
   planTier: planTierEnum("plan_tier").notNull().default("basic"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  // Free 14-day Growth-tier trial. NULL = no trial (never had one, or
+  // already converted to paid). Effective tier resolution treats
+  // basic + trial_ends_at > now() as "pro".
+  trialEndsAt: timestamp("trial_ends_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

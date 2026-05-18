@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { CreateStoreDialog } from "@/components/dashboard/sidebar";
+import { TrialBanner } from "@/components/dashboard/trial-banner";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   // Gate rendering on Clerk's auth state directly. Using the local
@@ -63,6 +64,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           <AppSidebar />
           <div className="flex flex-col flex-1 min-w-0">
             <DashboardHeader />
+            <TrialBanner />
             <main className="flex-1 overflow-auto">
               {children}
             </main>
