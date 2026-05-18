@@ -31,6 +31,12 @@ export type AuditEvent =
   | "order.refunded"
   | "affiliate.commission_created"
   | "affiliate.self_attribution_blocked"
+  | "affiliate.applied"
+  | "affiliate.approved"
+  | "affiliate.created"
+  | "affiliate.settings_updated"
+  | "affiliate.payout_created"
+  | "affiliate.payout_marked_paid"
   | "rate_limit.hit"
   | "data.export";
 
