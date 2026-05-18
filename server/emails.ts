@@ -300,6 +300,106 @@ export async function sendWelcomeEmail(params: {
   }
 }
 
+// ─── AFFILIATE: APPLICATION RECEIVED (to applicant) ──────────────────
+
+export async function sendAffiliateApplicationReceivedEmail(params: {
+  applicantEmail: string;
+  applicantName: string | null;
+  storeName: string;
+  storeSlug: string;
+}) {
+  const { applicantEmail, applicantName, storeName } = params;
+  const greet = applicantName ? `Hi ${escapeHtml(applicantName)},` : 'Hi there,';
+  const safeStore = escapeHtml(storeName);
+
+  const content = `
+    ${sectionHeading('Application received')}
+    ${bodyText(`${greet} we got your application to be an affiliate for <strong>${safeStore}</strong>.`)}
+    ${bodyText("The store owner will review and get back to you. You'll receive another email once your application is approved with your unique tracking link.")}
+    ${divider()}
+    <p style="margin:0;color:#9ca3af;font-size:12px;">If you didn't apply, you can safely ignore this email.</p>`;
+
+  try {
+    await sendEmail(
+      applicantEmail,
+      `Affiliate application received - ${sanitizeHeader(storeName)}`,
+      baseLayout(content, `Your application to promote ${safeStore} is in review.`),
+    );
+  } catch (err) {
+    console.error('Failed to send affiliate application email:', err);
+  }
+}
+
+// ─── AFFILIATE: APPLICATION APPROVED (with link) ─────────────────────
+
+export async function sendAffiliateApprovedEmail(params: {
+  affiliateEmail: string;
+  affiliateName: string | null;
+  storeName: string;
+  affiliateLink: string;
+  commissionPercent: number;
+  cookieDays: number;
+}) {
+  const { affiliateEmail, affiliateName, storeName, affiliateLink, commissionPercent, cookieDays } = params;
+  const greet = affiliateName ? `Hi ${escapeHtml(affiliateName)},` : 'Hi there,';
+  const safeStore = escapeHtml(storeName);
+  const safeLink = escapeHtml(affiliateLink);
+
+  const content = `
+    ${sectionHeading("You're approved!")}
+    ${bodyText(`${greet} you've been approved as an affiliate for <strong>${safeStore}</strong>. Welcome.`)}
+    ${bodyText(`Your commission rate is <strong>${commissionPercent}%</strong> of every sale you refer, with a <strong>${cookieDays}-day cookie window</strong>.`)}
+    ${ctaButton('Open Your Affiliate Link', affiliateLink)}
+    ${bodyText('Or copy the link directly:')}
+    <p style="margin:0;padding:12px 14px;background:#f3f4f6;border-radius:6px;color:${BRAND_COLOR};font-size:13px;word-break:break-all;font-family:monospace;">${safeLink}</p>
+    ${divider()}
+    <p style="margin:0 0 8px;color:#6b7280;font-size:13px;"><strong>How it works</strong></p>
+    <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">Share this link wherever you promote products — social, blog, email. When someone clicks it and buys within ${cookieDays} days, you earn ${commissionPercent}% of the sale.</p>`;
+
+  try {
+    await sendEmail(
+      affiliateEmail,
+      `You're an affiliate for ${sanitizeHeader(storeName)}`,
+      baseLayout(content, `Your unique link for ${safeStore} is ready.`),
+    );
+  } catch (err) {
+    console.error('Failed to send affiliate approved email:', err);
+  }
+}
+
+// ─── AFFILIATE: PAYOUT SENT ──────────────────────────────────────────
+
+export async function sendAffiliatePayoutSentEmail(params: {
+  affiliateEmail: string;
+  storeName: string;
+  amountCents: number;
+  method: string;
+  externalRef: string | null;
+}) {
+  const { affiliateEmail, storeName, amountCents, method, externalRef } = params;
+  const safeStore = escapeHtml(storeName);
+
+  const content = `
+    ${sectionHeading('Payout sent')}
+    ${bodyText(`Your commissions from <strong>${safeStore}</strong> have been paid out.`)}
+    <table style="width:100%;margin:24px 0;border-collapse:collapse;">
+      <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;">Amount</td><td style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;text-align:right;">${formatCents(amountCents)}</td></tr>
+      <tr><td style="padding:8px 0;color:#6b7280;font-size:14px;">Method</td><td style="padding:8px 0;color:#111827;font-size:14px;text-align:right;">${escapeHtml(method)}</td></tr>
+      ${externalRef ? `<tr><td style="padding:8px 0;color:#6b7280;font-size:14px;">Reference</td><td style="padding:8px 0;color:#111827;font-size:14px;text-align:right;font-family:monospace;">${escapeHtml(externalRef)}</td></tr>` : ''}
+    </table>
+    ${bodyText(`Check the payment method (${escapeHtml(method)}) for the funds. If you don't see them within a few business days, reach out to the store owner directly.`)}`;
+
+  try {
+    await sendEmail(
+      affiliateEmail,
+      `Payout sent: ${formatCents(amountCents)} from ${sanitizeHeader(storeName)}`,
+      baseLayout(content, `${formatCents(amountCents)} paid out to you.`),
+    );
+  } catch (err) {
+    console.error('Failed to send payout email:', err);
+  }
+}
+
 // ─── 6. MAGIC LINK ───────────────────────────────────────────────────
 
 export async function sendMagicLinkEmail(params: {

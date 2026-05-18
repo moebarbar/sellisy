@@ -3,7 +3,7 @@ import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveStore } from "@/lib/store-context";
 import { useUserProfile } from "@/hooks/use-user-profile";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { fireConfetti } from "@/lib/confetti";
@@ -46,6 +46,7 @@ import {
   ShieldCheck,
   Mail,
   Handshake,
+  Wallet,
 } from "lucide-react";
 
 const navItems = [
@@ -77,6 +78,13 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const { tier, isAdmin } = useUserProfile();
   const { setOpenMobile } = useSidebar();
+
+  // Show "Earnings" nav only if this user is an affiliate for at least one store.
+  // Cheap GET — same endpoint the earnings page uses.
+  const { data: myAffiliations } = useQuery<any[]>({
+    queryKey: ["/api/affiliate/me"],
+  });
+  const hasAffiliations = (myAffiliations?.length ?? 0) > 0;
 
   const displayName = user?.firstName
     ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ""}`
@@ -119,6 +127,16 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {hasAffiliations && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location.startsWith("/dashboard/earnings")}>
+                    <Link href="/dashboard/earnings" onClick={() => setOpenMobile(false)}>
+                      <Wallet className="h-4 w-4" />
+                      <span data-testid="link-nav-earnings">My Earnings</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               {isAdmin && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={location.startsWith("/dashboard/data-health")}>

@@ -8,6 +8,13 @@ import { affiliates, affiliateCommissions, stores, PLAN_FEATURES, type PlanTier 
 import { isAuthenticated } from "../replit_integrations/auth";
 import { and, eq, desc, inArray } from "drizzle-orm";
 import { audit } from "../audit";
+import {
+  sendAffiliateApplicationReceivedEmail,
+  sendAffiliateApprovedEmail,
+  sendAffiliatePayoutSentEmail,
+} from "../emails";
+import { authStorage } from "../replit_integrations/auth/storage";
+import { affiliatePayouts } from "@shared/schema";
 
 export const affiliateRouter = Router();
 
@@ -296,4 +303,333 @@ affiliateRouter.get("/stats", isAuthenticated, async (req: Request, res: Respons
     paidCents: sum(all.filter((r) => r.status === "paid")),
     voidCents: sum(all.filter((r) => r.status === "void")),
   });
+});
+
+// ── PUBLIC: store info for the apply page ─────────────────────────────
+
+affiliateRouter.get("/public/store/:slug", async (req: Request, res: Response) => {
+  const slug = String(req.params.slug).toLowerCase();
+  const store = await storage.getStoreBySlug(slug);
+  if (!store || store.deletedAt) return res.status(404).json({ message: "Store not found" });
+
+  // Even if disabled, return the basic info so the apply page can render
+  // a polite "not accepting" message instead of a 404.
+  res.json({
+    id: store.id,
+    name: store.name,
+    slug: store.slug,
+    tagline: store.tagline,
+    affiliateProgramEnabled: store.affiliateProgramEnabled,
+    affiliateDefaultRateBps: store.affiliateDefaultRateBps,
+    affiliateCookieDays: store.affiliateCookieDays,
+  });
+});
+
+// ── PUBLIC: self-serve affiliate apply ────────────────────────────────
+
+const applyLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,  // 1h
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, reason: "rate_limited" },
+});
+
+const applySchema = z.object({
+  storeSlug: z.string().min(1).max(80),
+  email: z.string().email().max(254),
+  name: z.string().min(1).max(120),
+  code: z.string().min(2).max(40).regex(/^[a-z0-9-]+$/i, "Code must be lowercase letters, numbers, dashes"),
+  message: z.string().max(800).optional(),
+});
+
+affiliateRouter.post("/apply", applyLimiter, async (req: Request, res: Response) => {
+  const parsed = applySchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ ok: false, message: parsed.error.errors[0].message });
+
+  const store = await storage.getStoreBySlug(parsed.data.storeSlug);
+  if (!store || store.deletedAt) return res.status(404).json({ ok: false, message: "Store not found" });
+  if (!store.affiliateProgramEnabled) {
+    return res.status(403).json({ ok: false, message: "This store isn't accepting affiliate applications right now." });
+  }
+
+  // Gate the program by owner's plan tier — same as everywhere else.
+  const ownerProfile = await storage.getUserProfile(store.ownerId);
+  const ownerTier = (ownerProfile?.planTier as PlanTier) || "basic";
+  if (!PLAN_FEATURES[ownerTier].affiliateProgram) {
+    return res.status(403).json({ ok: false, message: "This store isn't accepting affiliate applications right now." });
+  }
+
+  const code = parsed.data.code.toLowerCase();
+  const email = parsed.data.email.toLowerCase();
+
+  // Conflict checks
+  const existingByCode = await storage.getAffiliateByCode(store.id, code);
+  if (existingByCode) {
+    return res.status(409).json({ ok: false, message: "That affiliate code is already taken. Try a different one." });
+  }
+
+  // Self-serve applicants don't have a Sellisy account at submit time, so we
+  // store a placeholder userId. When they later sign in with the same email,
+  // the affiliate-self endpoints lazy-link them via payout_email match.
+  const placeholderUserId = `applicant-${email}-${Date.now()}`;
+  const notes = parsed.data.message
+    ? `Applicant: ${parsed.data.name} <${email}>\n\n${parsed.data.message}`
+    : `Applicant: ${parsed.data.name} <${email}>`;
+
+  try {
+    const affiliate = await storage.createAffiliate({
+      storeId: store.id,
+      userId: placeholderUserId,
+      code,
+      status: "pending",
+      commissionRateBps: store.affiliateDefaultRateBps,
+      payoutEmail: email,
+      notes,
+    });
+
+    audit({
+      event: "store.created",
+      details: `Affiliate application: ${affiliate.id} (code=${code}, applicant=${email}) for store ${store.id}`,
+    });
+
+    // Confirmation email (best-effort)
+    sendAffiliateApplicationReceivedEmail({
+      applicantEmail: email,
+      applicantName: parsed.data.name,
+      storeName: store.name,
+      storeSlug: store.slug,
+    }).catch((e) => console.error("[affiliate.apply] email failed:", e));
+
+    res.json({ ok: true });
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      return res.status(409).json({ ok: false, message: "That affiliate code is already taken." });
+    }
+    console.error("[affiliate.apply] failed:", err);
+    res.status(500).json({ ok: false, message: "Application failed. Please try again." });
+  }
+});
+
+// Override the existing PATCH /affiliates/:id to also fire the approval email
+// when an affiliate transitions from pending → active. We do this by re-using
+// updateAffiliate but enriching the response when the transition happens.
+
+// ── OWNER: payouts ────────────────────────────────────────────────────
+
+// GET /api/affiliate/payouts?storeId=...
+affiliateRouter.get("/payouts", isAuthenticated, async (req: Request, res: Response) => {
+  const storeId = typeof req.query.storeId === "string" ? req.query.storeId : "";
+  if (!storeId) return res.status(400).json({ message: "storeId required" });
+  const check = await requireStoreOwner(req, storeId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const list = await storage.getPayoutsByStore(storeId);
+  res.json(list);
+});
+
+// GET /api/affiliate/payouts/eligible?storeId=...
+// Returns affiliates with their eligible-for-payout balance, grouped.
+affiliateRouter.get("/payouts/eligible", isAuthenticated, async (req: Request, res: Response) => {
+  const storeId = typeof req.query.storeId === "string" ? req.query.storeId : "";
+  if (!storeId) return res.status(400).json({ message: "storeId required" });
+  const check = await requireStoreOwner(req, storeId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const list = await storage.getAffiliatesByStore(storeId);
+  const eligible = await Promise.all(list.map(async (a) => {
+    const commissions = await storage.getEligibleCommissionsForAffiliate(a.id);
+    const totalCents = commissions.reduce((s, c) => s + c.commissionCents, 0);
+    return {
+      affiliateId: a.id,
+      code: a.code,
+      payoutEmail: a.payoutEmail,
+      eligibleCents: totalCents,
+      commissionIds: commissions.map((c) => c.id),
+      meetsThreshold: totalCents >= check.store.affiliateMinPayoutCents,
+    };
+  }));
+
+  res.json(eligible.filter((e) => e.eligibleCents > 0));
+});
+
+// POST /api/affiliate/payouts — create a payout and mark commissions paid
+const payoutSchema = z.object({
+  affiliateId: z.string(),
+  commissionIds: z.array(z.string()).min(1),
+  method: z.enum(["manual_paypal", "manual_wise", "manual_bank", "manual_other"]),
+  externalRef: z.string().max(120).optional(),
+});
+
+affiliateRouter.post("/payouts", isAuthenticated, async (req: Request, res: Response) => {
+  const parsed = payoutSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  const aff = await storage.getAffiliateById(parsed.data.affiliateId);
+  if (!aff) return res.status(404).json({ message: "Affiliate not found" });
+
+  const check = await requireStoreOwner(req, aff.storeId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  // Verify all commission IDs belong to this affiliate AND are eligible
+  // (status pending/approved, locked_until past, not already paid).
+  const eligible = await storage.getEligibleCommissionsForAffiliate(aff.id);
+  const eligibleIds = new Set(eligible.map((c) => c.id));
+  const invalid = parsed.data.commissionIds.filter((id) => !eligibleIds.has(id));
+  if (invalid.length > 0) {
+    return res.status(400).json({ message: `Some commissions are not eligible for payout.` });
+  }
+
+  const selectedCommissions = eligible.filter((c) => parsed.data.commissionIds.includes(c.id));
+  const totalCents = selectedCommissions.reduce((s, c) => s + c.commissionCents, 0);
+
+  const payout = await storage.createPayout({
+    affiliateId: aff.id,
+    storeId: aff.storeId,
+    totalCents,
+    method: parsed.data.method,
+    externalRef: parsed.data.externalRef ?? null,
+    status: "processing",
+  });
+
+  await storage.markCommissionsPaid(parsed.data.commissionIds, payout.id);
+
+  audit({
+    event: "store.created",
+    details: `Payout created: ${payout.id} for affiliate ${aff.id}, ${totalCents}c (${selectedCommissions.length} commissions)`,
+  });
+
+  res.json(payout);
+});
+
+// PATCH /api/affiliate/payouts/:id — mark as paid, record external reference
+const markPaidSchema = z.object({
+  externalRef: z.string().max(120).optional(),
+});
+affiliateRouter.patch("/payouts/:id", isAuthenticated, async (req: Request, res: Response) => {
+  const parsed = markPaidSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  // Look up + verify ownership via the affiliate -> store chain.
+  const [payout] = await db.select().from(affiliatePayouts).where(eq(affiliatePayouts.id, String(req.params.id))).limit(1);
+  if (!payout) return res.status(404).json({ message: "Payout not found" });
+
+  const check = await requireStoreOwner(req, payout.storeId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const updated = await storage.markPayoutPaid(payout.id, parsed.data.externalRef ?? null);
+
+  // Notify the affiliate
+  const aff = await storage.getAffiliateById(payout.affiliateId);
+  if (aff?.payoutEmail) {
+    sendAffiliatePayoutSentEmail({
+      affiliateEmail: aff.payoutEmail,
+      storeName: check.store.name,
+      amountCents: payout.totalCents,
+      method: payout.method,
+      externalRef: parsed.data.externalRef ?? null,
+    }).catch((e) => console.error("[affiliate.payout] email failed:", e));
+  }
+
+  res.json(updated);
+});
+
+// ── AFFILIATE-SELF: my view ───────────────────────────────────────────
+
+// GET /api/affiliate/me — affiliate-side aggregated view across all stores
+affiliateRouter.get("/me", isAuthenticated, async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  const me = await authStorage.getUser(userId);
+  const email = me?.email?.toLowerCase() ?? null;
+
+  // Find by userId OR by matching email (for self-serve applicants who haven't
+  // been linked yet).
+  const myAffs = await storage.getAffiliatesByUserOrEmail(userId, email);
+
+  // Lazy-link any rows that matched by email but still have a placeholder userId
+  for (const a of myAffs) {
+    if (a.userId !== userId && a.userId.startsWith("applicant-")) {
+      await storage.linkAffiliateToUser(a.id, userId);
+    }
+  }
+
+  // Build per-store summary
+  const out = await Promise.all(myAffs.map(async (a) => {
+    const store = await storage.getStoreById(a.storeId);
+    if (!store) return null;
+    const commissions = await storage.getCommissionsByAffiliate(a.id);
+    const clicks = await storage.getAffiliateClickCount(a.id, 30);
+    const pendingCents = commissions.filter((c) => c.status === "pending" || c.status === "approved").reduce((s, c) => s + c.commissionCents, 0);
+    const paidCents = commissions.filter((c) => c.status === "paid").reduce((s, c) => s + c.commissionCents, 0);
+    return {
+      affiliateId: a.id,
+      storeId: a.storeId,
+      storeName: store.name,
+      storeSlug: store.slug,
+      code: a.code,
+      status: a.status,
+      commissionRateBps: a.commissionRateBps,
+      payoutEmail: a.payoutEmail,
+      clicks30d: clicks,
+      conversions: commissions.length,
+      pendingCents,
+      paidCents,
+      recentCommissions: commissions.slice(0, 10),
+    };
+  }));
+
+  res.json(out.filter(Boolean));
+});
+
+// POST /api/affiliate/me/payout-email — affiliate updates their own payout email
+const payoutEmailSchema = z.object({
+  affiliateId: z.string(),
+  payoutEmail: z.string().email(),
+});
+affiliateRouter.post("/me/payout-email", isAuthenticated, async (req: Request, res: Response) => {
+  const parsed = payoutEmailSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  const aff = await storage.getAffiliateById(parsed.data.affiliateId);
+  if (!aff) return res.status(404).json({ message: "Affiliate not found" });
+
+  if (aff.userId !== getUserId(req)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  await storage.updateAffiliate(aff.id, { payoutEmail: parsed.data.payoutEmail });
+  res.json({ ok: true });
+});
+
+// Override PATCH /affiliates/:id to fire approval email when transitioning
+// from pending → active. (The base PATCH is defined earlier; we replace it
+// by registering this handler — Express picks the first match.) Easier
+// approach: add a dedicated approve endpoint.
+
+// POST /api/affiliate/affiliates/:id/approve — approves a pending application
+affiliateRouter.post("/affiliates/:id/approve", isAuthenticated, async (req: Request, res: Response) => {
+  const aff = await storage.getAffiliateById(String(req.params.id));
+  if (!aff) return res.status(404).json({ message: "Affiliate not found" });
+
+  const check = await requireStoreOwner(req, aff.storeId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  if (aff.status === "active") return res.json(aff);
+
+  const updated = await storage.updateAffiliate(aff.id, { status: "active" });
+
+  if (aff.payoutEmail) {
+    const link = `${process.env.APP_URL || "https://sellisy.com"}/s/${check.store.slug}/?ref=${encodeURIComponent(aff.code)}`;
+    const applicantName = aff.notes?.match(/Applicant: ([^<]+)/)?.[1]?.trim() ?? null;
+    sendAffiliateApprovedEmail({
+      affiliateEmail: aff.payoutEmail,
+      affiliateName: applicantName,
+      storeName: check.store.name,
+      affiliateLink: link,
+      commissionPercent: Math.round(aff.commissionRateBps / 100),
+      cookieDays: check.store.affiliateCookieDays,
+    }).catch((e) => console.error("[affiliate.approve] email failed:", e));
+  }
+
+  res.json(updated);
 });

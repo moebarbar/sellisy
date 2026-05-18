@@ -56,6 +56,8 @@ const EmbedProductWidget = lazy(() => import("@/pages/embed-widget"));
 const EmbedBundleWidget = lazy(() => import("@/pages/embed-widget").then(m => ({ default: m.EmbedBundleWidget })));
 const ProductsPage = lazy(() => import("@/pages/products"));
 const VersusPage = lazy(() => import("@/pages/versus"));
+const AffiliateApplyPage = lazy(() => import("@/pages/affiliate-apply"));
+const EarningsPage = lazy(() => import("@/pages/dashboard/earnings"));
 
 class ErrorBoundary extends Component<
   { children: ReactNode; fallbackClassName?: string },
@@ -158,6 +160,7 @@ function DashboardRouter() {
             <Route path="/dashboard/bundles" component={BundlesPage} />
             <Route path="/dashboard/coupons" component={CouponsPage} />
             <Route path="/dashboard/affiliates" component={AffiliatesPage} />
+            <Route path="/dashboard/earnings" component={EarningsPage} />
             <Route path="/dashboard/orders" component={OrdersPage} />
             <Route path="/dashboard/library" component={LibraryPage} />
             <Route path="/dashboard/my-products" component={MyProductsPage} />
@@ -263,6 +266,7 @@ function Router() {
               <Route path="/s/:slug/blog" component={BlogListingPage} />
               <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
               <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
+              <Route path="/s/:slug/affiliate" component={AffiliateApplyPage} />
               <Route path="/s/:slug" component={StorefrontPage} />
               <Route path="/kb/:id" component={KbViewerPage} />
               <Route path="/checkout/success" component={CheckoutSuccessPage} />
