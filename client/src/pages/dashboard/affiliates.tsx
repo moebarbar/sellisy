@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -547,13 +547,17 @@ function SettingsForm({ storeId, storeSlug }: { storeId: string; storeSlug: stri
   const [cookieDays, setCookieDays] = useState<number | null>(null);
   const [minPayout, setMinPayout] = useState<number | null>(null);
 
-  // Hydrate local state once data loads
-  if (data && enabled === null) {
-    setEnabled(data.enabled);
-    setRate(data.defaultRateBps / 100);
-    setCookieDays(data.cookieDays);
-    setMinPayout(data.minPayoutCents / 100);
-  }
+  // Hydrate local state once data loads. Must be in useEffect, not during
+  // render — otherwise React fires "Cannot update a component while rendering
+  // a different component" in strict mode.
+  useEffect(() => {
+    if (data && enabled === null) {
+      setEnabled(data.enabled);
+      setRate(data.defaultRateBps / 100);
+      setCookieDays(data.cookieDays);
+      setMinPayout(data.minPayoutCents / 100);
+    }
+  }, [data, enabled]);
 
   const save = useMutation({
     mutationFn: async () => {

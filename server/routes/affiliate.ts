@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { storage } from "../storage";
 import { db } from "../db";
 import { affiliates, affiliateCommissions, stores, PLAN_FEATURES, type PlanTier } from "@shared/schema";
@@ -146,7 +146,11 @@ affiliateRouter.put("/settings", isAuthenticated, async (req: Request, res: Resp
   if (parsed.data.termsHtml !== undefined) updates.affiliateTermsHtml = parsed.data.termsHtml;
 
   await db.update(stores).set(updates).where(eq(stores.id, parsed.data.storeId));
-  audit({ event: "store.created", details: `Affiliate settings updated for store ${parsed.data.storeId}` });
+  audit({
+    event: "affiliate.settings_updated",
+    storeId: parsed.data.storeId,
+    details: `Affiliate settings updated for store ${parsed.data.storeId}`,
+  });
   res.json({ ok: true });
 });
 
@@ -211,7 +215,11 @@ affiliateRouter.post("/affiliates", isAuthenticated, async (req: Request, res: R
       payoutEmail: parsed.data.payoutEmail ?? null,
       notes: parsed.data.notes ?? null,
     });
-    audit({ event: "store.created", details: `Affiliate created: ${affiliate.id} (code=${affiliate.code}) for store ${parsed.data.storeId}` });
+    audit({
+      event: "affiliate.created",
+      storeId: parsed.data.storeId,
+      details: `Affiliate created: ${affiliate.id} (code=${affiliate.code}) for store ${parsed.data.storeId}`,
+    });
     res.json(affiliate);
   } catch (err: any) {
     if (err?.code === "23505") {
@@ -370,9 +378,10 @@ affiliateRouter.post("/apply", applyLimiter, async (req: Request, res: Response)
   }
 
   // Self-serve applicants don't have a Sellisy account at submit time, so we
-  // store a placeholder userId. When they later sign in with the same email,
-  // the affiliate-self endpoints lazy-link them via payout_email match.
-  const placeholderUserId = `applicant-${email}-${Date.now()}`;
+  // store a random placeholder userId. When they later sign in with an email
+  // matching payoutEmail, the /me endpoint lazy-links to their real users.id.
+  // The "applicant-" prefix is the signal for the lazy-link check.
+  const placeholderUserId = `applicant-${randomUUID()}`;
   const notes = parsed.data.message
     ? `Applicant: ${parsed.data.name} <${email}>\n\n${parsed.data.message}`
     : `Applicant: ${parsed.data.name} <${email}>`;
@@ -389,8 +398,9 @@ affiliateRouter.post("/apply", applyLimiter, async (req: Request, res: Response)
     });
 
     audit({
-      event: "store.created",
-      details: `Affiliate application: ${affiliate.id} (code=${code}, applicant=${email}) for store ${store.id}`,
+      event: "affiliate.applied",
+      storeId: store.id,
+      details: `Affiliate application: ${affiliate.id} (code=${code}) for store ${store.id}`,
     });
 
     // Confirmation email (best-effort)
@@ -495,7 +505,8 @@ affiliateRouter.post("/payouts", isAuthenticated, async (req: Request, res: Resp
   await storage.markCommissionsPaid(parsed.data.commissionIds, payout.id);
 
   audit({
-    event: "store.created",
+    event: "affiliate.payout_created",
+    storeId: aff.storeId,
     details: `Payout created: ${payout.id} for affiliate ${aff.id}, ${totalCents}c (${selectedCommissions.length} commissions)`,
   });
 
@@ -518,6 +529,12 @@ affiliateRouter.patch("/payouts/:id", isAuthenticated, async (req: Request, res:
   if (!check.ok) return res.status(check.status).json({ message: check.message });
 
   const updated = await storage.markPayoutPaid(payout.id, parsed.data.externalRef ?? null);
+
+  audit({
+    event: "affiliate.payout_marked_paid",
+    storeId: payout.storeId,
+    details: `Payout ${payout.id} marked paid (${payout.totalCents}c, ref=${parsed.data.externalRef ?? "none"})`,
+  });
 
   // Notify the affiliate
   const aff = await storage.getAffiliateById(payout.affiliateId);
@@ -601,12 +618,9 @@ affiliateRouter.post("/me/payout-email", isAuthenticated, async (req: Request, r
   res.json({ ok: true });
 });
 
-// Override PATCH /affiliates/:id to fire approval email when transitioning
-// from pending → active. (The base PATCH is defined earlier; we replace it
-// by registering this handler — Express picks the first match.) Easier
-// approach: add a dedicated approve endpoint.
-
 // POST /api/affiliate/affiliates/:id/approve — approves a pending application
+// and emails the affiliate their unique link. Idempotent — re-approving an
+// already-active affiliate is a no-op (no duplicate email).
 affiliateRouter.post("/affiliates/:id/approve", isAuthenticated, async (req: Request, res: Response) => {
   const aff = await storage.getAffiliateById(String(req.params.id));
   if (!aff) return res.status(404).json({ message: "Affiliate not found" });
@@ -618,8 +632,20 @@ affiliateRouter.post("/affiliates/:id/approve", isAuthenticated, async (req: Req
 
   const updated = await storage.updateAffiliate(aff.id, { status: "active" });
 
+  audit({
+    event: "affiliate.approved",
+    storeId: aff.storeId,
+    details: `Affiliate ${aff.id} approved (code=${aff.code})`,
+  });
+
   if (aff.payoutEmail) {
-    const link = `${process.env.APP_URL || "https://sellisy.com"}/s/${check.store.slug}/?ref=${encodeURIComponent(aff.code)}`;
+    // Prefer the store's verified custom domain if available so the affiliate
+    // sees a branded URL instead of sellisy.com/s/<slug>.
+    const useCustomDomain = check.store.customDomain && check.store.domainStatus === "active";
+    const storeBase = useCustomDomain
+      ? `https://${check.store.customDomain}`
+      : `${process.env.APP_URL || "https://sellisy.com"}/s/${check.store.slug}`;
+    const link = `${storeBase}/?ref=${encodeURIComponent(aff.code)}`;
     const applicantName = aff.notes?.match(/Applicant: ([^<]+)/)?.[1]?.trim() ?? null;
     sendAffiliateApprovedEmail({
       affiliateEmail: aff.payoutEmail,
