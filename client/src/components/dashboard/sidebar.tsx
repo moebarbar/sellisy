@@ -45,6 +45,7 @@ import {
   FileText,
   ShieldCheck,
   Mail,
+  Handshake,
 } from "lucide-react";
 
 const navItems = [
@@ -59,6 +60,7 @@ const navItems = [
   { title: "Bundles", url: "/dashboard/bundles", icon: Layers },
   { title: "Marketing", url: "/dashboard/marketing", icon: BookOpen },
   { title: "Coupons", url: "/dashboard/coupons", icon: Ticket },
+  { title: "Affiliates", url: "/dashboard/affiliates", icon: Handshake },
   { title: "Customers", url: "/dashboard/customers", icon: Users },
   { title: "Orders", url: "/dashboard/orders", icon: ShoppingCart },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },

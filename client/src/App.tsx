@@ -38,6 +38,7 @@ const NewsletterCampaignsPage = lazy(() => import("@/pages/dashboard/newsletter-
 const NewsletterCampaignEditorPage = lazy(() => import("@/pages/dashboard/newsletter-campaign-editor"));
 const DataHealthPage = lazy(() => import("@/pages/dashboard/data-health"));
 const GumroadImporterPage = lazy(() => import("@/pages/dashboard/gumroad-importer"));
+const AffiliatesPage = lazy(() => import("@/pages/dashboard/affiliates"));
 
 const AuthPage = lazy(() => import("@/pages/auth"));
 const PrivacyPage = lazy(() => import("@/pages/privacy"));
@@ -156,6 +157,7 @@ function DashboardRouter() {
             <Route path="/dashboard/products" component={StoreProductsPage} />
             <Route path="/dashboard/bundles" component={BundlesPage} />
             <Route path="/dashboard/coupons" component={CouponsPage} />
+            <Route path="/dashboard/affiliates" component={AffiliatesPage} />
             <Route path="/dashboard/orders" component={OrdersPage} />
             <Route path="/dashboard/library" component={LibraryPage} />
             <Route path="/dashboard/my-products" component={MyProductsPage} />
