@@ -64,7 +64,7 @@ export const COMPETITORS: Competitor[] = [
       { label: "AI creator tools (mockups, copy)", sellisy: "Built-in", competitor: "Not included", winner: "sellisy" },
       { label: "Upsells & order bumps", sellisy: "Yes", competitor: "Limited", winner: "sellisy" },
       { label: "Coupon codes", sellisy: "Yes", competitor: "Yes", winner: "tie" },
-      { label: "Affiliate program", sellisy: "Roadmap", competitor: "Built-in", winner: "competitor" },
+      { label: "Affiliate program", sellisy: "Yes (Growth+)", competitor: "Built-in", winner: "tie" },
       { label: "Marketplace traffic", sellisy: "No (you own SEO)", competitor: "Yes (Gumroad Discover)", winner: "competitor" },
       { label: "Customer portal & re-downloads", sellisy: "Yes — your brand", competitor: "Gumroad library (their brand)", winner: "sellisy" },
       { label: "Sell software / license keys", sellisy: "Yes", competitor: "Yes (license key add-on)", winner: "tie" },
@@ -73,7 +73,7 @@ export const COMPETITORS: Competitor[] = [
     whenTheyWin: [
       "You sell less than $90/mo and want zero fixed cost.",
       "You rely heavily on the Gumroad Discover marketplace for new buyers.",
-      "You want a built-in affiliate network from day one (Sellisy's is on the way).",
+      "You rely heavily on Gumroad's discovery marketplace (Gumroad Discover) for new buyers.",
     ],
     whySellisyWins: [
       "10% of every sale adds up fast — at $1k/mo that's $100 to Gumroad. Sellisy is $9 flat.",
@@ -120,7 +120,7 @@ export const COMPETITORS: Competitor[] = [
       { label: "AI creator tools (mockups, copy)", sellisy: "Built-in", competitor: "Not included", winner: "sellisy" },
       { label: "Software license keys", sellisy: "Yes", competitor: "Yes (strong)", winner: "tie" },
       { label: "Subscriptions", sellisy: "Yes (via Stripe)", competitor: "Yes", winner: "tie" },
-      { label: "Affiliate program", sellisy: "Roadmap", competitor: "Built-in", winner: "competitor" },
+      { label: "Affiliate program", sellisy: "Yes (Growth+)", competitor: "Built-in", winner: "tie" },
       { label: "Email marketing", sellisy: "Newsletter campaigns", competitor: "Built-in", winner: "tie" },
       { label: "Customer portal", sellisy: "Branded portal", competitor: "Generic", winner: "sellisy" },
       { label: "Multi-store / brands", sellisy: "Up to unlimited", competitor: "One store", winner: "sellisy" },
@@ -128,7 +128,7 @@ export const COMPETITORS: Competitor[] = [
     whenTheyWin: [
       "You sell SaaS to a global B2B audience and need Merchant-of-Record VAT/sales-tax compliance baked in.",
       "You don't want to deal with Stripe Tax or international VAT registration at all.",
-      "You need a strong built-in affiliate program day one.",
+      "You sell to a global B2B audience and need someone else handling sales tax filings (Sellisy hands you a Stripe Tax integration, not a full MoR service).",
     ],
     whySellisyWins: [
       "Keep your own Stripe/PayPal — direct payouts, not a payout cycle from a third party.",
@@ -176,7 +176,7 @@ export const COMPETITORS: Competitor[] = [
       { label: "EU VAT handled", sellisy: "Via Stripe Tax", competitor: "Built-in", winner: "competitor" },
       { label: "Coupons / discount codes", sellisy: "Yes", competitor: "Yes", winner: "tie" },
       { label: "Upsells & order bumps", sellisy: "Yes", competitor: "Cross-sells", winner: "sellisy" },
-      { label: "Affiliate program", sellisy: "Roadmap", competitor: "Built-in", winner: "competitor" },
+      { label: "Affiliate program", sellisy: "Yes (Growth+)", competitor: "Built-in", winner: "tie" },
       { label: "Multi-store / brands", sellisy: "Up to unlimited", competitor: "One store", winner: "sellisy" },
       { label: "Customer portal", sellisy: "Branded portal", competitor: "Generic buyer dashboard", winner: "sellisy" },
     ]),
@@ -470,7 +470,7 @@ export const COMPETITORS: Competitor[] = [
       { label: "Customer portal", sellisy: "Branded portal", competitor: "Whop-branded hub", winner: "sellisy" },
       { label: "Software license keys", sellisy: "Yes", competitor: "Yes (via apps)", winner: "tie" },
       { label: "Marketplace discovery", sellisy: "No (you own SEO)", competitor: "Whop marketplace", winner: "competitor" },
-      { label: "Affiliate program", sellisy: "Roadmap", competitor: "Yes", winner: "competitor" },
+      { label: "Affiliate program", sellisy: "Yes (Growth+)", competitor: "Yes", winner: "tie" },
       { label: "Multi-store / brands", sellisy: "Up to unlimited", competitor: "Single account", winner: "sellisy" },
     ]),
     whenTheyWin: [

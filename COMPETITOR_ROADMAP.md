@@ -67,7 +67,7 @@ These are the questions a prospect asks before paying you. Ship these first.
 
 ## Suggested 90-day priority order
 
-1. **Affiliate program** — closes Gumroad/Payhip/Whop comparisons. Biggest single conversion lift.
+1. ~~**Affiliate program**~~ ✅ **Shipped** — full self-serve apply + invite-by-owner + commissions + payouts + emails (PR #1 through PR #4). Live on Growth+ tier. Vs-pages updated.
 2. **Stripe Tax onboarding toggle** — kills the Lemon Squeezy objection cheaply.
 3. **Free 14-day trial** — gets you in the consideration set against every freemium competitor. The $9 tier helps but a trial converts harder.
 4. **Basic course product type** — opens up the entire Podia/Kajabi/Payhip course-creator market.
