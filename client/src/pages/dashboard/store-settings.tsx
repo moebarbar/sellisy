@@ -501,6 +501,7 @@ function PaymentsCard() {
   const [stripeSecretKey, setStripeSecretKey] = useState("");
   const [paypalClientId, setPaypalClientId] = useState("");
   const [paypalClientSecret, setPaypalClientSecret] = useState("");
+  const [stripeTaxEnabled, setStripeTaxEnabled] = useState(false);
 
   useEffect(() => {
     if (activeStore) {
@@ -508,17 +509,19 @@ function PaymentsCard() {
       setStripeSecretKey((activeStore as any).stripeSecretKey || "");
       setPaypalClientId((activeStore as any).paypalClientId || "");
       setPaypalClientSecret((activeStore as any).paypalClientSecret || "");
+      setStripeTaxEnabled(!!(activeStore as any).stripeTaxEnabled);
     }
   }, [activeStore]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!activeStoreId) return;
-      const body: Record<string, string | null | undefined> = {};
+      const body: Record<string, string | boolean | null | undefined> = {};
       body.stripePublishableKey = stripePublishableKey || null;
       body.stripeSecretKey = stripeSecretKey && stripeSecretKey !== "***configured***" ? stripeSecretKey : undefined;
       body.paypalClientId = paypalClientId || null;
       body.paypalClientSecret = paypalClientSecret && paypalClientSecret !== "***configured***" ? paypalClientSecret : undefined;
+      body.stripeTaxEnabled = stripeTaxEnabled;
       Object.keys(body).forEach((k) => { if (body[k] === undefined) delete body[k]; });
       await apiRequest("PATCH", `/api/stores/${activeStoreId}`, body);
     },
@@ -538,7 +541,8 @@ function PaymentsCard() {
     stripePublishableKey !== ((activeStore as any).stripePublishableKey || "") ||
     stripeSecretKey !== ((activeStore as any).stripeSecretKey || "") ||
     paypalClientId !== ((activeStore as any).paypalClientId || "") ||
-    paypalClientSecret !== ((activeStore as any).paypalClientSecret || "")
+    paypalClientSecret !== ((activeStore as any).paypalClientSecret || "") ||
+    stripeTaxEnabled !== !!((activeStore as any).stripeTaxEnabled)
   );
 
   const stripeSecretDisplay = stripeSecretKey === "***configured***" ? "" : stripeSecretKey;
@@ -641,6 +645,50 @@ function PaymentsCard() {
           <p className="text-xs text-muted-foreground">
             Get these from your PayPal Developer Dashboard at developer.paypal.com. Payments go directly to your PayPal account.
           </p>
+        </div>
+
+        <div className="rounded-md border border-border p-4 space-y-3">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <Label htmlFor="stripe-tax-toggle" className="text-base">
+                Automatic tax (Stripe Tax)
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Let Stripe compute VAT / sales tax for you at checkout. Buyers see the
+                correct tax for their location and Stripe handles the calculation.
+              </p>
+            </div>
+            <Switch
+              id="stripe-tax-toggle"
+              checked={stripeTaxEnabled}
+              onCheckedChange={setStripeTaxEnabled}
+              disabled={!stripeConfigured}
+              data-testid="switch-stripe-tax"
+            />
+          </div>
+          {!stripeConfigured && (
+            <p className="text-xs text-amber-500" data-testid="text-tax-needs-stripe">
+              Connect your Stripe keys above first — Stripe Tax runs through your Stripe account.
+            </p>
+          )}
+          {stripeTaxEnabled && stripeConfigured && (
+            <div className="rounded-md bg-muted p-3 text-xs space-y-1">
+              <p className="font-semibold">
+                ⚠️ Before this works in production:
+              </p>
+              <p className="text-muted-foreground">
+                You must activate Stripe Tax in your Stripe Dashboard
+                (<a
+                  href="https://dashboard.stripe.com/settings/tax"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >dashboard.stripe.com/settings/tax</a>)
+                and register in any jurisdictions where you owe tax. Sellisy passes the right
+                flags to Stripe; Stripe does the rest.
+              </p>
+            </div>
+          )}
         </div>
 
         <Button

@@ -68,7 +68,7 @@ These are the questions a prospect asks before paying you. Ship these first.
 ## Suggested 90-day priority order
 
 1. ~~**Affiliate program**~~ ✅ **Shipped** — full self-serve apply + invite-by-owner + commissions + payouts + emails (PR #1 through PR #4). Live on Growth+ tier. Vs-pages updated.
-2. **Stripe Tax onboarding toggle** — kills the Lemon Squeezy objection cheaply.
+2. ~~**Stripe Tax onboarding toggle**~~ ✅ **Shipped** — per-store toggle in Payment Settings. When enabled, checkout sessions get `automatic_tax: { enabled: true }`, `tax_code: txcd_10103000` on line items, and `billing_address_collection: required`. Store owners must still activate Stripe Tax in their Stripe dashboard. Vs-pages updated.
 3. **Free 14-day trial** — gets you in the consideration set against every freemium competitor. The $9 tier helps but a trial converts harder.
 4. **Basic course product type** — opens up the entire Podia/Kajabi/Payhip course-creator market.
 5. **PDF watermarking** — cheap to build, real trust signal.

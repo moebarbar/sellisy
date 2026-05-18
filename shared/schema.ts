@@ -128,6 +128,7 @@ export const stores = pgTable("stores", {
   affiliateCookieDays: integer("affiliate_cookie_days").notNull().default(30),
   affiliateMinPayoutCents: integer("affiliate_min_payout_cents").notNull().default(2500),
   affiliateTermsHtml: text("affiliate_terms_html"),
+  stripeTaxEnabled: boolean("stripe_tax_enabled").notNull().default(false),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
