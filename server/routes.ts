@@ -523,6 +523,7 @@ ${urls}</urlset>`;
       newsletterSubtext: z.string().max(500).optional().nullable(),
       sectionOrder: z.string().max(500).optional().nullable(),
       reviewsEnabled: z.boolean().optional(),
+      stripeTaxEnabled: z.boolean().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -2907,27 +2908,35 @@ ${urls}</urlset>`;
       try {
         const stripe = new Stripe(store.stripeSecretKey!, { apiVersion: '2025-11-17.clover' as any });
 
+        // When the merchant has Stripe Tax enabled, each line item needs a
+        // tax_code on the product and a tax_behavior on the price so Stripe
+        // can compute VAT/sales tax. txcd_10103000 = "Digital goods - general"
+        // which fits Sellisy's digital product use case.
+        const taxEnabled = !!store.stripeTaxEnabled;
+        const baseProductData = (pd: any) => taxEnabled ? { ...pd, tax_code: 'txcd_10103000' } : pd;
+        const basePriceData = (pdata: any) => taxEnabled ? { ...pdata, tax_behavior: 'exclusive' } : pdata;
+
         // Build Stripe line_items — one per cart item for clarity, or one combined line for bundles
         const stripeLineItems = itemsToAdd.length > 1 && parsed.data.items
           ? itemsToAdd.map(item => {
               const pd: any = { name: item.title || itemName };
               if (item.image && item.image.startsWith("http")) pd.images = [item.image];
               return {
-                price_data: { currency: 'usd', product_data: pd, unit_amount: item.priceCents },
+                price_data: basePriceData({ currency: 'usd', product_data: baseProductData(pd), unit_amount: item.priceCents }),
                 quantity: 1,
               };
             })
           : [{
-              price_data: {
+              price_data: basePriceData({
                 currency: 'usd',
-                product_data: (() => {
+                product_data: baseProductData((() => {
                   const pd: any = { name: itemName };
                   if (itemDescription) pd.description = itemDescription.substring(0, 500);
                   if (itemImage && itemImage.startsWith("http")) pd.images = [itemImage];
                   return pd;
-                })(),
+                })()),
                 unit_amount: finalTotalCents,
-              },
+              }),
               quantity: 1,
             }];
 
@@ -2943,6 +2952,16 @@ ${urls}</urlset>`;
           success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${appUrl}/s/${store.slug}`,
         };
+
+        if (taxEnabled) {
+          // Stripe Tax needs the buyer's billing address to know which
+          // jurisdiction's rate to apply. billing_address_collection: required
+          // forces Checkout to collect it. We don't set customer_update here
+          // because that parameter is only valid with a pre-existing `customer`
+          // ID — we use customer_email instead and let Stripe create one.
+          sessionParams.automatic_tax = { enabled: true };
+          sessionParams.billing_address_collection = 'required';
+        }
 
         if (buyerEmail && buyerEmail !== "pending@checkout.com") {
           sessionParams.customer_email = buyerEmail;

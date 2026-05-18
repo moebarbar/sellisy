@@ -103,16 +103,16 @@ export const COMPETITORS: Competitor[] = [
     tagline: "Same selling power without the 5% per-transaction tax",
     accent: "#FFC233",
     intro:
-      "Lemon Squeezy is built for SaaS founders who want a Merchant of Record handling VAT and global tax. That's powerful — and you pay 5% + $0.50 for it on every sale. Sellisy is the creator-first alternative: flat pricing, your own Stripe, and tools built for digital products and PLR.",
+      "Lemon Squeezy is built for SaaS founders who want a Merchant of Record handling VAT and global tax filings. That's powerful — and you pay 5% + $0.50 for it on every sale. Sellisy gives you a one-click Stripe Tax integration that handles the calculations at checkout, without the per-sale fee — you remain the merchant of record yourself.",
     oneLineVerdict:
-      "Sellisy wins when you want a creator storefront with zero per-sale tax. Lemon Squeezy wins if you specifically need Merchant-of-Record tax handling.",
+      "Sellisy wins when you want a creator storefront with 0% fees and your own Stripe Tax setup. Lemon Squeezy wins only if you specifically want someone else filing your tax returns for you.",
     pricingSellisy: SELLISY_PRICING,
     pricingCompetitor:
       "Free to start. 5% + $0.50 per transaction. Merchant of Record fee is bundled in.",
     rows: COMMON_ROWS([
       { label: "Transaction fee", sellisy: "0%", competitor: "5% + $0.50 per sale", winner: "sellisy" },
       { label: "Monthly cost", sellisy: "$9 / $29 / $49", competitor: "$0", winner: "competitor" },
-      { label: "Merchant of Record (handles VAT/tax)", sellisy: "No — you handle it (or use Stripe Tax)", competitor: "Yes (their headline feature)", winner: "competitor" },
+      { label: "Merchant of Record (handles VAT/tax)", sellisy: "No — Stripe Tax integration instead", competitor: "Yes (their headline feature)", winner: "competitor" },
       { label: "Own your Stripe / PayPal account", sellisy: "Yes — direct payout", competitor: "No — they're the merchant", winner: "sellisy" },
       { label: "Custom domain", sellisy: "Yes (Growth+)", competitor: "Yes", winner: "tie" },
       { label: "Storefront templates", sellisy: "6 designer themes", competitor: "Minimal — product pages", winner: "sellisy" },
@@ -139,7 +139,7 @@ export const COMPETITORS: Competitor[] = [
     faqs: [
       {
         q: "Does Sellisy handle VAT and sales tax?",
-        a: "Sellisy doesn't act as a Merchant of Record. You handle tax via Stripe Tax (recommended) or your accountant. If MoR is the only reason you'd use Lemon Squeezy, it's a real tradeoff worth considering.",
+        a: "Yes — toggle 'Automatic tax' in your store settings and Sellisy passes the right flags to Stripe Tax. Stripe computes VAT/sales tax at checkout for every buyer based on their location. You're still the merchant on record (you register where you owe tax and Stripe files reports), but the per-transaction math is handled. If you want a full Merchant of Record service (someone files for you), Lemon Squeezy still wins on that.",
       },
       {
         q: "Can I sell software licenses on Sellisy?",
@@ -173,7 +173,7 @@ export const COMPETITORS: Competitor[] = [
       { label: "PLR / MRR library included", sellisy: "Yes — hundreds of products", competitor: "No", winner: "sellisy" },
       { label: "AI tools (mockups, copy)", sellisy: "Built-in", competitor: "Not included", winner: "sellisy" },
       { label: "Memberships / courses", sellisy: "Roadmap", competitor: "Yes", winner: "competitor" },
-      { label: "EU VAT handled", sellisy: "Via Stripe Tax", competitor: "Built-in", winner: "competitor" },
+      { label: "EU VAT handled", sellisy: "Yes — Stripe Tax toggle", competitor: "Built-in", winner: "tie" },
       { label: "Coupons / discount codes", sellisy: "Yes", competitor: "Yes", winner: "tie" },
       { label: "Upsells & order bumps", sellisy: "Yes", competitor: "Cross-sells", winner: "sellisy" },
       { label: "Affiliate program", sellisy: "Yes (Growth+)", competitor: "Built-in", winner: "tie" },
@@ -182,7 +182,7 @@ export const COMPETITORS: Competitor[] = [
     ]),
     whenTheyWin: [
       "You sell courses or memberships as your primary product type.",
-      "You need built-in EU VAT collection without using Stripe Tax.",
+      "You want Payhip-branded EU VAT collection without setting up Stripe Tax (Sellisy uses Stripe Tax; both work, different UX).",
       "You want a free tier with no monthly cost and can absorb 5% per sale.",
     ],
     whySellisyWins: [
@@ -198,7 +198,7 @@ export const COMPETITORS: Competitor[] = [
       },
       {
         q: "Does Sellisy handle EU VAT like Payhip?",
-        a: "Sellisy doesn't act as MoR, but Stripe Tax (which Sellisy integrates with) handles EU VAT collection and remittance for most creators.",
+        a: "Yes — flip the 'Automatic tax' toggle in your store settings and Stripe Tax handles VAT collection at checkout for every EU country. You still need to register where you owe tax (same as Payhip's free tier).",
       },
       {
         q: "Can I run a membership site on Sellisy?",
