@@ -191,6 +191,11 @@ export const products = pgTable("products", {
   // Course-only: when true, buyers who complete 100% of the lessons get a
   // downloadable PDF certificate of completion. No effect on non-course products.
   certificatesEnabled: boolean("certificates_enabled").notNull().default(false),
+  // Per-product opt-out for reviews. The store-level reviewsEnabled flag
+  // gates the whole feature; this lets an owner disable reviews on a
+  // single touchy product even if their store has reviews on overall.
+  // Default true so existing products inherit the store toggle behavior.
+  reviewsEnabled: boolean("reviews_enabled").notNull().default(true),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

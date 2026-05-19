@@ -69,7 +69,7 @@ export interface IStorage {
   getProductById(id: string): Promise<Product | undefined>;
   getProductBySlug(slug: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
-  updateProduct(id: string, data: Partial<Pick<Product, "title" | "slug" | "description" | "tagline" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "highlights" | "version" | "fileSize" | "certificatesEnabled">>): Promise<Product | undefined>;
+  updateProduct(id: string, data: Partial<Pick<Product, "title" | "slug" | "description" | "tagline" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "highlights" | "version" | "fileSize" | "certificatesEnabled" | "reviewsEnabled">>): Promise<Product | undefined>;
   deleteProduct(id: string, callerOwnerId?: string): Promise<void>;
   hardDeleteProduct(id: string): Promise<void>;
   restoreProduct(id: string): Promise<Product | undefined>;
@@ -316,7 +316,7 @@ export class DatabaseStorage implements IStorage {
     return product;
   }
 
-  async updateProduct(id: string, data: Partial<Pick<Product, "title" | "slug" | "description" | "tagline" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "highlights" | "version" | "fileSize" | "certificatesEnabled">>) {
+  async updateProduct(id: string, data: Partial<Pick<Product, "title" | "slug" | "description" | "tagline" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "highlights" | "version" | "fileSize" | "certificatesEnabled" | "reviewsEnabled">>) {
     const [product] = await db.update(products).set(data).where(eq(products.id, id)).returning();
     return product;
   }
@@ -1070,6 +1070,38 @@ export class DatabaseStorage implements IStorage {
 
   async deleteReview(id: string) {
     await db.delete(storeReviews).where(eq(storeReviews.id, id));
+  }
+
+  // Aggregate rating + count for a single product.
+  async getProductRatingAggregate(productId: string): Promise<{ avgRating: number; count: number }> {
+    const [row] = await db
+      .select({
+        n: sql<number>`count(*)::int`,
+        avg: sql<number>`coalesce(avg(${storeReviews.rating})::float, 0)`,
+      })
+      .from(storeReviews)
+      .where(eq(storeReviews.productId, productId));
+    return { avgRating: row?.avg ?? 0, count: row?.n ?? 0 };
+  }
+
+  // Bulk version — used by the storefront to render a row of product cards
+  // with ratings, avoiding N queries.
+  async getProductRatingsAggregateBulk(productIds: string[]): Promise<Map<string, { avgRating: number; count: number }>> {
+    const out = new Map<string, { avgRating: number; count: number }>();
+    if (productIds.length === 0) return out;
+    const rows = await db
+      .select({
+        productId: storeReviews.productId,
+        n: sql<number>`count(*)::int`,
+        avg: sql<number>`avg(${storeReviews.rating})::float`,
+      })
+      .from(storeReviews)
+      .where(inArray(storeReviews.productId, productIds))
+      .groupBy(storeReviews.productId);
+    for (const r of rows) {
+      out.set(r.productId, { avgRating: r.avg ?? 0, count: r.n ?? 0 });
+    }
+    return out;
   }
 
   // ── Newsletter Campaigns ─────────────────────────────────────────

@@ -585,6 +585,7 @@ function ProductFormDialog({
   const [fileSize, setFileSize] = useState("");
   const [requiredTier, setRequiredTier] = useState<"basic" | "pro" | "max">("basic");
   const [certificatesEnabled, setCertificatesEnabled] = useState(false);
+  const [reviewsEnabled, setReviewsEnabled] = useState(true);
   const [imageUploading, setImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -618,6 +619,7 @@ function ProductFormDialog({
       setFileSize(product.fileSize || "");
       setRequiredTier((product.requiredTier as "basic" | "pro" | "max") || "basic");
       setCertificatesEnabled(!!(product as any).certificatesEnabled);
+      setReviewsEnabled((product as any).reviewsEnabled !== false);
     } else {
       setTitle("");
       setDescription("");
@@ -639,6 +641,7 @@ function ProductFormDialog({
       setFileSize("");
       setRequiredTier("basic");
       setCertificatesEnabled(false);
+      setReviewsEnabled(true);
     }
   };
 
@@ -752,6 +755,7 @@ function ProductFormDialog({
         images: buildImagesPayload(),
         ...(isAdmin ? { requiredTier } : {}),
         certificatesEnabled: productType === "course" ? certificatesEnabled : false,
+        reviewsEnabled,
       };
       await apiRequest("POST", "/api/products", body);
     },
@@ -791,6 +795,7 @@ function ProductFormDialog({
         images: buildImagesPayload(),
         ...(isAdmin ? { requiredTier } : {}),
         certificatesEnabled: productType === "course" ? certificatesEnabled : false,
+        reviewsEnabled,
       };
       await apiRequest("PATCH", `/api/products/${product!.id}`, body);
     },
@@ -994,6 +999,25 @@ function ProductFormDialog({
               </div>
             </div>
           )}
+
+          <div className="rounded-md border border-border p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <Label htmlFor="reviews-toggle" className="text-sm">Allow customer reviews on this product</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Buyers who completed a purchase can leave a 1–5 star review with a title and comment.
+                  Reviews show on the product page and on storefront cards. Your store must also have
+                  reviews enabled in Store Settings for this to be visible.
+                </p>
+              </div>
+              <Switch
+                id="reviews-toggle"
+                checked={reviewsEnabled}
+                onCheckedChange={setReviewsEnabled}
+                data-testid="switch-reviews-enabled"
+              />
+            </div>
+          </div>
 
           {productType === "software" && (
             <div className="space-y-2">
