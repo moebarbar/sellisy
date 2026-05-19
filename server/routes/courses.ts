@@ -9,6 +9,7 @@ import { and, inArray, isNull } from "drizzle-orm";
 import { generateCertificatePdf, generateVerificationCode } from "../certificate";
 import { sendCourseCommentToOwnerEmail, sendCourseCommentReplyToBuyerEmail } from "../emails";
 import { authStorage } from "../replit_integrations/auth/storage";
+import { makeUnsubscribeToken, verifyUnsubscribeToken } from "../crypto/unsubscribe-token";
 
 export const coursesRouter = Router();
 
@@ -1045,35 +1046,38 @@ coursesRouter.post("/lessons/:lessonId/comments", isAuthenticated, async (req: R
     isPinned: false,
   });
 
-  // Notify everyone who's previously commented on this lesson — best-effort.
-  // Filter out the owner's own email (in case they tested the buy flow on
-  // their own course and posted as a buyer earlier — no self-emails).
+  // Notify everyone who's previously commented on this lesson AND has
+  // notifications turned on — best-effort, never blocks the response.
+  // Self-emails (owner who tested as buyer) are filtered out.
   (async () => {
     try {
-      const allEmails = await storage.getDistinctBuyerEmailsForLesson(lesson.id);
-      if (allEmails.length === 0) return;
+      const recipients = await storage.getCommentNotifyRecipientsForLesson(lesson.id);
+      if (recipients.length === 0) return;
       const ownerUser = await authStorage.getUser(getUserId(req));
       const ownerEmail = ownerUser?.email?.toLowerCase() ?? null;
-      const emails = ownerEmail
-        ? allEmails.filter((e) => e.toLowerCase() !== ownerEmail)
-        : allEmails;
-      if (emails.length === 0) return;
+      const filtered = ownerEmail
+        ? recipients.filter((r) => r.email.toLowerCase() !== ownerEmail)
+        : recipients;
+      if (filtered.length === 0) return;
 
       const product = await storage.getProductById(lesson.productId);
       const store = ownerStores.find((s) => s.id === storeId) ?? ownerStores[0] ?? null;
       const appUrl = (process.env.APP_URL || "https://sellisy.com").replace(/\/$/, "");
       const portalUrl = store ? `${appUrl}/s/${store.slug}/portal` : `${appUrl}/account/purchases`;
       await Promise.all(
-        emails.map((email) =>
-          sendCourseCommentReplyToBuyerEmail({
-            buyerEmail: email,
+        filtered.map((r) => {
+          const token = makeUnsubscribeToken(r.orderId);
+          const unsubscribeUrl = `${appUrl}/api/unsubscribe/course-comments?orderId=${encodeURIComponent(r.orderId)}&token=${token}`;
+          return sendCourseCommentReplyToBuyerEmail({
+            buyerEmail: r.email,
             storeName: store?.name ?? "your store",
             courseTitle: product?.title ?? "your course",
             lessonTitle: lesson.title,
             bodyExcerpt: comment.body,
             portalUrl,
-          }),
-        ),
+            unsubscribeUrl,
+          });
+        }),
       );
     } catch (e) {
       console.error("[course-comment] reply-notify failed:", e);
@@ -1114,6 +1118,37 @@ coursesRouter.patch("/comments/:id", isAuthenticated, async (req: Request, res: 
   }
   res.json({ ok: true });
 });
+
+// ── NOTIFICATION PREFERENCES ──────────────────────────────────────────
+
+// GET — buyer reads their current discussion-notifications preference.
+coursesRouter.get(
+  "/access/:token/:productId/notification-prefs",
+  async (req: Request, res: Response) => {
+    const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+    if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+    const order = await storage.getOrderById(check.orderId);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    res.json({ commentNotificationsEnabled: order.commentNotificationsEnabled !== false });
+  },
+);
+
+// PATCH — buyer toggles discussion-notifications from inside the portal.
+const prefsSchema = z.object({ commentNotificationsEnabled: z.boolean() });
+coursesRouter.patch(
+  "/access/:token/:productId/notification-prefs",
+  async (req: Request, res: Response) => {
+    const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+    if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+    const parsed = prefsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+    await storage.setOrderCommentNotifications(check.orderId, parsed.data.commentNotificationsEnabled);
+    res.json({ ok: true, commentNotificationsEnabled: parsed.data.commentNotificationsEnabled });
+  },
+);
 
 // DELETE — owner can delete any comment on their lesson (moderation)
 coursesRouter.delete("/comments/:id", isAuthenticated, async (req: Request, res: Response) => {

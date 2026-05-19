@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MessageSquare, Pin, Trash2, Crown, Reply, Pencil, X } from "lucide-react";
+import { MessageSquare, Pin, Trash2, Crown, Reply, Pencil, X, Bell, BellOff } from "lucide-react";
 
 type Comment = {
   id: string;
@@ -46,10 +46,33 @@ export function CourseComments({
   const [name, setName] = useState("");
 
   const queryKey = ["/api/courses/access", token, productId, "lessons", lessonId, "comments"];
+  const prefsKey = ["/api/courses/access", token, productId, "notification-prefs"];
 
   const { data, isLoading } = useQuery<Comment[]>({
     queryKey,
     queryFn: async () => (await apiRequest("GET", `/api/courses/access/${token}/${productId}/lessons/${lessonId}/comments`)).json(),
+  });
+
+  const { data: prefs } = useQuery<{ commentNotificationsEnabled: boolean }>({
+    queryKey: prefsKey,
+    queryFn: async () => (await apiRequest("GET", `/api/courses/access/${token}/${productId}/notification-prefs`)).json(),
+  });
+
+  const togglePrefs = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      await apiRequest("PATCH", `/api/courses/access/${token}/${productId}/notification-prefs`, {
+        commentNotificationsEnabled: enabled,
+      });
+    },
+    onSuccess: (_, enabled) => {
+      queryClient.setQueryData(prefsKey, { commentNotificationsEnabled: enabled });
+      toast({
+        title: enabled ? "Email notifications on" : "Email notifications off",
+        description: enabled
+          ? "You'll get emails when the instructor replies."
+          : "You won't get discussion emails for this course.",
+      });
+    },
   });
 
   // Separate top-level + replies grouped by parent.
@@ -110,10 +133,32 @@ export function CourseComments({
   return (
     <Card data-testid="course-comments">
       <CardContent className="p-4 space-y-4">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <MessageSquare className="h-4 w-4" />
-          Discussion
-          {data && <span className="text-xs text-muted-foreground font-normal">({data.length})</span>}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <MessageSquare className="h-4 w-4" />
+            Discussion
+            {data && <span className="text-xs text-muted-foreground font-normal">({data.length})</span>}
+          </div>
+          {prefs && (
+            <button
+              type="button"
+              onClick={() => togglePrefs.mutate(!prefs.commentNotificationsEnabled)}
+              disabled={togglePrefs.isPending}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              title={
+                prefs.commentNotificationsEnabled
+                  ? "Email me when the instructor replies"
+                  : "Email notifications are off"
+              }
+              data-testid="button-toggle-notifications"
+            >
+              {prefs.commentNotificationsEnabled ? (
+                <><Bell className="h-3 w-3" /> Email notifications on</>
+              ) : (
+                <><BellOff className="h-3 w-3" /> Email notifications off</>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Compose top-level */}

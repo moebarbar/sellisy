@@ -75,7 +75,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  extraHeaders?: Record<string, string>,
+): Promise<void> {
   if (_isSuppressedFn) {
     try {
       if (await _isSuppressedFn(to)) {
@@ -91,6 +96,9 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
 
   const plainText = htmlToPlainText(html);
 
+  // Per-message extraHeaders win over the defaults — e.g. a transactional
+  // email with a personalized one-click unsubscribe URL overrides the
+  // generic mailto:unsubscribe fallback.
   const msg = {
     to,
     from: { email: fromEmail, name: 'Sellisy' },
@@ -103,6 +111,7 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
       'X-Mailer': 'Sellisy Platform',
       'List-Unsubscribe': `<mailto:${fromEmail}?subject=Unsubscribe>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      ...(extraHeaders ?? {}),
     },
     trackingSettings: {
       clickTracking: { enable: false },

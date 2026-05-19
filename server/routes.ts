@@ -25,6 +25,7 @@ import { audit, auditMeta } from "./audit";
 import { gumroadImportRouter } from "./routes/gumroad-import";
 import { affiliateRouter } from "./routes/affiliate";
 import { coursesRouter } from "./routes/courses";
+import { verifyUnsubscribeToken } from "./crypto/unsubscribe-token";
 import { WebhookHandlers } from "./webhookHandlers";
 import { watermarkPdf, isPdfFilename, isPdfContentType } from "./pdfWatermark";
 
@@ -189,6 +190,28 @@ export async function registerRoutes(
   app.use('/api/integrations/gumroad', gumroadImportRouter);
   app.use('/api/affiliate', affiliateRouter);
   app.use('/api/courses', coursesRouter);
+
+  // One-click unsubscribe. Stateless: HMAC of orderId is enough to authorize
+  // the flip. Responds with a tiny HTML confirmation page so the user sees
+  // something useful regardless of which mail client opened the link.
+  // Supports both GET (clicking the unsubscribe link in the email body) and
+  // POST (mail client one-click unsubscribe per RFC 8058).
+  const unsubscribeHandler = async (req: any, res: any) => {
+    const orderId = String(req.query.orderId || req.body?.orderId || "");
+    const token = String(req.query.token || req.body?.token || "");
+    if (!orderId || !token || !verifyUnsubscribeToken(orderId, token)) {
+      return res.status(400).type("html").send(`<!doctype html><meta charset="utf-8"><title>Unsubscribe</title><body style="font-family:system-ui;text-align:center;padding:60px 20px;color:#374151;"><h1>That link is invalid or expired.</h1><p>If you keep getting these emails, contact the course owner directly.</p></body>`);
+    }
+    try {
+      await storage.setOrderCommentNotifications(orderId, false);
+      return res.status(200).type("html").send(`<!doctype html><meta charset="utf-8"><title>Unsubscribed</title><body style="font-family:system-ui;text-align:center;padding:60px 20px;color:#374151;"><h1>You're unsubscribed.</h1><p>You won't get discussion emails for this course anymore. You can turn them back on inside the course portal at any time.</p></body>`);
+    } catch (e) {
+      console.error("[unsubscribe] failed:", e);
+      return res.status(500).type("html").send(`<!doctype html><meta charset="utf-8"><title>Unsubscribe</title><body style="font-family:system-ui;text-align:center;padding:60px 20px;color:#374151;"><h1>Something went wrong.</h1><p>Please try again in a moment.</p></body>`);
+    }
+  };
+  app.get('/api/unsubscribe/course-comments', unsubscribeHandler);
+  app.post('/api/unsubscribe/course-comments', unsubscribeHandler);
 
   app.use(async (req, res, next) => {
     const originalHost = (req.headers["x-custom-host"] as string) || (req.headers["x-forwarded-host"] as string) || req.hostname;

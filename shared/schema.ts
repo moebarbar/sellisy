@@ -290,6 +290,10 @@ export const orders = pgTable("orders", {
   paypalRefundId: text("paypal_refund_id"),
   affiliateId: varchar("affiliate_id", { length: 64 }),
   affiliateRateBps: integer("affiliate_rate_bps"),
+  // Per-buyer opt-in for course discussion notifications (instructor replies
+  // on lessons they've commented on). Default true; flipped to false via the
+  // one-click unsubscribe link in the email or the toggle in the course portal.
+  commentNotificationsEnabled: boolean("comment_notifications_enabled").notNull().default(true),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
