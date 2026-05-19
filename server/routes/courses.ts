@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
+import rateLimit from "express-rate-limit";
 import { storage } from "../storage";
 import { db } from "../db";
 import { isAuthenticated } from "../replit_integrations/auth";
@@ -619,6 +620,226 @@ coursesRouter.delete("/access/:token/:productId/lessons/:lessonId/complete", asy
   if (!check.ok) return res.status(check.status).json({ message: check.message });
 
   await storage.unmarkLessonComplete(String(req.params.lessonId), check.orderId);
+  res.json({ ok: true });
+});
+
+// ── COMMENTS (lesson discussion, flat) ────────────────────────────────
+
+// Comments are PUBLIC (token-gated for buyers; auth-gated for owners).
+// Anyone with a valid course access token can read.
+coursesRouter.get("/access/:token/:productId/lessons/:lessonId/comments", async (req: Request, res: Response) => {
+  const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const lesson = await storage.getLessonById(String(req.params.lessonId));
+  if (!lesson || lesson.productId !== String(req.params.productId)) {
+    return res.status(404).json({ message: "Lesson not found" });
+  }
+
+  // Lock check — locked lessons hide comments too.
+  const order = await storage.getOrderById(check.orderId);
+  if (order) {
+    const mod = lesson.moduleId ? await storage.getModuleById(lesson.moduleId) : null;
+    const effective = effectiveUnlockDay(lesson.unlockAfterDays, mod?.unlockAfterDays ?? null);
+    if (effective != null) {
+      const unlocksAt = new Date(new Date(order.createdAt).getTime() + effective * 24 * 60 * 60 * 1000);
+      if (unlocksAt > new Date()) {
+        return res.status(403).json({ message: "Lesson hasn't unlocked yet" });
+      }
+    }
+  }
+
+  const rows = await storage.getCommentsByLesson(lesson.id);
+
+  // The buyer should see their own comments highlighted as "you", but
+  // never email addresses of other buyers — privacy. Strip authorEmail
+  // unless it's owner-posted (owner identity is the store, not personal).
+  res.json(rows.map((c) => ({
+    id: c.id,
+    body: c.body,
+    authorType: c.authorType,
+    authorName: c.authorName,
+    isPinned: c.isPinned,
+    isMine: c.orderId === check.orderId,
+    createdAt: c.createdAt,
+  })));
+});
+
+// Rate limit buyers posting comments to deter spam.
+// 10 comments per 10 minutes per IP, plus per-order check in handler.
+const commentPostLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Slow down — too many comments. Try again in a few minutes." },
+});
+
+const postCommentSchema = z.object({
+  body: z.string().min(1).max(2000),
+  authorName: z.string().min(1).max(80).optional(),
+});
+
+coursesRouter.post(
+  "/access/:token/:productId/lessons/:lessonId/comments",
+  commentPostLimiter,
+  async (req: Request, res: Response) => {
+    const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+    if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+    const lesson = await storage.getLessonById(String(req.params.lessonId));
+    if (!lesson || lesson.productId !== String(req.params.productId)) {
+      return res.status(404).json({ message: "Lesson not found" });
+    }
+
+    const order = await storage.getOrderById(check.orderId);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // Don't allow posting on a locked lesson.
+    const mod = lesson.moduleId ? await storage.getModuleById(lesson.moduleId) : null;
+    const effective = effectiveUnlockDay(lesson.unlockAfterDays, mod?.unlockAfterDays ?? null);
+    if (effective != null) {
+      const unlocksAt = new Date(new Date(order.createdAt).getTime() + effective * 24 * 60 * 60 * 1000);
+      if (unlocksAt > new Date()) {
+        return res.status(403).json({ message: "Lesson hasn't unlocked yet" });
+      }
+    }
+
+    // Per-order rate: a single buyer can post at most 20 comments per hour
+    // across the whole course. Deters one-buyer spam regardless of IP.
+    const recentByOrder = await storage.countRecentCommentsByOrder(check.orderId, 60);
+    if (recentByOrder >= 20) {
+      return res.status(429).json({ message: "You've posted a lot recently. Take a break and try again later." });
+    }
+
+    const parsed = postCommentSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+    const comment = await storage.createComment({
+      lessonId: lesson.id,
+      productId: lesson.productId,
+      storeId: order.storeId,
+      authorType: "buyer",
+      userId: null,
+      orderId: check.orderId,
+      authorName: parsed.data.authorName?.trim() || (order.buyerEmail.split("@")[0]),
+      authorEmail: order.buyerEmail,
+      body: parsed.data.body.trim(),
+      isPinned: false,
+    });
+
+    res.json({
+      id: comment.id,
+      body: comment.body,
+      authorType: comment.authorType,
+      authorName: comment.authorName,
+      isPinned: comment.isPinned,
+      isMine: true,
+      createdAt: comment.createdAt,
+    });
+  },
+);
+
+// Buyer can delete their own comments.
+coursesRouter.delete(
+  "/access/:token/:productId/lessons/:lessonId/comments/:commentId",
+  async (req: Request, res: Response) => {
+    const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+    if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+    const comment = await storage.getCommentById(String(req.params.commentId));
+    if (!comment || comment.lessonId !== String(req.params.lessonId)) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+    if (comment.orderId !== check.orderId) {
+      return res.status(403).json({ message: "You can only delete your own comments." });
+    }
+
+    await storage.softDeleteComment(comment.id);
+    res.json({ ok: true });
+  },
+);
+
+// ── OWNER: comment moderation ─────────────────────────────────────────
+
+const ownerPostCommentSchema = z.object({
+  body: z.string().min(1).max(2000),
+});
+
+// Owners can also post (as "owner") on a lesson — visible badge in UI.
+coursesRouter.post("/lessons/:lessonId/comments", isAuthenticated, async (req: Request, res: Response) => {
+  const lesson = await storage.getLessonById(String(req.params.lessonId));
+  if (!lesson) return res.status(404).json({ message: "Lesson not found" });
+
+  const check = await requireProductOwner(req, lesson.productId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const parsed = ownerPostCommentSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  // storeId is denormalized for future "all comments across my store" queries.
+  // A product can live in N stores via store_products; we pick the owner's first
+  // store containing this product. If they have none (e.g. unlinked product),
+  // we fall back to the userId — the column is NOT NULL so we need *some* value.
+  const ownerStores = await storage.getStoresByOwner(getUserId(req));
+  let storeId: string = getUserId(req);
+  for (const s of ownerStores) {
+    const sp = await storage.getStoreProductByStoreAndProduct(s.id, lesson.productId);
+    if (sp) { storeId = s.id; break; }
+  }
+
+  const comment = await storage.createComment({
+    lessonId: lesson.id,
+    productId: lesson.productId,
+    storeId,
+    authorType: "owner",
+    userId: getUserId(req),
+    orderId: null,
+    authorName: "Instructor",
+    authorEmail: null,
+    body: parsed.data.body.trim(),
+    isPinned: false,
+  });
+
+  res.json(comment);
+});
+
+// PATCH (pin / unpin) — owner only
+const patchCommentSchema = z.object({
+  isPinned: z.boolean().optional(),
+});
+
+coursesRouter.patch("/comments/:id", isAuthenticated, async (req: Request, res: Response) => {
+  const comment = await storage.getCommentById(String(req.params.id));
+  if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+  const lesson = await storage.getLessonById(comment.lessonId);
+  if (!lesson) return res.status(404).json({ message: "Lesson gone" });
+
+  const check = await requireProductOwner(req, lesson.productId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const parsed = patchCommentSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  if (parsed.data.isPinned !== undefined) {
+    await storage.setCommentPinned(comment.id, parsed.data.isPinned);
+  }
+  res.json({ ok: true });
+});
+
+// DELETE — owner can delete any comment on their lesson (moderation)
+coursesRouter.delete("/comments/:id", isAuthenticated, async (req: Request, res: Response) => {
+  const comment = await storage.getCommentById(String(req.params.id));
+  if (!comment) return res.status(404).json({ message: "Comment not found" });
+
+  const lesson = await storage.getLessonById(comment.lessonId);
+  if (!lesson) return res.status(404).json({ message: "Lesson gone" });
+
+  const check = await requireProductOwner(req, lesson.productId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  await storage.softDeleteComment(comment.id);
   res.json({ ok: true });
 });
 

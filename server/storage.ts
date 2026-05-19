@@ -12,7 +12,7 @@ import {
   type AffiliateCommission, type InsertAffiliateCommission,
   type AffiliatePayout, type InsertAffiliatePayout,
   courseLessons, courseLessonProgress, courseModules,
-  quizQuestions, quizChoices, quizAttempts, certificateIssued,
+  quizQuestions, quizChoices, quizAttempts, certificateIssued, courseLessonComments,
   type CourseLesson, type InsertCourseLesson,
   type CourseLessonProgress, type InsertCourseLessonProgress,
   type CourseModule, type InsertCourseModule,
@@ -20,6 +20,7 @@ import {
   type QuizChoice, type InsertQuizChoice,
   type QuizAttempt, type InsertQuizAttempt,
   type CertificateIssued, type InsertCertificateIssued,
+  type CourseLessonComment, type InsertCourseLessonComment,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -1532,6 +1533,50 @@ export class DatabaseStorage implements IStorage {
       .where(eq(certificateIssued.verificationCode, code))
       .limit(1);
     return row;
+  }
+
+  // ─── Course lesson comments ─────────────────────────────────────────
+
+  async getCommentsByLesson(lessonId: string): Promise<CourseLessonComment[]> {
+    return db.select().from(courseLessonComments)
+      .where(and(eq(courseLessonComments.lessonId, lessonId), isNull(courseLessonComments.deletedAt)))
+      // Pinned first (desc), then newest first
+      .orderBy(desc(courseLessonComments.isPinned), desc(courseLessonComments.createdAt));
+  }
+
+  async getCommentById(id: string): Promise<CourseLessonComment | undefined> {
+    const [row] = await db.select().from(courseLessonComments)
+      .where(and(eq(courseLessonComments.id, id), isNull(courseLessonComments.deletedAt)))
+      .limit(1);
+    return row;
+  }
+
+  async createComment(data: InsertCourseLessonComment): Promise<CourseLessonComment> {
+    const [row] = await db.insert(courseLessonComments).values(data).returning();
+    return row;
+  }
+
+  async softDeleteComment(id: string): Promise<void> {
+    await db.update(courseLessonComments)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(courseLessonComments.id, id));
+  }
+
+  async setCommentPinned(id: string, isPinned: boolean): Promise<void> {
+    await db.update(courseLessonComments)
+      .set({ isPinned, updatedAt: new Date() })
+      .where(eq(courseLessonComments.id, id));
+  }
+
+  async countRecentCommentsByOrder(orderId: string, withinMinutes: number): Promise<number> {
+    const cutoff = new Date(Date.now() - withinMinutes * 60 * 1000);
+    const [row] = await db.select({ n: sql<number>`count(*)::int` })
+      .from(courseLessonComments)
+      .where(and(
+        eq(courseLessonComments.orderId, orderId),
+        sql`${courseLessonComments.createdAt} > ${cutoff}`,
+      ));
+    return row?.n ?? 0;
   }
 }
 

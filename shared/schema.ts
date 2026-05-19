@@ -1033,3 +1033,37 @@ export const certificateIssued = pgTable("certificate_issued", {
 export const insertCertificateIssuedSchema = createInsertSchema(certificateIssued).omit({ id: true, issuedAt: true });
 export type InsertCertificateIssued = z.infer<typeof insertCertificateIssuedSchema>;
 export type CertificateIssued = typeof certificateIssued.$inferSelect;
+
+// ─── Course lesson comments ───────────────────────────────────────────
+// Flat (no threading) per-lesson discussion. Buyers post via their
+// download-token context (orderId); owners post via authenticated session.
+// authorType distinguishes the two so we can render owner badges + give
+// owners moderation powers (pin, delete any comment).
+
+export const commentAuthorTypeEnum = pgEnum("comment_author_type", ["buyer", "owner"]);
+
+export const courseLessonComments = pgTable("course_lesson_comments", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id", { length: 64 }).notNull(),
+  productId: varchar("product_id", { length: 64 }).notNull(),   // denormalized for cheap "all comments on this course" queries
+  storeId: varchar("store_id", { length: 64 }).notNull(),        // denormalized for owner moderation
+  // Buyer comments: orderId set, userId null, authorEmail/authorName carry display
+  // Owner comments: userId set to the owner's users.id, orderId null
+  authorType: commentAuthorTypeEnum("author_type").notNull(),
+  userId: varchar("user_id", { length: 64 }),
+  orderId: varchar("order_id", { length: 64 }),
+  authorName: text("author_name"),
+  authorEmail: text("author_email"),
+  body: text("body").notNull(),
+  isPinned: boolean("is_pinned").notNull().default(false),
+  deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("course_lesson_comments_lesson_idx").on(t.lessonId, t.deletedAt, t.createdAt),
+  index("course_lesson_comments_order_idx").on(t.orderId, t.createdAt),
+]);
+
+export const insertCourseLessonCommentSchema = createInsertSchema(courseLessonComments).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
+export type InsertCourseLessonComment = z.infer<typeof insertCourseLessonCommentSchema>;
+export type CourseLessonComment = typeof courseLessonComments.$inferSelect;

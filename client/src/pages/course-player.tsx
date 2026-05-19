@@ -11,6 +11,7 @@ import {
   CheckCircle2, Circle, ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle, Lock, Calendar, HelpCircle, Award,
 } from "lucide-react";
 import { QuizTaker } from "@/components/quiz-taker";
+import { CourseComments } from "@/components/course-comments";
 
 type Lesson = {
   id: string;
@@ -286,6 +287,10 @@ export default function CoursePlayerPage() {
                   queryClient.invalidateQueries({ queryKey: ["/api/courses/access", token, productId] });
                 }}
               />
+            )}
+
+            {!current.locked && (
+              <CourseComments token={token} productId={productId} lessonId={current.id} />
             )}
 
             <div className="flex items-center justify-between pt-4 border-t">
