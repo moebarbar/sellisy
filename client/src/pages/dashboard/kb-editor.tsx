@@ -6,6 +6,7 @@ import { useLocation, useRoute } from "wouter";
 import { useActiveStore } from "@/lib/store-context";
 import { getStorePublicPath } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ImageUploadField } from "@/components/image-upload-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -2926,102 +2927,23 @@ function KbSettingsPanel({
             </div>
             <div className="space-y-1.5">
               <Label>Author Photo <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
-              <input
-                ref={authorPhotoFileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAuthorPhotoUpload}
-                data-testid="input-kb-author-photo-file"
+              <ImageUploadField
+                value={authorImageUrl}
+                onChange={(v) => setAuthorImageUrl(v ?? "")}
+                previewClass="w-20 h-20 rounded-full"
+                helpText="Author's profile photo, shown next to the byline."
+                testIdPrefix="kb-author"
               />
-              <div className="flex items-center gap-3">
-                {authorImageUrl ? (
-                  <div className="relative group/author">
-                    <img src={authorImageUrl} alt="Author" className="w-10 h-10 rounded-full object-cover" data-testid="img-kb-author-preview" />
-                    <button
-                      type="button"
-                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/author:opacity-100 transition-opacity"
-                      onClick={() => setAuthorImageUrl("")}
-                      data-testid="button-kb-author-remove"
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </div>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => authorPhotoFileRef.current?.click()}
-                  disabled={isAuthorPhotoUploading}
-                  data-testid="button-kb-author-upload"
-                >
-                  {isAuthorPhotoUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-                  Upload
-                </Button>
-                <Input
-                  value={authorImageUrl}
-                  onChange={(e) => setAuthorImageUrl(e.target.value)}
-                  placeholder="https://example.com/photo.jpg"
-                  className="flex-1"
-                  data-testid="input-kb-author-image"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">Upload a photo or paste a URL for the author's profile photo.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Cover Image</Label>
-              <p className="text-xs text-muted-foreground">Recommended: 1024 x 1024px (square)</p>
-              <input
-                ref={coverFileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleCoverUpload}
-                data-testid="input-kb-cover-file"
+              <ImageUploadField
+                value={coverImageUrl}
+                onChange={(v) => setCoverImageUrl(v ?? "")}
+                previewClass="w-full max-w-[256px] aspect-square"
+                helpText="Recommended 1024×1024px (square)."
+                testIdPrefix="kb-cover"
               />
-              {coverImageUrl ? (
-                <div className="relative group/cover">
-                  <div className="rounded-md overflow-hidden bg-muted w-full max-w-[256px] aspect-square">
-                    <img src={coverImageUrl} alt="Cover preview" className="w-full h-full object-cover" data-testid="img-kb-cover-preview" />
-                  </div>
-                  <div className="absolute top-2 right-2 flex gap-1 invisible group-hover/cover:visible">
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      onClick={() => coverFileRef.current?.click()}
-                      disabled={isCoverUploading}
-                      data-testid="button-kb-cover-replace"
-                    >
-                      {isCoverUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      onClick={() => setCoverImageUrl("")}
-                      data-testid="button-kb-cover-remove"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="w-full max-w-[256px] aspect-square rounded-md border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-2 hover-elevate transition-colors"
-                  onClick={() => coverFileRef.current?.click()}
-                  disabled={isCoverUploading}
-                  data-testid="button-kb-cover-upload"
-                >
-                  {isCoverUploading ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  ) : (
-                    <>
-                      <Upload className="h-8 w-8 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Click to upload cover image</span>
-                    </>
-                  )}
-                </button>
-              )}
             </div>
             <div className="space-y-1.5">
               <Label>Price (USD)</Label>

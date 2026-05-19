@@ -4,6 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
+import { ImageUploadField } from "@/components/image-upload-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -2677,102 +2678,23 @@ export default function BlogEditorPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Author Photo <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
-              <input
-                ref={authorPhotoFileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAuthorPhotoUpload}
-                data-testid="input-blog-author-photo-file"
+              <ImageUploadField
+                value={authorImageUrl}
+                onChange={(v) => setAuthorImageUrl(v ?? "")}
+                previewClass="w-20 h-20 rounded-full"
+                helpText="Author's profile picture, shown next to the byline."
+                testIdPrefix="blog-author"
               />
-              <div className="flex items-center gap-3">
-                {authorImageUrl ? (
-                  <div className="relative group/author">
-                    <img src={authorImageUrl} alt="Author" className="w-10 h-10 rounded-full object-cover" data-testid="img-blog-author-preview" />
-                    <button
-                      type="button"
-                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/author:opacity-100 transition-opacity"
-                      onClick={() => setAuthorImageUrl("")}
-                      data-testid="button-blog-author-remove"
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </div>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => authorPhotoFileRef.current?.click()}
-                  disabled={isAuthorPhotoUploading}
-                  data-testid="button-blog-author-upload"
-                >
-                  {isAuthorPhotoUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-                  Upload
-                </Button>
-                <Input
-                  value={authorImageUrl}
-                  onChange={(e) => setAuthorImageUrl(e.target.value)}
-                  placeholder="https://example.com/photo.jpg"
-                  className="flex-1"
-                  data-testid="input-blog-author-image"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">Upload a photo or paste a URL for the author's profile picture.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Cover Image</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="https://example.com/image.jpg"
-                  value={coverImageUrl}
-                  onChange={(e) => setCoverImageUrl(e.target.value)}
-                  className="flex-1"
-                  data-testid="input-blog-cover-url"
-                />
-                <input
-                  ref={coverFileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    if (!file.type.startsWith("image/")) {
-                      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
-                      return;
-                    }
-                    await uploadCoverFile(file);
-                    if (coverFileRef.current) coverFileRef.current.value = "";
-                  }}
-                  data-testid="input-blog-cover-file"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={isCoverUploading}
-                  onClick={() => coverFileRef.current?.click()}
-                  data-testid="button-upload-cover"
-                >
-                  {isCoverUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">Paste a URL or upload an image file.</p>
-              {coverImageUrl && (
-                <div className="rounded-md overflow-hidden bg-muted max-w-[256px] relative group">
-                  <img src={coverImageUrl} alt="Cover preview" className="w-full h-auto object-cover" data-testid="img-blog-cover-preview" />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-1.5 right-1.5 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => setCoverImageUrl("")}
-                    data-testid="button-remove-cover"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              )}
+              <ImageUploadField
+                value={coverImageUrl}
+                onChange={(v) => setCoverImageUrl(v ?? "")}
+                previewClass="w-full aspect-[3/1] max-w-[480px]"
+                helpText="Wide landscape image recommended (e.g. 1600×900px)."
+                testIdPrefix="blog-cover"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Font Family</Label>

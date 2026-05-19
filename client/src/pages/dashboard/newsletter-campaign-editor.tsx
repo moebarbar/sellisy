@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { ImageUploadField } from "@/components/image-upload-field";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -47,7 +48,7 @@ const BLOCK_TYPES: { type: BlockType; label: string; icon: any; hint?: string }[
   { type: "heading2", label: "Heading 2", icon: Heading2 },
   { type: "heading3", label: "Heading 3", icon: Heading3 },
   { type: "divider", label: "Divider", icon: Minus },
-  { type: "image", label: "Image URL", icon: ImageIcon, hint: "Paste an image URL" },
+  { type: "image", label: "Image", icon: ImageIcon, hint: "Upload from your computer" },
   { type: "link", label: "Button/Link", icon: LinkIcon, hint: "Format: Label|https://url.com" },
   { type: "quote", label: "Quote", icon: Quote },
   { type: "callout", label: "Callout Box", icon: AlertCircle },
@@ -58,7 +59,7 @@ function blockPlaceholder(type: BlockType): string {
     case "heading1": return "Heading 1...";
     case "heading2": return "Heading 2...";
     case "heading3": label: return "Heading 3...";
-    case "image": return "https://example.com/image.jpg";
+    case "image": return "";
     case "link": return "Button label|https://link-url.com";
     case "quote": return "Quoted text...";
     case "callout": return "Important note or callout text...";
@@ -440,6 +441,18 @@ function BlockEditor({
         </div>
         {blockType === "divider" ? (
           <hr className="border-border" />
+        ) : blockType === "image" ? (
+          <ImageUploadField
+            value={localContent || null}
+            onChange={(url) => {
+              const next = url ?? "";
+              setLocalContent(next);
+              onContentChange(next);  // image edits commit immediately — no onBlur for this control
+              setSaved(true);
+            }}
+            helpText="Recommended 1200×630 or wider. Max 20 MB."
+            testIdPrefix={`block-image-${block.id}`}
+          />
         ) : (
           <Textarea
             value={localContent}

@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, UserSquare2 } from "lucide-react";
-import { ImageUploadField } from "./image-upload-field";
+import { ImageUploadField } from "@/components/image-upload-field";
 
 export function AboutSettingsCard() {
   const { activeStore, activeStoreId } = useActiveStore();
@@ -121,7 +121,7 @@ export function AboutSettingsCard() {
               <ImageUploadField
                 label="Profile Image"
                 value={imageUrl}
-                onChange={setImageUrl}
+                onChange={(v) => setImageUrl(v ?? "")}
                 aspectHint="A square or portrait photo. Used alongside your bio."
                 previewClass="w-32 h-32 rounded-full"
                 testIdPrefix="about-image"
