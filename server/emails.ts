@@ -400,6 +400,83 @@ export async function sendAffiliatePayoutSentEmail(params: {
   }
 }
 
+// ─── COURSE COMMENT: NOTIFY OWNER (buyer posted) ─────────────────────
+
+export async function sendCourseCommentToOwnerEmail(params: {
+  ownerEmail: string;
+  storeName: string;
+  courseTitle: string;
+  lessonTitle: string;
+  authorName: string;
+  bodyExcerpt: string;
+  dashboardUrl: string;
+}) {
+  const { ownerEmail, storeName, courseTitle, lessonTitle, authorName, bodyExcerpt, dashboardUrl } = params;
+  const safeStore = escapeHtml(storeName);
+  const safeCourse = escapeHtml(courseTitle);
+  const safeLesson = escapeHtml(lessonTitle);
+  const safeAuthor = escapeHtml(authorName);
+  // Truncate the body in the email so a 2000-char rant doesn't blow up the layout.
+  const excerpt = bodyExcerpt.length > 280 ? bodyExcerpt.slice(0, 280).trimEnd() + "…" : bodyExcerpt;
+
+  const content = `
+    ${sectionHeading("New comment on your course")}
+    ${bodyText(`<strong>${safeAuthor}</strong> just posted a comment on the lesson <em>${safeLesson}</em> in <strong>${safeCourse}</strong>.`)}
+    <blockquote style="margin:16px 0;padding:12px 16px;border-left:3px solid ${BRAND_COLOR};background:#f9fafb;color:#374151;font-size:14px;line-height:1.55;border-radius:4px;">
+      ${escapeHtml(excerpt)}
+    </blockquote>
+    ${ctaButton("Moderate in Dashboard", dashboardUrl)}
+    ${divider()}
+    <p style="margin:0;color:#9ca3af;font-size:12px;">You're receiving this because you own ${safeStore} on Sellisy.</p>`;
+
+  try {
+    await sendEmail(
+      ownerEmail,
+      `New comment on ${sanitizeHeader(courseTitle)}`,
+      baseLayout(content, `${safeAuthor} commented on ${safeLesson}.`),
+    );
+  } catch (err) {
+    console.error("Failed to send course-comment-to-owner email:", err);
+  }
+}
+
+// ─── COURSE COMMENT: NOTIFY BUYER (instructor replied) ───────────────
+
+export async function sendCourseCommentReplyToBuyerEmail(params: {
+  buyerEmail: string;
+  storeName: string;
+  courseTitle: string;
+  lessonTitle: string;
+  bodyExcerpt: string;
+  portalUrl: string;
+}) {
+  const { buyerEmail, storeName, courseTitle, lessonTitle, bodyExcerpt, portalUrl } = params;
+  const safeStore = escapeHtml(storeName);
+  const safeCourse = escapeHtml(courseTitle);
+  const safeLesson = escapeHtml(lessonTitle);
+  const excerpt = bodyExcerpt.length > 280 ? bodyExcerpt.slice(0, 280).trimEnd() + "…" : bodyExcerpt;
+
+  const content = `
+    ${sectionHeading("The instructor replied")}
+    ${bodyText(`The instructor of <strong>${safeCourse}</strong> just posted on the lesson <em>${safeLesson}</em>.`)}
+    <blockquote style="margin:16px 0;padding:12px 16px;border-left:3px solid ${BRAND_COLOR};background:#f9fafb;color:#374151;font-size:14px;line-height:1.55;border-radius:4px;">
+      ${escapeHtml(excerpt)}
+    </blockquote>
+    ${ctaButton("Open the discussion", portalUrl)}
+    ${divider()}
+    <p style="margin:0;color:#9ca3af;font-size:12px;">You're getting this because you've also commented on this lesson at ${safeStore}.</p>`;
+
+  try {
+    await sendEmail(
+      buyerEmail,
+      `Instructor replied on ${sanitizeHeader(courseTitle)}`,
+      baseLayout(content, `New reply on ${safeLesson}.`),
+    );
+  } catch (err) {
+    console.error("Failed to send course-comment-reply-to-buyer email:", err);
+  }
+}
+
 // ─── 6. MAGIC LINK ───────────────────────────────────────────────────
 
 export async function sendMagicLinkEmail(params: {

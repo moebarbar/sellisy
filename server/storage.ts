@@ -1568,6 +1568,23 @@ export class DatabaseStorage implements IStorage {
       .where(eq(courseLessonComments.id, id));
   }
 
+  // Distinct buyer emails who've posted a comment on this lesson. Used to
+  // build the recipient list when the instructor replies — everyone who's
+  // participated gets notified (other than the just-posted comment row).
+  async getDistinctBuyerEmailsForLesson(lessonId: string, excludeCommentId?: string): Promise<string[]> {
+    const conditions = [
+      eq(courseLessonComments.lessonId, lessonId),
+      eq(courseLessonComments.authorType, "buyer"),
+      isNull(courseLessonComments.deletedAt),
+      sql`${courseLessonComments.authorEmail} IS NOT NULL`,
+    ];
+    if (excludeCommentId) conditions.push(sql`${courseLessonComments.id} != ${excludeCommentId}`);
+    const rows = await db.selectDistinct({ email: courseLessonComments.authorEmail })
+      .from(courseLessonComments)
+      .where(and(...conditions));
+    return rows.map((r) => r.email).filter((e): e is string => !!e);
+  }
+
   async countRecentCommentsByOrder(orderId: string, withinMinutes: number): Promise<number> {
     const cutoff = new Date(Date.now() - withinMinutes * 60 * 1000);
     const [row] = await db.select({ n: sql<number>`count(*)::int` })
