@@ -5,6 +5,7 @@ import { db } from "../db";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { quizQuestions, QUIZ_PASS_THRESHOLD } from "@shared/schema";
 import { and, inArray, isNull } from "drizzle-orm";
+import { generateCertificatePdf, generateVerificationCode } from "../certificate";
 
 export const coursesRouter = Router();
 
@@ -392,6 +393,7 @@ coursesRouter.get("/access/:token/:productId", async (req: Request, res: Respons
       title: product.title,
       description: product.description,
       thumbnailUrl: product.thumbnailUrl,
+      certificatesEnabled: !!(product as any).certificatesEnabled,
     },
     modules: modules.map((m) => ({
       id: m.id,
@@ -618,4 +620,73 @@ coursesRouter.delete("/access/:token/:productId/lessons/:lessonId/complete", asy
 
   await storage.unmarkLessonComplete(String(req.params.lessonId), check.orderId);
   res.json({ ok: true });
+});
+
+// ── CERTIFICATE: issue + download ─────────────────────────────────────
+
+// GET /api/courses/access/:token/:productId/certificate
+// Returns the PDF certificate for this buyer's course if they've completed
+// 100% of the lessons AND the product has certificates enabled. Issues + stores
+// the certificate row on first request; re-requests return the same cert.
+coursesRouter.get("/access/:token/:productId/certificate", async (req: Request, res: Response) => {
+  const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const product = await storage.getProductById(String(req.params.productId));
+  if (!product) return res.status(404).json({ message: "Course not found" });
+
+  if (!(product as any).certificatesEnabled) {
+    return res.status(403).json({ message: "Certificates are not enabled for this course." });
+  }
+
+  const order = await storage.getOrderById(check.orderId);
+  if (!order) return res.status(404).json({ message: "Order not found" });
+
+  const [lessons, progress] = await Promise.all([
+    storage.getLessonsByProduct(product.id),
+    storage.getLessonProgressForOrder(check.orderId),
+  ]);
+
+  if (lessons.length === 0) {
+    return res.status(400).json({ message: "This course has no lessons yet." });
+  }
+
+  const completedSet = new Set(progress.map((p) => p.lessonId));
+  const allDone = lessons.every((l) => completedSet.has(l.id));
+  if (!allDone) {
+    return res.status(403).json({ message: "Complete all lessons first to earn your certificate." });
+  }
+
+  // Issue (idempotent — unique on order_id + product_id).
+  let cert = await storage.getCertificateForOrderProduct(check.orderId, product.id);
+  if (!cert) {
+    const store = await storage.getStoreById(order.storeId);
+    cert = await storage.createCertificate({
+      productId: product.id,
+      orderId: check.orderId,
+      storeId: order.storeId,
+      buyerEmail: order.buyerEmail,
+      buyerName: order.buyerEmail.split("@")[0], // No name field on orders today; use email local-part as a fallback
+      verificationCode: generateVerificationCode(),
+    });
+  }
+
+  // Always re-generate the PDF on each download (cheap + reflects any
+  // future personalization). Verification code stays stable.
+  const store = await storage.getStoreById(order.storeId);
+  const pdf = await generateCertificatePdf({
+    buyerName: cert.buyerName || cert.buyerEmail,
+    courseTitle: product.title,
+    storeName: store?.name ?? "Sellisy",
+    issuedAtIso: cert.issuedAt.toISOString(),
+    verificationCode: cert.verificationCode,
+  });
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="certificate-${product.title.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf"`,
+  );
+  res.setHeader("Cache-Control", "no-store");
+  res.end(Buffer.from(pdf));
 });

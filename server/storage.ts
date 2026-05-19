@@ -12,13 +12,14 @@ import {
   type AffiliateCommission, type InsertAffiliateCommission,
   type AffiliatePayout, type InsertAffiliatePayout,
   courseLessons, courseLessonProgress, courseModules,
-  quizQuestions, quizChoices, quizAttempts,
+  quizQuestions, quizChoices, quizAttempts, certificateIssued,
   type CourseLesson, type InsertCourseLesson,
   type CourseLessonProgress, type InsertCourseLessonProgress,
   type CourseModule, type InsertCourseModule,
   type QuizQuestion, type InsertQuizQuestion,
   type QuizChoice, type InsertQuizChoice,
   type QuizAttempt, type InsertQuizAttempt,
+  type CertificateIssued, type InsertCertificateIssued,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -67,7 +68,7 @@ export interface IStorage {
   getProductById(id: string): Promise<Product | undefined>;
   getProductBySlug(slug: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
-  updateProduct(id: string, data: Partial<Pick<Product, "title" | "slug" | "description" | "tagline" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "highlights" | "version" | "fileSize">>): Promise<Product | undefined>;
+  updateProduct(id: string, data: Partial<Pick<Product, "title" | "slug" | "description" | "tagline" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "highlights" | "version" | "fileSize" | "certificatesEnabled">>): Promise<Product | undefined>;
   deleteProduct(id: string, callerOwnerId?: string): Promise<void>;
   hardDeleteProduct(id: string): Promise<void>;
   restoreProduct(id: string): Promise<Product | undefined>;
@@ -314,7 +315,7 @@ export class DatabaseStorage implements IStorage {
     return product;
   }
 
-  async updateProduct(id: string, data: Partial<Pick<Product, "title" | "slug" | "description" | "tagline" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "highlights" | "version" | "fileSize">>) {
+  async updateProduct(id: string, data: Partial<Pick<Product, "title" | "slug" | "description" | "tagline" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "highlights" | "version" | "fileSize" | "certificatesEnabled">>) {
     const [product] = await db.update(products).set(data).where(eq(products.id, id)).returning();
     return product;
   }
@@ -1501,6 +1502,36 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(quizQuestions.lessonId, lessonId), isNull(quizQuestions.deletedAt)))
       .limit(1);
     return !!row;
+  }
+
+  // ─── Certificates ───────────────────────────────────────────────────
+
+  async getCertificateForOrderProduct(orderId: string, productId: string): Promise<CertificateIssued | undefined> {
+    const [row] = await db.select().from(certificateIssued)
+      .where(and(eq(certificateIssued.orderId, orderId), eq(certificateIssued.productId, productId)))
+      .limit(1);
+    return row;
+  }
+
+  async createCertificate(data: InsertCertificateIssued): Promise<CertificateIssued> {
+    try {
+      const [row] = await db.insert(certificateIssued).values(data).returning();
+      return row;
+    } catch (err: any) {
+      // Idempotent: if another request already issued one, return existing.
+      if (err?.code === "23505") {
+        const existing = await this.getCertificateForOrderProduct(data.orderId, data.productId);
+        if (existing) return existing;
+      }
+      throw err;
+    }
+  }
+
+  async getCertificateByCode(code: string): Promise<CertificateIssued | undefined> {
+    const [row] = await db.select().from(certificateIssued)
+      .where(eq(certificateIssued.verificationCode, code))
+      .limit(1);
+    return row;
   }
 }
 

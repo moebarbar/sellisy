@@ -1071,6 +1071,7 @@ ${urls}</urlset>`;
       version: z.string().max(50).optional().nullable(),
       fileSize: z.string().max(50).optional().nullable(),
       requiredTier: z.enum(["basic", "pro", "max"]).optional(),
+      certificatesEnabled: z.boolean().optional(),
       images: z.array(imageSchema).max(10).optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -1109,6 +1110,7 @@ ${urls}</urlset>`;
       version: parsed.data.version ?? null,
       fileSize: parsed.data.fileSize ?? null,
       requiredTier: admin ? (parsed.data.requiredTier || "basic") : "basic",
+      certificatesEnabled: parsed.data.certificatesEnabled ?? false,
     });
 
     if (imgs.length > 0) {
@@ -1148,6 +1150,7 @@ ${urls}</urlset>`;
       version: z.string().optional().nullable(),
       fileSize: z.string().optional().nullable(),
       requiredTier: z.enum(["basic", "pro", "max"]).optional(),
+      certificatesEnabled: z.boolean().optional(),
       images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);
