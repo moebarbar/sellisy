@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ShoppingBag, ArrowLeft, Tag, Sparkles, Zap, Sun, Moon, ChevronLeft, ChevronRight, Ticket, Key, Check, ExternalLink, Shield, Clock, Download, Star } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { ProtectedImage } from "@/components/protected-image";
+import { ProductReviews } from "@/components/storefront/product-reviews";
 import { trackEvent } from "@/lib/tracking";
 import { getStoreBasePath } from "@/lib/utils";
 import type { Store, Product, ProductImage } from "@shared/schema";
@@ -665,6 +666,18 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
             </div>
           );
         })()}
+
+        <div className="mx-auto max-w-3xl px-6 mt-10">
+          <ProductReviews
+            storeSlug={store.slug}
+            productId={product.id}
+            textColor={c.text}
+            mutedColor={c.textSec}
+            cardBg={c.cardBg}
+            cardBorder={c.cardBorder}
+            starColor={c.accent}
+          />
+        </div>
       </main>
 
       <footer className="relative z-10 pb-8 pt-4">

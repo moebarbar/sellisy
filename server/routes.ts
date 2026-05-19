@@ -1072,6 +1072,7 @@ ${urls}</urlset>`;
       fileSize: z.string().max(50).optional().nullable(),
       requiredTier: z.enum(["basic", "pro", "max"]).optional(),
       certificatesEnabled: z.boolean().optional(),
+      reviewsEnabled: z.boolean().optional(),
       images: z.array(imageSchema).max(10).optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -1111,6 +1112,7 @@ ${urls}</urlset>`;
       fileSize: parsed.data.fileSize ?? null,
       requiredTier: admin ? (parsed.data.requiredTier || "basic") : "basic",
       certificatesEnabled: parsed.data.certificatesEnabled ?? false,
+      reviewsEnabled: parsed.data.reviewsEnabled ?? true,
     });
 
     if (imgs.length > 0) {
@@ -1151,6 +1153,7 @@ ${urls}</urlset>`;
       fileSize: z.string().optional().nullable(),
       requiredTier: z.enum(["basic", "pro", "max"]).optional(),
       certificatesEnabled: z.boolean().optional(),
+      reviewsEnabled: z.boolean().optional(),
       images: z.array(imageSchema).optional(),
     });
     const parsed = schema.safeParse(req.body);
@@ -2517,6 +2520,21 @@ ${urls}</urlset>`;
       const customerName = customer?.name || (customer?.email ? customer.email.split("@")[0] : "Customer");
       return { ...r, customerName };
     }));
+
+    // When a productId is given, also include the aggregate so the client
+    // can render "4.7 ★ (123 reviews)" without a second round-trip. Also
+    // expose the per-store and per-product reviewsEnabled flags so the
+    // client knows whether to show the "Write a review" CTA.
+    if (productId) {
+      const agg = await storage.getProductRatingAggregate(productId);
+      const product = await storage.getProductById(productId);
+      return res.json({
+        reviews: reviewsWithCustomer,
+        aggregate: { avgRating: Math.round(agg.avgRating * 10) / 10, count: agg.count },
+        reviewsEnabled: !!store.reviewsEnabled && product?.reviewsEnabled !== false,
+      });
+    }
+
     res.json(reviewsWithCustomer);
   });
 
@@ -2539,6 +2557,14 @@ ${urls}</urlset>`;
     if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.issues });
 
     const parsedProductId = parsed.data.productId;
+
+    // Per-product opt-out: even if the store allows reviews, the owner may
+    // have disabled them on this specific product.
+    const productForReview = await storage.getProductById(parsedProductId);
+    if (!productForReview) return res.status(404).json({ message: "Product not found" });
+    if (productForReview.reviewsEnabled === false) {
+      return res.status(403).json({ message: "Reviews are disabled for this product." });
+    }
 
     // Verify completed order containing this product
     const customerOrders = await storage.getOrdersByCustomer(customerAuth.customerId);
