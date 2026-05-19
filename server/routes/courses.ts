@@ -7,6 +7,8 @@ import { isAuthenticated } from "../replit_integrations/auth";
 import { quizQuestions, QUIZ_PASS_THRESHOLD } from "@shared/schema";
 import { and, inArray, isNull } from "drizzle-orm";
 import { generateCertificatePdf, generateVerificationCode } from "../certificate";
+import { sendCourseCommentToOwnerEmail, sendCourseCommentReplyToBuyerEmail } from "../emails";
+import { authStorage } from "../replit_integrations/auth/storage";
 
 export const coursesRouter = Router();
 
@@ -728,6 +730,29 @@ coursesRouter.post(
       isPinned: false,
     });
 
+    // Notify the product owner — best-effort, never block the response.
+    (async () => {
+      try {
+        const product = await storage.getProductById(lesson.productId);
+        if (!product?.ownerId) return;
+        const owner = await authStorage.getUser(product.ownerId);
+        if (!owner?.email) return;
+        const store = await storage.getStoreById(order.storeId);
+        const appUrl = (process.env.APP_URL || "https://sellisy.com").replace(/\/$/, "");
+        await sendCourseCommentToOwnerEmail({
+          ownerEmail: owner.email,
+          storeName: store?.name ?? "your store",
+          courseTitle: product.title,
+          lessonTitle: lesson.title,
+          authorName: comment.authorName || "A buyer",
+          bodyExcerpt: comment.body,
+          dashboardUrl: `${appUrl}/dashboard/my-products`,
+        });
+      } catch (e) {
+        console.error("[course-comment] owner notify failed:", e);
+      }
+    })();
+
     res.json({
       id: comment.id,
       body: comment.body,
@@ -820,6 +845,41 @@ coursesRouter.post("/lessons/:lessonId/comments", isAuthenticated, async (req: R
     body: parsed.data.body.trim(),
     isPinned: false,
   });
+
+  // Notify everyone who's previously commented on this lesson — best-effort.
+  // Filter out the owner's own email (in case they tested the buy flow on
+  // their own course and posted as a buyer earlier — no self-emails).
+  (async () => {
+    try {
+      const allEmails = await storage.getDistinctBuyerEmailsForLesson(lesson.id);
+      if (allEmails.length === 0) return;
+      const ownerUser = await authStorage.getUser(getUserId(req));
+      const ownerEmail = ownerUser?.email?.toLowerCase() ?? null;
+      const emails = ownerEmail
+        ? allEmails.filter((e) => e.toLowerCase() !== ownerEmail)
+        : allEmails;
+      if (emails.length === 0) return;
+
+      const product = await storage.getProductById(lesson.productId);
+      const store = ownerStores.find((s) => s.id === storeId) ?? ownerStores[0] ?? null;
+      const appUrl = (process.env.APP_URL || "https://sellisy.com").replace(/\/$/, "");
+      const portalUrl = store ? `${appUrl}/s/${store.slug}/portal` : `${appUrl}/account/purchases`;
+      await Promise.all(
+        emails.map((email) =>
+          sendCourseCommentReplyToBuyerEmail({
+            buyerEmail: email,
+            storeName: store?.name ?? "your store",
+            courseTitle: product?.title ?? "your course",
+            lessonTitle: lesson.title,
+            bodyExcerpt: comment.body,
+            portalUrl,
+          }),
+        ),
+      );
+    } catch (e) {
+      console.error("[course-comment] reply-notify failed:", e);
+    }
+  })();
 
   res.json(comment);
 });
