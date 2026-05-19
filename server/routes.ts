@@ -26,6 +26,7 @@ import { gumroadImportRouter } from "./routes/gumroad-import";
 import { affiliateRouter } from "./routes/affiliate";
 import { coursesRouter } from "./routes/courses";
 import { WebhookHandlers } from "./webhookHandlers";
+import { watermarkPdf, isPdfFilename, isPdfContentType } from "./pdfWatermark";
 
 function getUserId(req: Request): string {
   return req.sellisyUserId!;
@@ -556,6 +557,7 @@ ${urls}</urlset>`;
       sectionOrder: z.string().max(500).optional().nullable(),
       reviewsEnabled: z.boolean().optional(),
       stripeTaxEnabled: z.boolean().optional(),
+      pdfWatermarkEnabled: z.boolean().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
@@ -3747,6 +3749,9 @@ ${urls}</urlset>`;
       return res.status(410).json({ message: "Download link expired" });
     }
 
+    const order = await storage.getOrderById(downloadToken.orderId);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
     const items = await storage.getOrderItemsByOrder(downloadToken.orderId);
     const files: { name: string; url: string }[] = [];
 
@@ -3768,8 +3773,42 @@ ${urls}</urlset>`;
       return res.json({ files: [], message: "No downloadable files for this order." });
     }
 
+    // PDF watermarking: if the store has it enabled AND this is a single-file
+    // download AND the file is a PDF, fetch + stamp + stream. Multi-file
+    // downloads are not stamped (the JSON list returns raw URLs); buyers
+    // hitting per-file URLs through future endpoints can pick this up later.
     if (files.length === 1) {
-      return res.redirect(files[0].url);
+      const file = files[0];
+      const store = await storage.getStoreById(order.storeId);
+      const shouldWatermark = !!(store?.pdfWatermarkEnabled) && isPdfFilename(file.name);
+
+      if (shouldWatermark) {
+        try {
+          const fileUrl = /^https?:\/\//i.test(file.url)
+            ? file.url
+            : `${(process.env.R2_PUBLIC_URL || "https://cdn.sellisy.com").replace(/\/$/, "")}/${file.url}`;
+          const upstream = await fetch(fileUrl);
+          if (!upstream.ok) throw new Error(`Upstream ${upstream.status}`);
+          const ct = upstream.headers.get("content-type");
+          // Belt-and-suspenders: only stamp if it really looks like a PDF.
+          if (!isPdfFilename(file.name) && !isPdfContentType(ct)) {
+            return res.redirect(fileUrl);
+          }
+          const raw = new Uint8Array(await upstream.arrayBuffer());
+          const stamped = await watermarkPdf(raw, {
+            buyerEmail: order.buyerEmail,
+            orderId: order.id,
+          });
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Disposition", `attachment; filename="${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}"`);
+          res.setHeader("Cache-Control", "no-store");
+          return res.end(Buffer.from(stamped));
+        } catch (err: any) {
+          console.error("[pdf-watermark] fallback to redirect:", err?.message || err);
+          // Fall through to the plain redirect below.
+        }
+      }
+      return res.redirect(file.url);
     }
 
     res.json({ files });
