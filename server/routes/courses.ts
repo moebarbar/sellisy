@@ -328,14 +328,30 @@ coursesRouter.get("/lessons/:lessonId/questions", isAuthenticated, async (req: R
 });
 
 // POST /api/courses/lessons/:lessonId/questions — add a question with choices
+const choiceItemSchema = z.object({
+  label: z.string().min(1).max(500),
+  isCorrect: z.boolean(),
+});
+
+// For "single" questions exactly one choice must be correct; for "multi" at
+// least one must be correct (but not all — otherwise the question is trivial).
+function validateChoiceShape(
+  questionType: "single" | "multi",
+  choices: { isCorrect: boolean }[],
+): string | null {
+  const correct = choices.filter((c) => c.isCorrect).length;
+  if (questionType === "single") {
+    return correct === 1 ? null : "Single-choice questions must have exactly one correct answer.";
+  }
+  if (correct < 1) return "Multi-choice questions need at least one correct answer.";
+  if (correct >= choices.length) return "Multi-choice questions need at least one wrong answer.";
+  return null;
+}
+
 const createQuestionSchema = z.object({
   prompt: z.string().min(1).max(2000),
-  choices: z.array(z.object({
-    label: z.string().min(1).max(500),
-    isCorrect: z.boolean(),
-  })).min(2).max(8),
-}).refine((d) => d.choices.filter((c) => c.isCorrect).length === 1, {
-  message: "Exactly one choice must be marked correct",
+  questionType: z.enum(["single", "multi"]).default("single"),
+  choices: z.array(choiceItemSchema).min(2).max(8),
 });
 
 coursesRouter.post("/lessons/:lessonId/questions", isAuthenticated, async (req: Request, res: Response) => {
@@ -347,25 +363,25 @@ coursesRouter.post("/lessons/:lessonId/questions", isAuthenticated, async (req: 
   const parsed = createQuestionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
+  const shapeError = validateChoiceShape(parsed.data.questionType, parsed.data.choices);
+  if (shapeError) return res.status(400).json({ message: shapeError });
+
   const existing = await storage.getQuestionsByLesson(lesson.id);
   const question = await storage.createQuestion({
     lessonId: lesson.id,
     prompt: parsed.data.prompt,
+    questionType: parsed.data.questionType,
     sortOrder: existing.length,
   });
   const choices = await storage.replaceChoicesForQuestion(question.id, parsed.data.choices);
   res.json({ ...question, choices });
 });
 
-// PATCH /api/courses/questions/:id — update prompt and/or replace choices
+// PATCH /api/courses/questions/:id — update prompt, type, and/or replace choices
 const updateQuestionSchema = z.object({
   prompt: z.string().min(1).max(2000).optional(),
-  choices: z.array(z.object({
-    label: z.string().min(1).max(500),
-    isCorrect: z.boolean(),
-  })).min(2).max(8).optional(),
-}).refine((d) => !d.choices || d.choices.filter((c) => c.isCorrect).length === 1, {
-  message: "Exactly one choice must be marked correct",
+  questionType: z.enum(["single", "multi"]).optional(),
+  choices: z.array(choiceItemSchema).min(2).max(8).optional(),
 });
 
 coursesRouter.patch("/questions/:id", isAuthenticated, async (req: Request, res: Response) => {
@@ -379,9 +395,26 @@ coursesRouter.patch("/questions/:id", isAuthenticated, async (req: Request, res:
   const parsed = updateQuestionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
+  // Validate the resulting (type, choices) combo — using the new value when
+  // provided, otherwise the existing one — so the row never ends up in an
+  // invalid shape mid-edit.
+  const effectiveType = parsed.data.questionType ?? question.questionType;
+  if (parsed.data.choices) {
+    const shapeError = validateChoiceShape(effectiveType, parsed.data.choices);
+    if (shapeError) return res.status(400).json({ message: shapeError });
+  } else if (parsed.data.questionType && parsed.data.questionType !== question.questionType) {
+    // Type changed without sending new choices — re-validate against existing.
+    const existingChoices = await storage.getChoicesByQuestion(question.id);
+    const shapeError = validateChoiceShape(effectiveType, existingChoices);
+    if (shapeError) return res.status(400).json({ message: shapeError });
+  }
+
   let updated = question;
-  if (parsed.data.prompt !== undefined) {
-    updated = (await storage.updateQuestion(question.id, { prompt: parsed.data.prompt }))!;
+  const patch: { prompt?: string; questionType?: "single" | "multi" } = {};
+  if (parsed.data.prompt !== undefined) patch.prompt = parsed.data.prompt;
+  if (parsed.data.questionType !== undefined) patch.questionType = parsed.data.questionType;
+  if (Object.keys(patch).length > 0) {
+    updated = (await storage.updateQuestion(question.id, patch))!;
   }
   let choices = await storage.getChoicesByQuestion(question.id);
   if (parsed.data.choices) {
@@ -569,6 +602,7 @@ coursesRouter.get("/access/:token/:productId/lessons/:lessonId/quiz", async (req
     questions: questions.map((q) => ({
       id: q.id,
       prompt: q.prompt,
+      questionType: q.questionType,
       sortOrder: q.sortOrder,
       choices: (byQuestion.get(q.id) || []).map((c) => ({
         id: c.id,
@@ -586,12 +620,16 @@ coursesRouter.get("/access/:token/:productId/lessons/:lessonId/quiz", async (req
 });
 
 // POST /api/courses/access/:token/:productId/lessons/:lessonId/quiz/submit
-// Body: { answers: [{ questionId, choiceId }] }
+// Body: { answers: [{ questionId, choiceIds: string[] }] }
 // Scores server-side, records the attempt, marks lesson complete if passed.
+//
+// For "single" questions, choiceIds must have exactly one entry. For "multi",
+// the answer scores only if it's the exact set of correct choices (all corrects
+// selected, no incorrects selected).
 const submitQuizSchema = z.object({
   answers: z.array(z.object({
     questionId: z.string(),
-    choiceId: z.string(),
+    choiceIds: z.array(z.string()).min(0).max(20),
   })).min(1).max(100),
 });
 
@@ -627,27 +665,58 @@ coursesRouter.post("/access/:token/:productId/lessons/:lessonId/quiz/submit", as
   }
 
   const allChoices = await storage.getChoicesByQuestionIds(questions.map((q) => q.id));
-  // Map: correct choice per question
-  const correctByQuestion = new Map<string, string>();
+
+  // Map question → set of valid choice ids (used to reject answers that
+  // reference a choice from another question) and set of correct choice ids
+  // (used for grading).
+  const validChoicesByQuestion = new Map<string, Set<string>>();
+  const correctByQuestion = new Map<string, Set<string>>();
+  for (const q of questions) {
+    validChoicesByQuestion.set(q.id, new Set());
+    correctByQuestion.set(q.id, new Set());
+  }
   for (const c of allChoices) {
-    if (c.isCorrect) correctByQuestion.set(c.questionId, c.id);
+    validChoicesByQuestion.get(c.questionId)?.add(c.id);
+    if (c.isCorrect) correctByQuestion.get(c.questionId)?.add(c.id);
   }
 
-  // Each answer's questionId must be in this lesson's question set.
+  // Each answer's questionId must be in this lesson's question set,
+  // and each choiceId must belong to that question.
   const allowedQuestionIds = new Set(questions.map((q) => q.id));
   for (const a of parsed.data.answers) {
     if (!allowedQuestionIds.has(a.questionId)) {
       return res.status(400).json({ message: "Answer references a question not in this quiz." });
     }
+    const validSet = validChoicesByQuestion.get(a.questionId)!;
+    for (const cid of a.choiceIds) {
+      if (!validSet.has(cid)) {
+        return res.status(400).json({ message: "Answer references a choice not in this question." });
+      }
+    }
   }
 
-  // Score: count exact matches. Missing answers count as wrong.
-  const answerByQuestion = new Map<string, string>();
-  for (const a of parsed.data.answers) answerByQuestion.set(a.questionId, a.choiceId);
+  // Score: per-question exact-set match. For single, exactly one choice; for
+  // multi, the set must equal the set of correct choices. Missing answers
+  // count as wrong.
+  const answerByQuestion = new Map<string, Set<string>>();
+  for (const a of parsed.data.answers) answerByQuestion.set(a.questionId, new Set(a.choiceIds));
+
+  const setsEqual = (a: Set<string>, b: Set<string>) => {
+    if (a.size !== b.size) return false;
+    for (const v of Array.from(a)) if (!b.has(v)) return false;
+    return true;
+  };
 
   let correctCount = 0;
   for (const q of questions) {
-    if (answerByQuestion.get(q.id) === correctByQuestion.get(q.id)) correctCount++;
+    const given = answerByQuestion.get(q.id) ?? new Set<string>();
+    const expected = correctByQuestion.get(q.id) ?? new Set<string>();
+    if (q.questionType === "single") {
+      // For single questions: exactly one selection AND it equals the correct id.
+      if (given.size === 1 && setsEqual(given, expected)) correctCount++;
+    } else {
+      if (setsEqual(given, expected)) correctCount++;
+    }
   }
   const totalCount = questions.length;
   const score = correctCount / totalCount;
@@ -678,8 +747,8 @@ coursesRouter.post("/access/:token/:productId/lessons/:lessonId/quiz/submit", as
     // Server reveals correct answers AFTER submission so the buyer can learn.
     review: questions.map((q) => ({
       questionId: q.id,
-      yourChoiceId: answerByQuestion.get(q.id) ?? null,
-      correctChoiceId: correctByQuestion.get(q.id) ?? null,
+      yourChoiceIds: Array.from(answerByQuestion.get(q.id) ?? new Set<string>()),
+      correctChoiceIds: Array.from(correctByQuestion.get(q.id) ?? new Set<string>()),
     })),
   });
 });

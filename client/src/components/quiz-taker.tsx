@@ -6,8 +6,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, XCircle, RotateCcw, Circle } from "lucide-react";
 
+type QuestionType = "single" | "multi";
 type Choice = { id: string; label: string; sortOrder: number };
-type Question = { id: string; prompt: string; sortOrder: number; choices: Choice[] };
+type Question = {
+  id: string;
+  prompt: string;
+  questionType: QuestionType;
+  sortOrder: number;
+  choices: Choice[];
+};
 
 type QuizPayload = {
   questions: Question[];
@@ -21,7 +28,7 @@ type SubmitResult = {
   totalCount: number;
   passed: boolean;
   passThreshold: number;
-  review: { questionId: string; yourChoiceId: string | null; correctChoiceId: string | null }[];
+  review: { questionId: string; yourChoiceIds: string[]; correctChoiceIds: string[] }[];
 };
 
 export function QuizTaker({
@@ -30,10 +37,11 @@ export function QuizTaker({
   token: string;
   productId: string;
   lessonId: string;
-  onPassed: () => void;  // refetch the course to update completion state
+  onPassed: () => void;
 }) {
   const [showQuiz, setShowQuiz] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  // answers map: questionId → Set of selected choice ids (single = 1, multi = N).
+  const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [result, setResult] = useState<SubmitResult | null>(null);
 
   const { data, isLoading } = useQuery<QuizPayload>({
@@ -45,7 +53,7 @@ export function QuizTaker({
   const submit = useMutation({
     mutationFn: async () => {
       const payload = {
-        answers: Object.entries(answers).map(([questionId, choiceId]) => ({ questionId, choiceId })),
+        answers: Object.entries(answers).map(([questionId, choiceIds]) => ({ questionId, choiceIds })),
       };
       const res = await apiRequest("POST", `/api/courses/access/${token}/${productId}/lessons/${lessonId}/quiz/submit`, payload);
       return (await res.json()) as SubmitResult;
@@ -53,7 +61,6 @@ export function QuizTaker({
     onSuccess: (r) => {
       setResult(r);
       if (r.passed) {
-        // The course endpoint reflects completion now; refetch upstream.
         queryClient.invalidateQueries({ queryKey: ["/api/courses/access", token, productId] });
         onPassed();
       }
@@ -63,6 +70,19 @@ export function QuizTaker({
   const retake = () => {
     setAnswers({});
     setResult(null);
+  };
+
+  const toggleChoice = (q: Question, choiceId: string) => {
+    setAnswers((prev) => {
+      const current = prev[q.id] ?? [];
+      if (q.questionType === "single") {
+        return { ...prev, [q.id]: [choiceId] };
+      }
+      const next = current.includes(choiceId)
+        ? current.filter((c) => c !== choiceId)
+        : [...current, choiceId];
+      return { ...prev, [q.id]: next };
+    });
   };
 
   if (!showQuiz) {
@@ -125,19 +145,31 @@ export function QuizTaker({
             <p className="text-xs uppercase tracking-wider text-muted-foreground">Review</p>
             {data.questions.map((q, idx) => {
               const r = result.review.find((x) => x.questionId === q.id);
+              const correctSet = new Set(r?.correctChoiceIds ?? []);
+              const yourSet = new Set(r?.yourChoiceIds ?? []);
               return (
                 <div key={q.id} className="space-y-1 text-sm">
-                  <p className="font-medium">Q{idx + 1}. {q.prompt}</p>
+                  <p className="font-medium">
+                    Q{idx + 1}. {q.prompt}
+                    {q.questionType === "multi" && (
+                      <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground font-normal">
+                        Multi-answer
+                      </span>
+                    )}
+                  </p>
                   <div className="pl-4 space-y-0.5">
                     {q.choices.map((c) => {
-                      const isCorrect = r?.correctChoiceId === c.id;
-                      const isYours = r?.yourChoiceId === c.id;
+                      const isCorrect = correctSet.has(c.id);
+                      const isYours = yourSet.has(c.id);
                       let cls = "text-muted-foreground";
                       let icon = <Circle className="h-3 w-3 inline" />;
-                      if (isCorrect) {
+                      if (isCorrect && isYours) {
                         cls = "text-primary font-medium";
                         icon = <CheckCircle2 className="h-3 w-3 inline" />;
-                      } else if (isYours) {
+                      } else if (isCorrect && !isYours) {
+                        cls = "text-primary";
+                        icon = <CheckCircle2 className="h-3 w-3 inline" />;
+                      } else if (isYours && !isCorrect) {
                         cls = "text-destructive line-through";
                         icon = <XCircle className="h-3 w-3 inline" />;
                       }
@@ -146,6 +178,7 @@ export function QuizTaker({
                           {icon}
                           {c.label}
                           {isYours && !isCorrect && <span className="text-[10px]">(your answer)</span>}
+                          {!isYours && isCorrect && <span className="text-[10px]">(missed)</span>}
                         </p>
                       );
                     })}
@@ -166,8 +199,8 @@ export function QuizTaker({
     );
   }
 
-  // Quiz form
-  const canSubmit = data.questions.every((q) => !!answers[q.id]);
+  // Quiz form — buyer must select at least one choice per question.
+  const canSubmit = data.questions.every((q) => (answers[q.id]?.length ?? 0) >= 1);
 
   return (
     <Card data-testid="quiz-form">
@@ -179,37 +212,45 @@ export function QuizTaker({
           </div>
         )}
 
-        {data.questions.map((q, idx) => (
-          <div key={q.id} className="space-y-2">
-            <p className="font-medium text-sm">
-              <span className="text-muted-foreground tabular-nums mr-2">Q{idx + 1}.</span>
-              {q.prompt}
-            </p>
-            <div className="pl-2 space-y-2">
-              {q.choices.map((c) => {
-                const selected = answers[q.id] === c.id;
-                return (
-                  <label
-                    key={c.id}
-                    className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer transition-colors ${
-                      selected ? "bg-primary/10 border-primary" : "hover:bg-muted/50"
-                    }`}
-                    data-testid={`label-choice-${c.id}`}
-                  >
-                    <input
-                      type="radio"
-                      name={`q-${q.id}`}
-                      checked={selected}
-                      onChange={() => setAnswers({ ...answers, [q.id]: c.id })}
-                      className="accent-primary"
-                    />
-                    {c.label}
-                  </label>
-                );
-              })}
+        {data.questions.map((q, idx) => {
+          const selected = new Set(answers[q.id] ?? []);
+          return (
+            <div key={q.id} className="space-y-2">
+              <p className="font-medium text-sm">
+                <span className="text-muted-foreground tabular-nums mr-2">Q{idx + 1}.</span>
+                {q.prompt}
+                {q.questionType === "multi" && (
+                  <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground font-normal">
+                    Select all that apply
+                  </span>
+                )}
+              </p>
+              <div className="pl-2 space-y-2">
+                {q.choices.map((c) => {
+                  const isSelected = selected.has(c.id);
+                  return (
+                    <label
+                      key={c.id}
+                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer transition-colors ${
+                        isSelected ? "bg-primary/10 border-primary" : "hover:bg-muted/50"
+                      }`}
+                      data-testid={`label-choice-${c.id}`}
+                    >
+                      <input
+                        type={q.questionType === "multi" ? "checkbox" : "radio"}
+                        name={`q-${q.id}`}
+                        checked={isSelected}
+                        onChange={() => toggleChoice(q, c.id)}
+                        className="accent-primary"
+                      />
+                      {c.label}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <div className="pt-2 border-t">
           <Button onClick={() => submit.mutate()} disabled={!canSubmit || submit.isPending} data-testid="button-submit-quiz">

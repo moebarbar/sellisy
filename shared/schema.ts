@@ -956,16 +956,21 @@ export type InsertCourseLessonProgress = z.infer<typeof insertCourseLessonProgre
 export type CourseLessonProgress = typeof courseLessonProgress.$inferSelect;
 
 // ─── Quizzes ──────────────────────────────────────────────────────────
-// A lesson can have N questions. Each question has M choices, exactly one
-// of which is correct (V1 = single-choice MCQ only).
+// A lesson can have N questions. Each question has M choices.
+// - "single" (V1 default): exactly one choice is correct; buyer picks one.
+// - "multi" (V2): one or more choices are correct; buyer must pick the
+//   exact set (no missing correct, no extra incorrect) for the question to score.
 // When a lesson has any questions, the lesson is considered "quiz-gated":
 // the buyer must score >= QUIZ_PASS_THRESHOLD to mark it complete.
 // Manual mark-complete is rejected on quiz-gated lessons.
+
+export const quizQuestionTypeEnum = pgEnum("quiz_question_type", ["single", "multi"]);
 
 export const quizQuestions = pgTable("quiz_questions", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
   lessonId: varchar("lesson_id", { length: 64 }).notNull(),
   prompt: text("prompt").notNull(),
+  questionType: quizQuestionTypeEnum("question_type").notNull().default("single"),
   sortOrder: integer("sort_order").notNull().default(0),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
