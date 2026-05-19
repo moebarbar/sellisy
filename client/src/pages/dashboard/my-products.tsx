@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useUpload } from "@/hooks/use-upload";
@@ -583,6 +584,7 @@ function ProductFormDialog({
   const [version, setVersion] = useState("");
   const [fileSize, setFileSize] = useState("");
   const [requiredTier, setRequiredTier] = useState<"basic" | "pro" | "max">("basic");
+  const [certificatesEnabled, setCertificatesEnabled] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -615,6 +617,7 @@ function ProductFormDialog({
       setVersion(product.version || "");
       setFileSize(product.fileSize || "");
       setRequiredTier((product.requiredTier as "basic" | "pro" | "max") || "basic");
+      setCertificatesEnabled(!!(product as any).certificatesEnabled);
     } else {
       setTitle("");
       setDescription("");
@@ -635,6 +638,7 @@ function ProductFormDialog({
       setVersion("");
       setFileSize("");
       setRequiredTier("basic");
+      setCertificatesEnabled(false);
     }
   };
 
@@ -747,6 +751,7 @@ function ProductFormDialog({
         fileSize: fileSize || null,
         images: buildImagesPayload(),
         ...(isAdmin ? { requiredTier } : {}),
+        certificatesEnabled: productType === "course" ? certificatesEnabled : false,
       };
       await apiRequest("POST", "/api/products", body);
     },
@@ -785,6 +790,7 @@ function ProductFormDialog({
         fileSize: fileSize || null,
         images: buildImagesPayload(),
         ...(isAdmin ? { requiredTier } : {}),
+        certificatesEnabled: productType === "course" ? certificatesEnabled : false,
       };
       await apiRequest("PATCH", `/api/products/${product!.id}`, body);
     },
@@ -971,6 +977,21 @@ function ProductFormDialog({
           {productType === "course" && (
             <div className="space-y-3 rounded-md border border-border p-4">
               <LessonsEditor productId={product?.id} />
+              <div className="flex items-start justify-between gap-3 pt-3 border-t">
+                <div className="flex-1 min-w-0">
+                  <Label htmlFor="cert-toggle" className="text-sm">Issue a certificate of completion</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Buyers who complete 100% of the lessons can download a PDF certificate with their
+                    name, the course title, your store name, and a unique verification code.
+                  </p>
+                </div>
+                <Switch
+                  id="cert-toggle"
+                  checked={certificatesEnabled}
+                  onCheckedChange={setCertificatesEnabled}
+                  data-testid="switch-certificates-enabled"
+                />
+              </div>
             </div>
           )}
 

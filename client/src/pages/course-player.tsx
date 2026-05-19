@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import {
-  CheckCircle2, Circle, ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle, Lock, Calendar, HelpCircle,
+  CheckCircle2, Circle, ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle, Lock, Calendar, HelpCircle, Award,
 } from "lucide-react";
 import { QuizTaker } from "@/components/quiz-taker";
 
@@ -41,6 +41,7 @@ type CourseData = {
     title: string;
     description: string | null;
     thumbnailUrl: string | null;
+    certificatesEnabled: boolean;
   };
   modules: Module[];
   lessons: Lesson[];
@@ -154,6 +155,8 @@ export default function CoursePlayerPage() {
   const current = data.lessons[currentLessonIdx];
   const embedUrl = toEmbedUrl(current.videoUrl);
   const pct = Math.round((data.completedCount / Math.max(1, data.totalCount)) * 100);
+  const allDone = data.totalCount > 0 && data.completedCount === data.totalCount;
+  const certificateUrl = `/api/courses/access/${token}/${productId}/certificate`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -169,6 +172,14 @@ export default function CoursePlayerPage() {
             <span className="text-xs text-muted-foreground tabular-nums" data-testid="text-course-progress">
               {data.completedCount} / {data.totalCount}
             </span>
+            {allDone && data.course.certificatesEnabled && (
+              <Button size="sm" asChild data-testid="button-download-certificate">
+                <a href={certificateUrl} target="_blank" rel="noopener noreferrer">
+                  <Award className="h-4 w-4 mr-1" />
+                  Certificate
+                </a>
+              </Button>
+            )}
           </div>
         </div>
       </header>

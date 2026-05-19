@@ -188,6 +188,9 @@ export const products = pgTable("products", {
   fileSize: text("file_size"),
   gumroadProductId: text("gumroad_product_id").unique(),
   importedFromGumroad: boolean("imported_from_gumroad").notNull().default(false),
+  // Course-only: when true, buyers who complete 100% of the lessons get a
+  // downloadable PDF certificate of completion. No effect on non-course products.
+  certificatesEnabled: boolean("certificates_enabled").notNull().default(false),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -1006,3 +1009,27 @@ export type QuizAttempt = typeof quizAttempts.$inferSelect;
 // Single source of truth for the pass threshold. 0.7 = 70% correct.
 // Lives in shared so server + client agree.
 export const QUIZ_PASS_THRESHOLD = 0.7;
+
+// ─── Course certificates ──────────────────────────────────────────────
+// When a buyer completes 100% of a course's lessons AND the course has
+// certificatesEnabled, we issue a certificate (one per orderId+productId).
+// The verification code is shown on the certificate and can be looked up
+// at /verify/cert/:code in V2.
+
+export const certificateIssued = pgTable("certificate_issued", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id", { length: 64 }).notNull(),
+  orderId: varchar("order_id", { length: 64 }).notNull(),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  buyerEmail: text("buyer_email").notNull(),
+  buyerName: text("buyer_name"),
+  verificationCode: varchar("verification_code", { length: 32 }).notNull().unique(),
+  issuedAt: timestamp("issued_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("certificate_issued_unique").on(t.orderId, t.productId),
+  index("certificate_issued_store_idx").on(t.storeId, t.issuedAt),
+]);
+
+export const insertCertificateIssuedSchema = createInsertSchema(certificateIssued).omit({ id: true, issuedAt: true });
+export type InsertCertificateIssued = z.infer<typeof insertCertificateIssuedSchema>;
+export type CertificateIssued = typeof certificateIssued.$inferSelect;
