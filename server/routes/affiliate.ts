@@ -247,7 +247,7 @@ affiliateRouter.patch("/affiliates/:id", isAuthenticated, async (req: Request, r
   const parsed = updateAffiliateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
-  const updated = await storage.updateAffiliate(String(req.params.id), parsed.data as any);
+  const updated = await storage.updateAffiliate(String(req.params.id), parsed.data);
   res.json(updated);
 });
 

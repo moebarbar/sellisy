@@ -209,6 +209,10 @@ export class WebhookHandlers {
     const order = await storage.getOrderById(orderId);
     if (!order || !order.affiliateId || !order.affiliateRateBps) return;
     if (order.totalCents <= 0) return;
+    // Defensive: only credit commissions on COMPLETED orders. The callers
+    // (Stripe webhook, PayPal capture) only fire on success today, but
+    // future callers shouldn't accidentally credit a FAILED/REFUNDED order.
+    if (order.status !== "COMPLETED") return;
 
     // Skip if a commission already exists for this order (idempotent webhook).
     const existing = await storage.getCommissionByOrderId(orderId);

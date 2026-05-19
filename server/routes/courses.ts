@@ -396,7 +396,7 @@ coursesRouter.get("/access/:token/:productId", async (req: Request, res: Respons
       title: product.title,
       description: product.description,
       thumbnailUrl: product.thumbnailUrl,
-      certificatesEnabled: !!(product as any).certificatesEnabled,
+      certificatesEnabled: !!product.certificatesEnabled,
     },
     modules: modules.map((m) => ({
       id: m.id,
@@ -548,6 +548,20 @@ coursesRouter.post("/access/:token/:productId/lessons/:lessonId/quiz/submit", as
   const lesson = await storage.getLessonById(String(req.params.lessonId));
   if (!lesson || lesson.productId !== String(req.params.productId)) {
     return res.status(404).json({ message: "Lesson not found" });
+  }
+
+  // Drip-lock check — the GET /quiz endpoint blocks fetching questions for
+  // a locked lesson, but a buyer could submit blind via curl. Block here too.
+  const order = await storage.getOrderById(accessCheck.orderId);
+  if (order) {
+    const mod = lesson.moduleId ? await storage.getModuleById(lesson.moduleId) : null;
+    const effective = effectiveUnlockDay(lesson.unlockAfterDays, mod?.unlockAfterDays ?? null);
+    if (effective != null) {
+      const unlocksAt = new Date(new Date(order.createdAt).getTime() + effective * 24 * 60 * 60 * 1000);
+      if (unlocksAt > new Date()) {
+        return res.status(403).json({ message: "Lesson hasn't unlocked yet" });
+      }
+    }
   }
 
   const parsed = submitQuizSchema.safeParse(req.body);
@@ -936,7 +950,7 @@ coursesRouter.get("/access/:token/:productId/certificate", async (req: Request, 
   const product = await storage.getProductById(String(req.params.productId));
   if (!product) return res.status(404).json({ message: "Course not found" });
 
-  if (!(product as any).certificatesEnabled) {
+  if (!product.certificatesEnabled) {
     return res.status(403).json({ message: "Certificates are not enabled for this course." });
   }
 
@@ -961,7 +975,6 @@ coursesRouter.get("/access/:token/:productId/certificate", async (req: Request, 
   // Issue (idempotent — unique on order_id + product_id).
   let cert = await storage.getCertificateForOrderProduct(check.orderId, product.id);
   if (!cert) {
-    const store = await storage.getStoreById(order.storeId);
     cert = await storage.createCertificate({
       productId: product.id,
       orderId: check.orderId,
