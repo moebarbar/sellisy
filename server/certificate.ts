@@ -6,6 +6,32 @@ export interface CertificateParams {
   storeName: string;
   issuedAtIso: string;       // ISO string — formatted server-side for consistency
   verificationCode: string;  // shown bottom-right + later lookupable at /verify/cert/:code
+  // Optional cert-designer fields. Falsy values fall back to the default
+  // black-and-white design so older courses are unaffected.
+  accentColorHex?: string | null;
+  logoBytes?: Uint8Array | null;   // raw PNG/JPEG bytes; mimeType tells which
+  logoMimeType?: "image/png" | "image/jpeg" | null;
+}
+
+// Parse "#RRGGBB" or "#RGB" into pdf-lib rgb(0..1). Returns null on bad input
+// so callers can fall back cleanly.
+function parseHexColor(hex: string | null | undefined) {
+  if (!hex) return null;
+  const h = hex.trim().toLowerCase().replace(/^#/, "");
+  let r: number, g: number, b: number;
+  if (h.length === 3) {
+    r = parseInt(h[0] + h[0], 16);
+    g = parseInt(h[1] + h[1], 16);
+    b = parseInt(h[2] + h[2], 16);
+  } else if (h.length === 6) {
+    r = parseInt(h.slice(0, 2), 16);
+    g = parseInt(h.slice(2, 4), 16);
+    b = parseInt(h.slice(4, 6), 16);
+  } else {
+    return null;
+  }
+  if ([r, g, b].some((n) => Number.isNaN(n))) return null;
+  return rgb(r / 255, g / 255, b / 255);
 }
 
 /**
@@ -22,7 +48,12 @@ export async function generateCertificatePdf(params: CertificateParams): Promise
   const helvBold = await doc.embedFont(StandardFonts.HelveticaBold);
   const helvOblique = await doc.embedFont(StandardFonts.HelveticaOblique);
 
-  // Outer border
+  // Accent color drives the headline + inner border. Falls back to a deep
+  // navy that looks good against the default neutral text.
+  const accent = parseHexColor(params.accentColorHex) ?? rgb(0.2, 0.2, 0.3);
+
+  // Outer border (always neutral so the page has a stable frame regardless
+  // of the accent color the owner picked).
   page.drawRectangle({
     x: 24,
     y: 24,
@@ -31,14 +62,14 @@ export async function generateCertificatePdf(params: CertificateParams): Promise
     borderColor: rgb(0.15, 0.15, 0.2),
     borderWidth: 2,
   });
-  // Inner thin accent border
+  // Inner thin accent border — uses the owner's color.
   page.drawRectangle({
     x: 36,
     y: 36,
     width: width - 72,
     height: height - 72,
-    borderColor: rgb(0.55, 0.55, 0.65),
-    borderWidth: 0.5,
+    borderColor: accent,
+    borderWidth: 0.75,
   });
 
   const drawCentered = (text: string, y: number, font: any, size: number, color = rgb(0.1, 0.1, 0.15)) => {
@@ -46,8 +77,33 @@ export async function generateCertificatePdf(params: CertificateParams): Promise
     page.drawText(text, { x: (width - tw) / 2, y, size, font, color });
   };
 
-  // "CERTIFICATE OF COMPLETION"
-  drawCentered("CERTIFICATE OF COMPLETION", height - 110, helvBold, 24, rgb(0.2, 0.2, 0.3));
+  // Logo (top-center, above the title). Sized to fit a 90×60 box, preserving
+  // aspect. Bad image bytes silently fall through so a broken logo URL never
+  // blocks cert issuance.
+  let titleY = height - 110;
+  if (params.logoBytes && params.logoMimeType) {
+    try {
+      const img = params.logoMimeType === "image/png"
+        ? await doc.embedPng(params.logoBytes)
+        : await doc.embedJpg(params.logoBytes);
+      const maxW = 90, maxH = 60;
+      const scale = Math.min(maxW / img.width, maxH / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      page.drawImage(img, {
+        x: (width - w) / 2,
+        y: height - 60 - h,
+        width: w,
+        height: h,
+      });
+      titleY = height - 60 - h - 25;
+    } catch {
+      // Bad image — leave default layout.
+    }
+  }
+
+  // "CERTIFICATE OF COMPLETION" — in the accent color.
+  drawCentered("CERTIFICATE OF COMPLETION", titleY, helvBold, 24, accent);
 
   // Subtle "presented to" line
   drawCentered("This is to certify that", height - 170, helvOblique, 14, rgb(0.4, 0.4, 0.5));
@@ -55,13 +111,13 @@ export async function generateCertificatePdf(params: CertificateParams): Promise
   // Buyer name — large, prominent
   drawCentered(params.buyerName, height - 230, helvBold, 36, rgb(0.05, 0.05, 0.1));
 
-  // Underline under name
+  // Underline under name — picks up the accent color too.
   const nameWidth = helvBold.widthOfTextAtSize(params.buyerName, 36);
   page.drawLine({
     start: { x: (width - Math.max(nameWidth, 200)) / 2, y: height - 245 },
     end: { x: (width + Math.max(nameWidth, 200)) / 2, y: height - 245 },
-    thickness: 0.5,
-    color: rgb(0.5, 0.5, 0.6),
+    thickness: 0.75,
+    color: accent,
   });
 
   // "has successfully completed the course"

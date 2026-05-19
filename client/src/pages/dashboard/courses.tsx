@@ -325,6 +325,8 @@ function CourseEditorDialog({
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [status, setStatus] = useState<"DRAFT" | "ACTIVE">("DRAFT");
   const [certificatesEnabled, setCertificatesEnabled] = useState(false);
+  const [certAccentColor, setCertAccentColor] = useState("#1e40af");
+  const [certLogoUrl, setCertLogoUrl] = useState("");
   const [reviewsEnabled, setReviewsEnabled] = useState(true);
 
   useEffect(() => {
@@ -336,6 +338,8 @@ function CourseEditorDialog({
       setThumbnailUrl(product.thumbnailUrl || "");
       setStatus(product.status || "DRAFT");
       setCertificatesEnabled(!!product.certificatesEnabled);
+      setCertAccentColor(product.certAccentColor || "#1e40af");
+      setCertLogoUrl(product.certLogoUrl || "");
       setReviewsEnabled(product.reviewsEnabled !== false);
     }
   }, [product]);
@@ -351,6 +355,8 @@ function CourseEditorDialog({
         thumbnailUrl: thumbnailUrl || null,
         status,
         certificatesEnabled,
+        certAccentColor: certificatesEnabled ? certAccentColor : null,
+        certLogoUrl: certificatesEnabled ? (certLogoUrl || null) : null,
         reviewsEnabled,
       });
     },
@@ -474,6 +480,50 @@ function CourseEditorDialog({
                     data-testid="switch-course-cert"
                   />
                 </div>
+
+                {certificatesEnabled && (
+                  <div className="rounded-md bg-muted/40 p-3 space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Certificate design
+                    </p>
+                    <div className="grid sm:grid-cols-[160px_1fr] gap-3 items-start">
+                      <div className="space-y-1">
+                        <Label htmlFor="cert-accent-color" className="text-xs">Accent color</Label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            id="cert-accent-color"
+                            type="color"
+                            value={certAccentColor}
+                            onChange={(e) => setCertAccentColor(e.target.value)}
+                            className="h-9 w-12 rounded-md border cursor-pointer"
+                            data-testid="input-cert-accent-color"
+                          />
+                          <Input
+                            value={certAccentColor}
+                            onChange={(e) => setCertAccentColor(e.target.value)}
+                            placeholder="#1e40af"
+                            className="font-mono text-xs"
+                            data-testid="input-cert-accent-hex"
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          Used for the headline + inner border.
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Logo</Label>
+                        <ImageUploadField
+                          value={certLogoUrl}
+                          onChange={(v) => setCertLogoUrl(v ?? "")}
+                          accept="image/png,image/jpeg"
+                          helpText="PNG or JPEG, ideally with a transparent background. Shown top-center on the cert."
+                          previewClass="h-20 w-40"
+                          testIdPrefix="cert-logo"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-start justify-between gap-3 pt-3 border-t">
                   <div className="flex-1 min-w-0">
                     <Label htmlFor="course-reviews-toggle" className="text-sm">

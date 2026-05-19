@@ -1081,6 +1081,8 @@ ${urls}</urlset>`;
       fileSize: z.string().max(50).optional().nullable(),
       requiredTier: z.enum(["basic", "pro", "max"]).optional(),
       certificatesEnabled: z.boolean().optional(),
+      certAccentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Must be a 7-character hex color like #1e40af").optional().nullable(),
+      certLogoUrl: z.string().max(500).optional().nullable(),
       reviewsEnabled: z.boolean().optional(),
       images: z.array(imageSchema).max(10).optional(),
     });
@@ -1121,6 +1123,8 @@ ${urls}</urlset>`;
       fileSize: parsed.data.fileSize ?? null,
       requiredTier: admin ? (parsed.data.requiredTier || "basic") : "basic",
       certificatesEnabled: parsed.data.certificatesEnabled ?? false,
+      certAccentColor: parsed.data.certAccentColor ?? null,
+      certLogoUrl: parsed.data.certLogoUrl ?? null,
       reviewsEnabled: parsed.data.reviewsEnabled ?? true,
     });
 
@@ -1162,6 +1166,8 @@ ${urls}</urlset>`;
       fileSize: z.string().optional().nullable(),
       requiredTier: z.enum(["basic", "pro", "max"]).optional(),
       certificatesEnabled: z.boolean().optional(),
+      certAccentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Must be a 7-character hex color like #1e40af").optional().nullable(),
+      certLogoUrl: z.string().max(500).optional().nullable(),
       reviewsEnabled: z.boolean().optional(),
       images: z.array(imageSchema).optional(),
     });

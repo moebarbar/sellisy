@@ -191,6 +191,12 @@ export const products = pgTable("products", {
   // Course-only: when true, buyers who complete 100% of the lessons get a
   // downloadable PDF certificate of completion. No effect on non-course products.
   certificatesEnabled: boolean("certificates_enabled").notNull().default(false),
+  // Cert designer fields. certAccentColor is a 7-char hex string (e.g. "#1e40af")
+  // applied to the heading + accent border on the cert PDF. certLogoUrl is an
+  // owner-uploaded image rendered top-center on the cert. Both nullable; defaults
+  // produce the standard black-and-white certificate.
+  certAccentColor: varchar("cert_accent_color", { length: 7 }),
+  certLogoUrl: varchar("cert_logo_url", { length: 500 }),
   // Per-product opt-out for reviews. The store-level reviewsEnabled flag
   // gates the whole feature; this lets an owner disable reviews on a
   // single touchy product even if their store has reviews on overall.

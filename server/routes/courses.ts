@@ -1179,14 +1179,41 @@ coursesRouter.get("/access/:token/:productId/certificate", async (req: Request, 
   }
 
   // Always re-generate the PDF on each download (cheap + reflects any
-  // future personalization). Verification code stays stable.
+  // owner-side cert-designer changes since last issue). Verification code stays stable.
   const store = await storage.getStoreById(order.storeId);
+
+  // Best-effort logo fetch — failure leaves the cert with no logo rather than 500ing.
+  let logoBytes: Uint8Array | null = null;
+  let logoMimeType: "image/png" | "image/jpeg" | null = null;
+  if (product.certLogoUrl) {
+    try {
+      const resp = await fetch(product.certLogoUrl);
+      if (resp.ok) {
+        const ct = (resp.headers.get("content-type") || "").toLowerCase();
+        if (ct.includes("png")) logoMimeType = "image/png";
+        else if (ct.includes("jpeg") || ct.includes("jpg")) logoMimeType = "image/jpeg";
+        if (logoMimeType) {
+          const buf = await resp.arrayBuffer();
+          // 5MB cap — anything bigger is almost certainly a misconfig.
+          if (buf.byteLength <= 5 * 1024 * 1024) {
+            logoBytes = new Uint8Array(buf);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[cert] logo fetch failed:", e);
+    }
+  }
+
   const pdf = await generateCertificatePdf({
     buyerName: cert.buyerName || cert.buyerEmail,
     courseTitle: product.title,
     storeName: store?.name ?? "Sellisy",
     issuedAtIso: cert.issuedAt.toISOString(),
     verificationCode: cert.verificationCode,
+    accentColorHex: product.certAccentColor,
+    logoBytes,
+    logoMimeType,
   });
 
   res.setHeader("Content-Type", "application/pdf");
