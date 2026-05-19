@@ -502,6 +502,7 @@ function PaymentsCard() {
   const [paypalClientId, setPaypalClientId] = useState("");
   const [paypalClientSecret, setPaypalClientSecret] = useState("");
   const [stripeTaxEnabled, setStripeTaxEnabled] = useState(false);
+  const [pdfWatermarkEnabled, setPdfWatermarkEnabled] = useState(false);
 
   useEffect(() => {
     if (activeStore) {
@@ -510,6 +511,7 @@ function PaymentsCard() {
       setPaypalClientId((activeStore as any).paypalClientId || "");
       setPaypalClientSecret((activeStore as any).paypalClientSecret || "");
       setStripeTaxEnabled(!!(activeStore as any).stripeTaxEnabled);
+      setPdfWatermarkEnabled(!!(activeStore as any).pdfWatermarkEnabled);
     }
   }, [activeStore]);
 
@@ -522,6 +524,7 @@ function PaymentsCard() {
       body.paypalClientId = paypalClientId || null;
       body.paypalClientSecret = paypalClientSecret && paypalClientSecret !== "***configured***" ? paypalClientSecret : undefined;
       body.stripeTaxEnabled = stripeTaxEnabled;
+      body.pdfWatermarkEnabled = pdfWatermarkEnabled;
       Object.keys(body).forEach((k) => { if (body[k] === undefined) delete body[k]; });
       await apiRequest("PATCH", `/api/stores/${activeStoreId}`, body);
     },
@@ -542,7 +545,8 @@ function PaymentsCard() {
     stripeSecretKey !== ((activeStore as any).stripeSecretKey || "") ||
     paypalClientId !== ((activeStore as any).paypalClientId || "") ||
     paypalClientSecret !== ((activeStore as any).paypalClientSecret || "") ||
-    stripeTaxEnabled !== !!((activeStore as any).stripeTaxEnabled)
+    stripeTaxEnabled !== !!((activeStore as any).stripeTaxEnabled) ||
+    pdfWatermarkEnabled !== !!((activeStore as any).pdfWatermarkEnabled)
   );
 
   const stripeSecretDisplay = stripeSecretKey === "***configured***" ? "" : stripeSecretKey;
@@ -686,6 +690,36 @@ function PaymentsCard() {
                 >dashboard.stripe.com/settings/tax</a>)
                 and register in any jurisdictions where you owe tax. Sellisy passes the right
                 flags to Stripe; Stripe does the rest.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-md border border-border p-4 space-y-3">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <Label htmlFor="pdf-watermark-toggle" className="text-base">
+                PDF watermarking
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Stamp every PDF download with the buyer's email and order ID. Discourages
+                resharing and helps trace leaks back to a specific buyer if a file appears
+                where it shouldn't.
+              </p>
+            </div>
+            <Switch
+              id="pdf-watermark-toggle"
+              checked={pdfWatermarkEnabled}
+              onCheckedChange={setPdfWatermarkEnabled}
+              data-testid="switch-pdf-watermark"
+            />
+          </div>
+          {pdfWatermarkEnabled && (
+            <div className="rounded-md bg-muted p-3 text-xs space-y-1">
+              <p className="text-muted-foreground">
+                Applied to single-file PDF downloads only. PDFs over 30 MB are passed through
+                unstamped (the server avoids loading huge files into memory). Encrypted PDFs
+                are also passed through.
               </p>
             </div>
           )}

@@ -323,7 +323,7 @@ export const COMPETITORS: Competitor[] = [
       { label: "Customer portal & re-downloads", sellisy: "Branded portal", competitor: "Email links", winner: "sellisy" },
       { label: "PLR / MRR library", sellisy: "Hundreds, included", competitor: "Not included", winner: "sellisy" },
       { label: "AI creator tools", sellisy: "Built-in", competitor: "Not included", winner: "sellisy" },
-      { label: "PDF stamping / watermarking", sellisy: "No", competitor: "Yes", winner: "competitor" },
+      { label: "PDF stamping / watermarking", sellisy: "Yes (buyer email + order ID per page)", competitor: "Yes", winner: "tie" },
       { label: "License keys / software", sellisy: "Yes", competitor: "Yes", winner: "tie" },
       { label: "Subscriptions", sellisy: "Yes (via Stripe)", competitor: "Yes", winner: "tie" },
       { label: "Storage on entry plan", sellisy: "Generous", competitor: "1GB (small)", winner: "sellisy" },
@@ -333,7 +333,7 @@ export const COMPETITORS: Competitor[] = [
     ]),
     whenTheyWin: [
       "You already have a website (WordPress, Webflow, etc.) and just need a checkout + file-delivery layer.",
-      "You need PDF stamping or per-buyer watermarking out of the box.",
+      "You need PDF stamping at a more granular level (per-paragraph fingerprints, page-by-page tagging) than Sellisy's footer + diagonal watermark.",
     ],
     whySellisyWins: [
       "Full storefront + customer portal — no separate website needed.",
@@ -348,7 +348,7 @@ export const COMPETITORS: Competitor[] = [
       },
       {
         q: "Does Sellisy do PDF watermarking?",
-        a: "Not today. If per-buyer watermarking is a hard requirement, SendOwl still wins that feature.",
+        a: "Yes — toggle 'PDF watermarking' in your store settings. Every PDF download is stamped with the buyer's email + order ID in a footer plus a diagonal 'PERSONAL COPY' watermark. PDFs up to 30 MB are stamped; larger files pass through unstamped.",
       },
     ],
   },
