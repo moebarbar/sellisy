@@ -11,6 +11,9 @@ import {
   type AffiliateClick, type InsertAffiliateClick,
   type AffiliateCommission, type InsertAffiliateCommission,
   type AffiliatePayout, type InsertAffiliatePayout,
+  courseLessons, courseLessonProgress,
+  type CourseLesson, type InsertCourseLesson,
+  type CourseLessonProgress, type InsertCourseLessonProgress,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -1273,6 +1276,84 @@ export class DatabaseStorage implements IStorage {
         sql`${affiliateClicks.createdAt} > ${cutoff}`,
       ));
     return row?.n ?? 0;
+  }
+
+  // ─── Course lessons ─────────────────────────────────────────────────
+
+  async getLessonsByProduct(productId: string): Promise<CourseLesson[]> {
+    return db.select().from(courseLessons)
+      .where(and(eq(courseLessons.productId, productId), isNull(courseLessons.deletedAt)))
+      .orderBy(courseLessons.sortOrder, courseLessons.createdAt);
+  }
+
+  async getLessonById(id: string): Promise<CourseLesson | undefined> {
+    const [row] = await db.select().from(courseLessons)
+      .where(and(eq(courseLessons.id, id), isNull(courseLessons.deletedAt)))
+      .limit(1);
+    return row;
+  }
+
+  async createLesson(data: InsertCourseLesson): Promise<CourseLesson> {
+    const [row] = await db.insert(courseLessons).values(data).returning();
+    return row;
+  }
+
+  async updateLesson(id: string, data: Partial<InsertCourseLesson>): Promise<CourseLesson | undefined> {
+    const [row] = await db.update(courseLessons)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(courseLessons.id, id))
+      .returning();
+    return row;
+  }
+
+  async softDeleteLesson(id: string): Promise<void> {
+    await db.update(courseLessons)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(courseLessons.id, id));
+  }
+
+  async reorderLessons(productId: string, lessonIds: string[]): Promise<void> {
+    // Set sort_order to position in the array. Run in a transaction so
+    // a partial failure doesn't leave the course half-reordered.
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < lessonIds.length; i++) {
+        await tx.update(courseLessons)
+          .set({ sortOrder: i, updatedAt: new Date() })
+          .where(and(eq(courseLessons.id, lessonIds[i]), eq(courseLessons.productId, productId)));
+      }
+    });
+  }
+
+  async getLessonProgressForOrder(orderId: string): Promise<CourseLessonProgress[]> {
+    return db.select().from(courseLessonProgress)
+      .where(eq(courseLessonProgress.orderId, orderId));
+  }
+
+  async markLessonComplete(data: InsertCourseLessonProgress): Promise<CourseLessonProgress> {
+    // Idempotent insert — if (lessonId, orderId) already exists, no-op.
+    try {
+      const [row] = await db.insert(courseLessonProgress).values(data).returning();
+      return row;
+    } catch (err: any) {
+      if (err?.code === "23505") {
+        const [existing] = await db.select().from(courseLessonProgress)
+          .where(and(
+            eq(courseLessonProgress.lessonId, data.lessonId),
+            eq(courseLessonProgress.orderId, data.orderId),
+          ))
+          .limit(1);
+        return existing;
+      }
+      throw err;
+    }
+  }
+
+  async unmarkLessonComplete(lessonId: string, orderId: string): Promise<void> {
+    await db.delete(courseLessonProgress)
+      .where(and(
+        eq(courseLessonProgress.lessonId, lessonId),
+        eq(courseLessonProgress.orderId, orderId),
+      ));
   }
 }
 

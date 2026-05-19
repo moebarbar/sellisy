@@ -24,6 +24,7 @@ import cookieParser from "cookie-parser";
 import { audit, auditMeta } from "./audit";
 import { gumroadImportRouter } from "./routes/gumroad-import";
 import { affiliateRouter } from "./routes/affiliate";
+import { coursesRouter } from "./routes/courses";
 import { WebhookHandlers } from "./webhookHandlers";
 
 function getUserId(req: Request): string {
@@ -186,6 +187,7 @@ export async function registerRoutes(
   app.use(cookieParser());
   app.use('/api/integrations/gumroad', gumroadImportRouter);
   app.use('/api/affiliate', affiliateRouter);
+  app.use('/api/courses', coursesRouter);
 
   app.use(async (req, res, next) => {
     const originalHost = (req.headers["x-custom-host"] as string) || (req.headers["x-forwarded-host"] as string) || req.hostname;

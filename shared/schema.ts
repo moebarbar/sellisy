@@ -873,3 +873,45 @@ export const affiliatePayouts = pgTable("affiliate_payouts", {
 export const insertAffiliatePayoutSchema = createInsertSchema(affiliatePayouts).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAffiliatePayout = z.infer<typeof insertAffiliatePayoutSchema>;
 export type AffiliatePayout = typeof affiliatePayouts.$inferSelect;
+
+// ─── Courses: lessons + progress ──────────────────────────────────────
+// When a product has product_type='course', it can have multiple lessons.
+// Lessons are owned by the product (cascade-cleaned via app code, not FK).
+
+export const courseLessons = pgTable("course_lessons", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id", { length: 64 }).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  videoUrl: text("video_url"),
+  attachmentUrl: text("attachment_url"),
+  durationSeconds: integer("duration_seconds"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("course_lessons_product_idx").on(t.productId, t.deletedAt),
+  index("course_lessons_sort_idx").on(t.productId, t.sortOrder),
+]);
+
+export const insertCourseLessonSchema = createInsertSchema(courseLessons).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
+export type InsertCourseLesson = z.infer<typeof insertCourseLessonSchema>;
+export type CourseLesson = typeof courseLessons.$inferSelect;
+
+// Progress is keyed by (lessonId, orderId) — the order is the unit of access
+// (we use the existing download_tokens flow to grant the customer access).
+// One row per lesson-the-buyer-completed; absence means not yet completed.
+export const courseLessonProgress = pgTable("course_lesson_progress", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id", { length: 64 }).notNull(),
+  orderId: varchar("order_id", { length: 64 }).notNull(),
+  completedAt: timestamp("completed_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("course_lesson_progress_unique").on(t.lessonId, t.orderId),
+  index("course_lesson_progress_order_idx").on(t.orderId),
+]);
+
+export const insertCourseLessonProgressSchema = createInsertSchema(courseLessonProgress).omit({ id: true, completedAt: true });
+export type InsertCourseLessonProgress = z.infer<typeof insertCourseLessonProgressSchema>;
+export type CourseLessonProgress = typeof courseLessonProgress.$inferSelect;
