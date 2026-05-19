@@ -547,6 +547,32 @@ function PortalOrderDetail({ store, theme, orderId, basePath }: {
                         </div>
                       )}
 
+                      {item.productType === "course" && (
+                        <div className="space-y-2">
+                          <p className={`text-xs font-medium uppercase tracking-wider ${theme.textMuted}`}>
+                            Course Player
+                          </p>
+                          <button
+                            onClick={async () => {
+                              try {
+                                const res = await apiRequest("POST", "/api/customer/download", { orderItemId: item.id });
+                                const data = await res.json();
+                                if (data.downloadToken) {
+                                  window.location.href = `/course/${data.downloadToken}/${item.productId}`;
+                                }
+                              } catch (err: any) {
+                                toast({ title: "Failed to open course", description: err.message, variant: "destructive" });
+                              }
+                            }}
+                            className={`inline-flex items-center rounded-md h-9 px-4 text-sm ${theme.btnPrimary}`}
+                            data-testid={`button-open-course-${item.id}`}
+                          >
+                            <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                            Open Course Player
+                          </button>
+                        </div>
+                      )}
+
                       {item.deliveryInstructions && (
                         <div className="space-y-2">
                           <p className={`text-xs font-medium uppercase tracking-wider ${theme.textMuted}`}>How to Access</p>

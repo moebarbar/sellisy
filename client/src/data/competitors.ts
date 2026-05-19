@@ -172,7 +172,7 @@ export const COMPETITORS: Competitor[] = [
       { label: "Storefront templates", sellisy: "6 designer themes", competitor: "1 default theme", winner: "sellisy" },
       { label: "PLR / MRR library included", sellisy: "Yes — hundreds of products", competitor: "No", winner: "sellisy" },
       { label: "AI tools (mockups, copy)", sellisy: "Built-in", competitor: "Not included", winner: "sellisy" },
-      { label: "Memberships / courses", sellisy: "Roadmap", competitor: "Yes", winner: "competitor" },
+      { label: "Memberships / courses", sellisy: "Basic courses; memberships via Stripe subscriptions", competitor: "Yes (full)", winner: "competitor" },
       { label: "EU VAT handled", sellisy: "Yes — Stripe Tax toggle", competitor: "Built-in", winner: "tie" },
       { label: "Coupons / discount codes", sellisy: "Yes", competitor: "Yes", winner: "tie" },
       { label: "Upsells & order bumps", sellisy: "Yes", competitor: "Cross-sells", winner: "sellisy" },
@@ -202,7 +202,7 @@ export const COMPETITORS: Competitor[] = [
       },
       {
         q: "Can I run a membership site on Sellisy?",
-        a: "Recurring subscriptions through Stripe work today. Full course/membership hosting is on the roadmap — if courses are your main product, Payhip may be a better fit for now.",
+        a: "Yes — Sellisy has a built-in course player with lessons, video embeds (YouTube/Vimeo), per-buyer progress tracking, and downloadable lesson attachments. For more advanced LMS features (quizzes, certificates, drip schedules, community), Payhip still wins. Recurring memberships work today through Stripe subscriptions.",
       },
     ],
   },
@@ -272,7 +272,7 @@ export const COMPETITORS: Competitor[] = [
       { label: "Starting paid price", sellisy: "$9/mo (0% fee)", competitor: "$39/mo for 0% fee", winner: "sellisy" },
       { label: "Transaction fee on entry tier", sellisy: "0%", competitor: "8% (free tier)", winner: "sellisy" },
       { label: "Digital downloads", sellisy: "Yes (core)", competitor: "Yes", winner: "tie" },
-      { label: "Courses", sellisy: "Roadmap", competitor: "Yes (core)", winner: "competitor" },
+      { label: "Courses", sellisy: "Basic (lessons + player + progress)", competitor: "Yes (core, full LMS)", winner: "competitor" },
       { label: "Memberships", sellisy: "Subscriptions via Stripe", competitor: "Yes (core)", winner: "competitor" },
       { label: "Email marketing", sellisy: "Newsletter campaigns", competitor: "Built-in", winner: "competitor" },
       { label: "Custom domain", sellisy: "Yes (Growth+)", competitor: "Yes", winner: "tie" },
@@ -295,7 +295,7 @@ export const COMPETITORS: Competitor[] = [
     faqs: [
       {
         q: "Can I sell a course on Sellisy?",
-        a: "You can sell access to course files as a downloadable product, but Sellisy doesn't yet host video-based courses with lesson tracking. For full LMS-style courses, Podia is the better tool today.",
+        a: "Yes — Sellisy now has a built-in course player. Set product type to 'Course', add lessons with YouTube/Vimeo video links and optional attachments. Buyers see a clean player with progress tracking. For deeper LMS features (quizzes, certificates, drip schedules, community), Podia is still richer.",
       },
       {
         q: "Is Sellisy really cheaper than Podia?",
@@ -510,7 +510,7 @@ export const COMPETITORS: Competitor[] = [
       { label: "Starting price", sellisy: "$9/mo", competitor: "$89–$99/mo", winner: "sellisy" },
       { label: "Transaction fee", sellisy: "0%", competitor: "0%", winner: "tie" },
       { label: "Annual cost (entry)", sellisy: "$108/yr", competitor: "$1,068+/yr", winner: "sellisy" },
-      { label: "Courses (LMS)", sellisy: "Roadmap", competitor: "Yes (core)", winner: "competitor" },
+      { label: "Courses (LMS)", sellisy: "Basic LMS — lessons, player, progress", competitor: "Yes (core, full LMS)", winner: "competitor" },
       { label: "Email marketing (built-in)", sellisy: "Newsletter campaigns", competitor: "Yes (their core)", winner: "competitor" },
       { label: "Sales funnels / pipelines", sellisy: "Upsells + order bumps", competitor: "Full funnels", winner: "competitor" },
       { label: "Storefront templates", sellisy: "6 designer themes", competitor: "Website builder", winner: "tie" },

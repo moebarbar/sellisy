@@ -58,6 +58,7 @@ const ProductsPage = lazy(() => import("@/pages/products"));
 const VersusPage = lazy(() => import("@/pages/versus"));
 const AffiliateApplyPage = lazy(() => import("@/pages/affiliate-apply"));
 const EarningsPage = lazy(() => import("@/pages/dashboard/earnings"));
+const CoursePlayerPage = lazy(() => import("@/pages/course-player"));
 
 class ErrorBoundary extends Component<
   { children: ReactNode; fallbackClassName?: string },
@@ -267,6 +268,7 @@ function Router() {
               <Route path="/s/:slug/bundle/:bundleId" component={BundleDetailPage} />
               <Route path="/s/:slug/product/:productId" component={ProductDetailPage} />
               <Route path="/s/:slug/affiliate" component={AffiliateApplyPage} />
+              <Route path="/course/:token/:productId" component={CoursePlayerPage} />
               <Route path="/s/:slug" component={StorefrontPage} />
               <Route path="/kb/:id" component={KbViewerPage} />
               <Route path="/checkout/success" component={CheckoutSuccessPage} />

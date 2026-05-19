@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Trash2, Pencil, Upload, Link as LinkIcon, Loader2, FileIcon, Image as ImageIcon, Download, Star, X, ArrowUpToLine, Package, FileUp } from "lucide-react";
 import { Link } from "wouter";
 import { ProductPlaceholder } from "@/components/product-placeholder";
+import { LessonsEditor } from "@/components/dashboard/lessons-editor";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import type { Product, Store, ProductImage, Category } from "@shared/schema";
 
@@ -950,20 +951,26 @@ function ProductFormDialog({
             </p>
           </div>
 
-          {(productType === "template" || productType === "course") && (
+          {productType === "template" && (
             <div className="space-y-2">
               <Label htmlFor="accessUrl">Access URL</Label>
               <Input
                 id="accessUrl"
                 type="url"
-                placeholder={productType === "template" ? "https://www.canva.com/design/..." : "https://course-platform.com/enroll/..."}
+                placeholder="https://www.canva.com/design/..."
                 value={accessUrl}
                 onChange={(e) => setAccessUrl(e.target.value)}
                 data-testid="input-access-url"
               />
               <p className="text-xs text-muted-foreground">
-                {productType === "template" ? "Direct link to the template (Canva, Figma, etc.)" : "Link where buyers can access the course"}
+                Direct link to the template (Canva, Figma, etc.)
               </p>
+            </div>
+          )}
+
+          {productType === "course" && (
+            <div className="space-y-3 rounded-md border border-border p-4">
+              <LessonsEditor productId={product?.id} />
             </div>
           )}
 
