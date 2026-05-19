@@ -59,6 +59,7 @@ const createLessonSchema = z.object({
   videoUrl: z.string().max(1000).optional(),
   attachmentUrl: z.string().max(1000).optional(),
   durationSeconds: z.number().int().min(0).max(60 * 60 * 24).optional(),
+  moduleId: z.string().nullable().optional(),
 });
 
 coursesRouter.post("/products/:productId/lessons", isAuthenticated, async (req: Request, res: Response) => {
@@ -68,11 +69,22 @@ coursesRouter.post("/products/:productId/lessons", isAuthenticated, async (req: 
   const parsed = createLessonSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
+  // If moduleId is provided, ensure it belongs to this product (no cross-product injection).
+  if (parsed.data.moduleId) {
+    const mod = await storage.getModuleById(parsed.data.moduleId);
+    if (!mod || mod.productId !== check.product.id) {
+      return res.status(400).json({ message: "Invalid moduleId for this course" });
+    }
+  }
+
+  // Next sort order = number of lessons in the same scope (module or top-level).
   const existing = await storage.getLessonsByProduct(check.product.id);
-  const nextSortOrder = existing.length;
+  const scope = existing.filter((l) => (l.moduleId ?? null) === (parsed.data.moduleId ?? null));
+  const nextSortOrder = scope.length;
 
   const lesson = await storage.createLesson({
     productId: check.product.id,
+    moduleId: parsed.data.moduleId ?? null,
     title: parsed.data.title,
     description: parsed.data.description ?? null,
     videoUrl: parsed.data.videoUrl ?? null,
@@ -96,6 +108,14 @@ coursesRouter.patch("/lessons/:id", isAuthenticated, async (req: Request, res: R
 
   const parsed = updateLessonSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  // If moduleId is being changed, validate it belongs to the same product.
+  if (parsed.data.moduleId) {
+    const mod = await storage.getModuleById(parsed.data.moduleId);
+    if (!mod || mod.productId !== check.product.id) {
+      return res.status(400).json({ message: "Invalid moduleId for this course" });
+    }
+  }
 
   const updated = await storage.updateLesson(lesson.id, parsed.data);
   res.json(updated);
@@ -137,6 +157,88 @@ coursesRouter.post("/products/:productId/lessons/reorder", isAuthenticated, asyn
   res.json({ ok: true });
 });
 
+// ── OWNER: modules CRUD ───────────────────────────────────────────────
+
+coursesRouter.get("/products/:productId/modules", isAuthenticated, async (req: Request, res: Response) => {
+  const check = await requireProductOwner(req, String(req.params.productId));
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const modules = await storage.getModulesByProduct(check.product.id);
+  res.json(modules);
+});
+
+const createModuleSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(4000).optional(),
+});
+
+coursesRouter.post("/products/:productId/modules", isAuthenticated, async (req: Request, res: Response) => {
+  const check = await requireProductOwner(req, String(req.params.productId));
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const parsed = createModuleSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  const existing = await storage.getModulesByProduct(check.product.id);
+  const mod = await storage.createModule({
+    productId: check.product.id,
+    title: parsed.data.title,
+    description: parsed.data.description ?? null,
+    sortOrder: existing.length,
+  });
+  res.json(mod);
+});
+
+const updateModuleSchema = createModuleSchema.partial();
+
+coursesRouter.patch("/modules/:id", isAuthenticated, async (req: Request, res: Response) => {
+  const mod = await storage.getModuleById(String(req.params.id));
+  if (!mod) return res.status(404).json({ message: "Module not found" });
+
+  const check = await requireProductOwner(req, mod.productId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const parsed = updateModuleSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  const updated = await storage.updateModule(mod.id, parsed.data);
+  res.json(updated);
+});
+
+coursesRouter.delete("/modules/:id", isAuthenticated, async (req: Request, res: Response) => {
+  const mod = await storage.getModuleById(String(req.params.id));
+  if (!mod) return res.status(404).json({ message: "Module not found" });
+
+  const check = await requireProductOwner(req, mod.productId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  // softDeleteModule also un-modules lessons inside it so they survive.
+  await storage.softDeleteModule(mod.id);
+  res.json({ ok: true });
+});
+
+const reorderModulesSchema = z.object({
+  moduleIds: z.array(z.string()).min(1).max(200),
+});
+
+coursesRouter.post("/products/:productId/modules/reorder", isAuthenticated, async (req: Request, res: Response) => {
+  const check = await requireProductOwner(req, String(req.params.productId));
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const parsed = reorderModulesSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  const owned = await storage.getModulesByProduct(check.product.id);
+  const ownedIds = new Set(owned.map((m) => m.id));
+  const invalid = parsed.data.moduleIds.filter((id) => !ownedIds.has(id));
+  if (invalid.length > 0) {
+    return res.status(400).json({ message: "Reorder list contains modules not belonging to this product" });
+  }
+
+  await storage.reorderModules(check.product.id, parsed.data.moduleIds);
+  res.json({ ok: true });
+});
+
 // ── CUSTOMER: lesson access via download token ────────────────────────
 
 // GET /api/courses/access/:token/:productId — lessons + progress
@@ -147,8 +249,11 @@ coursesRouter.get("/access/:token/:productId", async (req: Request, res: Respons
   const product = await storage.getProductById(String(req.params.productId));
   if (!product) return res.status(404).json({ message: "Course not found" });
 
-  const lessons = await storage.getLessonsByProduct(product.id);
-  const progress = await storage.getLessonProgressForOrder(check.orderId);
+  const [lessons, modules, progress] = await Promise.all([
+    storage.getLessonsByProduct(product.id),
+    storage.getModulesByProduct(product.id),
+    storage.getLessonProgressForOrder(check.orderId),
+  ]);
   const completedSet = new Set(progress.map((p) => p.lessonId));
 
   res.json({
@@ -158,8 +263,15 @@ coursesRouter.get("/access/:token/:productId", async (req: Request, res: Respons
       description: product.description,
       thumbnailUrl: product.thumbnailUrl,
     },
+    modules: modules.map((m) => ({
+      id: m.id,
+      title: m.title,
+      description: m.description,
+      sortOrder: m.sortOrder,
+    })),
     lessons: lessons.map((l) => ({
       id: l.id,
+      moduleId: l.moduleId,
       title: l.title,
       description: l.description,
       videoUrl: l.videoUrl,
