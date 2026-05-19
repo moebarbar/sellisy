@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { DomainSettings } from "@/components/dashboard/domain-settings";
 import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon, CreditCard, CheckCircle2, XCircle, FileText, Megaphone, Globe, ExternalLink } from "lucide-react";
-import { ImageUploadField } from "@/components/dashboard/image-upload-field";
+import { ImageUploadField } from "@/components/image-upload-field";
 import { AboutSettingsCard } from "@/components/dashboard/about-settings";
 import { NewsletterSettingsCard } from "@/components/dashboard/newsletter-settings";
 import { TestimonialsSettingsCard } from "@/components/dashboard/testimonials-settings";
@@ -242,7 +242,7 @@ export default function StoreSettingsPage() {
               <ImageUploadField
                 label="Logo"
                 value={logoUrl}
-                onChange={setLogoUrl}
+                onChange={(v) => setLogoUrl(v ?? "")}
                 aspectHint="Square image, 512×512px recommended. Displayed in your storefront header and used as social sharing image."
                 previewClass="w-28 h-28"
                 testIdPrefix="logo"
@@ -258,7 +258,7 @@ export default function StoreSettingsPage() {
               <ImageUploadField
                 label="Favicon"
                 value={faviconUrl}
-                onChange={setFaviconUrl}
+                onChange={(v) => setFaviconUrl(v ?? "")}
                 aspectHint="Square icon, 32×32px or 64×64px. Shown in the browser tab. Falls back to your store logo if not set."
                 previewClass="w-16 h-16"
                 testIdPrefix="favicon"
@@ -274,7 +274,7 @@ export default function StoreSettingsPage() {
               <ImageUploadField
                 label="Hero Banner"
                 value={heroBannerUrl}
-                onChange={setHeroBannerUrl}
+                onChange={(v) => setHeroBannerUrl(v ?? "")}
                 aspectHint="Wide landscape image recommended (e.g. 1600x600px). Appears behind your store title."
                 previewClass="w-full aspect-[16/6]"
                 testIdPrefix="hero-banner"

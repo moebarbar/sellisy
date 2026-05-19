@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, MessageSquareQuote, Plus, Trash2, Pencil, X } from "lucide-react";
-import { ImageUploadField } from "./image-upload-field";
+import { ImageUploadField } from "@/components/image-upload-field";
 import type { StoreTestimonial } from "@shared/schema";
 
 export function TestimonialsSettingsCard() {
@@ -166,7 +166,7 @@ export function TestimonialsSettingsCard() {
                   <ImageUploadField
                     label=""
                     value={avatarUrl}
-                    onChange={setAvatarUrl}
+                    onChange={(v) => setAvatarUrl(v ?? "")}
                     aspectHint="Square photo recommended."
                     previewClass="w-16 h-16 rounded-full"
                     testIdPrefix="testimonial-avatar"
