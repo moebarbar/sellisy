@@ -762,6 +762,26 @@ coursesRouter.delete(
 
 // ── OWNER: comment moderation ─────────────────────────────────────────
 
+// GET — owner moderation view, includes everything (author email, etc.)
+coursesRouter.get("/lessons/:lessonId/comments", isAuthenticated, async (req: Request, res: Response) => {
+  const lesson = await storage.getLessonById(String(req.params.lessonId));
+  if (!lesson) return res.status(404).json({ message: "Lesson not found" });
+
+  const check = await requireProductOwner(req, lesson.productId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const rows = await storage.getCommentsByLesson(lesson.id);
+  res.json(rows.map((c) => ({
+    id: c.id,
+    body: c.body,
+    authorType: c.authorType,
+    authorName: c.authorName,
+    authorEmail: c.authorEmail,  // owner sees full email for moderation
+    isPinned: c.isPinned,
+    createdAt: c.createdAt,
+  })));
+});
+
 const ownerPostCommentSchema = z.object({
   body: z.string().min(1).max(2000),
 });
