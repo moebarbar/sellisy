@@ -1046,6 +1046,15 @@ ${urls}</urlset>`;
     res.json(prods);
   });
 
+  app.get("/api/products/:id", isAuthenticated, async (req, res) => {
+    const product = await storage.getProductById(String(req.params.id));
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (product.ownerId !== getUserId(req)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    res.json(product);
+  });
+
   app.post("/api/products", isAuthenticated, async (req, res) => {
     const imageSchema = z.object({
       url: z.string().min(1),

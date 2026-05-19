@@ -25,6 +25,7 @@ const CouponsPage = lazy(() => import("@/pages/dashboard/coupons"));
 const OrdersPage = lazy(() => import("@/pages/dashboard/orders"));
 const LibraryPage = lazy(() => import("@/pages/dashboard/library"));
 const MyProductsPage = lazy(() => import("@/pages/dashboard/my-products"));
+const CoursesPage = lazy(() => import("@/pages/dashboard/courses"));
 const StoreSettingsPage = lazy(() => import("@/pages/dashboard/store-settings"));
 const MarketingPlaybookPage = lazy(() => import("@/pages/dashboard/marketing-playbook"));
 const StrategyDetailPage = lazy(() => import("@/pages/dashboard/strategy-detail"));
@@ -165,6 +166,7 @@ function DashboardRouter() {
             <Route path="/dashboard/orders" component={OrdersPage} />
             <Route path="/dashboard/library" component={LibraryPage} />
             <Route path="/dashboard/my-products" component={MyProductsPage} />
+            <Route path="/dashboard/courses" component={CoursesPage} />
             <Route path="/dashboard/settings" component={StoreSettingsPage} />
             <Route path="/dashboard/marketing/:strategyId" component={StrategyDetailPage} />
             <Route path="/dashboard/marketing" component={MarketingPlaybookPage} />
