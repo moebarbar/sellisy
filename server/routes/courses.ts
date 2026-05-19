@@ -1,7 +1,10 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
+import { db } from "../db";
 import { isAuthenticated } from "../replit_integrations/auth";
+import { quizQuestions, QUIZ_PASS_THRESHOLD } from "@shared/schema";
+import { and, inArray, isNull } from "drizzle-orm";
 
 export const coursesRouter = Router();
 
@@ -243,6 +246,105 @@ coursesRouter.post("/products/:productId/modules/reorder", isAuthenticated, asyn
   res.json({ ok: true });
 });
 
+// ── OWNER: quiz questions + choices ───────────────────────────────────
+
+// GET /api/courses/lessons/:lessonId/questions — owner view (incl. correct flags)
+coursesRouter.get("/lessons/:lessonId/questions", isAuthenticated, async (req: Request, res: Response) => {
+  const lesson = await storage.getLessonById(String(req.params.lessonId));
+  if (!lesson) return res.status(404).json({ message: "Lesson not found" });
+  const check = await requireProductOwner(req, lesson.productId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const questions = await storage.getQuestionsByLesson(lesson.id);
+  const choices = await storage.getChoicesByQuestionIds(questions.map((q) => q.id));
+  const byQuestion = new Map<string, typeof choices>();
+  for (const c of choices) {
+    const arr = byQuestion.get(c.questionId) || [];
+    arr.push(c);
+    byQuestion.set(c.questionId, arr);
+  }
+  res.json(questions.map((q) => ({
+    ...q,
+    choices: byQuestion.get(q.id) || [],
+  })));
+});
+
+// POST /api/courses/lessons/:lessonId/questions — add a question with choices
+const createQuestionSchema = z.object({
+  prompt: z.string().min(1).max(2000),
+  choices: z.array(z.object({
+    label: z.string().min(1).max(500),
+    isCorrect: z.boolean(),
+  })).min(2).max(8),
+}).refine((d) => d.choices.filter((c) => c.isCorrect).length === 1, {
+  message: "Exactly one choice must be marked correct",
+});
+
+coursesRouter.post("/lessons/:lessonId/questions", isAuthenticated, async (req: Request, res: Response) => {
+  const lesson = await storage.getLessonById(String(req.params.lessonId));
+  if (!lesson) return res.status(404).json({ message: "Lesson not found" });
+  const check = await requireProductOwner(req, lesson.productId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const parsed = createQuestionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  const existing = await storage.getQuestionsByLesson(lesson.id);
+  const question = await storage.createQuestion({
+    lessonId: lesson.id,
+    prompt: parsed.data.prompt,
+    sortOrder: existing.length,
+  });
+  const choices = await storage.replaceChoicesForQuestion(question.id, parsed.data.choices);
+  res.json({ ...question, choices });
+});
+
+// PATCH /api/courses/questions/:id — update prompt and/or replace choices
+const updateQuestionSchema = z.object({
+  prompt: z.string().min(1).max(2000).optional(),
+  choices: z.array(z.object({
+    label: z.string().min(1).max(500),
+    isCorrect: z.boolean(),
+  })).min(2).max(8).optional(),
+}).refine((d) => !d.choices || d.choices.filter((c) => c.isCorrect).length === 1, {
+  message: "Exactly one choice must be marked correct",
+});
+
+coursesRouter.patch("/questions/:id", isAuthenticated, async (req: Request, res: Response) => {
+  const question = await storage.getQuestionById(String(req.params.id));
+  if (!question) return res.status(404).json({ message: "Question not found" });
+  const lesson = await storage.getLessonById(question.lessonId);
+  if (!lesson) return res.status(404).json({ message: "Parent lesson not found" });
+  const check = await requireProductOwner(req, lesson.productId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  const parsed = updateQuestionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  let updated = question;
+  if (parsed.data.prompt !== undefined) {
+    updated = (await storage.updateQuestion(question.id, { prompt: parsed.data.prompt }))!;
+  }
+  let choices = await storage.getChoicesByQuestion(question.id);
+  if (parsed.data.choices) {
+    choices = await storage.replaceChoicesForQuestion(question.id, parsed.data.choices);
+  }
+  res.json({ ...updated, choices });
+});
+
+// DELETE /api/courses/questions/:id
+coursesRouter.delete("/questions/:id", isAuthenticated, async (req: Request, res: Response) => {
+  const question = await storage.getQuestionById(String(req.params.id));
+  if (!question) return res.status(404).json({ message: "Question not found" });
+  const lesson = await storage.getLessonById(question.lessonId);
+  if (!lesson) return res.status(404).json({ message: "Parent lesson not found" });
+  const check = await requireProductOwner(req, lesson.productId);
+  if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+  await storage.softDeleteQuestion(question.id);
+  res.json({ ok: true });
+});
+
 // ── CUSTOMER: lesson access via download token ────────────────────────
 
 // Compute the effective unlock day for a lesson by taking the MAX of its
@@ -271,6 +373,15 @@ coursesRouter.get("/access/:token/:productId", async (req: Request, res: Respons
   ]);
   const completedSet = new Set(progress.map((p) => p.lessonId));
   const moduleById = new Map(modules.map((m) => [m.id, m]));
+
+  // Which lessons have a quiz? One query, batched.
+  const allLessonIds = lessons.map((l) => l.id);
+  const questionRows = allLessonIds.length
+    ? await db.select({ lessonId: quizQuestions.lessonId, id: quizQuestions.id })
+        .from(quizQuestions)
+        .where(and(inArray(quizQuestions.lessonId, allLessonIds), isNull(quizQuestions.deletedAt)))
+    : [];
+  const hasQuizSet = new Set(questionRows.map((r) => r.lessonId));
 
   const orderCreatedAt = new Date(order.createdAt);
   const now = new Date();
@@ -311,6 +422,7 @@ coursesRouter.get("/access/:token/:productId", async (req: Request, res: Respons
         unlocksAt: unlocksAt ? unlocksAt.toISOString() : null,
         locked,
         completed: completedSet.has(l.id),
+        hasQuiz: hasQuizSet.has(l.id),
       };
     }),
     completedCount: progress.length,
@@ -342,11 +454,161 @@ coursesRouter.post("/access/:token/:productId/lessons/:lessonId/complete", async
     }
   }
 
+  // Quiz-gated lessons can't be marked complete manually — the buyer must
+  // pass the quiz via /quiz/submit. (Quiz submission auto-marks complete.)
+  if (await storage.hasLessonQuiz(lesson.id)) {
+    return res.status(403).json({ message: "Pass the quiz to complete this lesson." });
+  }
+
   const row = await storage.markLessonComplete({
     lessonId: lesson.id,
     orderId: check.orderId,
   });
   res.json(row);
+});
+
+// ── CUSTOMER: take quiz ───────────────────────────────────────────────
+
+// GET /api/courses/access/:token/:productId/lessons/:lessonId/quiz
+// Returns questions + choices (without is_correct flag) for the buyer to take.
+// Blocks if the lesson is locked.
+coursesRouter.get("/access/:token/:productId/lessons/:lessonId/quiz", async (req: Request, res: Response) => {
+  const accessCheck = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+  if (!accessCheck.ok) return res.status(accessCheck.status).json({ message: accessCheck.message });
+
+  const lesson = await storage.getLessonById(String(req.params.lessonId));
+  if (!lesson || lesson.productId !== String(req.params.productId)) {
+    return res.status(404).json({ message: "Lesson not found" });
+  }
+
+  // Lock check
+  const order = await storage.getOrderById(accessCheck.orderId);
+  if (order) {
+    const mod = lesson.moduleId ? await storage.getModuleById(lesson.moduleId) : null;
+    const effective = effectiveUnlockDay(lesson.unlockAfterDays, mod?.unlockAfterDays ?? null);
+    if (effective != null) {
+      const unlocksAt = new Date(new Date(order.createdAt).getTime() + effective * 24 * 60 * 60 * 1000);
+      if (unlocksAt > new Date()) {
+        return res.status(403).json({ message: "Lesson hasn't unlocked yet" });
+      }
+    }
+  }
+
+  const questions = await storage.getQuestionsByLesson(lesson.id);
+  const allChoices = await storage.getChoicesByQuestionIds(questions.map((q) => q.id));
+  const byQuestion = new Map<string, typeof allChoices>();
+  for (const c of allChoices) {
+    const arr = byQuestion.get(c.questionId) || [];
+    arr.push(c);
+    byQuestion.set(c.questionId, arr);
+  }
+
+  // Existing passing attempt → tell client so it can show "already passed"
+  const passingAttempt = await storage.getLatestPassingAttempt(lesson.id, accessCheck.orderId);
+
+  res.json({
+    questions: questions.map((q) => ({
+      id: q.id,
+      prompt: q.prompt,
+      sortOrder: q.sortOrder,
+      choices: (byQuestion.get(q.id) || []).map((c) => ({
+        id: c.id,
+        label: c.label,
+        sortOrder: c.sortOrder,
+        // NOTE: is_correct deliberately omitted — would leak the answer.
+      })),
+    })),
+    passThreshold: QUIZ_PASS_THRESHOLD,
+    previouslyPassed: !!passingAttempt,
+    previousBestScore: passingAttempt
+      ? { correctCount: passingAttempt.correctCount, totalCount: passingAttempt.totalCount }
+      : null,
+  });
+});
+
+// POST /api/courses/access/:token/:productId/lessons/:lessonId/quiz/submit
+// Body: { answers: [{ questionId, choiceId }] }
+// Scores server-side, records the attempt, marks lesson complete if passed.
+const submitQuizSchema = z.object({
+  answers: z.array(z.object({
+    questionId: z.string(),
+    choiceId: z.string(),
+  })).min(1).max(100),
+});
+
+coursesRouter.post("/access/:token/:productId/lessons/:lessonId/quiz/submit", async (req: Request, res: Response) => {
+  const accessCheck = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+  if (!accessCheck.ok) return res.status(accessCheck.status).json({ message: accessCheck.message });
+
+  const lesson = await storage.getLessonById(String(req.params.lessonId));
+  if (!lesson || lesson.productId !== String(req.params.productId)) {
+    return res.status(404).json({ message: "Lesson not found" });
+  }
+
+  const parsed = submitQuizSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+  const questions = await storage.getQuestionsByLesson(lesson.id);
+  if (questions.length === 0) {
+    return res.status(400).json({ message: "This lesson has no quiz." });
+  }
+
+  const allChoices = await storage.getChoicesByQuestionIds(questions.map((q) => q.id));
+  // Map: correct choice per question
+  const correctByQuestion = new Map<string, string>();
+  for (const c of allChoices) {
+    if (c.isCorrect) correctByQuestion.set(c.questionId, c.id);
+  }
+
+  // Each answer's questionId must be in this lesson's question set.
+  const allowedQuestionIds = new Set(questions.map((q) => q.id));
+  for (const a of parsed.data.answers) {
+    if (!allowedQuestionIds.has(a.questionId)) {
+      return res.status(400).json({ message: "Answer references a question not in this quiz." });
+    }
+  }
+
+  // Score: count exact matches. Missing answers count as wrong.
+  const answerByQuestion = new Map<string, string>();
+  for (const a of parsed.data.answers) answerByQuestion.set(a.questionId, a.choiceId);
+
+  let correctCount = 0;
+  for (const q of questions) {
+    if (answerByQuestion.get(q.id) === correctByQuestion.get(q.id)) correctCount++;
+  }
+  const totalCount = questions.length;
+  const score = correctCount / totalCount;
+  const passed = score >= QUIZ_PASS_THRESHOLD;
+
+  await storage.createQuizAttempt({
+    lessonId: lesson.id,
+    orderId: accessCheck.orderId,
+    correctCount,
+    totalCount,
+    passed,
+  });
+
+  if (passed) {
+    // Auto-complete the lesson on a passing attempt. markLessonComplete is
+    // idempotent on the (lessonId, orderId) unique index.
+    await storage.markLessonComplete({
+      lessonId: lesson.id,
+      orderId: accessCheck.orderId,
+    });
+  }
+
+  res.json({
+    correctCount,
+    totalCount,
+    passed,
+    passThreshold: QUIZ_PASS_THRESHOLD,
+    // Server reveals correct answers AFTER submission so the buyer can learn.
+    review: questions.map((q) => ({
+      questionId: q.id,
+      yourChoiceId: answerByQuestion.get(q.id) ?? null,
+      correctChoiceId: correctByQuestion.get(q.id) ?? null,
+    })),
+  });
 });
 
 // DELETE /api/courses/access/:token/:productId/lessons/:lessonId/complete — unmark
