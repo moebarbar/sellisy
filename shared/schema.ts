@@ -886,6 +886,10 @@ export const courseModules = pgTable("course_modules", {
   title: text("title").notNull(),
   description: text("description"),
   sortOrder: integer("sort_order").notNull().default(0),
+  // Drip: unlock this module N days after the buyer's order createdAt.
+  // NULL = no drip (available immediately). Module-level drip wins over
+  // lesson-level if both are set (lesson can drip later within an unlocked module).
+  unlockAfterDays: integer("unlock_after_days"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -908,6 +912,11 @@ export const courseLessons = pgTable("course_lessons", {
   attachmentUrl: text("attachment_url"),
   durationSeconds: integer("duration_seconds"),
   sortOrder: integer("sort_order").notNull().default(0),
+  // Drip: unlock this lesson N days after the buyer's order createdAt.
+  // NULL = no drip. If the lesson belongs to a module that also has a drip,
+  // the later of the two is used (so a drip-3-day module containing a
+  // drip-5-day lesson stays locked until day 5).
+  unlockAfterDays: integer("unlock_after_days"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
