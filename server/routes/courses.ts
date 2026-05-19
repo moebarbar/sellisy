@@ -9,6 +9,7 @@ import { and, inArray, isNull } from "drizzle-orm";
 import { generateCertificatePdf, generateVerificationCode } from "../certificate";
 import { sendCourseCommentToOwnerEmail, sendCourseCommentReplyToBuyerEmail } from "../emails";
 import { authStorage } from "../replit_integrations/auth/storage";
+import { makeUnsubscribeToken, verifyUnsubscribeToken } from "../crypto/unsubscribe-token";
 
 export const coursesRouter = Router();
 
@@ -328,14 +329,30 @@ coursesRouter.get("/lessons/:lessonId/questions", isAuthenticated, async (req: R
 });
 
 // POST /api/courses/lessons/:lessonId/questions — add a question with choices
+const choiceItemSchema = z.object({
+  label: z.string().min(1).max(500),
+  isCorrect: z.boolean(),
+});
+
+// For "single" questions exactly one choice must be correct; for "multi" at
+// least one must be correct (but not all — otherwise the question is trivial).
+function validateChoiceShape(
+  questionType: "single" | "multi",
+  choices: { isCorrect: boolean }[],
+): string | null {
+  const correct = choices.filter((c) => c.isCorrect).length;
+  if (questionType === "single") {
+    return correct === 1 ? null : "Single-choice questions must have exactly one correct answer.";
+  }
+  if (correct < 1) return "Multi-choice questions need at least one correct answer.";
+  if (correct >= choices.length) return "Multi-choice questions need at least one wrong answer.";
+  return null;
+}
+
 const createQuestionSchema = z.object({
   prompt: z.string().min(1).max(2000),
-  choices: z.array(z.object({
-    label: z.string().min(1).max(500),
-    isCorrect: z.boolean(),
-  })).min(2).max(8),
-}).refine((d) => d.choices.filter((c) => c.isCorrect).length === 1, {
-  message: "Exactly one choice must be marked correct",
+  questionType: z.enum(["single", "multi"]).default("single"),
+  choices: z.array(choiceItemSchema).min(2).max(8),
 });
 
 coursesRouter.post("/lessons/:lessonId/questions", isAuthenticated, async (req: Request, res: Response) => {
@@ -347,25 +364,25 @@ coursesRouter.post("/lessons/:lessonId/questions", isAuthenticated, async (req: 
   const parsed = createQuestionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
+  const shapeError = validateChoiceShape(parsed.data.questionType, parsed.data.choices);
+  if (shapeError) return res.status(400).json({ message: shapeError });
+
   const existing = await storage.getQuestionsByLesson(lesson.id);
   const question = await storage.createQuestion({
     lessonId: lesson.id,
     prompt: parsed.data.prompt,
+    questionType: parsed.data.questionType,
     sortOrder: existing.length,
   });
   const choices = await storage.replaceChoicesForQuestion(question.id, parsed.data.choices);
   res.json({ ...question, choices });
 });
 
-// PATCH /api/courses/questions/:id — update prompt and/or replace choices
+// PATCH /api/courses/questions/:id — update prompt, type, and/or replace choices
 const updateQuestionSchema = z.object({
   prompt: z.string().min(1).max(2000).optional(),
-  choices: z.array(z.object({
-    label: z.string().min(1).max(500),
-    isCorrect: z.boolean(),
-  })).min(2).max(8).optional(),
-}).refine((d) => !d.choices || d.choices.filter((c) => c.isCorrect).length === 1, {
-  message: "Exactly one choice must be marked correct",
+  questionType: z.enum(["single", "multi"]).optional(),
+  choices: z.array(choiceItemSchema).min(2).max(8).optional(),
 });
 
 coursesRouter.patch("/questions/:id", isAuthenticated, async (req: Request, res: Response) => {
@@ -379,9 +396,26 @@ coursesRouter.patch("/questions/:id", isAuthenticated, async (req: Request, res:
   const parsed = updateQuestionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
+  // Validate the resulting (type, choices) combo — using the new value when
+  // provided, otherwise the existing one — so the row never ends up in an
+  // invalid shape mid-edit.
+  const effectiveType = parsed.data.questionType ?? question.questionType;
+  if (parsed.data.choices) {
+    const shapeError = validateChoiceShape(effectiveType, parsed.data.choices);
+    if (shapeError) return res.status(400).json({ message: shapeError });
+  } else if (parsed.data.questionType && parsed.data.questionType !== question.questionType) {
+    // Type changed without sending new choices — re-validate against existing.
+    const existingChoices = await storage.getChoicesByQuestion(question.id);
+    const shapeError = validateChoiceShape(effectiveType, existingChoices);
+    if (shapeError) return res.status(400).json({ message: shapeError });
+  }
+
   let updated = question;
-  if (parsed.data.prompt !== undefined) {
-    updated = (await storage.updateQuestion(question.id, { prompt: parsed.data.prompt }))!;
+  const patch: { prompt?: string; questionType?: "single" | "multi" } = {};
+  if (parsed.data.prompt !== undefined) patch.prompt = parsed.data.prompt;
+  if (parsed.data.questionType !== undefined) patch.questionType = parsed.data.questionType;
+  if (Object.keys(patch).length > 0) {
+    updated = (await storage.updateQuestion(question.id, patch))!;
   }
   let choices = await storage.getChoicesByQuestion(question.id);
   if (parsed.data.choices) {
@@ -569,6 +603,7 @@ coursesRouter.get("/access/:token/:productId/lessons/:lessonId/quiz", async (req
     questions: questions.map((q) => ({
       id: q.id,
       prompt: q.prompt,
+      questionType: q.questionType,
       sortOrder: q.sortOrder,
       choices: (byQuestion.get(q.id) || []).map((c) => ({
         id: c.id,
@@ -586,12 +621,16 @@ coursesRouter.get("/access/:token/:productId/lessons/:lessonId/quiz", async (req
 });
 
 // POST /api/courses/access/:token/:productId/lessons/:lessonId/quiz/submit
-// Body: { answers: [{ questionId, choiceId }] }
+// Body: { answers: [{ questionId, choiceIds: string[] }] }
 // Scores server-side, records the attempt, marks lesson complete if passed.
+//
+// For "single" questions, choiceIds must have exactly one entry. For "multi",
+// the answer scores only if it's the exact set of correct choices (all corrects
+// selected, no incorrects selected).
 const submitQuizSchema = z.object({
   answers: z.array(z.object({
     questionId: z.string(),
-    choiceId: z.string(),
+    choiceIds: z.array(z.string()).min(0).max(20),
   })).min(1).max(100),
 });
 
@@ -627,27 +666,58 @@ coursesRouter.post("/access/:token/:productId/lessons/:lessonId/quiz/submit", as
   }
 
   const allChoices = await storage.getChoicesByQuestionIds(questions.map((q) => q.id));
-  // Map: correct choice per question
-  const correctByQuestion = new Map<string, string>();
+
+  // Map question → set of valid choice ids (used to reject answers that
+  // reference a choice from another question) and set of correct choice ids
+  // (used for grading).
+  const validChoicesByQuestion = new Map<string, Set<string>>();
+  const correctByQuestion = new Map<string, Set<string>>();
+  for (const q of questions) {
+    validChoicesByQuestion.set(q.id, new Set());
+    correctByQuestion.set(q.id, new Set());
+  }
   for (const c of allChoices) {
-    if (c.isCorrect) correctByQuestion.set(c.questionId, c.id);
+    validChoicesByQuestion.get(c.questionId)?.add(c.id);
+    if (c.isCorrect) correctByQuestion.get(c.questionId)?.add(c.id);
   }
 
-  // Each answer's questionId must be in this lesson's question set.
+  // Each answer's questionId must be in this lesson's question set,
+  // and each choiceId must belong to that question.
   const allowedQuestionIds = new Set(questions.map((q) => q.id));
   for (const a of parsed.data.answers) {
     if (!allowedQuestionIds.has(a.questionId)) {
       return res.status(400).json({ message: "Answer references a question not in this quiz." });
     }
+    const validSet = validChoicesByQuestion.get(a.questionId)!;
+    for (const cid of a.choiceIds) {
+      if (!validSet.has(cid)) {
+        return res.status(400).json({ message: "Answer references a choice not in this question." });
+      }
+    }
   }
 
-  // Score: count exact matches. Missing answers count as wrong.
-  const answerByQuestion = new Map<string, string>();
-  for (const a of parsed.data.answers) answerByQuestion.set(a.questionId, a.choiceId);
+  // Score: per-question exact-set match. For single, exactly one choice; for
+  // multi, the set must equal the set of correct choices. Missing answers
+  // count as wrong.
+  const answerByQuestion = new Map<string, Set<string>>();
+  for (const a of parsed.data.answers) answerByQuestion.set(a.questionId, new Set(a.choiceIds));
+
+  const setsEqual = (a: Set<string>, b: Set<string>) => {
+    if (a.size !== b.size) return false;
+    for (const v of Array.from(a)) if (!b.has(v)) return false;
+    return true;
+  };
 
   let correctCount = 0;
   for (const q of questions) {
-    if (answerByQuestion.get(q.id) === correctByQuestion.get(q.id)) correctCount++;
+    const given = answerByQuestion.get(q.id) ?? new Set<string>();
+    const expected = correctByQuestion.get(q.id) ?? new Set<string>();
+    if (q.questionType === "single") {
+      // For single questions: exactly one selection AND it equals the correct id.
+      if (given.size === 1 && setsEqual(given, expected)) correctCount++;
+    } else {
+      if (setsEqual(given, expected)) correctCount++;
+    }
   }
   const totalCount = questions.length;
   const score = correctCount / totalCount;
@@ -678,8 +748,8 @@ coursesRouter.post("/access/:token/:productId/lessons/:lessonId/quiz/submit", as
     // Server reveals correct answers AFTER submission so the buyer can learn.
     review: questions.map((q) => ({
       questionId: q.id,
-      yourChoiceId: answerByQuestion.get(q.id) ?? null,
-      correctChoiceId: correctByQuestion.get(q.id) ?? null,
+      yourChoiceIds: Array.from(answerByQuestion.get(q.id) ?? new Set<string>()),
+      correctChoiceIds: Array.from(correctByQuestion.get(q.id) ?? new Set<string>()),
     })),
   });
 });
@@ -727,10 +797,12 @@ coursesRouter.get("/access/:token/:productId/lessons/:lessonId/comments", async 
   res.json(rows.map((c) => ({
     id: c.id,
     body: c.body,
+    parentId: c.parentId,
     authorType: c.authorType,
     authorName: c.authorName,
     isPinned: c.isPinned,
     isMine: c.orderId === check.orderId,
+    editedAt: c.editedAt,
     createdAt: c.createdAt,
   })));
 });
@@ -748,6 +820,7 @@ const commentPostLimiter = rateLimit({
 const postCommentSchema = z.object({
   body: z.string().min(1).max(2000),
   authorName: z.string().min(1).max(80).optional(),
+  parentId: z.string().max(64).optional(),
 });
 
 coursesRouter.post(
@@ -785,10 +858,25 @@ coursesRouter.post(
     const parsed = postCommentSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
+    // Validate parentId — must reference a non-deleted comment on the same lesson,
+    // and that comment must itself be top-level (no nested replies).
+    let parentId: string | null = null;
+    if (parsed.data.parentId) {
+      const parent = await storage.getCommentById(parsed.data.parentId);
+      if (!parent || parent.lessonId !== lesson.id) {
+        return res.status(400).json({ message: "Parent comment not found." });
+      }
+      if (parent.parentId) {
+        return res.status(400).json({ message: "Cannot reply to a reply." });
+      }
+      parentId = parent.id;
+    }
+
     const comment = await storage.createComment({
       lessonId: lesson.id,
       productId: lesson.productId,
       storeId: order.storeId,
+      parentId,
       authorType: "buyer",
       userId: null,
       orderId: check.orderId,
@@ -824,12 +912,39 @@ coursesRouter.post(
     res.json({
       id: comment.id,
       body: comment.body,
+      parentId: comment.parentId,
       authorType: comment.authorType,
       authorName: comment.authorName,
       isPinned: comment.isPinned,
       isMine: true,
+      editedAt: comment.editedAt,
       createdAt: comment.createdAt,
     });
+  },
+);
+
+// Buyer can edit their own comment body.
+const editCommentSchema = z.object({ body: z.string().min(1).max(2000) });
+
+coursesRouter.patch(
+  "/access/:token/:productId/lessons/:lessonId/comments/:commentId",
+  async (req: Request, res: Response) => {
+    const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+    if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+    const comment = await storage.getCommentById(String(req.params.commentId));
+    if (!comment || comment.lessonId !== String(req.params.lessonId)) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+    if (comment.orderId !== check.orderId) {
+      return res.status(403).json({ message: "You can only edit your own comments." });
+    }
+
+    const parsed = editCommentSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+    await storage.editComment(comment.id, parsed.data.body.trim());
+    res.json({ ok: true });
   },
 );
 
@@ -867,16 +982,19 @@ coursesRouter.get("/lessons/:lessonId/comments", isAuthenticated, async (req: Re
   res.json(rows.map((c) => ({
     id: c.id,
     body: c.body,
+    parentId: c.parentId,
     authorType: c.authorType,
     authorName: c.authorName,
     authorEmail: c.authorEmail,  // owner sees full email for moderation
     isPinned: c.isPinned,
+    editedAt: c.editedAt,
     createdAt: c.createdAt,
   })));
 });
 
 const ownerPostCommentSchema = z.object({
   body: z.string().min(1).max(2000),
+  parentId: z.string().max(64).optional(),
 });
 
 // Owners can also post (as "owner") on a lesson — visible badge in UI.
@@ -901,10 +1019,24 @@ coursesRouter.post("/lessons/:lessonId/comments", isAuthenticated, async (req: R
     if (sp) { storeId = s.id; break; }
   }
 
+  // Resolve + validate parent (same rules as buyer flow).
+  let parentId: string | null = null;
+  if (parsed.data.parentId) {
+    const parent = await storage.getCommentById(parsed.data.parentId);
+    if (!parent || parent.lessonId !== lesson.id) {
+      return res.status(400).json({ message: "Parent comment not found." });
+    }
+    if (parent.parentId) {
+      return res.status(400).json({ message: "Cannot reply to a reply." });
+    }
+    parentId = parent.id;
+  }
+
   const comment = await storage.createComment({
     lessonId: lesson.id,
     productId: lesson.productId,
     storeId,
+    parentId,
     authorType: "owner",
     userId: getUserId(req),
     orderId: null,
@@ -914,35 +1046,38 @@ coursesRouter.post("/lessons/:lessonId/comments", isAuthenticated, async (req: R
     isPinned: false,
   });
 
-  // Notify everyone who's previously commented on this lesson — best-effort.
-  // Filter out the owner's own email (in case they tested the buy flow on
-  // their own course and posted as a buyer earlier — no self-emails).
+  // Notify everyone who's previously commented on this lesson AND has
+  // notifications turned on — best-effort, never blocks the response.
+  // Self-emails (owner who tested as buyer) are filtered out.
   (async () => {
     try {
-      const allEmails = await storage.getDistinctBuyerEmailsForLesson(lesson.id);
-      if (allEmails.length === 0) return;
+      const recipients = await storage.getCommentNotifyRecipientsForLesson(lesson.id);
+      if (recipients.length === 0) return;
       const ownerUser = await authStorage.getUser(getUserId(req));
       const ownerEmail = ownerUser?.email?.toLowerCase() ?? null;
-      const emails = ownerEmail
-        ? allEmails.filter((e) => e.toLowerCase() !== ownerEmail)
-        : allEmails;
-      if (emails.length === 0) return;
+      const filtered = ownerEmail
+        ? recipients.filter((r) => r.email.toLowerCase() !== ownerEmail)
+        : recipients;
+      if (filtered.length === 0) return;
 
       const product = await storage.getProductById(lesson.productId);
       const store = ownerStores.find((s) => s.id === storeId) ?? ownerStores[0] ?? null;
       const appUrl = (process.env.APP_URL || "https://sellisy.com").replace(/\/$/, "");
       const portalUrl = store ? `${appUrl}/s/${store.slug}/portal` : `${appUrl}/account/purchases`;
       await Promise.all(
-        emails.map((email) =>
-          sendCourseCommentReplyToBuyerEmail({
-            buyerEmail: email,
+        filtered.map((r) => {
+          const token = makeUnsubscribeToken(r.orderId);
+          const unsubscribeUrl = `${appUrl}/api/unsubscribe/course-comments?orderId=${encodeURIComponent(r.orderId)}&token=${token}`;
+          return sendCourseCommentReplyToBuyerEmail({
+            buyerEmail: r.email,
             storeName: store?.name ?? "your store",
             courseTitle: product?.title ?? "your course",
             lessonTitle: lesson.title,
             bodyExcerpt: comment.body,
             portalUrl,
-          }),
-        ),
+            unsubscribeUrl,
+          });
+        }),
       );
     } catch (e) {
       console.error("[course-comment] reply-notify failed:", e);
@@ -952,9 +1087,11 @@ coursesRouter.post("/lessons/:lessonId/comments", isAuthenticated, async (req: R
   res.json(comment);
 });
 
-// PATCH (pin / unpin) — owner only
+// PATCH — owner moderation (pin/unpin any comment) + owner can edit their
+// own comment body. Owners cannot rewrite a buyer's words (mod tool is delete).
 const patchCommentSchema = z.object({
   isPinned: z.boolean().optional(),
+  body: z.string().min(1).max(2000).optional(),
 });
 
 coursesRouter.patch("/comments/:id", isAuthenticated, async (req: Request, res: Response) => {
@@ -973,8 +1110,45 @@ coursesRouter.patch("/comments/:id", isAuthenticated, async (req: Request, res: 
   if (parsed.data.isPinned !== undefined) {
     await storage.setCommentPinned(comment.id, parsed.data.isPinned);
   }
+  if (parsed.data.body !== undefined) {
+    if (comment.authorType !== "owner" || comment.userId !== getUserId(req)) {
+      return res.status(403).json({ message: "Owners can only edit their own comments." });
+    }
+    await storage.editComment(comment.id, parsed.data.body.trim());
+  }
   res.json({ ok: true });
 });
+
+// ── NOTIFICATION PREFERENCES ──────────────────────────────────────────
+
+// GET — buyer reads their current discussion-notifications preference.
+coursesRouter.get(
+  "/access/:token/:productId/notification-prefs",
+  async (req: Request, res: Response) => {
+    const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+    if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+    const order = await storage.getOrderById(check.orderId);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    res.json({ commentNotificationsEnabled: order.commentNotificationsEnabled !== false });
+  },
+);
+
+// PATCH — buyer toggles discussion-notifications from inside the portal.
+const prefsSchema = z.object({ commentNotificationsEnabled: z.boolean() });
+coursesRouter.patch(
+  "/access/:token/:productId/notification-prefs",
+  async (req: Request, res: Response) => {
+    const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+    if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+    const parsed = prefsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+    await storage.setOrderCommentNotifications(check.orderId, parsed.data.commentNotificationsEnabled);
+    res.json({ ok: true, commentNotificationsEnabled: parsed.data.commentNotificationsEnabled });
+  },
+);
 
 // DELETE — owner can delete any comment on their lesson (moderation)
 coursesRouter.delete("/comments/:id", isAuthenticated, async (req: Request, res: Response) => {
@@ -1040,14 +1214,41 @@ coursesRouter.get("/access/:token/:productId/certificate", async (req: Request, 
   }
 
   // Always re-generate the PDF on each download (cheap + reflects any
-  // future personalization). Verification code stays stable.
+  // owner-side cert-designer changes since last issue). Verification code stays stable.
   const store = await storage.getStoreById(order.storeId);
+
+  // Best-effort logo fetch — failure leaves the cert with no logo rather than 500ing.
+  let logoBytes: Uint8Array | null = null;
+  let logoMimeType: "image/png" | "image/jpeg" | null = null;
+  if (product.certLogoUrl) {
+    try {
+      const resp = await fetch(product.certLogoUrl);
+      if (resp.ok) {
+        const ct = (resp.headers.get("content-type") || "").toLowerCase();
+        if (ct.includes("png")) logoMimeType = "image/png";
+        else if (ct.includes("jpeg") || ct.includes("jpg")) logoMimeType = "image/jpeg";
+        if (logoMimeType) {
+          const buf = await resp.arrayBuffer();
+          // 5MB cap — anything bigger is almost certainly a misconfig.
+          if (buf.byteLength <= 5 * 1024 * 1024) {
+            logoBytes = new Uint8Array(buf);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[cert] logo fetch failed:", e);
+    }
+  }
+
   const pdf = await generateCertificatePdf({
     buyerName: cert.buyerName || cert.buyerEmail,
     courseTitle: product.title,
     storeName: store?.name ?? "Sellisy",
     issuedAtIso: cert.issuedAt.toISOString(),
     verificationCode: cert.verificationCode,
+    accentColorHex: product.certAccentColor,
+    logoBytes,
+    logoMimeType,
   });
 
   res.setHeader("Content-Type", "application/pdf");

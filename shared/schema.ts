@@ -191,6 +191,12 @@ export const products = pgTable("products", {
   // Course-only: when true, buyers who complete 100% of the lessons get a
   // downloadable PDF certificate of completion. No effect on non-course products.
   certificatesEnabled: boolean("certificates_enabled").notNull().default(false),
+  // Cert designer fields. certAccentColor is a 7-char hex string (e.g. "#1e40af")
+  // applied to the heading + accent border on the cert PDF. certLogoUrl is an
+  // owner-uploaded image rendered top-center on the cert. Both nullable; defaults
+  // produce the standard black-and-white certificate.
+  certAccentColor: varchar("cert_accent_color", { length: 7 }),
+  certLogoUrl: varchar("cert_logo_url", { length: 500 }),
   // Per-product opt-out for reviews. The store-level reviewsEnabled flag
   // gates the whole feature; this lets an owner disable reviews on a
   // single touchy product even if their store has reviews on overall.
@@ -284,6 +290,10 @@ export const orders = pgTable("orders", {
   paypalRefundId: text("paypal_refund_id"),
   affiliateId: varchar("affiliate_id", { length: 64 }),
   affiliateRateBps: integer("affiliate_rate_bps"),
+  // Per-buyer opt-in for course discussion notifications (instructor replies
+  // on lessons they've commented on). Default true; flipped to false via the
+  // one-click unsubscribe link in the email or the toggle in the course portal.
+  commentNotificationsEnabled: boolean("comment_notifications_enabled").notNull().default(true),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -956,16 +966,21 @@ export type InsertCourseLessonProgress = z.infer<typeof insertCourseLessonProgre
 export type CourseLessonProgress = typeof courseLessonProgress.$inferSelect;
 
 // ─── Quizzes ──────────────────────────────────────────────────────────
-// A lesson can have N questions. Each question has M choices, exactly one
-// of which is correct (V1 = single-choice MCQ only).
+// A lesson can have N questions. Each question has M choices.
+// - "single" (V1 default): exactly one choice is correct; buyer picks one.
+// - "multi" (V2): one or more choices are correct; buyer must pick the
+//   exact set (no missing correct, no extra incorrect) for the question to score.
 // When a lesson has any questions, the lesson is considered "quiz-gated":
 // the buyer must score >= QUIZ_PASS_THRESHOLD to mark it complete.
 // Manual mark-complete is rejected on quiz-gated lessons.
+
+export const quizQuestionTypeEnum = pgEnum("quiz_question_type", ["single", "multi"]);
 
 export const quizQuestions = pgTable("quiz_questions", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
   lessonId: varchar("lesson_id", { length: 64 }).notNull(),
   prompt: text("prompt").notNull(),
+  questionType: quizQuestionTypeEnum("question_type").notNull().default("single"),
   sortOrder: integer("sort_order").notNull().default(0),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -1052,6 +1067,9 @@ export const courseLessonComments = pgTable("course_lesson_comments", {
   lessonId: varchar("lesson_id", { length: 64 }).notNull(),
   productId: varchar("product_id", { length: 64 }).notNull(),   // denormalized for cheap "all comments on this course" queries
   storeId: varchar("store_id", { length: 64 }).notNull(),        // denormalized for owner moderation
+  // parentId = null → top-level comment. parentId set → reply to that comment.
+  // Threading is intentionally limited to one level (replies can't have replies).
+  parentId: varchar("parent_id", { length: 64 }),
   // Buyer comments: orderId set, userId null, authorEmail/authorName carry display
   // Owner comments: userId set to the owner's users.id, orderId null
   authorType: commentAuthorTypeEnum("author_type").notNull(),
@@ -1061,12 +1079,14 @@ export const courseLessonComments = pgTable("course_lesson_comments", {
   authorEmail: text("author_email"),
   body: text("body").notNull(),
   isPinned: boolean("is_pinned").notNull().default(false),
+  editedAt: timestamp("edited_at"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("course_lesson_comments_lesson_idx").on(t.lessonId, t.deletedAt, t.createdAt),
   index("course_lesson_comments_order_idx").on(t.orderId, t.createdAt),
+  index("course_lesson_comments_parent_idx").on(t.parentId, t.createdAt),
 ]);
 
 export const insertCourseLessonCommentSchema = createInsertSchema(courseLessonComments).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });

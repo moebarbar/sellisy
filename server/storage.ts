@@ -1594,10 +1594,47 @@ export class DatabaseStorage implements IStorage {
       .where(eq(courseLessonComments.id, id));
   }
 
+  async editComment(id: string, body: string): Promise<void> {
+    const now = new Date();
+    await db.update(courseLessonComments)
+      .set({ body, editedAt: now, updatedAt: now })
+      .where(eq(courseLessonComments.id, id));
+  }
+
   async setCommentPinned(id: string, isPinned: boolean): Promise<void> {
     await db.update(courseLessonComments)
       .set({ isPinned, updatedAt: new Date() })
       .where(eq(courseLessonComments.id, id));
+  }
+
+  // Returns one row per opted-in participant (email + orderId) so the caller
+  // can build personalized unsubscribe links. Excludes orders that have
+  // turned off comment notifications.
+  async getCommentNotifyRecipientsForLesson(lessonId: string): Promise<Array<{ email: string; orderId: string }>> {
+    // We want one row per (orderId), with the most recent author email for
+    // display — but since authorEmail comes from order.buyerEmail at post
+    // time, joining straight to orders.buyerEmail is more reliable.
+    const rows = await db
+      .selectDistinct({
+        email: orders.buyerEmail,
+        orderId: courseLessonComments.orderId,
+      })
+      .from(courseLessonComments)
+      .innerJoin(orders, eq(orders.id, courseLessonComments.orderId))
+      .where(and(
+        eq(courseLessonComments.lessonId, lessonId),
+        eq(courseLessonComments.authorType, "buyer"),
+        isNull(courseLessonComments.deletedAt),
+        eq(orders.commentNotificationsEnabled, true),
+      ));
+    return rows
+      .filter((r): r is { email: string; orderId: string } => !!r.email && !!r.orderId);
+  }
+
+  async setOrderCommentNotifications(orderId: string, enabled: boolean): Promise<void> {
+    await db.update(orders)
+      .set({ commentNotificationsEnabled: enabled, updatedAt: new Date() })
+      .where(eq(orders.id, orderId));
   }
 
   // Distinct buyer emails who've posted a comment on this lesson. Used to

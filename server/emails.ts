@@ -449,12 +449,17 @@ export async function sendCourseCommentReplyToBuyerEmail(params: {
   lessonTitle: string;
   bodyExcerpt: string;
   portalUrl: string;
+  unsubscribeUrl?: string;
 }) {
-  const { buyerEmail, storeName, courseTitle, lessonTitle, bodyExcerpt, portalUrl } = params;
+  const { buyerEmail, storeName, courseTitle, lessonTitle, bodyExcerpt, portalUrl, unsubscribeUrl } = params;
   const safeStore = escapeHtml(storeName);
   const safeCourse = escapeHtml(courseTitle);
   const safeLesson = escapeHtml(lessonTitle);
   const excerpt = bodyExcerpt.length > 280 ? bodyExcerpt.slice(0, 280).trimEnd() + "…" : bodyExcerpt;
+
+  const footer = unsubscribeUrl
+    ? `<p style="margin:0;color:#9ca3af;font-size:12px;">You're getting this because you've also commented on this lesson at ${safeStore}. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe from discussion emails for this course</a>.</p>`
+    : `<p style="margin:0;color:#9ca3af;font-size:12px;">You're getting this because you've also commented on this lesson at ${safeStore}.</p>`;
 
   const content = `
     ${sectionHeading("The instructor replied")}
@@ -464,13 +469,23 @@ export async function sendCourseCommentReplyToBuyerEmail(params: {
     </blockquote>
     ${ctaButton("Open the discussion", portalUrl)}
     ${divider()}
-    <p style="margin:0;color:#9ca3af;font-size:12px;">You're getting this because you've also commented on this lesson at ${safeStore}.</p>`;
+    ${footer}`;
+
+  // RFC 8058 + RFC 2369 one-click unsubscribe — mail clients (Gmail/Outlook)
+  // render a native unsubscribe button when these headers are present.
+  const extraHeaders = unsubscribeUrl
+    ? {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      }
+    : undefined;
 
   try {
     await sendEmail(
       buyerEmail,
       `Instructor replied on ${sanitizeHeader(courseTitle)}`,
       baseLayout(content, `New reply on ${safeLesson}.`),
+      extraHeaders,
     );
   } catch (err) {
     console.error("Failed to send course-comment-reply-to-buyer email:", err);
