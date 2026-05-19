@@ -875,13 +875,33 @@ export const insertAffiliatePayoutSchema = createInsertSchema(affiliatePayouts).
 export type InsertAffiliatePayout = z.infer<typeof insertAffiliatePayoutSchema>;
 export type AffiliatePayout = typeof affiliatePayouts.$inferSelect;
 
-// ─── Courses: lessons + progress ──────────────────────────────────────
-// When a product has product_type='course', it can have multiple lessons.
-// Lessons are owned by the product (cascade-cleaned via app code, not FK).
+// ─── Courses: modules + lessons + progress ────────────────────────────
+// When a product has product_type='course', it can have multiple modules
+// (groupings) which each contain multiple lessons. moduleId is optional on
+// lessons: lessons without a module appear at the top of the course outline.
+
+export const courseModules = pgTable("course_modules", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id", { length: 64 }).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("course_modules_product_idx").on(t.productId, t.deletedAt),
+  index("course_modules_sort_idx").on(t.productId, t.sortOrder),
+]);
+
+export const insertCourseModuleSchema = createInsertSchema(courseModules).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
+export type InsertCourseModule = z.infer<typeof insertCourseModuleSchema>;
+export type CourseModule = typeof courseModules.$inferSelect;
 
 export const courseLessons = pgTable("course_lessons", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
   productId: varchar("product_id", { length: 64 }).notNull(),
+  moduleId: varchar("module_id", { length: 64 }),
   title: text("title").notNull(),
   description: text("description"),
   videoUrl: text("video_url"),
@@ -894,6 +914,7 @@ export const courseLessons = pgTable("course_lessons", {
 }, (t) => [
   index("course_lessons_product_idx").on(t.productId, t.deletedAt),
   index("course_lessons_sort_idx").on(t.productId, t.sortOrder),
+  index("course_lessons_module_idx").on(t.moduleId, t.sortOrder),
 ]);
 
 export const insertCourseLessonSchema = createInsertSchema(courseLessons).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });

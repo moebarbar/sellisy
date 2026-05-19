@@ -11,9 +11,10 @@ import {
   type AffiliateClick, type InsertAffiliateClick,
   type AffiliateCommission, type InsertAffiliateCommission,
   type AffiliatePayout, type InsertAffiliatePayout,
-  courseLessons, courseLessonProgress,
+  courseLessons, courseLessonProgress, courseModules,
   type CourseLesson, type InsertCourseLesson,
   type CourseLessonProgress, type InsertCourseLessonProgress,
+  type CourseModule, type InsertCourseModule,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -1354,6 +1355,58 @@ export class DatabaseStorage implements IStorage {
         eq(courseLessonProgress.lessonId, lessonId),
         eq(courseLessonProgress.orderId, orderId),
       ));
+  }
+
+  // ─── Course modules ─────────────────────────────────────────────────
+
+  async getModulesByProduct(productId: string): Promise<CourseModule[]> {
+    return db.select().from(courseModules)
+      .where(and(eq(courseModules.productId, productId), isNull(courseModules.deletedAt)))
+      .orderBy(courseModules.sortOrder, courseModules.createdAt);
+  }
+
+  async getModuleById(id: string): Promise<CourseModule | undefined> {
+    const [row] = await db.select().from(courseModules)
+      .where(and(eq(courseModules.id, id), isNull(courseModules.deletedAt)))
+      .limit(1);
+    return row;
+  }
+
+  async createModule(data: InsertCourseModule): Promise<CourseModule> {
+    const [row] = await db.insert(courseModules).values(data).returning();
+    return row;
+  }
+
+  async updateModule(id: string, data: Partial<InsertCourseModule>): Promise<CourseModule | undefined> {
+    const [row] = await db.update(courseModules)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(courseModules.id, id))
+      .returning();
+    return row;
+  }
+
+  async softDeleteModule(id: string): Promise<void> {
+    // Soft-delete the module AND un-module all its lessons so they survive
+    // (lessons aren't cascade-deleted — they become un-grouped at the top
+    // of the course outline). Owner can re-assign them later.
+    await db.transaction(async (tx) => {
+      await tx.update(courseModules)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(eq(courseModules.id, id));
+      await tx.update(courseLessons)
+        .set({ moduleId: null, updatedAt: new Date() })
+        .where(eq(courseLessons.moduleId, id));
+    });
+  }
+
+  async reorderModules(productId: string, moduleIds: string[]): Promise<void> {
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < moduleIds.length; i++) {
+        await tx.update(courseModules)
+          .set({ sortOrder: i, updatedAt: new Date() })
+          .where(and(eq(courseModules.id, moduleIds[i]), eq(courseModules.productId, productId)));
+      }
+    });
   }
 }
 

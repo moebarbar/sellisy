@@ -13,6 +13,7 @@ import {
 
 type Lesson = {
   id: string;
+  moduleId: string | null;
   title: string;
   description: string | null;
   videoUrl: string | null;
@@ -22,6 +23,13 @@ type Lesson = {
   completed: boolean;
 };
 
+type Module = {
+  id: string;
+  title: string;
+  description: string | null;
+  sortOrder: number;
+};
+
 type CourseData = {
   course: {
     id: string;
@@ -29,6 +37,7 @@ type CourseData = {
     description: string | null;
     thumbnailUrl: string | null;
   };
+  modules: Module[];
   lessons: Lesson[];
   completedCount: number;
   totalCount: number;
@@ -240,40 +249,112 @@ export default function CoursePlayerPage() {
           </div>
         </div>
 
-        {/* Lesson sidebar */}
+        {/* Lesson sidebar — grouped by module if any modules exist */}
         <aside>
           <div className="sticky top-20">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">
-              Lessons
+              Course outline
             </h3>
-            <div className="space-y-1">
-              {data.lessons.map((l, idx) => (
-                <button
-                  key={l.id}
-                  onClick={() => setCurrentLessonIdx(idx)}
-                  className={`w-full text-left rounded-md px-3 py-2 flex items-start gap-2 transition-colors ${
-                    idx === currentLessonIdx ? "bg-muted" : "hover:bg-muted/50"
-                  }`}
-                  data-testid={`button-lesson-${idx}`}
-                >
-                  {l.completed ? (
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                  ) : (
-                    <Circle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{l.title}</p>
-                    {l.durationSeconds ? (
-                      <p className="text-xs text-muted-foreground">{fmtDuration(l.durationSeconds)}</p>
-                    ) : null}
-                  </div>
-                  {idx === currentLessonIdx && <Badge variant="secondary" className="text-[10px]">Now</Badge>}
-                </button>
-              ))}
-            </div>
+            <CourseOutline
+              modules={data.modules || []}
+              lessons={data.lessons}
+              currentLessonIdx={currentLessonIdx}
+              onSelect={setCurrentLessonIdx}
+            />
           </div>
         </aside>
       </main>
     </div>
+  );
+}
+
+function CourseOutline({
+  modules,
+  lessons,
+  currentLessonIdx,
+  onSelect,
+}: {
+  modules: Module[];
+  lessons: Lesson[];
+  currentLessonIdx: number;
+  onSelect: (idx: number) => void;
+}) {
+  // Group lessons by module (null = ungrouped). Lessons are already sorted by
+  // sortOrder from the server. We render ungrouped first (so they appear above
+  // any modules), then modules in their sortOrder.
+  const ungrouped = lessons.filter((l) => l.moduleId === null);
+  const moduleGroups = modules
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((m) => ({ module: m, items: lessons.filter((l) => l.moduleId === m.id) }))
+    .filter((g) => g.items.length > 0);
+
+  // The currentLessonIdx is a position in the FLAT lessons array, so we render
+  // using each lesson's actual array index.
+  const indexOf = (lessonId: string) => lessons.findIndex((l) => l.id === lessonId);
+
+  return (
+    <div className="space-y-3">
+      {ungrouped.length > 0 && (
+        <div className="space-y-1">
+          {moduleGroups.length > 0 && (
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground px-2">Intro</p>
+          )}
+          {ungrouped.map((l) => (
+            <LessonRow
+              key={l.id}
+              lesson={l}
+              isCurrent={indexOf(l.id) === currentLessonIdx}
+              onSelect={() => onSelect(indexOf(l.id))}
+            />
+          ))}
+        </div>
+      )}
+
+      {moduleGroups.map((g) => {
+        const done = g.items.filter((l) => l.completed).length;
+        return (
+          <div key={g.module.id} className="space-y-1">
+            <div className="px-2 flex items-center justify-between">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{g.module.title}</p>
+              <span className="text-[10px] tabular-nums text-muted-foreground">{done}/{g.items.length}</span>
+            </div>
+            {g.items.map((l) => (
+              <LessonRow
+                key={l.id}
+                lesson={l}
+                isCurrent={indexOf(l.id) === currentLessonIdx}
+                onSelect={() => onSelect(indexOf(l.id))}
+              />
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LessonRow({ lesson, isCurrent, onSelect }: { lesson: Lesson; isCurrent: boolean; onSelect: () => void }) {
+  return (
+    <button
+      onClick={onSelect}
+      className={`w-full text-left rounded-md px-3 py-2 flex items-start gap-2 transition-colors ${
+        isCurrent ? "bg-muted" : "hover:bg-muted/50"
+      }`}
+      data-testid={`button-lesson-${lesson.id}`}
+    >
+      {lesson.completed ? (
+        <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+      ) : (
+        <Circle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{lesson.title}</p>
+        {lesson.durationSeconds ? (
+          <p className="text-xs text-muted-foreground">{fmtDuration(lesson.durationSeconds)}</p>
+        ) : null}
+      </div>
+      {isCurrent && <Badge variant="secondary" className="text-[10px]">Now</Badge>}
+    </button>
   );
 }
