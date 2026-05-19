@@ -7,15 +7,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MessageSquare, Pin, Trash2, Crown } from "lucide-react";
+import { MessageSquare, Pin, Trash2, Crown, Reply, Pencil, X } from "lucide-react";
 
 type Comment = {
   id: string;
   body: string;
+  parentId: string | null;
   authorType: "buyer" | "owner";
   authorName: string | null;
   isPinned: boolean;
   isMine: boolean;
+  editedAt: string | null;
   createdAt: string;
 };
 
@@ -50,11 +52,27 @@ export function CourseComments({
     queryFn: async () => (await apiRequest("GET", `/api/courses/access/${token}/${productId}/lessons/${lessonId}/comments`)).json(),
   });
 
+  // Separate top-level + replies grouped by parent.
+  const topLevel = (data ?? []).filter((c) => !c.parentId);
+  const repliesByParent = new Map<string, Comment[]>();
+  for (const c of data ?? []) {
+    if (c.parentId) {
+      const list = repliesByParent.get(c.parentId) ?? [];
+      list.push(c);
+      repliesByParent.set(c.parentId, list);
+    }
+  }
+  // Replies oldest-first under parent so threads read top-to-bottom.
+  Array.from(repliesByParent.values()).forEach((list) => {
+    list.sort((a: Comment, b: Comment) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  });
+
   const post = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (vars: { parentId?: string; body: string }) => {
       await apiRequest("POST", `/api/courses/access/${token}/${productId}/lessons/${lessonId}/comments`, {
-        body: body.trim(),
+        body: vars.body.trim(),
         authorName: name.trim() || undefined,
+        parentId: vars.parentId,
       });
     },
     onSuccess: () => {
@@ -63,6 +81,20 @@ export function CourseComments({
     },
     onError: (err: any) => {
       toast({ title: "Could not post comment", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const editMine = useMutation({
+    mutationFn: async (vars: { id: string; body: string }) => {
+      await apiRequest("PATCH", `/api/courses/access/${token}/${productId}/lessons/${lessonId}/comments/${vars.id}`, {
+        body: vars.body.trim(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not edit", description: err.message, variant: "destructive" });
     },
   });
 
@@ -84,7 +116,7 @@ export function CourseComments({
           {data && <span className="text-xs text-muted-foreground font-normal">({data.length})</span>}
         </div>
 
-        {/* Compose */}
+        {/* Compose top-level */}
         <div className="space-y-2 rounded-md border p-3">
           <Textarea
             rows={2}
@@ -106,7 +138,7 @@ export function CourseComments({
             />
             <Button
               size="sm"
-              onClick={() => post.mutate()}
+              onClick={() => body.trim() && post.mutate({ body })}
               disabled={!body.trim() || post.isPending}
               data-testid="button-post-comment"
             >
@@ -121,57 +153,216 @@ export function CourseComments({
             <Skeleton className="h-16" />
             <Skeleton className="h-16" />
           </div>
-        ) : !data || data.length === 0 ? (
+        ) : topLevel.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">
             No comments yet. Be the first to start the conversation.
           </p>
         ) : (
-          <div className="space-y-2">
-            {data.map((c) => (
-              <div
+          <div className="space-y-3">
+            {topLevel.map((c) => (
+              <CommentNode
                 key={c.id}
-                data-testid={`card-comment-${c.id}`}
-                className={`rounded-md p-3 border ${
-                  c.isPinned ? "bg-primary/5 border-primary/30" : "bg-card"
-                }`}
-              >
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="text-sm font-semibold truncate">
-                    {c.authorName || (c.authorType === "owner" ? "Instructor" : "Anonymous")}
-                  </span>
-                  {c.authorType === "owner" && (
-                    <Badge variant="default" className="text-[10px]">
-                      <Crown className="h-2.5 w-2.5 mr-0.5" />
-                      Instructor
-                    </Badge>
-                  )}
-                  {c.isPinned && (
-                    <Badge variant="secondary" className="text-[10px]">
-                      <Pin className="h-2.5 w-2.5 mr-0.5" />
-                      Pinned
-                    </Badge>
-                  )}
-                  {c.isMine && <Badge variant="outline" className="text-[10px]">You</Badge>}
-                  <span className="text-xs text-muted-foreground">· {timeAgo(c.createdAt)}</span>
-                  {c.isMine && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 ml-auto"
-                      onClick={() => deleteMine.mutate(c.id)}
-                      disabled={deleteMine.isPending}
-                      data-testid={`button-delete-comment-${c.id}`}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-                <p className="text-sm whitespace-pre-line">{c.body}</p>
-              </div>
+                comment={c}
+                replies={repliesByParent.get(c.id) ?? []}
+                onReply={(rb) => post.mutate({ parentId: c.id, body: rb })}
+                onEdit={(id, b) => editMine.mutate({ id, body: b })}
+                onDelete={(id) => deleteMine.mutate(id)}
+                isReplying={post.isPending}
+                isEditing={editMine.isPending}
+              />
             ))}
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function CommentNode({
+  comment, replies, onReply, onEdit, onDelete, isReplying, isEditing,
+}: {
+  comment: Comment;
+  replies: Comment[];
+  onReply: (body: string) => void;
+  onEdit: (id: string, body: string) => void;
+  onDelete: (id: string) => void;
+  isReplying: boolean;
+  isEditing: boolean;
+}) {
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyBody, setReplyBody] = useState("");
+
+  return (
+    <div className="space-y-2">
+      <CommentRow
+        comment={comment}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        isEditing={isEditing}
+      />
+
+      <div className="ml-6 space-y-2">
+        {replies.map((r) => (
+          <CommentRow
+            key={r.id}
+            comment={r}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            isEditing={isEditing}
+            isReply
+          />
+        ))}
+
+        {!replyOpen ? (
+          <button
+            type="button"
+            onClick={() => setReplyOpen(true)}
+            className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+            data-testid={`button-reply-${comment.id}`}
+          >
+            <Reply className="h-3 w-3" />
+            Reply
+          </button>
+        ) : (
+          <div className="space-y-2 rounded-md border p-2 bg-muted/30">
+            <Textarea
+              rows={2}
+              placeholder="Write a reply…"
+              value={replyBody}
+              maxLength={2000}
+              onChange={(e) => setReplyBody(e.target.value)}
+              data-testid={`input-reply-body-${comment.id}`}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setReplyOpen(false); setReplyBody(""); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (replyBody.trim()) {
+                    onReply(replyBody);
+                    setReplyOpen(false);
+                    setReplyBody("");
+                  }
+                }}
+                disabled={!replyBody.trim() || isReplying}
+                data-testid={`button-post-reply-${comment.id}`}
+              >
+                {isReplying ? "Posting…" : "Reply"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CommentRow({
+  comment, onEdit, onDelete, isEditing, isReply,
+}: {
+  comment: Comment;
+  onEdit: (id: string, body: string) => void;
+  onDelete: (id: string) => void;
+  isEditing: boolean;
+  isReply?: boolean;
+}) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [draft, setDraft] = useState(comment.body);
+
+  return (
+    <div
+      data-testid={`card-comment-${comment.id}`}
+      className={`rounded-md p-3 border ${
+        comment.isPinned ? "bg-primary/5 border-primary/30" : isReply ? "bg-muted/30" : "bg-card"
+      }`}
+    >
+      <div className="flex items-center gap-2 flex-wrap mb-1">
+        <span className="text-sm font-semibold truncate">
+          {comment.authorName || (comment.authorType === "owner" ? "Instructor" : "Anonymous")}
+        </span>
+        {comment.authorType === "owner" && (
+          <Badge variant="default" className="text-[10px]">
+            <Crown className="h-2.5 w-2.5 mr-0.5" />
+            Instructor
+          </Badge>
+        )}
+        {comment.isPinned && (
+          <Badge variant="secondary" className="text-[10px]">
+            <Pin className="h-2.5 w-2.5 mr-0.5" />
+            Pinned
+          </Badge>
+        )}
+        {comment.isMine && <Badge variant="outline" className="text-[10px]">You</Badge>}
+        <span className="text-xs text-muted-foreground">· {timeAgo(comment.createdAt)}</span>
+        {comment.editedAt && (
+          <span className="text-xs text-muted-foreground italic">(edited)</span>
+        )}
+        {comment.isMine && !editOpen && (
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => { setDraft(comment.body); setEditOpen(true); }}
+              data-testid={`button-edit-comment-${comment.id}`}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => onDelete(comment.id)}
+              data-testid={`button-delete-comment-${comment.id}`}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {editOpen ? (
+        <div className="space-y-2">
+          <Textarea
+            rows={2}
+            value={draft}
+            maxLength={2000}
+            onChange={(e) => setDraft(e.target.value)}
+            data-testid={`input-edit-body-${comment.id}`}
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setEditOpen(false)}
+            >
+              <X className="h-3.5 w-3.5 mr-1" />
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (draft.trim() && draft.trim() !== comment.body) {
+                  onEdit(comment.id, draft);
+                }
+                setEditOpen(false);
+              }}
+              disabled={!draft.trim() || isEditing}
+              data-testid={`button-save-edit-${comment.id}`}
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm whitespace-pre-line">{comment.body}</p>
+      )}
+    </div>
   );
 }

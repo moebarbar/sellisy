@@ -1594,6 +1594,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(courseLessonComments.id, id));
   }
 
+  async editComment(id: string, body: string): Promise<void> {
+    const now = new Date();
+    await db.update(courseLessonComments)
+      .set({ body, editedAt: now, updatedAt: now })
+      .where(eq(courseLessonComments.id, id));
+  }
+
   async setCommentPinned(id: string, isPinned: boolean): Promise<void> {
     await db.update(courseLessonComments)
       .set({ isPinned, updatedAt: new Date() })

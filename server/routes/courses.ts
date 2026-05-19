@@ -727,10 +727,12 @@ coursesRouter.get("/access/:token/:productId/lessons/:lessonId/comments", async 
   res.json(rows.map((c) => ({
     id: c.id,
     body: c.body,
+    parentId: c.parentId,
     authorType: c.authorType,
     authorName: c.authorName,
     isPinned: c.isPinned,
     isMine: c.orderId === check.orderId,
+    editedAt: c.editedAt,
     createdAt: c.createdAt,
   })));
 });
@@ -748,6 +750,7 @@ const commentPostLimiter = rateLimit({
 const postCommentSchema = z.object({
   body: z.string().min(1).max(2000),
   authorName: z.string().min(1).max(80).optional(),
+  parentId: z.string().max(64).optional(),
 });
 
 coursesRouter.post(
@@ -785,10 +788,25 @@ coursesRouter.post(
     const parsed = postCommentSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
 
+    // Validate parentId — must reference a non-deleted comment on the same lesson,
+    // and that comment must itself be top-level (no nested replies).
+    let parentId: string | null = null;
+    if (parsed.data.parentId) {
+      const parent = await storage.getCommentById(parsed.data.parentId);
+      if (!parent || parent.lessonId !== lesson.id) {
+        return res.status(400).json({ message: "Parent comment not found." });
+      }
+      if (parent.parentId) {
+        return res.status(400).json({ message: "Cannot reply to a reply." });
+      }
+      parentId = parent.id;
+    }
+
     const comment = await storage.createComment({
       lessonId: lesson.id,
       productId: lesson.productId,
       storeId: order.storeId,
+      parentId,
       authorType: "buyer",
       userId: null,
       orderId: check.orderId,
@@ -824,12 +842,39 @@ coursesRouter.post(
     res.json({
       id: comment.id,
       body: comment.body,
+      parentId: comment.parentId,
       authorType: comment.authorType,
       authorName: comment.authorName,
       isPinned: comment.isPinned,
       isMine: true,
+      editedAt: comment.editedAt,
       createdAt: comment.createdAt,
     });
+  },
+);
+
+// Buyer can edit their own comment body.
+const editCommentSchema = z.object({ body: z.string().min(1).max(2000) });
+
+coursesRouter.patch(
+  "/access/:token/:productId/lessons/:lessonId/comments/:commentId",
+  async (req: Request, res: Response) => {
+    const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
+    if (!check.ok) return res.status(check.status).json({ message: check.message });
+
+    const comment = await storage.getCommentById(String(req.params.commentId));
+    if (!comment || comment.lessonId !== String(req.params.lessonId)) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+    if (comment.orderId !== check.orderId) {
+      return res.status(403).json({ message: "You can only edit your own comments." });
+    }
+
+    const parsed = editCommentSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+    await storage.editComment(comment.id, parsed.data.body.trim());
+    res.json({ ok: true });
   },
 );
 
@@ -867,16 +912,19 @@ coursesRouter.get("/lessons/:lessonId/comments", isAuthenticated, async (req: Re
   res.json(rows.map((c) => ({
     id: c.id,
     body: c.body,
+    parentId: c.parentId,
     authorType: c.authorType,
     authorName: c.authorName,
     authorEmail: c.authorEmail,  // owner sees full email for moderation
     isPinned: c.isPinned,
+    editedAt: c.editedAt,
     createdAt: c.createdAt,
   })));
 });
 
 const ownerPostCommentSchema = z.object({
   body: z.string().min(1).max(2000),
+  parentId: z.string().max(64).optional(),
 });
 
 // Owners can also post (as "owner") on a lesson — visible badge in UI.
@@ -901,10 +949,24 @@ coursesRouter.post("/lessons/:lessonId/comments", isAuthenticated, async (req: R
     if (sp) { storeId = s.id; break; }
   }
 
+  // Resolve + validate parent (same rules as buyer flow).
+  let parentId: string | null = null;
+  if (parsed.data.parentId) {
+    const parent = await storage.getCommentById(parsed.data.parentId);
+    if (!parent || parent.lessonId !== lesson.id) {
+      return res.status(400).json({ message: "Parent comment not found." });
+    }
+    if (parent.parentId) {
+      return res.status(400).json({ message: "Cannot reply to a reply." });
+    }
+    parentId = parent.id;
+  }
+
   const comment = await storage.createComment({
     lessonId: lesson.id,
     productId: lesson.productId,
     storeId,
+    parentId,
     authorType: "owner",
     userId: getUserId(req),
     orderId: null,
@@ -952,9 +1014,11 @@ coursesRouter.post("/lessons/:lessonId/comments", isAuthenticated, async (req: R
   res.json(comment);
 });
 
-// PATCH (pin / unpin) — owner only
+// PATCH — owner moderation (pin/unpin any comment) + owner can edit their
+// own comment body. Owners cannot rewrite a buyer's words (mod tool is delete).
 const patchCommentSchema = z.object({
   isPinned: z.boolean().optional(),
+  body: z.string().min(1).max(2000).optional(),
 });
 
 coursesRouter.patch("/comments/:id", isAuthenticated, async (req: Request, res: Response) => {
@@ -972,6 +1036,12 @@ coursesRouter.patch("/comments/:id", isAuthenticated, async (req: Request, res: 
 
   if (parsed.data.isPinned !== undefined) {
     await storage.setCommentPinned(comment.id, parsed.data.isPinned);
+  }
+  if (parsed.data.body !== undefined) {
+    if (comment.authorType !== "owner" || comment.userId !== getUserId(req)) {
+      return res.status(403).json({ message: "Owners can only edit their own comments." });
+    }
+    await storage.editComment(comment.id, parsed.data.body.trim());
   }
   res.json({ ok: true });
 });

@@ -1052,6 +1052,9 @@ export const courseLessonComments = pgTable("course_lesson_comments", {
   lessonId: varchar("lesson_id", { length: 64 }).notNull(),
   productId: varchar("product_id", { length: 64 }).notNull(),   // denormalized for cheap "all comments on this course" queries
   storeId: varchar("store_id", { length: 64 }).notNull(),        // denormalized for owner moderation
+  // parentId = null → top-level comment. parentId set → reply to that comment.
+  // Threading is intentionally limited to one level (replies can't have replies).
+  parentId: varchar("parent_id", { length: 64 }),
   // Buyer comments: orderId set, userId null, authorEmail/authorName carry display
   // Owner comments: userId set to the owner's users.id, orderId null
   authorType: commentAuthorTypeEnum("author_type").notNull(),
@@ -1061,12 +1064,14 @@ export const courseLessonComments = pgTable("course_lesson_comments", {
   authorEmail: text("author_email"),
   body: text("body").notNull(),
   isPinned: boolean("is_pinned").notNull().default(false),
+  editedAt: timestamp("edited_at"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("course_lesson_comments_lesson_idx").on(t.lessonId, t.deletedAt, t.createdAt),
   index("course_lesson_comments_order_idx").on(t.orderId, t.createdAt),
+  index("course_lesson_comments_parent_idx").on(t.parentId, t.createdAt),
 ]);
 
 export const insertCourseLessonCommentSchema = createInsertSchema(courseLessonComments).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
