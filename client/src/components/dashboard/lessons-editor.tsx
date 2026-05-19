@@ -22,6 +22,7 @@ type Lesson = {
   attachmentUrl: string | null;
   durationSeconds: number | null;
   sortOrder: number;
+  unlockAfterDays: number | null;
 };
 
 type Module = {
@@ -30,6 +31,7 @@ type Module = {
   title: string;
   description: string | null;
   sortOrder: number;
+  unlockAfterDays: number | null;
 };
 
 function fmtDuration(s: number | null): string {
@@ -368,10 +370,15 @@ function ModuleFormDialog({
   const { toast } = useToast();
   const [title, setTitle] = useState(mod?.title ?? "");
   const [description, setDescription] = useState(mod?.description ?? "");
+  const [unlockAfterDays, setUnlockAfterDays] = useState<number | null>(mod?.unlockAfterDays ?? null);
 
   const save = useMutation({
     mutationFn: async () => {
-      const body = { title: title.trim(), description: description.trim() || undefined };
+      const body = {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        unlockAfterDays: unlockAfterDays,
+      };
       if (mode === "create") {
         await apiRequest("POST", `/api/courses/products/${productId}/modules`, body);
       } else if (mod) {
@@ -409,6 +416,27 @@ function ModuleFormDialog({
             data-testid="input-module-description"
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="module-drip">Drip: unlock after (days, optional)</Label>
+          <Input
+            id="module-drip"
+            type="number"
+            min={0}
+            max={730}
+            placeholder="Leave empty for no drip"
+            value={unlockAfterDays ?? ""}
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              setUnlockAfterDays(v === "" ? null : Math.max(0, Number(v)));
+            }}
+            data-testid="input-module-unlock-after"
+          />
+          <p className="text-xs text-muted-foreground">
+            All lessons in this module stay locked until N days after the buyer's purchase.
+            Leave empty to make the module available immediately. Lesson-level drip can extend
+            this for individual lessons.
+          </p>
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onSaved}>Cancel</Button>
@@ -435,6 +463,7 @@ function LessonFormDialog({
   const [videoUrl, setVideoUrl] = useState(lesson?.videoUrl ?? "");
   const [attachmentUrl, setAttachmentUrl] = useState(lesson?.attachmentUrl ?? "");
   const [duration, setDuration] = useState(lesson?.durationSeconds ?? 0);
+  const [unlockAfterDays, setUnlockAfterDays] = useState<number | null>(lesson?.unlockAfterDays ?? null);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -444,6 +473,7 @@ function LessonFormDialog({
         videoUrl: videoUrl.trim() || undefined,
         attachmentUrl: attachmentUrl.trim() || undefined,
         durationSeconds: duration > 0 ? duration : undefined,
+        unlockAfterDays: unlockAfterDays,
         ...(mode === "create" ? { moduleId: initialModuleId ?? undefined } : {}),
       };
       if (mode === "create") {
@@ -490,6 +520,26 @@ function LessonFormDialog({
         <div className="space-y-2">
           <Label htmlFor="lesson-duration">Duration (seconds)</Label>
           <Input id="lesson-duration" type="number" min={0} value={duration} onChange={(e) => setDuration(Math.max(0, Number(e.target.value)))} data-testid="input-lesson-duration" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="lesson-drip">Drip: unlock after (days, optional)</Label>
+          <Input
+            id="lesson-drip"
+            type="number"
+            min={0}
+            max={730}
+            placeholder="Leave empty for no drip"
+            value={unlockAfterDays ?? ""}
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              setUnlockAfterDays(v === "" ? null : Math.max(0, Number(v)));
+            }}
+            data-testid="input-lesson-unlock-after"
+          />
+          <p className="text-xs text-muted-foreground">
+            Lesson stays locked until N days after the buyer's purchase. If the lesson is in a
+            module that ALSO drips, the later of the two unlock times wins.
+          </p>
         </div>
       </div>
       <DialogFooter>

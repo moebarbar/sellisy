@@ -60,6 +60,7 @@ const createLessonSchema = z.object({
   attachmentUrl: z.string().max(1000).optional(),
   durationSeconds: z.number().int().min(0).max(60 * 60 * 24).optional(),
   moduleId: z.string().nullable().optional(),
+  unlockAfterDays: z.number().int().min(0).max(365 * 2).nullable().optional(),
 });
 
 coursesRouter.post("/products/:productId/lessons", isAuthenticated, async (req: Request, res: Response) => {
@@ -90,6 +91,7 @@ coursesRouter.post("/products/:productId/lessons", isAuthenticated, async (req: 
     videoUrl: parsed.data.videoUrl ?? null,
     attachmentUrl: parsed.data.attachmentUrl ?? null,
     durationSeconds: parsed.data.durationSeconds ?? null,
+    unlockAfterDays: parsed.data.unlockAfterDays ?? null,
     sortOrder: nextSortOrder,
   });
 
@@ -170,6 +172,7 @@ coursesRouter.get("/products/:productId/modules", isAuthenticated, async (req: R
 const createModuleSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(4000).optional(),
+  unlockAfterDays: z.number().int().min(0).max(365 * 2).nullable().optional(),
 });
 
 coursesRouter.post("/products/:productId/modules", isAuthenticated, async (req: Request, res: Response) => {
@@ -184,6 +187,7 @@ coursesRouter.post("/products/:productId/modules", isAuthenticated, async (req: 
     productId: check.product.id,
     title: parsed.data.title,
     description: parsed.data.description ?? null,
+    unlockAfterDays: parsed.data.unlockAfterDays ?? null,
     sortOrder: existing.length,
   });
   res.json(mod);
@@ -241,7 +245,15 @@ coursesRouter.post("/products/:productId/modules/reorder", isAuthenticated, asyn
 
 // ── CUSTOMER: lesson access via download token ────────────────────────
 
-// GET /api/courses/access/:token/:productId — lessons + progress
+// Compute the effective unlock day for a lesson by taking the MAX of its
+// own unlockAfterDays and its module's unlockAfterDays. Returns null when
+// no drip applies (lesson is always available).
+function effectiveUnlockDay(lessonDays: number | null, moduleDays: number | null): number | null {
+  if (lessonDays == null && moduleDays == null) return null;
+  return Math.max(lessonDays ?? 0, moduleDays ?? 0);
+}
+
+// GET /api/courses/access/:token/:productId — lessons + progress + drip status
 coursesRouter.get("/access/:token/:productId", async (req: Request, res: Response) => {
   const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
   if (!check.ok) return res.status(check.status).json({ message: check.message });
@@ -249,12 +261,19 @@ coursesRouter.get("/access/:token/:productId", async (req: Request, res: Respons
   const product = await storage.getProductById(String(req.params.productId));
   if (!product) return res.status(404).json({ message: "Course not found" });
 
+  const order = await storage.getOrderById(check.orderId);
+  if (!order) return res.status(404).json({ message: "Order not found" });
+
   const [lessons, modules, progress] = await Promise.all([
     storage.getLessonsByProduct(product.id),
     storage.getModulesByProduct(product.id),
     storage.getLessonProgressForOrder(check.orderId),
   ]);
   const completedSet = new Set(progress.map((p) => p.lessonId));
+  const moduleById = new Map(modules.map((m) => [m.id, m]));
+
+  const orderCreatedAt = new Date(order.createdAt);
+  const now = new Date();
 
   res.json({
     course: {
@@ -268,18 +287,32 @@ coursesRouter.get("/access/:token/:productId", async (req: Request, res: Respons
       title: m.title,
       description: m.description,
       sortOrder: m.sortOrder,
+      unlockAfterDays: m.unlockAfterDays,
     })),
-    lessons: lessons.map((l) => ({
-      id: l.id,
-      moduleId: l.moduleId,
-      title: l.title,
-      description: l.description,
-      videoUrl: l.videoUrl,
-      attachmentUrl: l.attachmentUrl,
-      durationSeconds: l.durationSeconds,
-      sortOrder: l.sortOrder,
-      completed: completedSet.has(l.id),
-    })),
+    lessons: lessons.map((l) => {
+      const mod = l.moduleId ? moduleById.get(l.moduleId) : null;
+      const effective = effectiveUnlockDay(l.unlockAfterDays, mod?.unlockAfterDays ?? null);
+      const unlocksAt = effective != null
+        ? new Date(orderCreatedAt.getTime() + effective * 24 * 60 * 60 * 1000)
+        : null;
+      const locked = !!(unlocksAt && unlocksAt > now);
+      return {
+        id: l.id,
+        moduleId: l.moduleId,
+        title: l.title,
+        // Hide content fields for locked lessons. The buyer sees the title
+        // + unlock countdown but not the video/attachment.
+        description: locked ? null : l.description,
+        videoUrl: locked ? null : l.videoUrl,
+        attachmentUrl: locked ? null : l.attachmentUrl,
+        durationSeconds: l.durationSeconds,
+        sortOrder: l.sortOrder,
+        unlockAfterDays: l.unlockAfterDays,
+        unlocksAt: unlocksAt ? unlocksAt.toISOString() : null,
+        locked,
+        completed: completedSet.has(l.id),
+      };
+    }),
     completedCount: progress.length,
     totalCount: lessons.length,
   });
@@ -293,6 +326,20 @@ coursesRouter.post("/access/:token/:productId/lessons/:lessonId/complete", async
   const lesson = await storage.getLessonById(String(req.params.lessonId));
   if (!lesson || lesson.productId !== String(req.params.productId)) {
     return res.status(404).json({ message: "Lesson not found" });
+  }
+
+  // Reject mark-complete on a still-locked drip lesson. The client UI
+  // already hides the button, but the server is the source of truth.
+  const order = await storage.getOrderById(check.orderId);
+  if (order) {
+    const mod = lesson.moduleId ? await storage.getModuleById(lesson.moduleId) : null;
+    const effective = effectiveUnlockDay(lesson.unlockAfterDays, mod?.unlockAfterDays ?? null);
+    if (effective != null) {
+      const unlocksAt = new Date(new Date(order.createdAt).getTime() + effective * 24 * 60 * 60 * 1000);
+      if (unlocksAt > new Date()) {
+        return res.status(403).json({ message: "Lesson hasn't unlocked yet" });
+      }
+    }
   }
 
   const row = await storage.markLessonComplete({

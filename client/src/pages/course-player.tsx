@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import {
-  CheckCircle2, Circle, ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle,
+  CheckCircle2, Circle, ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle, Lock, Calendar,
 } from "lucide-react";
 
 type Lesson = {
@@ -20,6 +20,9 @@ type Lesson = {
   attachmentUrl: string | null;
   durationSeconds: number | null;
   sortOrder: number;
+  unlockAfterDays: number | null;
+  unlocksAt: string | null;
+  locked: boolean;
   completed: boolean;
 };
 
@@ -80,11 +83,11 @@ export default function CoursePlayerPage() {
 
   const [currentLessonIdx, setCurrentLessonIdx] = useState(0);
 
-  // Jump to the first not-yet-completed lesson on initial load.
+  // Jump to the first not-yet-completed AND not-locked lesson on initial load.
   useEffect(() => {
     if (data && data.lessons.length > 0) {
-      const firstUncomplete = data.lessons.findIndex((l) => !l.completed);
-      setCurrentLessonIdx(firstUncomplete >= 0 ? firstUncomplete : 0);
+      const firstAvailable = data.lessons.findIndex((l) => !l.completed && !l.locked);
+      setCurrentLessonIdx(firstAvailable >= 0 ? firstAvailable : 0);
     }
   }, [data?.course.id]);
 
@@ -172,7 +175,21 @@ export default function CoursePlayerPage() {
         {/* Player + current lesson description */}
         <div className="lg:col-span-2 space-y-4">
           <div className="aspect-video bg-muted rounded-lg overflow-hidden border" data-testid="course-player">
-            {embedUrl ? (
+            {current.locked ? (
+              <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 gap-3">
+                <Lock className="h-8 w-8 text-muted-foreground" />
+                <div>
+                  <p className="font-semibold mb-1">This lesson is locked</p>
+                  <p className="text-sm text-muted-foreground">
+                    Unlocks {current.unlocksAt ? new Date(current.unlocksAt).toLocaleDateString(undefined, { dateStyle: "medium" }) : "later"}
+                    {current.unlocksAt && (() => {
+                      const days = Math.ceil((new Date(current.unlocksAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+                      return days > 0 ? ` (in ${days} day${days === 1 ? "" : "s"})` : "";
+                    })()}
+                  </p>
+                </div>
+              </div>
+            ) : embedUrl ? (
               <iframe
                 key={current.id}
                 src={embedUrl}
@@ -197,27 +214,34 @@ export default function CoursePlayerPage() {
                   {current.durationSeconds ? ` · ${fmtDuration(current.durationSeconds)}` : ""}
                 </p>
               </div>
-              <Button
-                variant={current.completed ? "outline" : "default"}
-                onClick={() => markComplete.mutate({ lessonId: current.id, undo: current.completed })}
-                disabled={markComplete.isPending}
-                data-testid="button-mark-complete"
-              >
-                {current.completed ? (
-                  <><CheckCircle2 className="h-4 w-4 mr-2" />Completed (undo)</>
-                ) : (
-                  <><Circle className="h-4 w-4 mr-2" />Mark complete</>
-                )}
-              </Button>
+              {current.locked ? (
+                <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  Unlocks {current.unlocksAt ? new Date(current.unlocksAt).toLocaleDateString() : "later"}
+                </div>
+              ) : (
+                <Button
+                  variant={current.completed ? "outline" : "default"}
+                  onClick={() => markComplete.mutate({ lessonId: current.id, undo: current.completed })}
+                  disabled={markComplete.isPending}
+                  data-testid="button-mark-complete"
+                >
+                  {current.completed ? (
+                    <><CheckCircle2 className="h-4 w-4 mr-2" />Completed (undo)</>
+                  ) : (
+                    <><Circle className="h-4 w-4 mr-2" />Mark complete</>
+                  )}
+                </Button>
+              )}
             </div>
 
-            {current.description && (
+            {!current.locked && current.description && (
               <div className="prose prose-sm max-w-none whitespace-pre-line">
                 {current.description}
               </div>
             )}
 
-            {current.attachmentUrl && (
+            {!current.locked && current.attachmentUrl && (
               <Button variant="outline" size="sm" asChild>
                 <a href={current.attachmentUrl} target="_blank" rel="noopener noreferrer" data-testid="link-lesson-attachment">
                   <Download className="h-4 w-4 mr-2" />
@@ -340,17 +364,23 @@ function LessonRow({ lesson, isCurrent, onSelect }: { lesson: Lesson; isCurrent:
       onClick={onSelect}
       className={`w-full text-left rounded-md px-3 py-2 flex items-start gap-2 transition-colors ${
         isCurrent ? "bg-muted" : "hover:bg-muted/50"
-      }`}
+      } ${lesson.locked ? "opacity-70" : ""}`}
       data-testid={`button-lesson-${lesson.id}`}
     >
-      {lesson.completed ? (
+      {lesson.locked ? (
+        <Lock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+      ) : lesson.completed ? (
         <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
       ) : (
         <Circle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
       )}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{lesson.title}</p>
-        {lesson.durationSeconds ? (
+        {lesson.locked && lesson.unlocksAt ? (
+          <p className="text-xs text-muted-foreground">
+            Unlocks {new Date(lesson.unlocksAt).toLocaleDateString()}
+          </p>
+        ) : lesson.durationSeconds ? (
           <p className="text-xs text-muted-foreground">{fmtDuration(lesson.durationSeconds)}</p>
         ) : null}
       </div>
