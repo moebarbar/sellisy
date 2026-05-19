@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import {
-  CheckCircle2, Circle, ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle, Lock, Calendar,
+  CheckCircle2, Circle, ChevronLeft, ChevronRight, Download, ArrowLeft, AlertCircle, Lock, Calendar, HelpCircle,
 } from "lucide-react";
+import { QuizTaker } from "@/components/quiz-taker";
 
 type Lesson = {
   id: string;
@@ -24,6 +25,7 @@ type Lesson = {
   unlocksAt: string | null;
   locked: boolean;
   completed: boolean;
+  hasQuiz: boolean;
 };
 
 type Module = {
@@ -219,6 +221,20 @@ export default function CoursePlayerPage() {
                   <Calendar className="h-4 w-4" />
                   Unlocks {current.unlocksAt ? new Date(current.unlocksAt).toLocaleDateString() : "later"}
                 </div>
+              ) : current.hasQuiz ? (
+                // Quiz-gated: completion comes from passing the quiz, not the
+                // manual button. We still show a tiny indicator if already done.
+                current.completed ? (
+                  <div className="inline-flex items-center gap-2 text-sm text-primary">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Quiz passed
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                    <HelpCircle className="h-4 w-4" />
+                    Quiz required
+                  </div>
+                )
               ) : (
                 <Button
                   variant={current.completed ? "outline" : "default"}
@@ -248,6 +264,17 @@ export default function CoursePlayerPage() {
                   Download lesson resources
                 </a>
               </Button>
+            )}
+
+            {!current.locked && current.hasQuiz && (
+              <QuizTaker
+                token={token}
+                productId={productId}
+                lessonId={current.id}
+                onPassed={() => {
+                  queryClient.invalidateQueries({ queryKey: ["/api/courses/access", token, productId] });
+                }}
+              />
             )}
 
             <div className="flex items-center justify-between pt-4 border-t">

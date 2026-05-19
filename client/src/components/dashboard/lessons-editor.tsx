@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Plus, Trash2, ChevronUp, ChevronDown, GripVertical, Video, Pencil, FolderPlus } from "lucide-react";
+import { QuizEditor } from "@/components/dashboard/quiz-editor";
 
 type Lesson = {
   id: string;
@@ -341,6 +342,7 @@ function LessonCard({
           {modules.map((m) => <SelectItem key={m.id} value={m.id}>{m.title}</SelectItem>)}
         </SelectContent>
       </Select>
+      <QuizEditor lessonId={lesson.id} lessonTitle={lesson.title} />
       <div className="flex items-center shrink-0">
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onMove(-1)} disabled={idx === 0}>
           <ChevronUp className="h-3 w-3" />

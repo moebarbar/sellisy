@@ -946,3 +946,63 @@ export const courseLessonProgress = pgTable("course_lesson_progress", {
 export const insertCourseLessonProgressSchema = createInsertSchema(courseLessonProgress).omit({ id: true, completedAt: true });
 export type InsertCourseLessonProgress = z.infer<typeof insertCourseLessonProgressSchema>;
 export type CourseLessonProgress = typeof courseLessonProgress.$inferSelect;
+
+// ─── Quizzes ──────────────────────────────────────────────────────────
+// A lesson can have N questions. Each question has M choices, exactly one
+// of which is correct (V1 = single-choice MCQ only).
+// When a lesson has any questions, the lesson is considered "quiz-gated":
+// the buyer must score >= QUIZ_PASS_THRESHOLD to mark it complete.
+// Manual mark-complete is rejected on quiz-gated lessons.
+
+export const quizQuestions = pgTable("quiz_questions", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id", { length: 64 }).notNull(),
+  prompt: text("prompt").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("quiz_questions_lesson_idx").on(t.lessonId, t.deletedAt, t.sortOrder),
+]);
+
+export const insertQuizQuestionSchema = createInsertSchema(quizQuestions).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
+export type InsertQuizQuestion = z.infer<typeof insertQuizQuestionSchema>;
+export type QuizQuestion = typeof quizQuestions.$inferSelect;
+
+export const quizChoices = pgTable("quiz_choices", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  questionId: varchar("question_id", { length: 64 }).notNull(),
+  label: text("label").notNull(),
+  isCorrect: boolean("is_correct").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("quiz_choices_question_idx").on(t.questionId, t.sortOrder),
+]);
+
+export const insertQuizChoiceSchema = createInsertSchema(quizChoices).omit({ id: true, createdAt: true });
+export type InsertQuizChoice = z.infer<typeof insertQuizChoiceSchema>;
+export type QuizChoice = typeof quizChoices.$inferSelect;
+
+// One row per quiz attempt — buyer can retake to improve. The latest passing
+// attempt drives lesson completion. Failed attempts are kept for analytics.
+export const quizAttempts = pgTable("quiz_attempts", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  lessonId: varchar("lesson_id", { length: 64 }).notNull(),
+  orderId: varchar("order_id", { length: 64 }).notNull(),
+  correctCount: integer("correct_count").notNull(),
+  totalCount: integer("total_count").notNull(),
+  passed: boolean("passed").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("quiz_attempts_lesson_order_idx").on(t.lessonId, t.orderId, t.createdAt),
+]);
+
+export const insertQuizAttemptSchema = createInsertSchema(quizAttempts).omit({ id: true, createdAt: true });
+export type InsertQuizAttempt = z.infer<typeof insertQuizAttemptSchema>;
+export type QuizAttempt = typeof quizAttempts.$inferSelect;
+
+// Single source of truth for the pass threshold. 0.7 = 70% correct.
+// Lives in shared so server + client agree.
+export const QUIZ_PASS_THRESHOLD = 0.7;

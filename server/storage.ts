@@ -12,9 +12,13 @@ import {
   type AffiliateCommission, type InsertAffiliateCommission,
   type AffiliatePayout, type InsertAffiliatePayout,
   courseLessons, courseLessonProgress, courseModules,
+  quizQuestions, quizChoices, quizAttempts,
   type CourseLesson, type InsertCourseLesson,
   type CourseLessonProgress, type InsertCourseLessonProgress,
   type CourseModule, type InsertCourseModule,
+  type QuizQuestion, type InsertQuizQuestion,
+  type QuizChoice, type InsertQuizChoice,
+  type QuizAttempt, type InsertQuizAttempt,
   type Store, type InsertStore,
   type Product, type InsertProduct,
   type FileAsset, type InsertFileAsset,
@@ -1407,6 +1411,96 @@ export class DatabaseStorage implements IStorage {
           .where(and(eq(courseModules.id, moduleIds[i]), eq(courseModules.productId, productId)));
       }
     });
+  }
+
+  // ─── Quizzes ────────────────────────────────────────────────────────
+
+  async getQuestionsByLesson(lessonId: string): Promise<QuizQuestion[]> {
+    return db.select().from(quizQuestions)
+      .where(and(eq(quizQuestions.lessonId, lessonId), isNull(quizQuestions.deletedAt)))
+      .orderBy(quizQuestions.sortOrder, quizQuestions.createdAt);
+  }
+
+  async getQuestionById(id: string): Promise<QuizQuestion | undefined> {
+    const [row] = await db.select().from(quizQuestions)
+      .where(and(eq(quizQuestions.id, id), isNull(quizQuestions.deletedAt)))
+      .limit(1);
+    return row;
+  }
+
+  async createQuestion(data: InsertQuizQuestion): Promise<QuizQuestion> {
+    const [row] = await db.insert(quizQuestions).values(data).returning();
+    return row;
+  }
+
+  async updateQuestion(id: string, data: Partial<InsertQuizQuestion>): Promise<QuizQuestion | undefined> {
+    const [row] = await db.update(quizQuestions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(quizQuestions.id, id))
+      .returning();
+    return row;
+  }
+
+  async softDeleteQuestion(id: string): Promise<void> {
+    // Choices stay in DB but are unreachable through the soft-deleted question.
+    await db.update(quizQuestions)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(quizQuestions.id, id));
+  }
+
+  async getChoicesByQuestion(questionId: string): Promise<QuizChoice[]> {
+    return db.select().from(quizChoices)
+      .where(eq(quizChoices.questionId, questionId))
+      .orderBy(quizChoices.sortOrder, quizChoices.createdAt);
+  }
+
+  async getChoicesByQuestionIds(questionIds: string[]): Promise<QuizChoice[]> {
+    if (questionIds.length === 0) return [];
+    return db.select().from(quizChoices)
+      .where(inArray(quizChoices.questionId, questionIds))
+      .orderBy(quizChoices.sortOrder);
+  }
+
+  async replaceChoicesForQuestion(questionId: string, choices: { label: string; isCorrect: boolean }[]): Promise<QuizChoice[]> {
+    // Wipe + re-insert. Simpler than diffing add/update/delete and choices
+    // are small (typically 2-5 per question). All-or-nothing in a transaction.
+    return db.transaction(async (tx) => {
+      await tx.delete(quizChoices).where(eq(quizChoices.questionId, questionId));
+      if (choices.length === 0) return [];
+      const rows = await tx.insert(quizChoices)
+        .values(choices.map((c, i) => ({
+          questionId,
+          label: c.label,
+          isCorrect: c.isCorrect,
+          sortOrder: i,
+        })))
+        .returning();
+      return rows;
+    });
+  }
+
+  async createQuizAttempt(data: InsertQuizAttempt): Promise<QuizAttempt> {
+    const [row] = await db.insert(quizAttempts).values(data).returning();
+    return row;
+  }
+
+  async getLatestPassingAttempt(lessonId: string, orderId: string): Promise<QuizAttempt | undefined> {
+    const [row] = await db.select().from(quizAttempts)
+      .where(and(
+        eq(quizAttempts.lessonId, lessonId),
+        eq(quizAttempts.orderId, orderId),
+        eq(quizAttempts.passed, true),
+      ))
+      .orderBy(desc(quizAttempts.createdAt))
+      .limit(1);
+    return row;
+  }
+
+  async hasLessonQuiz(lessonId: string): Promise<boolean> {
+    const [row] = await db.select({ id: quizQuestions.id }).from(quizQuestions)
+      .where(and(eq(quizQuestions.lessonId, lessonId), isNull(quizQuestions.deletedAt)))
+      .limit(1);
+    return !!row;
   }
 }
 
