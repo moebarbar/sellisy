@@ -47,6 +47,7 @@ import {
   Mail,
   Handshake,
   Wallet,
+  GraduationCap,
 } from "lucide-react";
 
 const navItems = [
@@ -54,6 +55,7 @@ const navItems = [
   { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
   { title: "Products", url: "/dashboard/products", icon: Package },
   { title: "My Products", url: "/dashboard/my-products", icon: Sparkles },
+  { title: "Courses", url: "/dashboard/courses", icon: GraduationCap },
   { title: "Products Library", url: "/dashboard/library", icon: ShoppingBag },
   { title: "Content Creator", url: "/dashboard/content-creator", icon: PenTool },
   { title: "Blog", url: "/dashboard/blog", icon: FileText },

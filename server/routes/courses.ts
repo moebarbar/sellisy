@@ -48,6 +48,60 @@ async function validateDownloadAccess(token: string, productId: string): Promise
   return { ok: true, orderId: dt.orderId };
 }
 
+// ── OWNER: course discovery dashboard ─────────────────────────────────
+
+// GET /api/courses/my-courses — list all of the owner's course-type
+// products with summary stats. Used by the dedicated Courses dashboard
+// surface so owners can see their LMS at a glance.
+coursesRouter.get("/my-courses", isAuthenticated, async (req: Request, res: Response) => {
+  const ownerId = getUserId(req);
+  const allProducts = await storage.getProductsByOwner(ownerId);
+  const courses = allProducts.filter((p) => p.productType === "course");
+
+  const out = await Promise.all(courses.map(async (p) => {
+    const [lessons, modules] = await Promise.all([
+      storage.getLessonsByProduct(p.id),
+      storage.getModulesByProduct(p.id),
+    ]);
+
+    // Drip detection: any lesson or module with a non-null unlockAfterDays.
+    const hasDrip =
+      lessons.some((l) => l.unlockAfterDays != null) ||
+      modules.some((m) => m.unlockAfterDays != null);
+
+    // Quiz detection: any lesson with at least one (non-deleted) question.
+    // Batched query to avoid N round-trips.
+    const lessonIdsWithQuiz = lessons.length > 0
+      ? new Set(
+          (await db.select({ lessonId: quizQuestions.lessonId })
+            .from(quizQuestions)
+            .where(and(inArray(quizQuestions.lessonId, lessons.map((l) => l.id)), isNull(quizQuestions.deletedAt))))
+            .map((r) => r.lessonId),
+        )
+      : new Set<string>();
+
+    return {
+      id: p.id,
+      slug: p.slug,
+      title: p.title,
+      thumbnailUrl: p.thumbnailUrl,
+      priceCents: p.priceCents,
+      status: p.status,
+      lessonCount: lessons.length,
+      moduleCount: modules.length,
+      quizLessonCount: lessonIdsWithQuiz.size,
+      hasDrip,
+      certificatesEnabled: !!p.certificatesEnabled,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+    };
+  }));
+
+  // Newest first.
+  out.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  res.json(out);
+});
+
 // ── OWNER: lessons CRUD ───────────────────────────────────────────────
 
 // GET /api/courses/products/:productId/lessons — owner view, full lesson list
