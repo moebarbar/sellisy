@@ -382,12 +382,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStoreProductPublish(id: string, isPublished: boolean) {
-    const [sp] = await db.update(storeProducts).set({ isPublished }).where(eq(storeProducts.id, id)).returning();
+    const [sp] = await db.update(storeProducts).set({ isPublished, updatedAt: new Date() }).where(eq(storeProducts.id, id)).returning();
     return sp;
   }
 
   async updateStoreProduct(id: string, data: Partial<Pick<StoreProduct, "customPriceCents" | "customTitle" | "customDescription" | "customTags" | "customAccessUrl" | "customRedemptionCode" | "customDeliveryInstructions" | "isPublished" | "isLeadMagnet" | "isFeatured" | "sortOrder" | "upsellProductId" | "upsellBundleId">>) {
-    const [sp] = await db.update(storeProducts).set(data).where(eq(storeProducts.id, id)).returning();
+    const [sp] = await db.update(storeProducts).set({ ...data, updatedAt: new Date() }).where(eq(storeProducts.id, id)).returning();
     return sp;
   }
 
@@ -573,7 +573,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCategory(id: string, data: Partial<Pick<Category, "name" | "slug" | "sortOrder">>) {
-    const [updated] = await db.update(categories).set(data).where(eq(categories.id, id)).returning();
+    const [updated] = await db.update(categories).set({ ...data, updatedAt: new Date() }).where(eq(categories.id, id)).returning();
     return updated;
   }
 
@@ -608,7 +608,7 @@ export class DatabaseStorage implements IStorage {
   async upsertUserProfile(data: InsertUserProfile) {
     const existing = await this.getUserProfile(data.userId);
     if (existing) {
-      const [updated] = await db.update(userProfiles).set(data).where(eq(userProfiles.userId, data.userId)).returning();
+      const [updated] = await db.update(userProfiles).set({ ...data, updatedAt: new Date() }).where(eq(userProfiles.userId, data.userId)).returning();
       return updated;
     }
     const [created] = await db.insert(userProfiles).values(data).returning();
@@ -627,7 +627,7 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
-    const updates: any = { planTier };
+    const updates: any = { planTier, updatedAt: new Date() };
     if (clearTrial) updates.trialEndsAt = null;
     const [updated] = await db.update(userProfiles)
       .set(updates)
@@ -642,7 +642,7 @@ export class DatabaseStorage implements IStorage {
       const [created] = await db.insert(userProfiles).values({ userId, isAdmin }).returning();
       return created;
     }
-    const [updated] = await db.update(userProfiles).set({ isAdmin }).where(eq(userProfiles.userId, userId)).returning();
+    const [updated] = await db.update(userProfiles).set({ isAdmin, updatedAt: new Date() }).where(eq(userProfiles.userId, userId)).returning();
     return updated;
   }
 
@@ -767,7 +767,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateKbPage(id: string, data: Partial<Pick<KbPage, "title" | "parentPageId" | "sortOrder">>) {
-    const [page] = await db.update(kbPages).set(data).where(eq(kbPages.id, id)).returning();
+    const [page] = await db.update(kbPages).set({ ...data, updatedAt: new Date() }).where(eq(kbPages.id, id)).returning();
     return page;
   }
 
@@ -795,7 +795,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateKbBlock(id: string, data: Partial<Pick<KbBlock, "type" | "content" | "sortOrder">>) {
-    const [block] = await db.update(kbBlocks).set(data).where(eq(kbBlocks.id, id)).returning();
+    const [block] = await db.update(kbBlocks).set({ ...data, updatedAt: new Date() }).where(eq(kbBlocks.id, id)).returning();
     return block;
   }
 
@@ -809,8 +809,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async reorderKbBlocks(pageId: string, blockIds: string[]) {
+    const now = new Date();
     for (let i = 0; i < blockIds.length; i++) {
-      await db.update(kbBlocks).set({ sortOrder: i }).where(and(eq(kbBlocks.id, blockIds[i]), eq(kbBlocks.pageId, pageId)));
+      await db.update(kbBlocks).set({ sortOrder: i, updatedAt: now }).where(and(eq(kbBlocks.id, blockIds[i]), eq(kbBlocks.pageId, pageId)));
     }
   }
 
@@ -828,7 +829,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAttachment(id: string, data: Partial<Pick<KbPageAttachment, "name" | "sortOrder">>) {
-    const [row] = await db.update(kbPageAttachments).set(data).where(eq(kbPageAttachments.id, id)).returning();
+    const [row] = await db.update(kbPageAttachments).set({ ...data, updatedAt: new Date() }).where(eq(kbPageAttachments.id, id)).returning();
     return row;
   }
 
@@ -936,7 +937,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBlogBlock(id: string, data: Partial<Pick<BlogBlock, "type" | "content" | "sortOrder">>) {
-    const [block] = await db.update(blogBlocks).set(data).where(eq(blogBlocks.id, id)).returning();
+    const [block] = await db.update(blogBlocks).set({ ...data, updatedAt: new Date() }).where(eq(blogBlocks.id, id)).returning();
     return block;
   }
 
@@ -950,8 +951,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async reorderBlogBlocks(postId: string, blockIds: string[]) {
+    const now = new Date();
     for (let i = 0; i < blockIds.length; i++) {
-      await db.update(blogBlocks).set({ sortOrder: i }).where(and(eq(blogBlocks.id, blockIds[i]), eq(blogBlocks.postId, postId)));
+      await db.update(blogBlocks).set({ sortOrder: i, updatedAt: now }).where(and(eq(blogBlocks.id, blockIds[i]), eq(blogBlocks.postId, postId)));
     }
   }
 
@@ -972,7 +974,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTestimonial(id: string, data: Partial<Pick<StoreTestimonial, "name" | "role" | "quote" | "avatarUrl" | "sortOrder">>) {
-    const [t] = await db.update(storeTestimonials).set(data).where(eq(storeTestimonials.id, id)).returning();
+    const [t] = await db.update(storeTestimonials).set({ ...data, updatedAt: new Date() }).where(eq(storeTestimonials.id, id)).returning();
     return t;
   }
 
@@ -995,7 +997,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateFaq(id: string, data: Partial<Pick<StoreFaq, "question" | "answer" | "sortOrder">>) {
-    const [f] = await db.update(storeFaqs).set(data).where(eq(storeFaqs.id, id)).returning();
+    const [f] = await db.update(storeFaqs).set({ ...data, updatedAt: new Date() }).where(eq(storeFaqs.id, id)).returning();
     return f;
   }
 
@@ -1140,7 +1142,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCampaignBlock(id: string, data: Partial<InsertNewsletterCampaignBlock>) {
-    const [b] = await db.update(newsletterCampaignBlocks).set(data).where(eq(newsletterCampaignBlocks.id, id)).returning();
+    const [b] = await db.update(newsletterCampaignBlocks).set({ ...data, updatedAt: new Date() }).where(eq(newsletterCampaignBlocks.id, id)).returning();
     return b;
   }
 
