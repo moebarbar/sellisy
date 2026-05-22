@@ -26,13 +26,19 @@ declare module "http" {
   }
 }
 
+// Webhook fail-closed policy:
+// If the verification secret/credentials aren't configured, reject with 503
+// (Service Unavailable) — a 5xx status so Stripe/PayPal will retry once the
+// operator fixes the env. We never fall through to processing an unverified
+// event, in any environment. webhookHandlers.processWebhook also re-checks
+// STRIPE_WEBHOOK_SECRET as defense-in-depth.
 app.post(
   '/api/stripe/webhook',
   express.raw({ type: 'application/json' }),
   async (req, res) => {
-    if (process.env.NODE_ENV === "production" && !process.env.STRIPE_WEBHOOK_SECRET) {
-      console.error("Webhook rejected: STRIPE_WEBHOOK_SECRET is not set in production");
-      return res.status(500).json({ error: "Webhook configuration error" });
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      console.error("Stripe webhook rejected: STRIPE_WEBHOOK_SECRET is not set");
+      return res.status(503).json({ error: "Webhook secret not configured" });
     }
 
     const signature = req.headers['stripe-signature'];
@@ -43,26 +49,35 @@ app.post(
     try {
       const sig = Array.isArray(signature) ? signature[0] : signature;
       if (!Buffer.isBuffer(req.body)) {
-        console.error('Webhook: req.body is not a Buffer');
+        console.error('Stripe webhook: req.body is not a Buffer');
         return res.status(500).json({ error: 'Webhook processing error' });
       }
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
       res.status(200).json({ received: true });
     } catch (error: any) {
-      console.error('Webhook error:', error.message);
+      console.error('Stripe webhook error:', error.message);
       res.status(400).json({ error: 'Webhook processing error' });
     }
   }
 );
 
 if (!process.env.STRIPE_WEBHOOK_SECRET) {
-  console.warn("[SECURITY WARNING] STRIPE_WEBHOOK_SECRET is not set — Stripe webhook signature verification is disabled. Set this in production to prevent forged webhook events.");
+  console.warn("[SECURITY WARNING] STRIPE_WEBHOOK_SECRET is not set — Stripe webhook endpoint will reject all events with 503 until configured.");
 }
 
 app.post(
   '/api/paypal/webhook',
   express.json({ limit: '1mb' }),
   async (req, res) => {
+    if (
+      !process.env.PAYPAL_WEBHOOK_ID ||
+      !process.env.PAYPAL_CLIENT_ID ||
+      !process.env.PAYPAL_CLIENT_SECRET
+    ) {
+      console.error("PayPal webhook rejected: PAYPAL_WEBHOOK_ID/PAYPAL_CLIENT_ID/PAYPAL_CLIENT_SECRET not set");
+      return res.status(503).json({ error: "Webhook credentials not configured" });
+    }
+
     try {
       const valid = await WebhookHandlers.verifyPaypalSignature(req.headers, req.body);
       if (!valid) {
@@ -78,7 +93,7 @@ app.post(
 );
 
 if (!process.env.PAYPAL_WEBHOOK_ID) {
-  console.warn("[SECURITY WARNING] PAYPAL_WEBHOOK_ID is not set — PayPal webhook verification is disabled. Set this in production to receive refund/chargeback events.");
+  console.warn("[SECURITY WARNING] PAYPAL_WEBHOOK_ID is not set — PayPal webhook endpoint will reject all events with 503 until configured.");
 }
 
 // SendGrid event webhook — receives bounce, complaint (spam report), and

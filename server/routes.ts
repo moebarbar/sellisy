@@ -4,7 +4,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, stores, storeReviews, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
+import { affiliateCommissions, orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, stores, storeReviews, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { createCustomHostname, getCustomHostname, deleteCustomHostname, createWorkerRoute, deleteWorkerRoute, isCloudflareConfigured } from "./cloudflareClient";
 import { seedDatabase, seedMarketingIfNeeded, seedAdminUser } from "./seed";
@@ -26,6 +26,7 @@ import { gumroadImportRouter } from "./routes/gumroad-import";
 import { affiliateRouter } from "./routes/affiliate";
 import { coursesRouter } from "./routes/courses";
 import { verifyUnsubscribeToken } from "./crypto/unsubscribe-token";
+import { encryptPaymentSecret, decryptPaymentSecret } from "./crypto/payment-secret";
 import { WebhookHandlers } from "./webhookHandlers";
 import { watermarkPdf, isPdfFilename, isPdfContentType } from "./pdfWatermark";
 
@@ -590,7 +591,18 @@ ${urls}</urlset>`;
       if (existing) return res.status(409).json({ message: "Slug already taken" });
     }
 
-    const updated = await storage.updateStore(store.id, parsed.data);
+    // Encrypt payment secrets before persisting. encryptPaymentSecret is a
+    // no-op on empty/already-encrypted values, so it's safe to apply
+    // unconditionally when the field is present in the request body.
+    const toUpdate = { ...parsed.data };
+    if (typeof toUpdate.stripeSecretKey === "string" && toUpdate.stripeSecretKey) {
+      toUpdate.stripeSecretKey = encryptPaymentSecret(toUpdate.stripeSecretKey);
+    }
+    if (typeof toUpdate.paypalClientSecret === "string" && toUpdate.paypalClientSecret) {
+      toUpdate.paypalClientSecret = encryptPaymentSecret(toUpdate.paypalClientSecret);
+    }
+
+    const updated = await storage.updateStore(store.id, toUpdate);
     res.json(sanitizeStore(updated));
   });
 
@@ -2990,7 +3002,7 @@ ${urls}</urlset>`;
       try {
         const { approveUrl, paypalOrderId } = await createPayPalOrder(
           store.paypalClientId!,
-          store.paypalClientSecret!,
+          decryptPaymentSecret(store.paypalClientSecret)!,
           finalTotalCents,
           itemName,
           order.id,
@@ -3007,7 +3019,7 @@ ${urls}</urlset>`;
       }
     } else {
       try {
-        const stripe = new Stripe(store.stripeSecretKey!, { apiVersion: '2025-11-17.clover' as any });
+        const stripe = new Stripe(decryptPaymentSecret(store.stripeSecretKey)!, { apiVersion: '2025-11-17.clover' as any });
 
         // When the merchant has Stripe Tax enabled, each line item needs a
         // tax_code on the product and a tax_behavior on the price so Stripe
@@ -3107,7 +3119,7 @@ ${urls}</urlset>`;
     }
 
     try {
-      const accessToken = await getPayPalAccessToken(store.paypalClientId, store.paypalClientSecret);
+      const accessToken = await getPayPalAccessToken(store.paypalClientId, decryptPaymentSecret(store.paypalClientSecret)!);
       const baseUrl = getPayPalBaseUrl(store.paypalClientId);
 
       const captureResp = await fetch(`${baseUrl}/v2/checkout/orders/${paypalToken}/capture`, {
@@ -3147,14 +3159,30 @@ ${urls}</urlset>`;
 
       if (captureStatus === "COMPLETED") {
         const payerEmail = captureData.payer?.email_address || order.buyerEmail;
+        const effectiveBuyerEmail = payerEmail && payerEmail !== "pending@checkout.com" ? payerEmail : order.buyerEmail;
+
+        // Resolve customer outside the tx — findOrCreateCustomer is idempotent.
+        let customerId: string | null = order.customerId;
+        if (payerEmail && payerEmail !== "pending@checkout.com") {
+          const customer = await storage.findOrCreateCustomer(payerEmail);
+          customerId = customer.id;
+        }
+
+        // Pre-compute affiliate commission inputs outside the tx.
+        const commissionInsert = await WebhookHandlers.prepareAffiliateCommissionInsert({
+          ...order,
+          buyerEmail: effectiveBuyerEmail,
+        });
 
         const tokenHash = randomBytes(32).toString("hex");
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-        await db.transaction(async (tx) => {
+        const txResult = await db.transaction(async (tx) => {
           await tx.update(orders).set({
             status: "COMPLETED",
-            buyerEmail: payerEmail !== "pending@checkout.com" ? payerEmail : order.buyerEmail,
+            buyerEmail: effectiveBuyerEmail,
+            customerId,
+            updatedAt: new Date(),
           }).where(eq(orders.id, order.id));
 
           await tx.insert(downloadTokens).values({
@@ -3163,6 +3191,7 @@ ${urls}</urlset>`;
             expiresAt,
           });
 
+          let couponOvershoot = false;
           if (order.couponId) {
             // Best-effort atomic increment. Payment is already captured —
             // don't reject the order if the coupon happens to be exhausted
@@ -3175,25 +3204,38 @@ ${urls}</urlset>`;
                 sql`(${coupons.maxUses} IS NULL OR ${coupons.currentUses} < ${coupons.maxUses})`,
               ))
               .returning({ id: coupons.id });
-            if (claimed.length === 0) {
-              console.warn(`[coupon] race overshoot — order ${order.id} used coupon ${order.couponId} but cap was reached`);
-            }
+            if (claimed.length === 0) couponOvershoot = true;
           }
+
+          if (commissionInsert) {
+            await tx.insert(affiliateCommissions)
+              .values(commissionInsert)
+              .onConflictDoNothing({ target: affiliateCommissions.orderId });
+          }
+
+          return { couponOvershoot };
         });
 
-        if (payerEmail && payerEmail !== "pending@checkout.com") {
-          const customer = await storage.findOrCreateCustomer(payerEmail);
-          await storage.setOrderCustomerId(order.id, customer.id);
-          await storage.linkOrdersByEmail(payerEmail, customer.id);
+        if (txResult.couponOvershoot && order.couponId) {
+          console.warn(`[coupon] race overshoot — order ${order.id} used coupon ${order.couponId} but cap was reached`);
+        }
+
+        // Post-commit backfill — best-effort.
+        if (payerEmail && payerEmail !== "pending@checkout.com" && customerId) {
+          storage.linkOrdersByEmail(payerEmail, customerId).catch((err) =>
+            console.error("PayPal capture: linkOrdersByEmail failed:", order.id, err)
+          );
+        }
+
+        if (commissionInsert) {
+          audit({
+            event: "affiliate.commission_created",
+            details: `Order ${order.id} -> affiliate ${commissionInsert.affiliateId}: ${commissionInsert.commissionCents}c (${commissionInsert.commissionRateBps}bps on ${commissionInsert.subtotalCents}c)`,
+          });
         }
 
         const baseUrl = getAppUrl(req);
         sendOrderCompletionEmails(order.id, baseUrl);
-
-        // Affiliate commission. Best-effort — never block the redirect.
-        WebhookHandlers.writeAffiliateCommissionForOrder(order.id).catch((err) =>
-          console.error("PayPal capture: affiliate commission write failed:", order.id, err)
-        );
 
         return res.redirect(`/checkout/success?order_id=${order.id}`);
       } else {
@@ -3224,7 +3266,7 @@ ${urls}</urlset>`;
         const orderStore = await storage.getStoreById(order.storeId);
         let stripe;
         if (orderStore?.stripeSecretKey) {
-          stripe = new Stripe(orderStore.stripeSecretKey, { apiVersion: '2025-11-17.clover' as any });
+          stripe = new Stripe(decryptPaymentSecret(orderStore.stripeSecretKey)!, { apiVersion: '2025-11-17.clover' as any });
         } else {
           stripe = await getUncachableStripeClient();
         }

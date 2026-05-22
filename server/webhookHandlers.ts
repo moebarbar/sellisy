@@ -4,7 +4,8 @@ import { audit } from './audit';
 import { randomBytes } from 'crypto';
 import { sendOrderCompletionEmails } from './orderEmailHelper';
 import { db } from './db';
-import { coupons, downloadTokens, orders, webhookEvents } from '@shared/schema';
+import { affiliateCommissions, coupons, downloadTokens, orders, webhookEvents } from '@shared/schema';
+import type { InsertAffiliateCommission } from '@shared/schema';
 import type { PlanTier } from '@shared/schema';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { authStorage } from './replit_integrations/auth/storage';
@@ -133,132 +134,181 @@ export class WebhookHandlers {
     }
 
     try {
-    const order = await storage.getOrderById(orderId);
-    if (!order) {
-      console.error('Webhook: order not found for id:', orderId);
-      return;
-    }
-
-    if (order.status === 'COMPLETED') {
-      console.log('Webhook: order already completed:', orderId);
-      if (!order.emailSent) {
-        await sendOrderCompletionEmails(orderId, WebhookHandlers.getBaseUrl());
+      const order = await storage.getOrderById(orderId);
+      if (!order) {
+        console.error('Webhook: order not found for id:', orderId);
+        return;
       }
-      return;
-    }
 
-    const buyerEmail = session.customer_details?.email || order.buyerEmail;
+      if (order.status === 'COMPLETED') {
+        console.log('Webhook: order already completed:', orderId);
+        if (!order.emailSent) {
+          await sendOrderCompletionEmails(orderId, WebhookHandlers.getBaseUrl());
+        }
+        return;
+      }
 
-    await storage.updateOrderStatus(orderId, 'COMPLETED');
+      const sessionEmail: string | undefined = session.customer_details?.email;
+      const buyerEmail = sessionEmail || order.buyerEmail;
+      const couponId: string | undefined = session.metadata?.couponId;
 
-    if (buyerEmail && buyerEmail !== 'pending@checkout.com' && buyerEmail !== order.buyerEmail) {
-      await storage.updateOrderBuyerEmail(orderId, buyerEmail);
-    }
+      // Resolve customer outside the tx — findOrCreateCustomer is idempotent
+      // on email, so re-running on retry is safe.
+      let customerId: string | null = order.customerId;
+      if (buyerEmail && buyerEmail !== 'pending@checkout.com') {
+        const customer = await storage.findOrCreateCustomer(buyerEmail);
+        customerId = customer.id;
+      }
 
-    const tokenHash = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await storage.createDownloadToken({ orderId, tokenHash, expiresAt });
+      // Pre-compute the affiliate commission insert (all the reads + the
+      // self-attribution check) so the transaction below only needs to INSERT.
+      const commissionInsert = await WebhookHandlers.prepareAffiliateCommissionInsert(
+        { ...order, buyerEmail },
+      );
 
-    if (buyerEmail && buyerEmail !== 'pending@checkout.com') {
-      const customer = await storage.findOrCreateCustomer(buyerEmail);
-      await storage.setOrderCustomerId(orderId, customer.id);
-      await storage.linkOrdersByEmail(buyerEmail, customer.id);
-    }
+      const tokenHash = randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const couponId = session.metadata?.couponId;
-    if (couponId) {
-      // Best-effort atomic conditional increment — payment is already captured,
-      // so a race overshoot on coupon cap is logged for ops, not failed back.
-      const claimed = await db
-        .update(coupons)
-        .set({ currentUses: sql`${coupons.currentUses} + 1` })
-        .where(and(
-          eq(coupons.id, couponId),
-          sql`(${coupons.maxUses} IS NULL OR ${coupons.currentUses} < ${coupons.maxUses})`,
-        ))
-        .returning({ id: coupons.id });
-      if (claimed.length === 0) {
+      const result = await db.transaction(async (tx) => {
+        // 1. Mark order COMPLETED, set buyerEmail + customerId in the same UPDATE.
+        await tx.update(orders).set({
+          status: 'COMPLETED',
+          buyerEmail: buyerEmail && buyerEmail !== 'pending@checkout.com' ? buyerEmail : order.buyerEmail,
+          customerId,
+          updatedAt: new Date(),
+        }).where(eq(orders.id, orderId));
+
+        // 2. Issue the download token.
+        await tx.insert(downloadTokens).values({ orderId, tokenHash, expiresAt });
+
+        // 3. Coupon usage increment — conditional. Payment is already captured,
+        // so a race overshoot is logged for ops, not failed back.
+        let couponOvershoot = false;
+        if (couponId) {
+          const claimed = await tx
+            .update(coupons)
+            .set({ currentUses: sql`${coupons.currentUses} + 1` })
+            .where(and(
+              eq(coupons.id, couponId),
+              sql`(${coupons.maxUses} IS NULL OR ${coupons.currentUses} < ${coupons.maxUses})`,
+            ))
+            .returning({ id: coupons.id });
+          if (claimed.length === 0) couponOvershoot = true;
+        }
+
+        // 4. Affiliate commission row (idempotent on the unique orderId index).
+        if (commissionInsert) {
+          await tx.insert(affiliateCommissions)
+            .values(commissionInsert)
+            .onConflictDoNothing({ target: affiliateCommissions.orderId });
+        }
+
+        return { couponOvershoot };
+      });
+
+      if (result.couponOvershoot) {
         console.warn(`[coupon] race overshoot — Stripe order ${orderId} used coupon ${couponId} but cap was reached`);
       }
-    }
 
-    await sendOrderCompletionEmails(orderId, WebhookHandlers.getBaseUrl());
+      // Best-effort post-commit backfill. Not in the tx because it touches
+      // *other* orders by the same email and is purely a UX nicety.
+      if (buyerEmail && buyerEmail !== 'pending@checkout.com' && customerId) {
+        try {
+          await storage.linkOrdersByEmail(buyerEmail, customerId);
+        } catch (err) {
+          console.error('Webhook: linkOrdersByEmail failed for', orderId, err);
+        }
+      }
 
-    // Affiliate commission. Best-effort — never block the order on this.
-    try {
-      await WebhookHandlers.writeAffiliateCommissionForOrder(orderId);
-    } catch (commErr) {
-      console.error('Webhook: affiliate commission write failed for order:', orderId, commErr);
-    }
+      if (commissionInsert) {
+        audit({
+          event: 'affiliate.commission_created',
+          details: `Order ${orderId} -> affiliate ${commissionInsert.affiliateId}: ${commissionInsert.commissionCents}c (${commissionInsert.commissionRateBps}bps on ${commissionInsert.subtotalCents}c)`,
+        });
+      }
 
-    console.log('Webhook: order completed, emails triggered:', orderId);
+      await sendOrderCompletionEmails(orderId, WebhookHandlers.getBaseUrl());
+
+      console.log('Webhook: order completed, emails triggered:', orderId);
     } catch (error: any) {
       console.error('Webhook: handleCheckoutCompleted error for order:', orderId, error);
     }
   }
 
   /**
-   * Write an affiliate_commissions row for an order if it was attributed at
-   * checkout time. Safe to call multiple times — the orderId is UNIQUE on
-   * affiliate_commissions, so a duplicate insert is a no-op caught here.
+   * Pre-flight reads + checks for an affiliate commission row. Returns the
+   * insertable shape, or null if the order shouldn't earn a commission
+   * (no attribution, $0 order, affiliate inactive, self-attribution, etc.).
    *
-   * Self-attribution guard: if the buyer email matches the affiliate's
-   * user-account email, void the would-be commission immediately.
+   * Idempotency on duplicate webhook processing comes from the UNIQUE constraint
+   * on affiliate_commissions.orderId — callers should INSERT … ON CONFLICT DO NOTHING.
    */
-  static async writeAffiliateCommissionForOrder(orderId: string): Promise<void> {
-    const order = await storage.getOrderById(orderId);
-    if (!order || !order.affiliateId || !order.affiliateRateBps) return;
-    if (order.totalCents <= 0) return;
-    // Defensive: only credit commissions on COMPLETED orders. The callers
-    // (Stripe webhook, PayPal capture) only fire on success today, but
-    // future callers shouldn't accidentally credit a FAILED/REFUNDED order.
-    if (order.status !== "COMPLETED") return;
+  static async prepareAffiliateCommissionInsert(
+    order: { id: string; storeId: string; affiliateId: string | null; affiliateRateBps: number | null; totalCents: number; buyerEmail: string | null },
+  ): Promise<InsertAffiliateCommission | null> {
+    if (!order.affiliateId || !order.affiliateRateBps) return null;
+    if (order.totalCents <= 0) return null;
 
-    // Skip if a commission already exists for this order (idempotent webhook).
-    const existing = await storage.getCommissionByOrderId(orderId);
-    if (existing) return;
+    const existing = await storage.getCommissionByOrderId(order.id);
+    if (existing) return null;
 
     const affiliate = await storage.getAffiliateById(order.affiliateId);
-    if (!affiliate || affiliate.status !== "active") return;
+    if (!affiliate || affiliate.status !== 'active') return null;
 
-    // Self-attribution guard: affiliate cannot earn on a purchase they made
-    // themselves through an alt buyer email. We check the affiliate's user
-    // email against the order's buyerEmail.
+    // Self-attribution guard.
     try {
       const affUser = await authStorage.getUser(affiliate.userId);
       if (affUser?.email && order.buyerEmail && affUser.email.toLowerCase() === order.buyerEmail.toLowerCase()) {
         audit({
-          event: "affiliate.self_attribution_blocked",
-          details: `Order ${orderId} matched affiliate ${affiliate.id} self-purchase, commission skipped`,
+          event: 'affiliate.self_attribution_blocked',
+          details: `Order ${order.id} matched affiliate ${affiliate.id} self-purchase, commission skipped`,
         });
-        return;
+        return null;
       }
     } catch {
-      // If user lookup fails, fall through — better to write the commission
-      // than to silently drop a legit one.
+      // Fall through — better to write than to silently drop a legit commission.
     }
 
     const subtotalCents = order.totalCents;
     const rateBps = order.affiliateRateBps;
     const commissionCents = Math.floor((subtotalCents * rateBps) / 10000);
-    if (commissionCents <= 0) return;
+    if (commissionCents <= 0) return null;
 
-    const lockedUntil = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-
-    await storage.createCommission({
+    return {
       affiliateId: affiliate.id,
       storeId: order.storeId,
-      orderId,
+      orderId: order.id,
       subtotalCents,
       commissionRateBps: rateBps,
       commissionCents,
-      status: "pending",
-      lockedUntil,
-    });
+      status: 'pending',
+      lockedUntil: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    };
+  }
+
+  /**
+   * Standalone retry path for writing an affiliate commission. Used when the
+   * primary call site (inline in a checkout-completion transaction) hasn't
+   * already inserted the commission. Idempotent — the orderId UNIQUE on
+   * affiliate_commissions makes duplicate inserts a no-op.
+   */
+  static async writeAffiliateCommissionForOrder(orderId: string): Promise<void> {
+    const order = await storage.getOrderById(orderId);
+    if (!order) return;
+    // Defensive: only credit commissions on COMPLETED orders. Future callers
+    // shouldn't accidentally credit a FAILED/REFUNDED order.
+    if (order.status !== "COMPLETED") return;
+
+    const insert = await WebhookHandlers.prepareAffiliateCommissionInsert(order);
+    if (!insert) return;
+
+    await db.insert(affiliateCommissions)
+      .values(insert)
+      .onConflictDoNothing({ target: affiliateCommissions.orderId });
 
     audit({
       event: "affiliate.commission_created",
-      details: `Order ${orderId} -> affiliate ${affiliate.id}: ${commissionCents}c (${rateBps}bps on ${subtotalCents}c)`,
+      details: `Order ${orderId} -> affiliate ${insert.affiliateId}: ${insert.commissionCents}c (${insert.commissionRateBps}bps on ${insert.subtotalCents}c)`,
     });
   }
 
