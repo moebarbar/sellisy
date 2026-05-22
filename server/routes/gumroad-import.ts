@@ -595,7 +595,7 @@ gumroadImportRouter.post('/finish/:importId', isAuthenticated, async (req, res) 
         eq(storeProducts.productId, shell.sellisyProductId),
       ));
     if (existing) {
-      await db.update(storeProducts).set({ isPublished: true }).where(eq(storeProducts.id, existing.id));
+      await db.update(storeProducts).set({ isPublished: true, updatedAt: new Date() }).where(eq(storeProducts.id, existing.id));
     } else {
       await db.insert(storeProducts).values({
         storeId: importRecord.storeId,

@@ -25,9 +25,10 @@ export const userProfiles = pgTable("user_profiles", {
   // basic + trial_ends_at > now() as "pro".
   trialEndsAt: timestamp("trial_ends_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ createdAt: true });
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({ createdAt: true, updatedAt: true });
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type UserProfile = typeof userProfiles.$inferSelect;
 
@@ -146,22 +147,10 @@ export const insertStoreSchema = createInsertSchema(stores).omit({ id: true, cre
 export type InsertStore = z.infer<typeof insertStoreSchema>;
 export type Store = typeof stores.$inferSelect;
 
-export const storeDomains = pgTable("store_domains", {
-  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
-  storeId: varchar("store_id", { length: 64 }).notNull(),
-  domain: text("domain").notNull(),
-  registrar: text("registrar").notNull().default("namecheap"),
-  namecheapOrderId: text("namecheap_order_id"),
-  registrationDate: timestamp("registration_date"),
-  expirationDate: timestamp("expiration_date"),
-  autoRenew: boolean("auto_renew").notNull().default(true),
-  status: text("status").notNull().default("active"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const insertStoreDomainSchema = createInsertSchema(storeDomains).omit({ id: true, createdAt: true });
-export type InsertStoreDomain = z.infer<typeof insertStoreDomainSchema>;
-export type StoreDomain = typeof storeDomains.$inferSelect;
+// `store_domains` was a Namecheap-registrar exploration that never shipped.
+// The active custom-domain path is `stores.customDomain` + Cloudflare for SaaS
+// (server/cloudflareClient.ts). The table is dropped in migration
+// 0019_drop_store_domains.sql once the operator confirms no production rows.
 
 export const products = pgTable("products", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
@@ -260,13 +249,14 @@ export const storeProducts = pgTable("store_products", {
   isFeatured: boolean("is_featured").notNull().default(false),
   upsellProductId: varchar("upsell_product_id", { length: 64 }),
   upsellBundleId: varchar("upsell_bundle_id", { length: 64 }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("store_products_store_idx").on(t.storeId),
   index("store_products_product_idx").on(t.productId),
   uniqueIndex("store_products_store_product_unique").on(t.storeId, t.productId),
 ]);
 
-export const insertStoreProductSchema = createInsertSchema(storeProducts).omit({ id: true });
+export const insertStoreProductSchema = createInsertSchema(storeProducts).omit({ id: true, updatedAt: true });
 export type InsertStoreProduct = z.infer<typeof insertStoreProductSchema>;
 export type StoreProduct = typeof storeProducts.$inferSelect;
 
@@ -431,12 +421,13 @@ export const categories = pgTable("categories", {
   slug: text("slug").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
   uniqueIndex("categories_owner_slug_unique").on(table.ownerId, table.slug),
   index("categories_owner_idx").on(table.ownerId),
 ]);
 
-export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true });
+export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
 
@@ -508,12 +499,13 @@ export const kbPages = pgTable("kb_pages", {
   title: text("title").notNull().default("Untitled Page"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("kb_pages_kb_idx").on(t.knowledgeBaseId),
   index("kb_pages_parent_idx").on(t.parentPageId),
 ]);
 
-export const insertKbPageSchema = createInsertSchema(kbPages).omit({ id: true, createdAt: true });
+export const insertKbPageSchema = createInsertSchema(kbPages).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertKbPage = z.infer<typeof insertKbPageSchema>;
 export type KbPage = typeof kbPages.$inferSelect;
 
@@ -523,11 +515,12 @@ export const kbBlocks = pgTable("kb_blocks", {
   type: blockTypeEnum("type").notNull().default("text"),
   content: text("content").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("kb_blocks_page_idx").on(t.pageId),
 ]);
 
-export const insertKbBlockSchema = createInsertSchema(kbBlocks).omit({ id: true });
+export const insertKbBlockSchema = createInsertSchema(kbBlocks).omit({ id: true, updatedAt: true });
 export type InsertKbBlock = z.infer<typeof insertKbBlockSchema>;
 export type KbBlock = typeof kbBlocks.$inferSelect;
 
@@ -540,11 +533,12 @@ export const kbPageAttachments = pgTable("kb_page_attachments", {
   mimeType: text("mime_type"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("kb_attachments_page_idx").on(t.pageId),
 ]);
 
-export const insertKbPageAttachmentSchema = createInsertSchema(kbPageAttachments).omit({ id: true, createdAt: true });
+export const insertKbPageAttachmentSchema = createInsertSchema(kbPageAttachments).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertKbPageAttachment = z.infer<typeof insertKbPageAttachmentSchema>;
 export type KbPageAttachment = typeof kbPageAttachments.$inferSelect;
 
@@ -650,11 +644,12 @@ export const blogBlocks = pgTable("blog_blocks", {
   type: blockTypeEnum("type").notNull().default("text"),
   content: text("content").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("blog_blocks_post_idx").on(t.postId),
 ]);
 
-export const insertBlogBlockSchema = createInsertSchema(blogBlocks).omit({ id: true });
+export const insertBlogBlockSchema = createInsertSchema(blogBlocks).omit({ id: true, updatedAt: true });
 export type InsertBlogBlock = z.infer<typeof insertBlogBlockSchema>;
 export type BlogBlock = typeof blogBlocks.$inferSelect;
 
@@ -669,11 +664,12 @@ export const storeTestimonials = pgTable("store_testimonials", {
   avatarUrl: text("avatar_url"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("store_testimonials_store_idx").on(t.storeId),
 ]);
 
-export const insertStoreTestimonialSchema = createInsertSchema(storeTestimonials).omit({ id: true, createdAt: true });
+export const insertStoreTestimonialSchema = createInsertSchema(storeTestimonials).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertStoreTestimonial = z.infer<typeof insertStoreTestimonialSchema>;
 export type StoreTestimonial = typeof storeTestimonials.$inferSelect;
 
@@ -684,11 +680,12 @@ export const storeFaqs = pgTable("store_faqs", {
   answer: text("answer").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("store_faqs_store_idx").on(t.storeId),
 ]);
 
-export const insertStoreFaqSchema = createInsertSchema(storeFaqs).omit({ id: true, createdAt: true });
+export const insertStoreFaqSchema = createInsertSchema(storeFaqs).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertStoreFaq = z.infer<typeof insertStoreFaqSchema>;
 export type StoreFaq = typeof storeFaqs.$inferSelect;
 
@@ -750,11 +747,12 @@ export const newsletterCampaignBlocks = pgTable("newsletter_campaign_blocks", {
   type: blockTypeEnum("type").notNull().default("text"),
   content: text("content").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
   index("newsletter_campaign_blocks_campaign_idx").on(t.campaignId),
 ]);
 
-export const insertNewsletterCampaignBlockSchema = createInsertSchema(newsletterCampaignBlocks).omit({ id: true });
+export const insertNewsletterCampaignBlockSchema = createInsertSchema(newsletterCampaignBlocks).omit({ id: true, updatedAt: true });
 export type InsertNewsletterCampaignBlock = z.infer<typeof insertNewsletterCampaignBlockSchema>;
 export type NewsletterCampaignBlock = typeof newsletterCampaignBlocks.$inferSelect;
 

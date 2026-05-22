@@ -19,6 +19,9 @@ import { TestimonialsSection } from "./sections/testimonials-section";
 import { FaqSection } from "./sections/faq-section";
 import { NewsletterSection } from "./sections/newsletter-section";
 import { ReviewsSection } from "./sections/reviews-section";
+import { HeroSection } from "./sections/hero-section";
+import { BundlesSection } from "./sections/bundles-section";
+import { BlogSection } from "./sections/blog-section";
 
 type StorefrontProduct = Product & {
   isLeadMagnet?: boolean;
@@ -311,49 +314,7 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
 
       {sectionOrder.map((sectionId) => {
         switch (sectionId) {
-          case "hero": return (
-            <section key="hero" className={`relative z-10 mx-auto ${theme.layout.maxWidth} px-6 pt-16 pb-20 text-center`}>
-        {store.heroBannerUrl && (
-          <div className="absolute inset-0 z-0 overflow-hidden rounded-b-2xl" style={{ margin: "0 24px" }}>
-            <img src={store.heroBannerUrl} alt="" className="w-full h-full object-cover" loading="lazy" style={{ opacity: isDark ? 0.25 : 0.18 }} data-testid="img-hero-banner" />
-            <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${c.bg}99 0%, ${c.bg}bb 50%, ${c.bg} 100%)` }} />
-          </div>
-        )}
-        <div className="relative z-10">
-          {theme.renderHeroBadge?.(c)}
-
-          <h1
-            className={`${theme.effects.heroTitleClass} text-4xl md:text-5xl lg:text-6xl tracking-tight mb-5 leading-tight`}
-            style={{ fontFamily: theme.typography.headingFamily, fontWeight: theme.typography.headingWeight }}
-          >
-            {store.name}
-          </h1>
-
-          <p
-            className={`${theme.effects.heroSubtitleClass} text-base md:text-lg max-w-md mx-auto font-light leading-relaxed`}
-            style={{ fontFamily: theme.typography.bodyFamily }}
-            data-testid="text-tagline"
-          >
-            {store.tagline || theme.heroSubtitleFallback}
-          </p>
-
-          {theme.renderDivider ? (
-            <div className="mt-8">
-              {theme.renderDivider(isDark)}
-            </div>
-          ) : (
-            <div className="mt-8 flex items-center justify-center gap-6 flex-wrap">
-              {["Instant Delivery", "Secure Checkout", "Premium Quality"].map((label, i) => (
-                <div key={label} className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide" style={{ color: c.textTertiary }}>
-                  <div className="w-1 h-1 rounded-full" style={{ background: [c.price, c.accentAlt, c.accent][i] }} />
-                  {label}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-          );
+          case "hero": return <HeroSection key="hero" store={store} c={c} theme={theme} isDark={isDark} />;
           case "products": return (
             <div key="products" className="sf-section-products relative z-10">
               {categories.length > 1 && (
@@ -688,115 +649,8 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
               </main>
             </div>
           );
-          case "bundles": return bundles.length > 0 ? (
-            <div key="bundles" className={`mx-auto ${theme.layout.maxWidth} px-6 pb-24 relative z-10 block`}>
-          <div className="mt-20">
-            <div className="text-center mb-12">
-              {theme.renderDivider?.(isDark)}
-              <h2 className="text-2xl md:text-3xl font-bold mt-4" style={{ color: c.text, fontFamily: theme.typography.headingFamily }}>
-                Bundles & Deals
-              </h2>
-              <p className="text-sm mt-2" style={{ color: c.textSecondary }}>Save more when you buy together</p>
-            </div>
-            <div className="grid gap-6 md:grid-cols-2">
-              {bundles.map((bundle) => {
-                const totalValue = bundle.products.reduce((sum, p) => sum + p.priceCents, 0);
-                const savings = totalValue - bundle.priceCents;
-                const savingsPct = totalValue > 0 ? Math.round((savings / totalValue) * 100) : 0;
-
-                return (
-                  <div key={bundle.id} className={`${theme.effects.cardClass} sf-reveal-item p-6`} data-testid={`card-bundle-${bundle.id}`} onMouseEnter={() => prefetchBundle(bundle.id)}>
-                    <div className="flex items-start gap-4">
-                      {bundle.thumbnailUrl && (
-                        <ProtectedImage protected={!store.allowImageDownload} src={bundle.thumbnailUrl} alt={bundle.name} className="w-20 h-20 rounded-lg object-cover shrink-0" loading="lazy" data-testid={`img-bundle-${bundle.id}`} />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <h3 className="font-bold text-base truncate" style={{ color: c.text, fontFamily: theme.typography.headingFamily }} data-testid={`text-bundle-name-${bundle.id}`}>{bundle.name}</h3>
-                          {savingsPct > 0 && (
-                            <span className="t-discount px-2 py-0.5 text-[10px] font-bold rounded-full shrink-0">SAVE {savingsPct}%</span>
-                          )}
-                        </div>
-                        {bundle.description && <p className="text-xs line-clamp-2 mb-3" style={{ color: c.textSecondary }}>{bundle.description}</p>}
-                        <div className="flex items-center gap-1.5 flex-wrap mb-3">
-                          {bundle.products.slice(0, 3).map((p) => (
-                            <span key={p.id} className="t-tag-badge px-2 py-0.5 text-[10px] rounded-full">{p.title}</span>
-                          ))}
-                          {bundle.products.length > 3 && <span className="text-[10px]" style={{ color: c.textTertiary }}>+{bundle.products.length - 3} more</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 pt-4" style={{ borderTop: `1px solid ${c.divider}` }}>
-                      <div>
-                        {savings > 0 && <span className="text-xs line-through mr-2" style={{ color: c.textTertiary }}>${(totalValue / 100).toFixed(2)}</span>}
-                        <span className="text-lg font-bold" style={{ color: c.price }} data-testid={`text-bundle-price-${bundle.id}`}>${(bundle.priceCents / 100).toFixed(2)}</span>
-                      </div>
-                      <a
-                        href={`${basePath}/bundle/${bundle.id}`}
-                        className={`${theme.effects.buyBtnClass} px-4 py-2 text-sm font-semibold inline-flex items-center gap-1.5`}
-                        style={{ borderRadius: theme.layout.buttonBorderRadius }}
-                        data-testid={`link-bundle-${bundle.id}`}
-                      >
-                        View Bundle <ArrowRight className="h-3.5 w-3.5" />
-                      </a>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-            </div>
-          ) : null;
-          case "blog": return blogPosts.length > 0 ? (
-            <div key="blog" className={`mx-auto ${theme.layout.maxWidth} px-6 pb-24 relative z-10 block`}>
-          <div className="mt-20">
-            <div className="text-center mb-12">
-              {theme.renderDivider?.(isDark)}
-              <h2 className="text-2xl md:text-3xl font-bold mt-4 flex items-center justify-center gap-3" style={{ color: c.text, fontFamily: theme.typography.headingFamily }}>
-                <FileText className="h-6 w-6" style={{ color: c.accent }} />
-                Latest from the Blog
-              </h2>
-            </div>
-            <div className="grid gap-6 md:grid-cols-3">
-              {blogPosts.map((post) => (
-                <a
-                  key={post.id}
-                  href={`${basePath}/blog/${post.slug}`}
-                  className={`${theme.effects.cardClass} group block`}
-                  data-testid={`link-blog-${post.id}`}
-                >
-                  {post.coverImageUrl && (
-                    <div className="overflow-hidden" style={{ borderRadius: `${theme.layout.cardBorderRadius} ${theme.layout.cardBorderRadius} 0 0` }}>
-                      <img src={post.coverImageUrl} alt={post.title} className="w-full h-40 object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
-                    </div>
-                  )}
-                  <div className="p-5">
-                    {post.category && (
-                      <span className="text-[10px] tracking-[0.15em] uppercase font-semibold" style={{ color: c.accent }}>{post.category}</span>
-                    )}
-                    <h3 className="font-bold text-sm mt-1 mb-2 line-clamp-2" style={{ color: c.text, fontFamily: theme.typography.headingFamily }}>{post.title}</h3>
-                    {post.excerpt && <p className="text-xs line-clamp-2" style={{ color: c.textSecondary }}>{post.excerpt}</p>}
-                    <div className="flex items-center gap-2 mt-3 text-[10px]" style={{ color: c.textTertiary }}>
-                      <Calendar className="h-3 w-3" />
-                      {new Date(post.publishedAt || post.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
-            <div className="text-center mt-8">
-              <a
-                href={`${basePath}/blog`}
-                className="inline-flex items-center gap-2 text-sm font-medium transition-colors"
-                style={{ color: c.accent }}
-                data-testid="link-blog-all"
-              >
-                View All Posts <ArrowRight className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
-            </div>
-          ) : null;
+          case "bundles": return <BundlesSection key="bundles" store={store} bundles={bundles} c={c} theme={theme} isDark={isDark} basePath={basePath} onPrefetchBundle={prefetchBundle} />;
+          case "blog": return <BlogSection key="blog" posts={blogPosts} c={c} theme={theme} basePath={basePath} />;
           case "about": return <AboutSection key="about" store={store} c={c} theme={theme} />;
           case "testimonials": return <TestimonialsSection key="testimonials" store={store} testimonials={testimonials || []} c={c} theme={theme} />;
           case "reviews": return <ReviewsSection key="reviews" store={store} reviews={reviews || []} c={c} theme={theme} />;
