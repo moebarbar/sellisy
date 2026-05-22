@@ -261,7 +261,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload" | "aboutEnabled" | "aboutHeadline" | "aboutText" | "aboutImageUrl" | "aboutCtaText" | "aboutCtaUrl" | "testimonialsEnabled" | "faqEnabled" | "newsletterEnabled" | "newsletterHeadline" | "newsletterSubtext" | "sectionOrder" | "reviewsEnabled" | "stripeTaxEnabled" | "pdfWatermarkEnabled">>) {
-    const [store] = await db.update(stores).set(data).where(eq(stores.id, id)).returning();
+    const [store] = await db.update(stores).set({ ...data, updatedAt: new Date() }).where(eq(stores.id, id)).returning();
     return store;
   }
 
@@ -270,22 +270,22 @@ export class DatabaseStorage implements IStorage {
       const [store] = await db.select().from(stores).where(and(eq(stores.id, id), eq(stores.ownerId, callerOwnerId)));
       if (!store) throw new Error("Store not found or not owned by caller");
     }
-    await db.update(stores).set({ deletedAt: new Date() }).where(eq(stores.id, id));
+    await db.update(stores).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(stores.id, id));
   }
 
   async hardDeleteStore(id: string) {
     console.warn(`[DATA-SAFETY] hardDeleteStore called for store ${id} — this permanently removes the store and cascades soft-deletes to related data`);
     const now = new Date();
-    await db.update(orders).set({ deletedAt: now }).where(eq(orders.storeId, id));
-    await db.update(bundles).set({ deletedAt: now }).where(eq(bundles.storeId, id));
-    await db.update(coupons).set({ deletedAt: now }).where(eq(coupons.storeId, id));
-    await db.update(blogPosts).set({ deletedAt: now }).where(eq(blogPosts.storeId, id));
+    await db.update(orders).set({ deletedAt: now, updatedAt: now }).where(eq(orders.storeId, id));
+    await db.update(bundles).set({ deletedAt: now, updatedAt: now }).where(eq(bundles.storeId, id));
+    await db.update(coupons).set({ deletedAt: now, updatedAt: now }).where(eq(coupons.storeId, id));
+    await db.update(blogPosts).set({ deletedAt: now, updatedAt: now }).where(eq(blogPosts.storeId, id));
     await db.delete(storeProducts).where(eq(storeProducts.storeId, id));
     await db.delete(stores).where(eq(stores.id, id));
   }
 
   async restoreStore(id: string) {
-    const [store] = await db.update(stores).set({ deletedAt: null }).where(eq(stores.id, id)).returning();
+    const [store] = await db.update(stores).set({ deletedAt: null, updatedAt: new Date() }).where(eq(stores.id, id)).returning();
     return store;
   }
 
@@ -317,7 +317,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateProduct(id: string, data: Partial<Pick<Product, "title" | "slug" | "description" | "tagline" | "category" | "priceCents" | "originalPriceCents" | "thumbnailUrl" | "fileUrl" | "status" | "requiredTier" | "productType" | "deliveryInstructions" | "accessUrl" | "redemptionCode" | "tags" | "highlights" | "version" | "fileSize" | "certificatesEnabled" | "reviewsEnabled">>) {
-    const [product] = await db.update(products).set(data).where(eq(products.id, id)).returning();
+    const [product] = await db.update(products).set({ ...data, updatedAt: new Date() }).where(eq(products.id, id)).returning();
     return product;
   }
 
@@ -326,7 +326,7 @@ export class DatabaseStorage implements IStorage {
       const [product] = await db.select().from(products).where(and(eq(products.id, id), eq(products.ownerId, callerOwnerId)));
       if (!product) throw new Error("Product not found or not owned by caller");
     }
-    await db.update(products).set({ deletedAt: new Date() }).where(eq(products.id, id));
+    await db.update(products).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(products.id, id));
   }
 
   async hardDeleteProduct(id: string) {
@@ -338,7 +338,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async restoreProduct(id: string) {
-    const [product] = await db.update(products).set({ deletedAt: null }).where(eq(products.id, id)).returning();
+    const [product] = await db.update(products).set({ deletedAt: null, updatedAt: new Date() }).where(eq(products.id, id)).returning();
     return product;
   }
 
@@ -416,12 +416,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateOrderStatus(id: string, status: string) {
-    const [order] = await db.update(orders).set({ status: status as any }).where(eq(orders.id, id)).returning();
+    const [order] = await db.update(orders).set({ status: status as any, updatedAt: new Date() }).where(eq(orders.id, id)).returning();
     return order;
   }
 
   async updateOrderBuyerEmail(id: string, email: string) {
-    await db.update(orders).set({ buyerEmail: email }).where(eq(orders.id, id));
+    await db.update(orders).set({ buyerEmail: email, updatedAt: new Date() }).where(eq(orders.id, id));
   }
 
   async createOrderItem(data: InsertOrderItem) {
@@ -467,12 +467,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBundle(id: string, data: Partial<InsertBundle>) {
-    const [bundle] = await db.update(bundles).set(data).where(eq(bundles.id, id)).returning();
+    const [bundle] = await db.update(bundles).set({ ...data, updatedAt: new Date() }).where(eq(bundles.id, id)).returning();
     return bundle;
   }
 
   async deleteBundle(id: string) {
-    await db.update(bundles).set({ deletedAt: new Date() }).where(eq(bundles.id, id));
+    await db.update(bundles).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(bundles.id, id));
   }
 
   async addBundleItem(data: InsertBundleItem) {
@@ -522,16 +522,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCoupon(id: string, data: Partial<InsertCoupon>) {
-    const [coupon] = await db.update(coupons).set(data).where(eq(coupons.id, id)).returning();
+    const [coupon] = await db.update(coupons).set({ ...data, updatedAt: new Date() }).where(eq(coupons.id, id)).returning();
     return coupon;
   }
 
   async incrementCouponUses(id: string) {
-    await db.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1` }).where(eq(coupons.id, id));
+    await db.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1`, updatedAt: new Date() }).where(eq(coupons.id, id));
   }
 
   async deleteCoupon(id: string) {
-    await db.update(coupons).set({ deletedAt: new Date() }).where(eq(coupons.id, id));
+    await db.update(coupons).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(coupons.id, id));
   }
 
   async getOrdersByStore(storeId: string) {
@@ -715,11 +715,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async setOrderCustomerId(orderId: string, customerId: string) {
-    await db.update(orders).set({ customerId }).where(eq(orders.id, orderId));
+    await db.update(orders).set({ customerId, updatedAt: new Date() }).where(eq(orders.id, orderId));
   }
 
   async linkOrdersByEmail(email: string, customerId: string) {
-    await db.update(orders).set({ customerId }).where(
+    await db.update(orders).set({ customerId, updatedAt: new Date() }).where(
       and(eq(orders.buyerEmail, email.toLowerCase()), sql`${orders.customerId} IS NULL`)
     );
   }
@@ -744,12 +744,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateKnowledgeBase(id: string, data: Partial<Pick<KnowledgeBase, "title" | "slug" | "description" | "coverImageUrl" | "priceCents" | "isPublished" | "productId" | "authorName" | "authorImageUrl">>) {
-    const [kb] = await db.update(knowledgeBases).set(data).where(eq(knowledgeBases.id, id)).returning();
+    const [kb] = await db.update(knowledgeBases).set({ ...data, updatedAt: new Date() }).where(eq(knowledgeBases.id, id)).returning();
     return kb;
   }
 
   async deleteKnowledgeBase(id: string) {
-    await db.update(knowledgeBases).set({ deletedAt: new Date() }).where(eq(knowledgeBases.id, id));
+    await db.update(knowledgeBases).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(knowledgeBases.id, id));
   }
 
   async getKbPagesByKnowledgeBase(knowledgeBaseId: string) {
@@ -868,7 +868,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCustomerName(customerId: string, name: string) {
-    await db.update(customers).set({ name }).where(eq(customers.id, customerId));
+    await db.update(customers).set({ name, updatedAt: new Date() }).where(eq(customers.id, customerId));
   }
 
   async getBlogPostsByStore(storeId: string) {
@@ -895,7 +895,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateBlogPost(id: string, data: Partial<Pick<BlogPost, "title" | "slug" | "excerpt" | "coverImageUrl" | "fontFamily" | "category" | "readingTimeMinutes" | "isPublished" | "publishedAt" | "authorName" | "authorImageUrl">>) {
-    const [post] = await db.update(blogPosts).set(data).where(eq(blogPosts.id, id)).returning();
+    const [post] = await db.update(blogPosts).set({ ...data, updatedAt: new Date() }).where(eq(blogPosts.id, id)).returning();
     return post;
   }
 
@@ -919,7 +919,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteBlogPost(id: string) {
-    await db.update(blogPosts).set({ deletedAt: new Date() }).where(eq(blogPosts.id, id));
+    await db.update(blogPosts).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(blogPosts.id, id));
   }
 
   async getBlogBlocksByPost(postId: string) {
@@ -1123,7 +1123,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCampaign(id: string, data: Partial<InsertNewsletterCampaign>) {
-    const [c] = await db.update(newsletterCampaigns).set(data).where(eq(newsletterCampaigns.id, id)).returning();
+    const [c] = await db.update(newsletterCampaigns).set({ ...data, updatedAt: new Date() }).where(eq(newsletterCampaigns.id, id)).returning();
     return c;
   }
 

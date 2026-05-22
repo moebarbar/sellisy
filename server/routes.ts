@@ -4,13 +4,11 @@ import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integra
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { storage } from "./storage";
 import { db } from "./db";
-import { affiliateCommissions, orders, orderItems, downloadTokens, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, stores, storeReviews, PLAN_FEATURES, canAccessTier, type PlanTier } from "@shared/schema";
+import { orders, orderItems, coupons, customers, products, storeProducts, marketingStrategies, storeStrategyProgress, stores, PLAN_FEATURES, type PlanTier } from "@shared/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { createCustomHostname, getCustomHostname, deleteCustomHostname, createWorkerRoute, deleteWorkerRoute, isCloudflareConfigured } from "./cloudflareClient";
 import { seedDatabase, seedMarketingIfNeeded, seedAdminUser } from "./seed";
-import { randomBytes, createHash } from "crypto";
 import { z } from "zod";
-import Stripe from 'stripe';
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendMagicLinkEmail, sendAllTestEmails, baseLayout, sectionHeading, bodyText, ctaButton, divider } from "./emails";
 import { registerSubscriptionRoutes } from "./subscriptions";
@@ -41,9 +39,7 @@ import {
   sanitizeStore,
 } from "./routes/_helpers";
 import { verifyUnsubscribeToken } from "./crypto/unsubscribe-token";
-import { encryptPaymentSecret, decryptPaymentSecret } from "./crypto/payment-secret";
-import { WebhookHandlers } from "./webhookHandlers";
-import { watermarkPdf, isPdfFilename, isPdfContentType } from "./pdfWatermark";
+import { encryptPaymentSecret } from "./crypto/payment-secret";
 
 
 // All cross-router helpers (getUserId, getAppUrl, generateSlug, sanitizeStore,
