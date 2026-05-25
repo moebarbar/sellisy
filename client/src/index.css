@@ -657,6 +657,85 @@
   .s-reveal { opacity: 1; transform: none; transition: none; }
   .s-ticker-track { animation: none; }
   .s-ambient-orb { animation: none; }
+  /* New keyframes added since the original block. Strip them too. */
+  .landing-page [class*="s-float"],
+  .landing-page [class*="s-pulse"],
+  .landing-page [class*="s-bounce"],
+  .landing-page [class*="s-expand"] {
+    animation: none !important;
+  }
+  /* Any landing-page interactive element that uses transform on hover —
+     suppress the motion. The visual hover signal still works via color. */
+  .landing-page .s-card-hover:hover,
+  .landing-page .s-link-muted:hover {
+    transform: none !important;
+  }
+}
+
+/* ── Landing-page interactive primitives ─────────────────────────────
+   CSS-driven hover + focus so components stop using onMouseEnter to
+   mutate inline styles (jankier, can't be GPU-composited). */
+
+.landing-page .s-link-muted {
+  color: rgba(250, 250, 245, 0.6);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.landing-page .s-link-muted:hover {
+  color: var(--s-white);
+}
+
+/* Subtle elevate-on-hover for chips, feature cards, etc. — only animates
+   transform + background so it stays compositor-only. */
+.landing-page .s-card-hover {
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.landing-page .s-card-hover:hover {
+  transform: translateY(-2px);
+}
+
+/* Chip strip hover — yellow tint without inline JS. */
+.landing-page .s-chip-hover {
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.landing-page .s-chip-hover:hover {
+  border-color: rgba(245, 230, 66, 0.3);
+  background: rgba(245, 230, 66, 0.04);
+}
+
+/* Feature card: icon container fills with primary yellow on card hover. */
+.landing-page .s-feature-card:hover .s-feature-card__icon {
+  background: var(--s-yellow) !important;
+}
+
+/* Navbar link buttons — base 0.65 opacity (WCAG AA on near-black), yellow
+   on hover. CSS-driven, no inline onMouseEnter. */
+.landing-page .s-nav-link {
+  color: rgba(250, 250, 245, 0.65);
+  transition: color 0.2s ease;
+}
+.landing-page .s-nav-link:hover {
+  color: var(--s-yellow);
+}
+
+/* Outlined secondary button (Login, etc.) — border brightens on hover. */
+.landing-page .s-btn-outline {
+  background: transparent;
+  border: 1px solid rgba(250, 250, 245, 0.2);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.landing-page .s-btn-outline:hover {
+  border-color: rgba(250, 250, 245, 0.5);
+}
+
+/* Keyboard focus rings — visible only with :focus-visible so mouse users
+   don't see them. WCAG 2.1 SC 2.4.7. */
+.landing-page a:focus-visible,
+.landing-page button:focus-visible,
+.landing-page [tabindex]:focus-visible {
+  outline: 2px solid var(--s-yellow);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .s-stats-grid { grid-template-columns: 1fr; }

@@ -45,10 +45,7 @@ export function Navbar() {
             <button
               key={link.href}
               onClick={() => scrollTo(link.href)}
-              className="s-label transition-colors duration-200"
-              style={{ color: "rgba(250,250,245,0.5)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--s-yellow)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(250,250,245,0.5)")}
+              className="s-label s-nav-link"
               data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, "-")}`}
             >
               {link.label}
@@ -73,19 +70,8 @@ export function Navbar() {
           <div className="flex items-center gap-3">
             <a
               href="/auth"
-              className="s-label px-5 py-2.5 rounded font-bold transition-all duration-200"
-              style={{
-                background: "transparent",
-                color: "var(--s-white)",
-                border: "1px solid rgba(250,250,245,0.2)",
-                fontSize: "11px",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "rgba(250,250,245,0.5)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "rgba(250,250,245,0.2)";
-              }}
+              className="s-label s-btn-outline px-5 py-2.5 rounded font-bold"
+              style={{ color: "var(--s-white)", fontSize: "11px" }}
               data-testid="button-nav-login"
             >
               Login

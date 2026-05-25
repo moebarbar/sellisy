@@ -131,19 +131,8 @@ function FooterLink({
     <a
       href={href}
       data-testid={testId}
-      style={{
-        fontFamily: "'DM Sans', sans-serif",
-        fontSize: 13,
-        color: "rgba(250,250,245,0.55)",
-        textDecoration: "none",
-        transition: "color 0.2s ease",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.color = "var(--s-white)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = "rgba(250,250,245,0.55)";
-      }}
+      className="s-link-muted"
+      style={{ fontSize: 13 }}
     >
       {children}
     </a>

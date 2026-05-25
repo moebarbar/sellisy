@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 // Tier 1 — six hero features. These are the moats + most-asked-for shipped
 // capabilities. Anything that's a "we have this" wedge against Gumroad /
 // Lemon Squeezy / Podia goes here.
@@ -70,8 +68,6 @@ function FeatureCard({
   tag: string;
   index: number;
 }) {
-  const [hovered, setHovered] = useState(false);
-
   // "New" tag highlighted in yellow; everything else stays teal so the eye
   // catches the just-shipped wins on first scan.
   const isNew = tag === "New";
@@ -79,8 +75,7 @@ function FeatureCard({
   return (
     <div
       data-testid={`feature-card-${index}`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="s-card-hover s-feature-card"
       style={{
         background: "rgba(255,255,255,0.03)",
         borderRadius: 12,
@@ -88,17 +83,16 @@ function FeatureCard({
         display: "flex",
         flexDirection: "column",
         gap: 14,
-        transition: "background 0.3s ease, transform 0.3s ease",
-        transform: hovered ? "translateY(-2px)" : "translateY(0)",
         border: "1px solid rgba(255,255,255,0.05)",
       }}
     >
       <div
+        className="s-feature-card__icon"
         style={{
           width: 48,
           height: 48,
           borderRadius: 10,
-          background: hovered ? "var(--s-yellow)" : "rgba(245,230,66,0.1)",
+          background: "rgba(245,230,66,0.1)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -113,7 +107,7 @@ function FeatureCard({
       </h3>
       <p
         className="s-body"
-        style={{ fontSize: 13, color: "rgba(250,250,245,0.5)", lineHeight: 1.6 }}
+        style={{ fontSize: 13, color: "rgba(250,250,245,0.6)", lineHeight: 1.6 }}
       >
         {description}
       </p>
@@ -218,6 +212,7 @@ export function FeaturesSection() {
               <span
                 key={c.label}
                 data-testid={`features-chip-${c.label.toLowerCase().replace(/\s+/g, "-")}`}
+                className="s-chip-hover"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -229,15 +224,6 @@ export function FeaturesSection() {
                   fontSize: 12,
                   fontFamily: "'DM Sans', sans-serif",
                   color: "rgba(250,250,245,0.75)",
-                  transition: "border-color 0.2s ease, background 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(245,230,66,0.3)";
-                  e.currentTarget.style.background = "rgba(245,230,66,0.04)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.04)";
                 }}
               >
                 <span style={{ fontSize: 13 }}>{c.icon}</span>
