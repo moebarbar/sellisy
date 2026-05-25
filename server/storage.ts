@@ -364,6 +364,49 @@ export class DatabaseStorage implements IStorage {
     return rows.map((r) => r.product);
   }
 
+  /**
+   * Public marketplace feed: newest published products across every live
+   * store, joined with the seller's identity. Used by /discover.
+   *
+   * Excludes deleted products, deleted stores, lead magnets (free freebies
+   * shouldn't dominate the feed), and orders by products.createdAt DESC.
+   */
+  async getDiscoverProducts(limit = 60) {
+    const rows = await db
+      .select({
+        storeProductId: storeProducts.id,
+        customTitle: storeProducts.customTitle,
+        customDescription: storeProducts.customDescription,
+        customPriceCents: storeProducts.customPriceCents,
+        isFeatured: storeProducts.isFeatured,
+        productId: products.id,
+        title: products.title,
+        description: products.description,
+        priceCents: products.priceCents,
+        thumbnailUrl: products.thumbnailUrl,
+        productType: products.productType,
+        productSlug: products.slug,
+        productCreatedAt: products.createdAt,
+        storeId: stores.id,
+        storeName: stores.name,
+        storeSlug: stores.slug,
+        storeLogoUrl: stores.logoUrl,
+        storeTemplateKey: stores.templateKey,
+      })
+      .from(storeProducts)
+      .innerJoin(products, eq(storeProducts.productId, products.id))
+      .innerJoin(stores, eq(storeProducts.storeId, stores.id))
+      .where(and(
+        eq(storeProducts.isPublished, true),
+        eq(storeProducts.isLeadMagnet, false),
+        isNull(products.deletedAt),
+        isNull(stores.deletedAt),
+      ))
+      .orderBy(desc(products.createdAt))
+      .limit(limit);
+    return rows;
+  }
+
   async getStoreProductById(id: string) {
     const [sp] = await db.select().from(storeProducts).where(eq(storeProducts.id, id));
     return sp;

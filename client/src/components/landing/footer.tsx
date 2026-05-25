@@ -80,6 +80,9 @@ export function Footer() {
         <div>
           <FooterColTitle>Resources</FooterColTitle>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <FooterLink href="/discover" testId="footer-link-discover">
+              Discover marketplace
+            </FooterLink>
             <FooterLink href="/products" testId="footer-link-products">
               PLR product library
             </FooterLink>

@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/react";
 
-const navLinks = [
+// Internal anchors scroll within the landing; external (starts with "/")
+// navigates away. Discover is the only external nav entry — points to the
+// public marketplace.
+const navLinks: Array<{ label: string; href: string; external?: boolean }> = [
   { label: "Features", href: "#features" },
-  { label: "Products", href: "#products" },
+  { label: "Discover", href: "/discover", external: true },
   { label: "Create & Sell", href: "#create" },
   { label: "Pricing", href: "#pricing" },
 ];
@@ -41,16 +44,27 @@ export function Navbar() {
         </a>
 
         <div className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) => (
-            <button
-              key={link.href}
-              onClick={() => scrollTo(link.href)}
-              className="s-label s-nav-link"
-              data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, "-")}`}
-            >
-              {link.label}
-            </button>
-          ))}
+          {navLinks.map((link) =>
+            link.external ? (
+              <a
+                key={link.href}
+                href={link.href}
+                className="s-label s-nav-link"
+                data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, "-")}`}
+              >
+                {link.label}
+              </a>
+            ) : (
+              <button
+                key={link.href}
+                onClick={() => scrollTo(link.href)}
+                className="s-label s-nav-link"
+                data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, "-")}`}
+              >
+                {link.label}
+              </button>
+            )
+          )}
         </div>
 
         {user ? (

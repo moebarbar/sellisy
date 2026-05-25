@@ -219,6 +219,7 @@ Sitemap: ${siteUrl}/sitemap.xml`);
 
       // Marketing pages
       urls += `  <url><loc>${baseUrl}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n`;
+      urls += `  <url><loc>${baseUrl}/discover</loc><changefreq>daily</changefreq><priority>0.9</priority></url>\n`;
       urls += `  <url><loc>${baseUrl}/products</loc><changefreq>daily</changefreq><priority>0.9</priority></url>\n`;
       urls += `  <url><loc>${baseUrl}/privacy</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
       urls += `  <url><loc>${baseUrl}/terms</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
@@ -999,6 +1000,34 @@ ${urls}</urlset>`;
       })
     );
     res.json(storesWithCounts.filter(s => s.productCount > 0));
+  });
+
+  // Newest published products across every live store. Powers /discover.
+  // Returns the join shape directly — no per-product N+1 like the stores
+  // endpoint above does. Limit param caps at 100 to avoid heavy payloads.
+  app.get("/api/discover/products", async (req, res) => {
+    const limitParam = parseInt((req.query.limit as string) || "60", 10);
+    const limit = Math.min(Math.max(isNaN(limitParam) ? 60 : limitParam, 1), 100);
+    const rows = await storage.getDiscoverProducts(limit);
+    res.json(rows.map((r) => ({
+      id: r.storeProductId,
+      title: r.customTitle || r.title,
+      description: (r.customDescription || r.description || "").slice(0, 140),
+      priceCents: r.customPriceCents ?? r.priceCents,
+      thumbnailUrl: r.thumbnailUrl,
+      productType: r.productType,
+      isFeatured: r.isFeatured,
+      productSlug: r.productSlug,
+      productId: r.productId,
+      createdAt: r.productCreatedAt,
+      store: {
+        id: r.storeId,
+        name: r.storeName,
+        slug: r.storeSlug,
+        logoUrl: r.storeLogoUrl,
+        templateKey: r.storeTemplateKey,
+      },
+    })));
   });
   // --- Public storefront ---
 
