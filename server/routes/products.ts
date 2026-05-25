@@ -271,6 +271,8 @@ productsRouter.post("/api/products", isAuthenticated, async (req, res) => {
     reviewsEnabled: z.boolean().optional(),
     pwywEnabled: z.boolean().optional(),
     pwywMinCents: z.number().int().min(0).max(99_999_999).optional(),
+    discordGuildId: z.string().max(64).optional().nullable(),
+    discordRoleId: z.string().max(64).optional().nullable(),
     images: z.array(imageSchema).max(10).optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -315,6 +317,8 @@ productsRouter.post("/api/products", isAuthenticated, async (req, res) => {
     reviewsEnabled: parsed.data.reviewsEnabled ?? true,
     pwywEnabled: parsed.data.pwywEnabled ?? false,
     pwywMinCents: parsed.data.pwywMinCents ?? 0,
+    discordGuildId: parsed.data.discordGuildId ?? null,
+    discordRoleId: parsed.data.discordRoleId ?? null,
   });
 
   if (imgs.length > 0) {
@@ -360,6 +364,8 @@ productsRouter.patch("/api/products/:id", isAuthenticated, async (req, res) => {
     reviewsEnabled: z.boolean().optional(),
     pwywEnabled: z.boolean().optional(),
     pwywMinCents: z.number().int().min(0).max(99_999_999).optional(),
+    discordGuildId: z.string().max(64).optional().nullable(),
+    discordRoleId: z.string().max(64).optional().nullable(),
     images: z.array(imageSchema).optional(),
   });
   const parsed = schema.safeParse(req.body);

@@ -588,6 +588,8 @@ function ProductFormDialog({
   const [reviewsEnabled, setReviewsEnabled] = useState(true);
   const [pwywEnabled, setPwywEnabled] = useState(false);
   const [pwywMin, setPwywMin] = useState("0"); // dollars input string
+  const [discordGuildId, setDiscordGuildId] = useState("");
+  const [discordRoleId, setDiscordRoleId] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -624,6 +626,8 @@ function ProductFormDialog({
       setReviewsEnabled((product as any).reviewsEnabled !== false);
       setPwywEnabled(!!(product as any).pwywEnabled);
       setPwywMin((((product as any).pwywMinCents ?? 0) / 100).toString());
+      setDiscordGuildId((product as any).discordGuildId || "");
+      setDiscordRoleId((product as any).discordRoleId || "");
     } else {
       setTitle("");
       setDescription("");
@@ -648,6 +652,8 @@ function ProductFormDialog({
       setReviewsEnabled(true);
       setPwywEnabled(false);
       setPwywMin("0");
+      setDiscordGuildId("");
+      setDiscordRoleId("");
     }
   };
 
@@ -764,6 +770,8 @@ function ProductFormDialog({
         reviewsEnabled,
         pwywEnabled,
         pwywMinCents: pwywEnabled ? Math.max(0, Math.round(parseFloat(pwywMin || "0") * 100) || 0) : 0,
+        discordGuildId: discordGuildId.trim() || null,
+        discordRoleId: discordRoleId.trim() || null,
       };
       await apiRequest("POST", "/api/products", body);
     },
@@ -806,6 +814,8 @@ function ProductFormDialog({
         reviewsEnabled,
         pwywEnabled,
         pwywMinCents: pwywEnabled ? Math.max(0, Math.round(parseFloat(pwywMin || "0") * 100) || 0) : 0,
+        discordGuildId: discordGuildId.trim() || null,
+        discordRoleId: discordRoleId.trim() || null,
       };
       await apiRequest("PATCH", `/api/products/${product!.id}`, body);
     },
@@ -1064,6 +1074,38 @@ function ProductFormDialog({
                 />
               </div>
             )}
+          </div>
+
+          <div className="rounded-md border border-border p-4">
+            <Label className="text-sm">Discord auto-role (optional)</Label>
+            <p className="text-xs text-muted-foreground mt-1 mb-3">
+              When a buyer completes this purchase, the Sellisy bot will grant
+              them the chosen role in your Discord server — once they&rsquo;ve
+              linked their Discord account on the customer portal. Leave both
+              fields blank to skip. See <code className="text-[10px]">docs/discord-integration.md</code> for full setup.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="discord-guild" className="text-xs">Guild (server) ID</Label>
+                <Input
+                  id="discord-guild"
+                  value={discordGuildId}
+                  onChange={(e) => setDiscordGuildId(e.target.value)}
+                  placeholder="123456789012345678"
+                  data-testid="input-discord-guild"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="discord-role" className="text-xs">Role ID</Label>
+                <Input
+                  id="discord-role"
+                  value={discordRoleId}
+                  onChange={(e) => setDiscordRoleId(e.target.value)}
+                  placeholder="987654321098765432"
+                  data-testid="input-discord-role"
+                />
+              </div>
+            </div>
           </div>
 
           {productType === "software" && (

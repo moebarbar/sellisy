@@ -197,6 +197,12 @@ export const products = pgTable("products", {
   // (which can be 0 for true tip-jar PWYW).
   pwywEnabled: boolean("pwyw_enabled").notNull().default(false),
   pwywMinCents: integer("pwyw_min_cents").notNull().default(0),
+  // Discord auto-role grant (scaffold). Set both to the seller's guild ID
+  // and a role ID inside that guild. On purchase, a worker grants the
+  // buyer the role (once the buyer has linked their Discord). See
+  // docs/discord-integration.md for the full setup flow.
+  discordGuildId: varchar("discord_guild_id", { length: 64 }),
+  discordRoleId: varchar("discord_role_id", { length: 64 }),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -397,6 +403,10 @@ export const customers = pgTable("customers", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   name: text("name"),
+  // Discord auto-role: populated once the buyer links their Discord account
+  // via OAuth on the storefront customer portal. Used by the grant worker
+  // to issue per-product roles after purchase.
+  discordUserId: varchar("discord_user_id", { length: 64 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
