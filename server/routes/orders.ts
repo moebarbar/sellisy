@@ -132,6 +132,9 @@ ordersRouter.post("/api/checkout", async (req, res) => {
   const schema = z.object({
     storeId: z.string(),
     productId: z.string().optional(),
+    // Optional pay-what-you-want amount (cents). Only honored if the
+    // product has pwyw_enabled = true. Server re-validates ≥ pwyw_min_cents.
+    pwywPriceCents: z.number().int().nonnegative().max(99_999_999).optional(),
     bundleId: z.string().optional(),
     items: z.array(z.object({ productId: z.string() })).optional(),
     buyerEmail: z.string().email().optional(),
@@ -209,7 +212,24 @@ ordersRouter.post("/api/checkout", async (req, res) => {
     if (!product) return res.status(404).json({ message: "Product not found" });
     const sp = await storage.getStoreProductByStoreAndProduct(store.id, product.id);
     if (!sp || !sp.isPublished) return res.status(404).json({ message: "Product not available in this store" });
-    const effectivePrice = sp.customPriceCents ?? product.priceCents;
+    const suggestedPrice = sp.customPriceCents ?? product.priceCents;
+
+    // Pay-what-you-want override: only honored if the product opted in.
+    // The buyer-submitted amount is re-validated server-side against the
+    // owner-set minimum (which can be 0 for true tip-jar PWYW).
+    let effectivePrice = suggestedPrice;
+    if (parsed.data.pwywPriceCents != null) {
+      if (!product.pwywEnabled) {
+        return res.status(400).json({ message: "Pay-what-you-want is not enabled for this product" });
+      }
+      if (parsed.data.pwywPriceCents < product.pwywMinCents) {
+        return res.status(400).json({
+          message: `Minimum is $${(product.pwywMinCents / 100).toFixed(2)}`,
+        });
+      }
+      effectivePrice = parsed.data.pwywPriceCents;
+    }
+
     totalCents = effectivePrice;
     itemName = sp.customTitle || product.title;
     itemDescription = sp.customDescription || product.description || `Digital product from ${store.name}`;

@@ -191,6 +191,12 @@ export const products = pgTable("products", {
   // single touchy product even if their store has reviews on overall.
   // Default true so existing products inherit the store toggle behavior.
   reviewsEnabled: boolean("reviews_enabled").notNull().default(true),
+  // Pay-what-you-want pricing. When enabled, the product detail page
+  // renders a price input instead of a fixed-price pill. priceCents stays
+  // as the *suggested* price; buyers can pay anything ≥ pwywMinCents
+  // (which can be 0 for true tip-jar PWYW).
+  pwywEnabled: boolean("pwyw_enabled").notNull().default(false),
+  pwywMinCents: integer("pwyw_min_cents").notNull().default(0),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -81,6 +81,10 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
   const [couponCode, setCouponCode] = useState("");
   const [couponError, setCouponError] = useState("");
   const [buying, setBuying] = useState(false);
+  // Pay-what-you-want: dollar-string input the buyer can edit when the
+  // product has pwywEnabled. Initialized once data loads (below).
+  const [pwywPrice, setPwywPrice] = useState<string>("");
+  const [pwywError, setPwywError] = useState<string>("");
 
   const { data, isLoading, error } = useQuery<ProductDetailData>({
     queryKey: ["/api/storefront", slug, "product", productId],
@@ -91,6 +95,14 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
       trackEvent(data.store.id, "product_view", { productId: data.product.id });
     }
   }, [data?.store?.id, data?.product?.id]);
+
+  // Initialize the PWYW input from the suggested price once the product loads.
+  useEffect(() => {
+    if (data?.product && (data.product as any).pwywEnabled) {
+      const suggested = data.product.priceCents;
+      setPwywPrice((suggested / 100).toFixed(2));
+    }
+  }, [data?.product?.id, (data?.product as any)?.pwywEnabled]);
 
   const seoMeta = useMemo(() => {
     if (!data?.product) return {};
@@ -134,12 +146,31 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
 
   const handleBuy = async () => {
     if (!data) return;
+    const pwywEnabled = !!(data.product as any).pwywEnabled;
+    const pwywMinCents = ((data.product as any).pwywMinCents ?? 0) as number;
+
+    let pwywPriceCents: number | undefined;
+    if (pwywEnabled) {
+      const parsed = parseFloat(pwywPrice || "0");
+      if (isNaN(parsed) || parsed < 0) {
+        setPwywError("Enter a valid amount.");
+        return;
+      }
+      pwywPriceCents = Math.round(parsed * 100);
+      if (pwywPriceCents < pwywMinCents) {
+        setPwywError(`Minimum is $${(pwywMinCents / 100).toFixed(2)}.`);
+        return;
+      }
+      setPwywError("");
+    }
+
     trackEvent(data.store.id, "checkout_start", { productId: data.product.id });
     setBuying(true);
     setCouponError("");
     try {
       const body: any = { storeId: data.store.id, productId: data.product.id };
       if (couponCode.trim()) body.couponCode = couponCode.trim();
+      if (pwywPriceCents != null) body.pwywPriceCents = pwywPriceCents;
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -600,26 +631,67 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
 
               <div className="pdp-fade-in pdp-fade-in-d3">
                 <div className="pdp-card p-6 sm:p-8">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                    <div className="flex items-baseline gap-3 flex-wrap">
-                      {hasDiscount && (
-                        <span className="text-lg line-through" style={{ color: c.textTer }} data-testid="text-product-original-price">
-                          {formatPrice(product.originalPriceCents!)}
+                  {(product as any).pwywEnabled ? (
+                    <div data-testid="pwyw-input-block">
+                      <div className="flex items-baseline gap-2 mb-2">
+                        <span
+                          className="text-xs font-bold uppercase tracking-widest"
+                          style={{ color: c.accent }}
+                        >
+                          Pay what you want
                         </span>
-                      )}
-                      <span className="pdp-price-glow text-4xl sm:text-5xl font-extrabold" data-testid="text-product-price">
-                        {formatPrice(product.priceCents)}
-                      </span>
-                      {isSoftware && (
-                        <span className="text-sm font-medium" style={{ color: c.textSec }}>one-time</span>
-                      )}
-                      {hasDiscount && (
-                        <span className="pdp-discount text-xs font-bold px-2 py-1 rounded-full" data-testid="badge-discount">
-                          SAVE {getDiscountPercent(product.originalPriceCents!, product.priceCents)}%
-                        </span>
+                      </div>
+                      <div
+                        className="flex items-center gap-2 px-4 py-3 rounded-xl"
+                        style={{ background: c.cardBg, border: `1px solid ${c.cardBorder}` }}
+                      >
+                        <span className="text-3xl sm:text-4xl font-extrabold" style={{ color: c.text }}>$</span>
+                        <input
+                          type="number"
+                          min={((product as any).pwywMinCents ?? 0) / 100}
+                          step="0.01"
+                          value={pwywPrice}
+                          onChange={(e) => { setPwywPrice(e.target.value); setPwywError(""); }}
+                          className="flex-1 bg-transparent text-3xl sm:text-4xl font-extrabold outline-none border-0 min-w-0"
+                          style={{ color: c.text, maxWidth: 200 }}
+                          aria-label="Your price"
+                          data-testid="input-pwyw-price"
+                        />
+                      </div>
+                      <div className="mt-2 text-xs flex flex-wrap items-center gap-x-3 gap-y-1" style={{ color: c.textSec }}>
+                        <span>Suggested: <strong style={{ color: c.text }}>{formatPrice(product.priceCents)}</strong></span>
+                        {((product as any).pwywMinCents ?? 0) > 0 && (
+                          <span>Min: <strong style={{ color: c.text }}>{formatPrice((product as any).pwywMinCents)}</strong></span>
+                        )}
+                      </div>
+                      {pwywError && (
+                        <p className="mt-2 text-sm" style={{ color: "#ef4444" }} data-testid="text-pwyw-error">
+                          {pwywError}
+                        </p>
                       )}
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                      <div className="flex items-baseline gap-3 flex-wrap">
+                        {hasDiscount && (
+                          <span className="text-lg line-through" style={{ color: c.textTer }} data-testid="text-product-original-price">
+                            {formatPrice(product.originalPriceCents!)}
+                          </span>
+                        )}
+                        <span className="pdp-price-glow text-4xl sm:text-5xl font-extrabold" data-testid="text-product-price">
+                          {formatPrice(product.priceCents)}
+                        </span>
+                        {isSoftware && (
+                          <span className="text-sm font-medium" style={{ color: c.textSec }}>one-time</span>
+                        )}
+                        {hasDiscount && (
+                          <span className="pdp-discount text-xs font-bold px-2 py-1 rounded-full" data-testid="badge-discount">
+                            SAVE {getDiscountPercent(product.originalPriceCents!, product.priceCents)}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="mt-5 flex items-center gap-2">
                     <div className="relative flex-1 max-w-[200px]">

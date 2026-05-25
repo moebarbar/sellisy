@@ -269,6 +269,8 @@ productsRouter.post("/api/products", isAuthenticated, async (req, res) => {
     certAccentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Must be a 7-character hex color like #1e40af").optional().nullable(),
     certLogoUrl: z.string().max(500).optional().nullable(),
     reviewsEnabled: z.boolean().optional(),
+    pwywEnabled: z.boolean().optional(),
+    pwywMinCents: z.number().int().min(0).max(99_999_999).optional(),
     images: z.array(imageSchema).max(10).optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -311,6 +313,8 @@ productsRouter.post("/api/products", isAuthenticated, async (req, res) => {
     certAccentColor: parsed.data.certAccentColor ?? null,
     certLogoUrl: parsed.data.certLogoUrl ?? null,
     reviewsEnabled: parsed.data.reviewsEnabled ?? true,
+    pwywEnabled: parsed.data.pwywEnabled ?? false,
+    pwywMinCents: parsed.data.pwywMinCents ?? 0,
   });
 
   if (imgs.length > 0) {
@@ -354,6 +358,8 @@ productsRouter.patch("/api/products/:id", isAuthenticated, async (req, res) => {
     certAccentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Must be a 7-character hex color like #1e40af").optional().nullable(),
     certLogoUrl: z.string().max(500).optional().nullable(),
     reviewsEnabled: z.boolean().optional(),
+    pwywEnabled: z.boolean().optional(),
+    pwywMinCents: z.number().int().min(0).max(99_999_999).optional(),
     images: z.array(imageSchema).optional(),
   });
   const parsed = schema.safeParse(req.body);

@@ -586,6 +586,8 @@ function ProductFormDialog({
   const [requiredTier, setRequiredTier] = useState<"basic" | "pro" | "max">("basic");
   const [certificatesEnabled, setCertificatesEnabled] = useState(false);
   const [reviewsEnabled, setReviewsEnabled] = useState(true);
+  const [pwywEnabled, setPwywEnabled] = useState(false);
+  const [pwywMin, setPwywMin] = useState("0"); // dollars input string
   const [imageUploading, setImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -620,6 +622,8 @@ function ProductFormDialog({
       setRequiredTier((product.requiredTier as "basic" | "pro" | "max") || "basic");
       setCertificatesEnabled(!!(product as any).certificatesEnabled);
       setReviewsEnabled((product as any).reviewsEnabled !== false);
+      setPwywEnabled(!!(product as any).pwywEnabled);
+      setPwywMin((((product as any).pwywMinCents ?? 0) / 100).toString());
     } else {
       setTitle("");
       setDescription("");
@@ -642,6 +646,8 @@ function ProductFormDialog({
       setRequiredTier("basic");
       setCertificatesEnabled(false);
       setReviewsEnabled(true);
+      setPwywEnabled(false);
+      setPwywMin("0");
     }
   };
 
@@ -756,6 +762,8 @@ function ProductFormDialog({
         ...(isAdmin ? { requiredTier } : {}),
         certificatesEnabled: productType === "course" ? certificatesEnabled : false,
         reviewsEnabled,
+        pwywEnabled,
+        pwywMinCents: pwywEnabled ? Math.max(0, Math.round(parseFloat(pwywMin || "0") * 100) || 0) : 0,
       };
       await apiRequest("POST", "/api/products", body);
     },
@@ -796,6 +804,8 @@ function ProductFormDialog({
         ...(isAdmin ? { requiredTier } : {}),
         certificatesEnabled: productType === "course" ? certificatesEnabled : false,
         reviewsEnabled,
+        pwywEnabled,
+        pwywMinCents: pwywEnabled ? Math.max(0, Math.round(parseFloat(pwywMin || "0") * 100) || 0) : 0,
       };
       await apiRequest("PATCH", `/api/products/${product!.id}`, body);
     },
@@ -1017,6 +1027,43 @@ function ProductFormDialog({
                 data-testid="switch-reviews-enabled"
               />
             </div>
+          </div>
+
+          <div className="rounded-md border border-border p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <Label htmlFor="pwyw-toggle" className="text-sm">Pay what you want</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Let buyers pick their own price (above the minimum you set below).
+                  The product&rsquo;s regular price becomes the <em>suggested</em> price.
+                  Set the minimum to <code>0</code> for a true tip jar.
+                </p>
+              </div>
+              <Switch
+                id="pwyw-toggle"
+                checked={pwywEnabled}
+                onCheckedChange={setPwywEnabled}
+                data-testid="switch-pwyw-enabled"
+              />
+            </div>
+            {pwywEnabled && (
+              <div className="mt-3 flex items-center gap-2">
+                <Label htmlFor="pwyw-min" className="text-xs whitespace-nowrap">
+                  Minimum ($)
+                </Label>
+                <Input
+                  id="pwyw-min"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={pwywMin}
+                  onChange={(e) => setPwywMin(e.target.value)}
+                  className="max-w-32"
+                  data-testid="input-pwyw-min"
+                  placeholder="0.00"
+                />
+              </div>
+            )}
           </div>
 
           {productType === "software" && (
