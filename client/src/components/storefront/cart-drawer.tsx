@@ -1,13 +1,25 @@
-import { X, Trash2, ShoppingCart, ArrowRight, ShieldCheck, Zap } from "lucide-react";
+import { useMemo } from "react";
+import { X, Trash2, ShoppingCart, ArrowRight, ShieldCheck, Zap, Sparkles } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
 import { ProtectedImage } from "@/components/protected-image";
+import { getStoreBasePath } from "@/lib/utils";
+import type { Product } from "@shared/schema";
 import type { ThemeColors, StorefrontTheme } from "./theme-types";
+
+type CartDrawerBundle = {
+  id: string;
+  name: string;
+  priceCents: number;
+  products: Product[];
+};
 
 interface CartDrawerProps {
   c: ThemeColors;
   theme: StorefrontTheme;
   storeId: string;
+  storeSlug: string;
   allowImageDownload: boolean;
+  bundles?: CartDrawerBundle[];
   onCheckout: () => void;
 }
 
@@ -15,8 +27,43 @@ function formatPrice(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-export function CartDrawer({ c, theme, storeId, allowImageDownload, onCheckout }: CartDrawerProps) {
+// Find the bundle that best matches the buyer's cart: most overlap with cart
+// items + actually saves them money. Used to surface a "buy as bundle and
+// save $X" cross-sell banner above the cart total.
+function findBestBundleMatch(
+  cartProductIds: Set<string>,
+  bundles: CartDrawerBundle[],
+): { bundle: CartDrawerBundle; matchedCount: number; matchedTotalCents: number; savings: number } | null {
+  let best: ReturnType<typeof findBestBundleMatch> = null;
+  for (const bundle of bundles) {
+    const matched = bundle.products.filter((p) => cartProductIds.has(p.id));
+    if (matched.length < 2) continue; // need at least 2 cart items in the bundle for the pitch to land
+    const matchedTotalCents = matched.reduce((sum, p) => sum + p.priceCents, 0);
+    const savings = matchedTotalCents - bundle.priceCents;
+    if (savings <= 0) continue; // bundle isn't actually a discount in this case
+    if (!best || matched.length > best.matchedCount || (matched.length === best.matchedCount && savings > best.savings)) {
+      best = { bundle, matchedCount: matched.length, matchedTotalCents, savings };
+    }
+  }
+  return best;
+}
+
+export function CartDrawer({
+  c,
+  theme,
+  storeId,
+  storeSlug,
+  allowImageDownload,
+  bundles = [],
+  onCheckout,
+}: CartDrawerProps) {
   const { items, removeItem, totalCents, isOpen, closeCart } = useCart();
+
+  const bundleSuggestion = useMemo(() => {
+    if (items.length < 2 || bundles.length === 0) return null;
+    const ids = new Set(items.map((i) => i.productId));
+    return findBestBundleMatch(ids, bundles);
+  }, [items, bundles]);
 
   if (!isOpen) return null;
 
@@ -119,6 +166,49 @@ export function CartDrawer({ c, theme, storeId, allowImageDownload, onCheckout }
             className="px-5 py-4 space-y-3"
             style={{ borderTop: `1px solid ${c.cardBorder}` }}
           >
+            {bundleSuggestion && (
+              <a
+                href={`${getStoreBasePath(storeSlug)}/bundle/${bundleSuggestion.bundle.id}`}
+                data-testid="cart-bundle-suggestion"
+                className="block p-3 rounded-xl text-left transition-opacity hover:opacity-90"
+                style={{
+                  background: `linear-gradient(135deg, ${c.accent}1a, ${c.accent}26)`,
+                  border: `1px solid ${c.accent}40`,
+                  textDecoration: "none",
+                }}
+                onClick={closeCart}
+              >
+                <div className="flex items-start gap-2.5">
+                  <Sparkles
+                    className="h-4 w-4 flex-shrink-0 mt-0.5"
+                    style={{ color: c.accent }}
+                    aria-hidden="true"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-xs font-semibold leading-snug mb-1"
+                      style={{ color: c.text, fontFamily: theme.typography.bodyFamily }}
+                    >
+                      Save{" "}
+                      <span style={{ color: c.accent }}>
+                        {formatPrice(bundleSuggestion.savings)}
+                      </span>{" "}
+                      with the <span className="font-bold">{bundleSuggestion.bundle.name}</span> bundle
+                    </p>
+                    <p
+                      className="text-[10px] leading-snug"
+                      style={{ color: c.textSecondary }}
+                    >
+                      {bundleSuggestion.matchedCount} of your cart items are in this bundle —{" "}
+                      <span style={{ color: c.accent, textDecoration: "underline" }}>
+                        view bundle →
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </a>
+            )}
+
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium" style={{ color: c.textSecondary }}>Total</span>
               <span className="text-lg font-bold" style={{ color: c.price }}>{formatPrice(totalCents)}</span>

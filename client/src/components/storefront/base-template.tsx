@@ -800,7 +800,9 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
         c={c}
         theme={theme}
         storeId={store.id}
+        storeSlug={store.slug}
         allowImageDownload={store.allowImageDownload}
+        bundles={bundles}
         onCheckout={() => {
           if (hasBothPayments) {
             // For multi-item cart with both payment methods, default to Stripe
