@@ -983,36 +983,43 @@ ${urls}</urlset>`;
 
   // --- Public discover ---
 
+  // Single-query stores-with-product-count. Replaces the prior N+1 loop.
   app.get("/api/discover/stores", async (_req, res) => {
-    const allStores = await storage.getAllPublicStores();
-    const storesWithCounts = await Promise.all(
-      allStores.map(async (store) => {
-        const publishedProducts = await storage.getPublishedStoreProducts(store.id);
-        return {
-          id: store.id,
-          name: store.name,
-          slug: store.slug,
-          templateKey: store.templateKey,
-          tagline: store.tagline,
-          logoUrl: store.logoUrl,
-          productCount: publishedProducts.length,
-        };
-      })
-    );
-    res.json(storesWithCounts.filter(s => s.productCount > 0));
+    const rows = await storage.getDiscoverStores();
+    res.json(rows.map((s) => ({
+      id: s.id,
+      name: s.name,
+      slug: s.slug,
+      templateKey: s.templateKey,
+      tagline: s.tagline,
+      logoUrl: s.logoUrl,
+      customDomain: s.customDomain,
+      domainStatus: s.domainStatus,
+      productCount: s.productCount,
+    })));
   });
 
   // Newest published products across every live store. Powers /discover.
-  // Returns the join shape directly — no per-product N+1 like the stores
-  // endpoint above does. Limit param caps at 100 to avoid heavy payloads.
+  // Single JOIN query, no N+1. Limit param caps at 100 to avoid heavy
+  // payloads. Returns customDomain on each store so the frontend can link
+  // to the seller's branded URL when one is active.
   app.get("/api/discover/products", async (req, res) => {
     const limitParam = parseInt((req.query.limit as string) || "60", 10);
     const limit = Math.min(Math.max(isNaN(limitParam) ? 60 : limitParam, 1), 100);
     const rows = await storage.getDiscoverProducts(limit);
+
+    // Word-boundary truncation so we don't cut mid-word.
+    const truncate = (s: string, max: number) => {
+      if (s.length <= max) return s;
+      const trimmed = s.slice(0, max);
+      const lastSpace = trimmed.lastIndexOf(" ");
+      return (lastSpace > max * 0.6 ? trimmed.slice(0, lastSpace) : trimmed).trimEnd() + "…";
+    };
+
     res.json(rows.map((r) => ({
       id: r.storeProductId,
       title: r.customTitle || r.title,
-      description: (r.customDescription || r.description || "").slice(0, 140),
+      description: truncate(r.customDescription || r.description || "", 140),
       priceCents: r.customPriceCents ?? r.priceCents,
       thumbnailUrl: r.thumbnailUrl,
       productType: r.productType,
@@ -1026,6 +1033,8 @@ ${urls}</urlset>`;
         slug: r.storeSlug,
         logoUrl: r.storeLogoUrl,
         templateKey: r.storeTemplateKey,
+        customDomain: r.storeCustomDomain,
+        domainStatus: r.storeDomainStatus,
       },
     })));
   });

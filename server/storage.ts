@@ -370,6 +370,8 @@ export class DatabaseStorage implements IStorage {
    *
    * Excludes deleted products, deleted stores, lead magnets (free freebies
    * shouldn't dominate the feed), and orders by products.createdAt DESC.
+   * Also surfaces customDomain so the frontend can link to the seller's
+   * branded URL when one is active.
    */
   async getDiscoverProducts(limit = 60) {
     const rows = await db
@@ -392,6 +394,8 @@ export class DatabaseStorage implements IStorage {
         storeSlug: stores.slug,
         storeLogoUrl: stores.logoUrl,
         storeTemplateKey: stores.templateKey,
+        storeCustomDomain: stores.customDomain,
+        storeDomainStatus: stores.domainStatus,
       })
       .from(storeProducts)
       .innerJoin(products, eq(storeProducts.productId, products.id))
@@ -404,6 +408,39 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(products.createdAt))
       .limit(limit);
+    return rows;
+  }
+
+  /**
+   * Public marketplace: live stores with at least one published, non-lead-
+   * magnet product. Replaces the prior loop-of-N storeQueries with a single
+   * GROUP BY + COUNT — scales linearly with stores instead of quadratically.
+   */
+  async getDiscoverStores() {
+    const productCount = sql<number>`count(${storeProducts.id})::int`.as("product_count");
+    const rows = await db
+      .select({
+        id: stores.id,
+        name: stores.name,
+        slug: stores.slug,
+        templateKey: stores.templateKey,
+        tagline: stores.tagline,
+        logoUrl: stores.logoUrl,
+        customDomain: stores.customDomain,
+        domainStatus: stores.domainStatus,
+        productCount,
+      })
+      .from(stores)
+      .innerJoin(storeProducts, eq(storeProducts.storeId, stores.id))
+      .innerJoin(products, eq(storeProducts.productId, products.id))
+      .where(and(
+        isNull(stores.deletedAt),
+        eq(storeProducts.isPublished, true),
+        eq(storeProducts.isLeadMagnet, false),
+        isNull(products.deletedAt),
+      ))
+      .groupBy(stores.id)
+      .orderBy(desc(stores.createdAt));
     return rows;
   }
 

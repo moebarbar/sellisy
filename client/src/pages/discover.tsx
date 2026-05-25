@@ -16,6 +16,8 @@ type DiscoverStore = {
   templateKey: string | null;
   tagline: string | null;
   logoUrl: string | null;
+  customDomain: string | null;
+  domainStatus: string | null;
   productCount: number;
 };
 
@@ -36,8 +38,19 @@ type DiscoverProduct = {
     slug: string;
     logoUrl: string | null;
     templateKey: string | null;
+    customDomain: string | null;
+    domainStatus: string | null;
   };
 };
+
+// If the store has an active custom domain, link to that. Otherwise fall
+// back to the /s/<slug> path on the canonical domain.
+function storeBaseUrl(store: { slug: string; customDomain: string | null; domainStatus: string | null }) {
+  if (store.customDomain && store.domainStatus === "active") {
+    return `https://${store.customDomain}`;
+  }
+  return `/s/${store.slug}`;
+}
 
 const typeAccent: Record<string, string> = {
   digital: "var(--s-yellow)",
@@ -67,12 +80,19 @@ export default function DiscoverPage() {
     document.title = "Discover — Sellisy | Find digital products from independent creators";
   }, []);
 
-  const { data: stores, isLoading: storesLoading } = useQuery<DiscoverStore[]>({
-    queryKey: ["/api/discover/stores"],
-  });
-  const { data: products, isLoading: productsLoading } = useQuery<DiscoverProduct[]>({
-    queryKey: ["/api/discover/products"],
-  });
+  const {
+    data: stores,
+    isLoading: storesLoading,
+    isError: storesError,
+  } = useQuery<DiscoverStore[]>({ queryKey: ["/api/discover/stores"] });
+
+  const {
+    data: products,
+    isLoading: productsLoading,
+    isError: productsError,
+  } = useQuery<DiscoverProduct[]>({ queryKey: ["/api/discover/products"] });
+
+  const hasFatalError = storesError && productsError;
 
   // Top 6 stores by product count for the "Featured Stores" row.
   const featuredStores = (stores || [])
@@ -130,8 +150,10 @@ export default function DiscoverPage() {
         </div>
       </section>
 
+      {hasFatalError && <ErrorState />}
+
       {/* Featured Stores */}
-      {(storesLoading || featuredStores.length > 0) && (
+      {!hasFatalError && (storesLoading || featuredStores.length > 0) && (
         <section style={{ padding: "40px 24px 80px" }} data-testid="featured-stores-section">
           <div style={{ maxWidth: 1200, margin: "0 auto" }}>
             <div
@@ -178,7 +200,7 @@ export default function DiscoverPage() {
                 : featuredStores.map((store) => (
                     <a
                       key={store.id}
-                      href={`/s/${store.slug}`}
+                      href={storeBaseUrl(store)}
                       className="s-card-hover"
                       data-testid={`discover-store-${store.slug}`}
                       style={{
@@ -263,6 +285,7 @@ export default function DiscoverPage() {
       )}
 
       {/* New on Sellisy — products grid */}
+      {!hasFatalError && (
       <section style={{ padding: "40px 24px 100px" }} data-testid="discover-products-section">
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div
@@ -325,9 +348,63 @@ export default function DiscoverPage() {
           )}
         </div>
       </section>
+      )}
 
       <Footer />
     </div>
+  );
+}
+
+function ErrorState() {
+  return (
+    <section style={{ padding: "60px 24px" }} data-testid="discover-error-state">
+      <div
+        style={{
+          maxWidth: 600,
+          margin: "0 auto",
+          textAlign: "center",
+          padding: "60px 24px",
+          background: "rgba(255,255,255,0.02)",
+          borderRadius: 16,
+          border: "1px solid rgba(255,255,255,0.05)",
+        }}
+      >
+        <h3
+          className="s-heading"
+          style={{ fontSize: 24, color: "var(--s-white)", marginBottom: 12 }}
+        >
+          Couldn&rsquo;t load the marketplace
+        </h3>
+        <p
+          className="s-body"
+          style={{
+            fontSize: 14,
+            color: "rgba(250,250,245,0.6)",
+            marginBottom: 24,
+          }}
+        >
+          Something went wrong on our end. Refresh to try again — if it keeps
+          happening, the issue should clear up in a few minutes.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="cta-mono"
+          data-testid="discover-error-reload"
+          style={{
+            padding: "12px 24px",
+            background: "var(--s-yellow)",
+            color: "var(--s-black)",
+            borderRadius: 8,
+            fontSize: 12,
+            fontWeight: 700,
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          Reload
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -339,10 +416,11 @@ function ProductCard({
   gradientIndex: number;
 }) {
   const accent = product.productType ? typeAccent[product.productType] || "var(--s-yellow)" : "var(--s-yellow)";
+  const storeBase = storeBaseUrl(product.store);
   const productHref = product.productSlug
-    ? `/s/${product.store.slug}/p/${product.productSlug}`
-    : `/s/${product.store.slug}/product/${product.productId}`;
-  const storeHref = `/s/${product.store.slug}`;
+    ? `${storeBase}/p/${product.productSlug}`
+    : `${storeBase}/product/${product.productId}`;
+  const storeHref = storeBase;
 
   return (
     <article
