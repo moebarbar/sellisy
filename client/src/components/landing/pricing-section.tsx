@@ -240,10 +240,11 @@ export function PricingSection() {
   const starterFeatures = [
     "1 storefront",
     "Unlimited own products",
+    "Courses, quizzes & certificates",
     "Customer portal",
     "Upsells & order bumps",
-    "Stripe / PayPal",
-    "6 templates",
+    "Stripe / PayPal + Stripe Tax",
+    "7 storefront themes",
     "Analytics dashboard",
     "No PLR library access",
   ];
