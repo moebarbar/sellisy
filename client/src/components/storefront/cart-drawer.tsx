@@ -3,13 +3,11 @@ import { X, Trash2, ShoppingCart, ArrowRight, ShieldCheck, Zap, Sparkles } from 
 import { useCart } from "@/lib/cart-context";
 import { ProtectedImage } from "@/components/protected-image";
 import { getStoreBasePath } from "@/lib/utils";
+import { findBestBundleMatch, type BundleSuggestionInput } from "@/lib/bundle-suggestion";
 import type { Product } from "@shared/schema";
 import type { ThemeColors, StorefrontTheme } from "./theme-types";
 
-type CartDrawerBundle = {
-  id: string;
-  name: string;
-  priceCents: number;
+type CartDrawerBundle = BundleSuggestionInput & {
   products: Product[];
 };
 
@@ -25,27 +23,6 @@ interface CartDrawerProps {
 
 function formatPrice(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
-}
-
-// Find the bundle that best matches the buyer's cart: most overlap with cart
-// items + actually saves them money. Used to surface a "buy as bundle and
-// save $X" cross-sell banner above the cart total.
-function findBestBundleMatch(
-  cartProductIds: Set<string>,
-  bundles: CartDrawerBundle[],
-): { bundle: CartDrawerBundle; matchedCount: number; matchedTotalCents: number; savings: number } | null {
-  let best: ReturnType<typeof findBestBundleMatch> = null;
-  for (const bundle of bundles) {
-    const matched = bundle.products.filter((p) => cartProductIds.has(p.id));
-    if (matched.length < 2) continue; // need at least 2 cart items in the bundle for the pitch to land
-    const matchedTotalCents = matched.reduce((sum, p) => sum + p.priceCents, 0);
-    const savings = matchedTotalCents - bundle.priceCents;
-    if (savings <= 0) continue; // bundle isn't actually a discount in this case
-    if (!best || matched.length > best.matchedCount || (matched.length === best.matchedCount && savings > best.savings)) {
-      best = { bundle, matchedCount: matched.length, matchedTotalCents, savings };
-    }
-  }
-  return best;
 }
 
 export function CartDrawer({

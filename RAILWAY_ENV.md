@@ -111,6 +111,50 @@ Without these set, the importer falls back to letting users paste a personal acc
 7. Save → copy the **Application ID** to `GUMROAD_CLIENT_ID` and **Application Secret** to `GUMROAD_CLIENT_SECRET` in Railway
 8. Restart the service so the new env vars load
 
+## Sentry (Optional — error monitoring)
+
+Opt-in. With `SENTRY_DSN` unset, both the server and client SDKs no-op
+and no requests fire to Sentry.
+
+| Variable | Where | Description |
+|---|---|---|
+| `SENTRY_DSN` | Railway env (server) | DSN from your Sentry project — server-side errors report here |
+| `VITE_SENTRY_DSN` | Railway env (build time) | DSN for the browser SDK. Inlined into the client bundle by Vite at build. Often the same project as `SENTRY_DSN` |
+| `VITE_RELEASE` | Optional, build time | Tag client errors with a release name; defaults to Vite mode if unset |
+
+The server picks up `RAILWAY_GIT_COMMIT_SHA` automatically as its release name.
+
+## Discord (Optional — auto-role granting, scaffold only)
+
+The schema + product-editor UI for Discord auto-role are shipped, but the
+bot worker that actually grants roles isn't yet. See
+[docs/discord-integration.md](docs/discord-integration.md) for full plan.
+When you wire up the worker, you'll need:
+
+| Variable | Description |
+|---|---|
+| `DISCORD_BOT_TOKEN` | Bot user token from a Sellisy-owned Discord app |
+| `DISCORD_CLIENT_ID` | OAuth client ID (used for buyer-side Connect Discord flow) |
+| `DISCORD_CLIENT_SECRET` | OAuth client secret |
+
+Leave all three unset until the worker ships — the product-editor UI
+will still let owners enter guild/role IDs, but no grants will fire.
+
+## Migration policy (post-May 22 incident)
+
+**Do not enable `RUN_MIGRATIONS=true`** on Railway. `drizzle-kit push`
+has demonstrated it silently no-ops or destructively renames on
+schema deltas it can't disambiguate. Always:
+
+1. Land schema.ts changes in the same PR as a numbered `migrations/*.sql`
+   file. (The GitHub Actions check `schema-migration-check.yml` enforces
+   this — PRs that miss the migration fail CI.)
+2. Apply the migration against prod **before** merging the PR:
+   ```bash
+   psql $DATABASE_URL -f migrations/####_*.sql
+   ```
+3. Then merge → Railway redeploys → new code runs against the migrated DB.
+
 ## Quick Setup
 
 1. Create a new Railway project and add a PostgreSQL plugin

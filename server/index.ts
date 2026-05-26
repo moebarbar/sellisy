@@ -1,4 +1,11 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { initSentry } from "./sentry";
+
+// Initialize Sentry as early as possible so we capture errors that fire
+// while the rest of the app is still loading. No-op when SENTRY_DSN is
+// unset, so this stays inert in dev / sandboxed environments.
+initSentry();
+
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";

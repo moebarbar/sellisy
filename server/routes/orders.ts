@@ -39,6 +39,7 @@ import { sendOrderCompletionEmails } from "../orderEmailHelper";
 import { WebhookHandlers } from "../webhookHandlers";
 import { watermarkPdf, isPdfFilename, isPdfContentType } from "../pdfWatermark";
 import { decryptPaymentSecret } from "../crypto/payment-secret";
+import { validatePwywAmount } from "@shared/pwyw";
 import { getAppUrl, getCustomerFromCookie, getUserId, hashToken } from "./_helpers";
 
 export const ordersRouter = Router();
@@ -215,19 +216,17 @@ ordersRouter.post("/api/checkout", async (req, res) => {
     const suggestedPrice = sp.customPriceCents ?? product.priceCents;
 
     // Pay-what-you-want override: only honored if the product opted in.
-    // The buyer-submitted amount is re-validated server-side against the
-    // owner-set minimum (which can be 0 for true tip-jar PWYW).
+    // Server-side re-validation via the shared pure helper so client/server
+    // can't drift on the validation contract.
     let effectivePrice = suggestedPrice;
     if (parsed.data.pwywPriceCents != null) {
-      if (!product.pwywEnabled) {
-        return res.status(400).json({ message: "Pay-what-you-want is not enabled for this product" });
-      }
-      if (parsed.data.pwywPriceCents < product.pwywMinCents) {
-        return res.status(400).json({
-          message: `Minimum is $${(product.pwywMinCents / 100).toFixed(2)}`,
-        });
-      }
-      effectivePrice = parsed.data.pwywPriceCents;
+      const result = validatePwywAmount({
+        pwywEnabled: product.pwywEnabled,
+        pwywMinCents: product.pwywMinCents,
+        amountCents: parsed.data.pwywPriceCents,
+      });
+      if (!result.ok) return res.status(400).json({ message: result.message });
+      effectivePrice = result.priceCents;
     }
 
     totalCents = effectivePrice;

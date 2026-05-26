@@ -8,6 +8,7 @@ import { usePageMeta } from "@/hooks/use-page-meta";
 import { ProtectedImage } from "@/components/protected-image";
 import { ProductReviews } from "@/components/storefront/product-reviews";
 import { trackEvent } from "@/lib/tracking";
+import { validatePwywAmount } from "@shared/pwyw";
 import { getStoreBasePath } from "@/lib/utils";
 import type { Store, Product, ProductImage } from "@shared/schema";
 
@@ -152,15 +153,16 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
     let pwywPriceCents: number | undefined;
     if (pwywEnabled) {
       const parsed = parseFloat(pwywPrice || "0");
-      if (isNaN(parsed) || parsed < 0) {
-        setPwywError("Enter a valid amount.");
+      const result = validatePwywAmount({
+        pwywEnabled,
+        pwywMinCents,
+        amountCents: isNaN(parsed) ? null : Math.round(parsed * 100),
+      });
+      if (!result.ok) {
+        setPwywError(result.message);
         return;
       }
-      pwywPriceCents = Math.round(parsed * 100);
-      if (pwywPriceCents < pwywMinCents) {
-        setPwywError(`Minimum is $${(pwywMinCents / 100).toFixed(2)}.`);
-        return;
-      }
+      pwywPriceCents = result.priceCents;
       setPwywError("");
     }
 

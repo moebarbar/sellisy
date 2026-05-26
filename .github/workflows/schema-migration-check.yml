@@ -1,0 +1,33 @@
+name: Schema / Migration parity check
+
+# Fail any PR that modifies shared/schema.ts without also adding a new
+# migrations/*.sql file. Closes the loophole that caused the May 22 incident
+# (cert_accent_color shipped in schema.ts but the matching SQL migration
+# was never written, drizzle-kit push silently no-oped on prod, app
+# crashed on first product query).
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'shared/schema.ts'
+      - 'migrations/**'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need history so we can diff against main.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Schema vs migration parity
+        env:
+          BASE_REF: origin/main
+        run: node script/check-schema-migration.mjs
