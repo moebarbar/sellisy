@@ -38,7 +38,9 @@ export type AuditEvent =
   | "affiliate.payout_created"
   | "affiliate.payout_marked_paid"
   | "rate_limit.hit"
-  | "data.export";
+  | "data.export"
+  | "queue.job_failed"
+  | "queue.job_dead";
 
 interface AuditPayload {
   event: AuditEvent;
