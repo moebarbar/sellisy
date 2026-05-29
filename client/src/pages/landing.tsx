@@ -41,6 +41,22 @@ export default function LandingPage() {
     return () => { document.documentElement.style.scrollBehavior = ""; };
   }, []);
 
+  // Analyio marketing-attribution pixel. Scoped to the landing page only —
+  // dashboard and tenant storefronts deliberately don't fire it (different
+  // audiences, different data, multi-tenant privacy concern).
+  useEffect(() => {
+    const PIXEL_ID = "analyio-pixel";
+    if (document.getElementById(PIXEL_ID)) return; // already mounted (HMR / remount)
+    const s = document.createElement("script");
+    s.id = PIXEL_ID;
+    s.defer = true;
+    s.src = "https://app.analyio.com/pixel/XGaVcGsLGz7TqZSL";
+    document.head.appendChild(s);
+    // Intentionally no cleanup — once the visitor lands and the pixel
+    // records the session, removing the tag on unmount would just lose
+    // the engagement signal as they navigate within the SPA.
+  }, []);
+
   return (
     <div ref={wrapperRef} className="landing-page" data-testid="landing-page">
       <div className="s-ambient-wrap" aria-hidden="true">
