@@ -1,132 +1,243 @@
-// Tier 1 — six hero features. These are the moats + most-asked-for shipped
-// capabilities. Anything that's a "we have this" wedge against Gumroad /
-// Lemon Squeezy / Podia goes here.
-const heroFeatures = [
-  {
-    icon: "\u{1F4DA}",
-    title: "PLR & MRR Library",
-    description: "200+ ready-to-sell digital products with full resell rights. Yours to rebrand and ship in minutes.",
-    tag: "Unique",
-  },
-  {
-    icon: "\u{1F393}",
-    title: "Courses & LMS",
-    description: "Modules, lessons, quizzes, drip schedules, and auto-issued certificates. Run a cohort without a second platform.",
-    tag: "New",
-  },
-  {
-    icon: "\u{1F517}",
-    title: "Affiliate Program",
-    description: "Unique tracking links, automatic commissions, refund clawback, manual payouts. Turn buyers into your sales team.",
-    tag: "New",
-  },
-  {
-    icon: "\u{1F3EA}",
-    title: "Multi-Store",
-    description: "Run multiple storefronts from one login. Different brands, themes, payments — same dashboard.",
-    tag: "Scale",
-  },
-  {
-    icon: "\u{1F4B3}",
-    title: "Stripe + PayPal + Tax",
-    description: "Connect your own keys. Auto-handles VAT/sales tax. Zero platform fees — you keep 100% of every sale.",
-    tag: "Payments",
-  },
-  {
-    icon: "\u{1F4DD}",
-    title: "Content Studio",
-    description: "Notion-style block editor for knowledge bases, blogs, and newsletter campaigns. Built-in, not a plugin.",
-    tag: "Create",
-  },
-];
+// "Everything you need" — reorganized into five capability categories
+// instead of a flat features grid. Each category gets its own accent color
+// (drawn from the landing palette: yellow, teal, pink, orange, cream) so
+// the scroll feels rhythmic rather than uniform.
+//
+// Total: 30 features across five categories. Every category is a real
+// capability that ships today. Update this file whenever a roadmap item
+// goes live so it stays honest.
 
-// Tier 2 — compact chip strip. Everything else that's worth a mention but
-// doesn't need its own card. Keeps the page from sprawling.
-const chips = [
-  { icon: "\u{1F3A8}", label: "7 storefront themes" },
-  { icon: "\u{1F310}", label: "Custom domains" },
-  { icon: "\u{2B50}", label: "Verified buyer reviews" },
-  { icon: "\u{1F4DC}", label: "Per-buyer PDF watermarking" },
-  { icon: "\u{1F4F1}", label: "Embed widgets" },
-  { icon: "\u{1F464}", label: "Customer portal" },
-  { icon: "\u{1F4E5}", label: "1-click Gumroad import" },
-  { icon: "\u{1F4CA}", label: "Real-time analytics" },
-  { icon: "\u{1F381}", label: "14-day free trial" },
-  { icon: "\u{1F4BB}", label: "Software & license keys" },
-];
+type Chip = { icon: string; label: string; isNew?: boolean };
 
-function FeatureCard({
-  icon,
-  title,
-  description,
-  tag,
-  index,
-}: {
-  icon: string;
+type Category = {
+  eyebrow: string;
   title: string;
   description: string;
-  tag: string;
-  index: number;
-}) {
-  // "New" tag highlighted in yellow; everything else stays teal so the eye
-  // catches the just-shipped wins on first scan.
-  const isNew = tag === "New";
+  accent: string; // CSS color (landing palette var)
+  accentRgb: string; // matching rgb for translucent backgrounds
+  chips: Chip[];
+};
+
+const categories: Category[] = [
+  {
+    eyebrow: "// Sell anything",
+    title: "Sell digital, however you want",
+    description:
+      "Pricing models that fit any audience — flat, free, bundled, pay-what-you-want. Delivery that's tamper-proof out of the box.",
+    accent: "var(--s-yellow)",
+    accentRgb: "245,230,66",
+    chips: [
+      { icon: "📦", label: "Digital products: PDF, ebook, software, template, graphics" },
+      { icon: "🎁", label: "Bundles with savings math at the cart" },
+      { icon: "💸", label: "Pay-what-you-want pricing", isNew: true },
+      { icon: "🎟️", label: "Coupons + percentage / dollar discounts" },
+      { icon: "🆓", label: "Lead magnets (free with email capture)" },
+      { icon: "📜", label: "Per-buyer PDF watermarking" },
+    ],
+  },
+  {
+    eyebrow: "// Run a course business",
+    title: "A full LMS, not just a video player",
+    description:
+      "Everything you'd otherwise stitch together from Podia, Teachable, or Kajabi — already inside every Sellisy course product.",
+    accent: "var(--s-teal)",
+    accentRgb: "0,245,212",
+    chips: [
+      { icon: "📚", label: "Modules + lessons with reorderable hierarchy" },
+      { icon: "🎬", label: "YouTube / Vimeo / direct upload video" },
+      { icon: "🗓️", label: "Drip schedules — unlock lessons over time" },
+      { icon: "🧠", label: "Quizzes (single + multi choice, auto-scored)" },
+      { icon: "🏆", label: "Auto-issued PDF certificates with your branding" },
+      { icon: "💬", label: "Per-lesson discussions + owner moderation" },
+    ],
+  },
+  {
+    eyebrow: "// Grow with creators",
+    title: "Recruit affiliates, get discovered, follow up",
+    description:
+      "The growth-loop infrastructure most platforms charge you extra for — affiliates, marketplace listing, newsletter, automation.",
+    accent: "var(--s-pink)",
+    accentRgb: "255,60,172",
+    chips: [
+      { icon: "🔗", label: "Affiliate program — links, commissions, payouts, refund clawback" },
+      { icon: "🌐", label: "Marketplace listing on /discover", isNew: true },
+      { icon: "✉️", label: "Newsletter campaigns with block editor" },
+      { icon: "📖", label: "Built-in blog (block editor + SEO meta)" },
+      { icon: "🧭", label: "Marketing playbook with strategy tracking" },
+      { icon: "📊", label: "Real-time analytics: revenue, traffic, top products" },
+    ],
+  },
+  {
+    eyebrow: "// Own your brand",
+    title: "Multi-store, multi-theme, custom domains",
+    description:
+      "Your store isn't a Gumroad URL. It's your name, your design, your customer relationship — and you can run as many as you want.",
+    accent: "var(--s-orange)",
+    accentRgb: "255,107,53",
+    chips: [
+      { icon: "🏪", label: "Unlimited storefronts (Empire) — one login, separate brands" },
+      { icon: "🎨", label: "7 designer-built themes — Neon, Silk, Aurora, Ember, Frost, Midnight, Launch" },
+      { icon: "🌍", label: "Custom domains (Cloudflare for SaaS — SSL handled)" },
+      { icon: "👤", label: "Branded customer portal with magic-link login" },
+      { icon: "⭐", label: "Verified buyer reviews with per-product opt-out" },
+      { icon: "📱", label: "Embed widgets — drop a product anywhere" },
+    ],
+  },
+  {
+    eyebrow: "// Operate without 5 SaaS tools",
+    title: "Payments, taxes, knowledge — already wired",
+    description:
+      "Connect your own Stripe and PayPal. Keep 100% of every sale. Skip the Notion / Mailchimp / SendOwl stack — it's in here.",
+    accent: "var(--s-cream)",
+    accentRgb: "240,230,211",
+    chips: [
+      { icon: "💳", label: "Stripe + PayPal — direct, you keep 100%" },
+      { icon: "🧾", label: "Stripe Tax — automatic VAT / sales tax" },
+      { icon: "📥", label: "Gumroad 1-click importer (products, customers, sales)" },
+      { icon: "📚", label: "Knowledge base with Notion-style editor" },
+      { icon: "💻", label: "Software / license key delivery built-in" },
+      { icon: "🎁", label: "14-day free Growth-tier trial — no card" },
+    ],
+  },
+];
+
+function CategoryBlock({ category, index }: { category: Category; index: number }) {
+  const isAlternate = index % 2 === 1;
 
   return (
     <div
-      data-testid={`feature-card-${index}`}
-      className="s-card-hover s-feature-card"
+      data-testid={`feature-category-${index}`}
+      className="s-reveal"
       style={{
-        background: "rgba(255,255,255,0.03)",
-        borderRadius: 12,
-        padding: 28,
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-        border: "1px solid rgba(255,255,255,0.05)",
+        position: "relative",
+        padding: "48px 32px",
+        borderRadius: 20,
+        background: `linear-gradient(${isAlternate ? "135deg" : "315deg"}, rgba(${category.accentRgb},0.04) 0%, rgba(255,255,255,0.02) 60%)`,
+        border: `1px solid rgba(${category.accentRgb},0.12)`,
+        overflow: "hidden",
       }}
     >
+      {/* Accent dot in corner — quiet visual hook */}
       <div
-        className="s-feature-card__icon"
+        aria-hidden="true"
         style={{
-          width: 48,
-          height: 48,
-          borderRadius: 10,
-          background: "rgba(245,230,66,0.1)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 22,
-          transition: "background 0.3s ease",
+          position: "absolute",
+          top: 24,
+          right: 24,
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: category.accent,
+          boxShadow: `0 0 16px ${category.accent}`,
         }}
-      >
-        {icon}
+      />
+
+      <div style={{ marginBottom: 32, maxWidth: 720 }}>
+        <span
+          className="s-label"
+          style={{
+            color: category.accent,
+            marginBottom: 12,
+            display: "block",
+          }}
+        >
+          {category.eyebrow}
+        </span>
+        <h3
+          className="s-heading"
+          style={{
+            fontSize: "clamp(24px, 3.4vw, 36px)",
+            color: "var(--s-white)",
+            marginBottom: 12,
+            lineHeight: 1.1,
+          }}
+        >
+          {category.title}
+        </h3>
+        <p
+          className="s-body"
+          style={{
+            fontSize: 14,
+            color: "rgba(250,250,245,0.6)",
+            lineHeight: 1.6,
+            maxWidth: 620,
+          }}
+        >
+          {category.description}
+        </p>
       </div>
-      <h3 className="s-heading" style={{ fontSize: 22, color: "var(--s-white)" }}>
-        {title}
-      </h3>
-      <p
-        className="s-body"
-        style={{ fontSize: 13, color: "rgba(250,250,245,0.6)", lineHeight: 1.6 }}
-      >
-        {description}
-      </p>
-      <span
+
+      <div
         style={{
-          display: "inline-block",
-          alignSelf: "flex-start",
-          padding: "4px 12px",
-          borderRadius: 999,
-          background: isNew ? "rgba(245,230,66,0.12)" : "rgba(0,245,212,0.1)",
-          color: isNew ? "var(--s-yellow)" : "var(--s-teal)",
-          fontSize: 11,
-          fontFamily: "'Space Mono', monospace",
-          textTransform: "uppercase",
-          letterSpacing: 1,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+          gap: 10,
         }}
       >
-        {tag}
-      </span>
+        {category.chips.map((chip) => (
+          <div
+            key={chip.label}
+            className="s-chip-hover"
+            data-testid={`feature-chip-${chip.label.toLowerCase().replace(/\s+/g, "-").slice(0, 40)}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 14px",
+              borderRadius: 10,
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              minHeight: 56,
+            }}
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                background: `rgba(${category.accentRgb},0.1)`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 16,
+                flexShrink: 0,
+              }}
+            >
+              {chip.icon}
+            </div>
+            <span
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 13,
+                color: "rgba(250,250,245,0.85)",
+                lineHeight: 1.4,
+                flex: 1,
+              }}
+            >
+              {chip.label}
+            </span>
+            {chip.isNew && (
+              <span
+                style={{
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  fontSize: 9,
+                  fontFamily: "'Space Mono', monospace",
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                  color: "var(--s-yellow)",
+                  background: "rgba(245,230,66,0.1)",
+                  border: "1px solid rgba(245,230,66,0.25)",
+                  flexShrink: 0,
+                }}
+              >
+                New
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -142,6 +253,7 @@ export function FeaturesSection() {
       }}
     >
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        {/* Section header */}
         <div style={{ textAlign: "center", marginBottom: 64 }}>
           <span
             className="s-label"
@@ -155,82 +267,32 @@ export function FeaturesSection() {
             data-testid="title-features"
             style={{ fontSize: "clamp(36px, 6vw, 64px)", color: "var(--s-white)" }}
           >
-            EVERYTHING YOU NEED
+            ONE PLATFORM.
+            <br />
+            <span style={{ color: "var(--s-yellow)" }}>FIVE JOBS DONE WELL.</span>
           </h2>
           <p
             className="s-body"
             style={{
-              fontSize: 14,
-              color: "rgba(250,250,245,0.5)",
-              maxWidth: 560,
-              margin: "16px auto 0",
+              fontSize: 15,
+              color: "rgba(250,250,245,0.6)",
+              maxWidth: 600,
+              margin: "20px auto 0",
+              lineHeight: 1.7,
             }}
           >
-            One platform. Six big moves. Plus a dozen more conveniences you
-            won&rsquo;t have to bolt on with five different SaaS subscriptions.
+            Sell anything. Run courses. Recruit affiliates. Own your brand.
+            Operate without bolting on five other SaaS subscriptions. Each
+            block below is a real shipped capability — no waitlists, no
+            &ldquo;coming soon.&rdquo;
           </p>
         </div>
 
-        <div className="s-features-grid" style={{ display: "grid" }}>
-          {heroFeatures.map((f, i) => (
-            <FeatureCard key={f.title} index={i} {...f} />
+        {/* Five categories stacked */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {categories.map((cat, i) => (
+            <CategoryBlock key={cat.eyebrow} category={cat} index={i} />
           ))}
-        </div>
-
-        {/* Tier 2: "and also" chip strip. Compact disclosure of secondary
-            features so we surface them without exploding the section height. */}
-        <div
-          data-testid="features-chip-strip"
-          style={{
-            marginTop: 56,
-            paddingTop: 32,
-            borderTop: "1px solid rgba(255,255,255,0.06)",
-          }}
-        >
-          <div
-            style={{
-              textAlign: "center",
-              marginBottom: 24,
-              fontFamily: "'Space Mono', monospace",
-              fontSize: 11,
-              textTransform: "uppercase",
-              letterSpacing: 2,
-              color: "rgba(250,250,245,0.4)",
-            }}
-          >
-            + and also
-          </div>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 10,
-              justifyContent: "center",
-            }}
-          >
-            {chips.map((c) => (
-              <span
-                key={c.label}
-                data-testid={`features-chip-${c.label.toLowerCase().replace(/\s+/g, "-")}`}
-                className="s-chip-hover"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "8px 14px",
-                  borderRadius: 999,
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  fontSize: 12,
-                  fontFamily: "'DM Sans', sans-serif",
-                  color: "rgba(250,250,245,0.75)",
-                }}
-              >
-                <span style={{ fontSize: 13 }}>{c.icon}</span>
-                {c.label}
-              </span>
-            ))}
-          </div>
         </div>
       </div>
     </section>

@@ -1,4 +1,4 @@
-const tickerContent = "PLR & MRR Rights Included /// Connect Stripe or PayPal /// Sell Your Own Courses /// 200+ Products in the Library /// Customer Portal Included /// Upsells Built In /// Real-Time Analytics /// Sell Software Licenses /// Keep 100% of Every Sale /// ";
+const tickerContent = "Keep 100% of Every Sale /// PLR & MRR Rights Included /// Connect Stripe or PayPal /// Stripe Tax Built In /// Affiliate Program Included /// Full Course LMS with Certificates /// Pay What You Want Pricing /// 7 Storefront Themes /// Custom Domains + SSL /// Verified Buyer Reviews /// 200+ Products in the Library /// Real-Time Analytics /// 14-Day Free Trial /// ";
 
 export function TickerBar() {
   const textStyle = {
