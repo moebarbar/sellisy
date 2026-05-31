@@ -244,7 +244,7 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
 
     if (!slug || !meta) {
       return {
-        title: "Compare Sellisy to every creator platform — Sellisy",
+        title: "Compare Sellisy to every creator platform",
         description: "Side-by-side comparisons of Sellisy vs Gumroad, Lemon Squeezy, Payhip, Sellfy, Podia, Kajabi, Whop, Kit, Beacons, and more.",
         canonical,
         ogImage: `${brandSiteUrl()}/og-image.png`,
@@ -259,7 +259,14 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
       };
     }
 
-    const title = `Sellisy vs ${meta.name} — ${meta.tagline} | Sellisy`;
+    // Title template: "Sellisy vs <Name>: Pricing, Fees & Features Compared"
+    // — front-loads the primary keyword ("Sellisy vs <Name>"), drops the
+    // tagline (it lived in the description anyway), removes the trailing
+    // "| Sellisy" since the brand is already at the front. Stays ≤ ~62 chars
+    // even for the longest competitor name (Lemon Squeezy = 59, Stan Store = 58,
+    // Kit (ConvertKit) gets the parens stripped below).
+    const titleName = meta.name.replace(/\s*\([^)]+\)/, "").trim();
+    const title = `Sellisy vs ${titleName}: Pricing, Fees & Features Compared`;
     const description = `${meta.verdict} Compare Sellisy and ${meta.name} side-by-side: pricing, fees, features, and which fits your business.`;
     return {
       title,
