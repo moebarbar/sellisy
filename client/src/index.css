@@ -579,14 +579,19 @@
   line-height: 1.7;
 }
 
-.s-reveal {
-  opacity: 0;
-  transform: translateY(32px);
-  transition: opacity 0.7s ease, transform 0.7s ease;
-}
+/* Landing-page scroll-reveal — disabled for launch. The previous
+   "opacity:0 → opacity:1 on IntersectionObserver fire" pattern read as
+   "page is loading" to first-time visitors, especially on mobile and
+   slower connections. Brand polish comes from typography + color, not
+   reveal animations; this kills the first-paint flash without touching
+   any of the components that still apply the .s-reveal class.
+   To revive the editorial fade-in later, restore the original
+   opacity:0 + transition rule below and the IntersectionObserver in
+   landing.tsx will start firing again. */
+.s-reveal,
 .s-reveal.s-revealed {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 @keyframes s-float {
