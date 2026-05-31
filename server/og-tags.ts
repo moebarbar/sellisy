@@ -186,7 +186,13 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
       name: "Sellisy",
       url: brandSiteUrl(),
       logo: `${brandSiteUrl()}/favicon.png`,
-      sameAs: [] as string[],
+      sameAs: [
+        // Verified social handles. Keep in sync with the footer in
+        // client/src/components/landing/footer.tsx.
+        "https://www.instagram.com/trysellisy",
+        "https://twitter.com/trysellisy",
+        "https://www.tiktok.com/@trysellisy",
+      ],
     };
 
     const websiteJsonLd = {
@@ -574,7 +580,8 @@ export async function injectOgTags(req: Request, res: Response, next: NextFuncti
     req.path.startsWith("/src/") ||  // vite dev source files
     req.path.startsWith("/@") ||      // vite internals
     req.path === "/robots.txt" ||
-    req.path === "/sitemap.xml"
+    req.path === "/sitemap.xml" ||
+    req.path === "/llms.txt"
   ) return next();
   // Skip non-HTML asset extensions
   if (/\.(js|mjs|ts|tsx|css|png|jpg|jpeg|webp|gif|svg|ico|map|woff2?|ttf|otf|json|xml|txt|mp4|webm)$/i.test(req.path)) return next();
