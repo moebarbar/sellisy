@@ -27,6 +27,10 @@ function storageKey(storeSlug: string) {
 
 export function CartProvider({ storeSlug, children }: { storeSlug: string; children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => {
+    // SSR-safe: localStorage doesn't exist during prerender. Marketing
+    // routes don't mount this provider, but guard defensively in case a
+    // future build script walks into it.
+    if (typeof window === "undefined") return [];
     try {
       const stored = localStorage.getItem(storageKey(storeSlug));
       return stored ? JSON.parse(stored) : [];
