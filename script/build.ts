@@ -34,6 +34,13 @@ async function buildAll() {
   console.log("building client...");
   await viteBuild();
 
+  console.log("prerendering public marketing routes...");
+  // Runs AFTER viteBuild so dist/public/index.html exists to back up as
+  // _shell.html. Lazy import so prerender.ts's DATABASE_URL fallback is
+  // in place before server/db.ts evaluates.
+  const { prerender } = await import("./prerender.ts");
+  await prerender();
+
   console.log("building server...");
   const pkg = JSON.parse(await readFile("package.json", "utf-8"));
   const allDeps = [

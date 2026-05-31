@@ -83,7 +83,7 @@ function outFileFor(route: string): string {
   return path.join(OUT_ROOT, route.slice(1), "index.html");
 }
 
-async function main() {
+export async function prerender() {
   console.log("[prerender] running vite SSR build...");
   await viteBuild({
     configFile: path.join(PROJECT_ROOT, "vite.ssr.config.ts"),
@@ -144,7 +144,12 @@ async function main() {
   if (failed > 0) process.exit(1);
 }
 
-main().catch((err) => {
-  console.error("[prerender] fatal:", err);
-  process.exit(1);
-});
+// When run directly via `tsx script/prerender.ts`, invoke immediately.
+// When imported by script/build.ts, the caller decides when to run.
+const isMain = import.meta.url === `file://${process.argv[1]}` || import.meta.url.endsWith(process.argv[1] || "");
+if (isMain) {
+  prerender().catch((err) => {
+    console.error("[prerender] fatal:", err);
+    process.exit(1);
+  });
+}

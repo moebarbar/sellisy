@@ -47,10 +47,49 @@ function getSpaShell(): string | null {
   if (process.env.NODE_ENV !== "production") return null;
   if (_cachedShell) return _cachedShell;
   try {
-    const distPath = path.resolve(__dirname, "public", "index.html");
-    _cachedShell = fs.readFileSync(distPath, "utf-8");
+    // After P1.b prerender, dist/public/index.html is the prerendered
+    // landing page. The pristine SPA shell lives at _shell.html — that's
+    // what we need to inject meta into for non-prerendered routes.
+    // Fall back to index.html if _shell.html doesn't exist (e.g. a build
+    // that skipped prerender).
+    const shellPath = path.resolve(__dirname, "public", "_shell.html");
+    const fallbackPath = path.resolve(__dirname, "public", "index.html");
+    const target = fs.existsSync(shellPath) ? shellPath : fallbackPath;
+    _cachedShell = fs.readFileSync(target, "utf-8");
     return _cachedShell;
   } catch {
+    return null;
+  }
+}
+
+// Per-route prerendered HTML cache. dist/public/<route>/index.html is
+// produced by script/prerender.ts at build time. When a request matches a
+// prerendered file, we serve it directly — no runtime meta injection
+// needed because the meta is already baked in from the same computeSeoForPath
+// the middleware uses.
+const _prerenderedCache: Map<string, string | null> = new Map();
+function getPrerenderedFor(pathOnly: string): string | null {
+  if (process.env.NODE_ENV !== "production") return null;
+  const cached = _prerenderedCache.get(pathOnly);
+  if (cached !== undefined) return cached;
+  try {
+    // Map "/" → dist/public/index.html, "/products" → dist/public/products/index.html
+    const rel = pathOnly === "/" ? "index.html" : `${pathOnly.replace(/^\//, "")}/index.html`;
+    const filePath = path.resolve(__dirname, "public", rel);
+    // Defense in depth: never serve _shell.html via this lookup.
+    if (filePath.endsWith("/_shell.html")) {
+      _prerenderedCache.set(pathOnly, null);
+      return null;
+    }
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, "utf-8");
+      _prerenderedCache.set(pathOnly, content);
+      return content;
+    }
+    _prerenderedCache.set(pathOnly, null);
+    return null;
+  } catch {
+    _prerenderedCache.set(pathOnly, null);
     return null;
   }
 }
@@ -651,6 +690,18 @@ export async function injectOgTags(req: Request, res: Response, next: NextFuncti
   ) return next();
   // Skip non-HTML asset extensions
   if (/\.(js|mjs|ts|tsx|css|png|jpg|jpeg|webp|gif|svg|ico|map|woff2?|ttf|otf|json|xml|txt|mp4|webm)$/i.test(req.path)) return next();
+
+  // Fast path: if we have a prerendered HTML file for this route, serve it
+  // directly. The file already has per-route meta baked in by
+  // script/prerender.ts (which calls the same computeSeoForPath this
+  // middleware would call), so there's no content drift between prerender
+  // and middleware paths.
+  const prerendered = getPrerenderedFor(req.path);
+  if (prerendered) {
+    res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600");
+    res.type("html").send(prerendered);
+    return;
+  }
 
   let seo: SeoBlock | null = null;
   try {
