@@ -180,23 +180,12 @@ Disallow: /*?token=
 Disallow: /*?session_id=
 Disallow: /*?order_id=
 
-# Block aggressive AI/SEO scrapers (allowlist only good citizens).
-User-agent: GPTBot
-Disallow: /
-User-agent: Google-Extended
-Disallow: /
-User-agent: CCBot
-Disallow: /
-User-agent: anthropic-ai
-Disallow: /
-User-agent: ClaudeBot
-Disallow: /
-User-agent: PerplexityBot
-Disallow: /
-User-agent: ImagesiftBot
-Disallow: /
-User-agent: Bytespider
-Disallow: /
+# AI crawlers are explicitly ALLOWED on marketing surfaces. Sellisy is a
+# public product — letting ChatGPT, Claude, Perplexity, Gemini, etc.
+# summarize the site is part of discovery in an AI-mediated search world.
+# Note: Cloudflare's "Block AI Scrapers" feature can still 403 these UAs
+# at the edge before they ever read robots.txt. If you want AI traffic,
+# turn that off in the Cloudflare dashboard (Security → Bots).
 
 Sitemap: ${siteUrl}/sitemap.xml`);
   });
