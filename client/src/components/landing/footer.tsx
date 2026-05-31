@@ -118,9 +118,9 @@ export function Footer() {
             </div>
 
             <div style={{ display: "flex", gap: 8 }}>
-              <SocialIconLink href="https://twitter.com/sellisy" testId="footer-social-x" label="Sellisy on X">{X_LOGO}</SocialIconLink>
-              <SocialIconLink href="https://instagram.com/sellisy" testId="footer-social-instagram" label="Sellisy on Instagram">{INSTAGRAM_LOGO}</SocialIconLink>
-              <SocialIconLink href="https://tiktok.com/@sellisy" testId="footer-social-tiktok" label="Sellisy on TikTok">{TIKTOK_LOGO}</SocialIconLink>
+              <SocialIconLink href="https://twitter.com/trysellisy" testId="footer-social-x" label="Sellisy on X">{X_LOGO}</SocialIconLink>
+              <SocialIconLink href="https://instagram.com/trysellisy" testId="footer-social-instagram" label="Sellisy on Instagram">{INSTAGRAM_LOGO}</SocialIconLink>
+              <SocialIconLink href="https://tiktok.com/@trysellisy" testId="footer-social-tiktok" label="Sellisy on TikTok">{TIKTOK_LOGO}</SocialIconLink>
               <SocialIconLink href="mailto:hello@sellisy.com" testId="footer-social-mail" label="Email Sellisy">{MAIL_LOGO}</SocialIconLink>
             </div>
           </div>
@@ -168,7 +168,7 @@ export function Footer() {
           {/* Company / Legal */}
           <FooterColumn title="Company">
             <FooterLink href="mailto:hello@sellisy.com" testId="footer-link-contact">Contact</FooterLink>
-            <FooterLink href="mailto:press@sellisy.com" testId="footer-link-press">Press</FooterLink>
+            <FooterLink href="mailto:hello@sellisy.com?subject=Press%20inquiry" testId="footer-link-press">Press</FooterLink>
             <FooterLink href="/privacy" testId="link-privacy">Privacy</FooterLink>
             <FooterLink href="/terms" testId="link-terms">Terms</FooterLink>
             <FooterLink href="/data-deletion" testId="link-data-deletion">Data deletion</FooterLink>
