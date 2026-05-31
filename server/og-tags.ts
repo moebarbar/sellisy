@@ -105,7 +105,7 @@ function renderAffiliateTrackingScript(storeSlug: string): string {
 </script>`;
 }
 
-function renderMetaBlock(b: SeoBlock): string {
+export function renderMetaBlock(b: SeoBlock): string {
   const t = escapeHtml(b.title);
   const d = escapeHtml(b.description);
   const u = escapeHtml(b.canonical);
@@ -168,12 +168,21 @@ function injectIntoShell(shell: string, metaBlock: string): string {
 // ─── Route → SEO data computation ─────────────────────────────────────
 
 /**
- * Returns the SEO block for a request, or null if the route has no special
- * SEO handling (the SPA's client-side <usePageMeta> covers it instead).
+ * Build the SEO block for a path. Used by both the Express middleware
+ * (computeSeoForRoute) at runtime AND the build-time prerender script
+ * (script/prerender.ts) at deploy time — same per-route content surfaces
+ * in both code paths.
  */
 async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
-  const pathOnly = req.path;
-  const canonical = canonicalUrl(req);
+  return computeSeoForPath(req.path, canonicalUrl(req));
+}
+
+export async function computeSeoForPath(pathOnly: string, canonical: string): Promise<SeoBlock | null> {
+  // Derive base URL (proto + host) from the canonical so we can construct
+  // sibling absolute URLs without needing a Request object — keeps the
+  // function callable from the build-time prerender script.
+  const siteBase = canonical.replace(/^([a-z]+:\/\/[^/]+).*$/, "$1") || brandSiteUrl();
+  const abs = (p: string) => `${siteBase}${p.startsWith("/") ? p : "/" + p}`;
 
   // ── 1. Landing page ────────────────────────────────────────────────
   if (pathOnly === "/" || pathOnly === "") {
@@ -319,6 +328,56 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
     };
   }
 
+  // ── 2b. Discover storefronts (public directory) ───────────────────
+  if (pathOnly === "/discover") {
+    return {
+      title: "Discover Creator Storefronts — Sellisy",
+      description: "Browse independent creator storefronts on Sellisy. Find templates, ebooks, courses, and digital products from sellers who keep 100% of every sale.",
+      canonical,
+      ogImage: `${brandSiteUrl()}/og-image.png`,
+      ogImageWidth: 1200,
+      ogImageHeight: 630,
+      ogType: "website",
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Discover Creator Storefronts",
+        url: canonical,
+        isPartOf: { "@type": "WebSite", url: brandSiteUrl(), name: "Sellisy" },
+      },
+    };
+  }
+
+  // ── 2c. Privacy policy ─────────────────────────────────────────────
+  if (pathOnly === "/privacy") {
+    return {
+      title: "Privacy Policy — Sellisy",
+      description: "How Sellisy collects, uses, and protects information for creators, buyers, and storefront visitors.",
+      canonical,
+      ogType: "website",
+    };
+  }
+
+  // ── 2d. Terms of service ───────────────────────────────────────────
+  if (pathOnly === "/terms") {
+    return {
+      title: "Terms of Service — Sellisy",
+      description: "Terms governing use of Sellisy by creators selling digital products and buyers purchasing through Sellisy storefronts.",
+      canonical,
+      ogType: "website",
+    };
+  }
+
+  // ── 2e. Data deletion ──────────────────────────────────────────────
+  if (pathOnly === "/data-deletion") {
+    return {
+      title: "Data Deletion — Sellisy",
+      description: "How to request deletion of your Sellisy account and associated data.",
+      canonical,
+      ogType: "website",
+    };
+  }
+
   // ── 3. Dashboard / auth / account / checkout / claim — noindex ────
   if (
     pathOnly.startsWith("/dashboard") ||
@@ -385,7 +444,7 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: store.name, item: absoluteUrl(req, `/s/${store.slug}`) },
+        { "@type": "ListItem", position: 1, name: store.name, item: abs(`/s/${store.slug}`) },
         { "@type": "ListItem", position: 2, name: product.title, item: canonical },
       ],
     };
@@ -439,7 +498,7 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: store.name, item: absoluteUrl(req, `/s/${store.slug}`) },
+        { "@type": "ListItem", position: 1, name: store.name, item: abs(`/s/${store.slug}`) },
         { "@type": "ListItem", position: 2, name: bundle.name, item: canonical },
       ],
     };
@@ -490,8 +549,8 @@ async function computeSeoForRoute(req: Request): Promise<SeoBlock | null> {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: store.name, item: absoluteUrl(req, `/s/${store.slug}`) },
-        { "@type": "ListItem", position: 2, name: "Blog", item: absoluteUrl(req, `/s/${store.slug}/blog`) },
+        { "@type": "ListItem", position: 1, name: store.name, item: abs(`/s/${store.slug}`) },
+        { "@type": "ListItem", position: 2, name: "Blog", item: abs(`/s/${store.slug}/blog`) },
         { "@type": "ListItem", position: 3, name: post.title, item: canonical },
       ],
     };
