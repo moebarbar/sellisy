@@ -1,19 +1,14 @@
 import { eq, and, desc, sql, inArray, isNull, isNotNull } from "drizzle-orm";
 import { db } from "./db";
 import {
-  stores, products, storeProducts, orders, orderItems, downloadTokens,
-  bundles, bundleItems, coupons, userProfiles,
+  stores, products, storeProducts, orders, bundles, bundleItems, coupons, userProfiles,
   customers, customerSessions, knowledgeBases, kbPages, kbBlocks, kbPageAttachments, storeEvents, blogPosts, blogBlocks,
   storeTestimonials, storeFaqs, newsletterSubscribers, storeReviews,
   newsletterCampaigns, newsletterCampaignBlocks, emailSuppression,
   type Store, type InsertStore,
   type Product,
-  type Order, type InsertOrder,
-  type OrderItem, type InsertOrderItem,
-  type DownloadToken, type InsertDownloadToken,
   type Bundle, type InsertBundle,
   type BundleItem, type InsertBundleItem,
-  type Coupon, type InsertCoupon,
   type UserProfile, type InsertUserProfile,
   type Customer, type InsertCustomer,
   type CustomerSession, type InsertCustomerSession,
@@ -48,17 +43,7 @@ export interface IStorage {
   // Product + StoreProduct signatures moved to server/storage/product.ts —
   // available on the merged `storage` singleton via Object.assign.
 
-  createOrder(order: InsertOrder): Promise<Order>;
-  getOrderById(id: string): Promise<Order | undefined>;
-  getOrderByStripeSession(sessionId: string): Promise<Order | undefined>;
-  getOrderByPaypalOrderId(paypalOrderId: string): Promise<Order | undefined>;
-  updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
-  updateOrderBuyerEmail(id: string, email: string): Promise<void>;
-  createOrderItem(item: InsertOrderItem): Promise<OrderItem>;
-
-  createDownloadToken(token: InsertDownloadToken): Promise<DownloadToken>;
-  getDownloadTokenByHash(hash: string): Promise<DownloadToken | undefined>;
-
+  // Order, OrderItem, DownloadToken signatures moved to server/storage/order.ts.
   // FileAsset signatures moved to server/storage/product.ts.
 
   createBundle(bundle: InsertBundle): Promise<Bundle>;
@@ -72,17 +57,7 @@ export interface IStorage {
   getBundleItems(bundleId: string): Promise<(BundleItem & { product: Product })[]>;
   getBundleWithProducts(bundleId: string): Promise<{ bundle: Bundle; products: Product[] } | undefined>;
 
-  createCoupon(coupon: InsertCoupon): Promise<Coupon>;
-  getCouponsByStore(storeId: string): Promise<Coupon[]>;
-  getCouponByCode(storeId: string, code: string): Promise<Coupon | undefined>;
-  getCouponById(id: string): Promise<Coupon | undefined>;
-  updateCoupon(id: string, data: Partial<InsertCoupon>): Promise<Coupon | undefined>;
-  incrementCouponUses(id: string): Promise<void>;
-  deleteCoupon(id: string): Promise<void>;
-
-  getOrdersByStore(storeId: string): Promise<Order[]>;
-  getOrderItemsByOrder(orderId: string): Promise<(OrderItem & { product: Product })[]>;
-
+  // Coupon + order-reads signatures moved to server/storage/order.ts.
   // ProductImage + Category signatures moved to server/storage/product.ts.
 
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
@@ -101,9 +76,8 @@ export interface IStorage {
   isEmailSuppressed(email: string): Promise<boolean>;
   suppressEmail(email: string, reason: "bounce" | "complaint" | "unsubscribe" | "manual", detail?: string): Promise<void>;
   unsuppressEmail(email: string): Promise<void>;
-  getOrdersByCustomer(customerId: string): Promise<(Order & { store: Store })[]>;
-  setOrderCustomerId(orderId: string, customerId: string): Promise<void>;
-  linkOrdersByEmail(email: string, customerId: string): Promise<void>;
+  // getOrdersByCustomer / setOrderCustomerId / linkOrdersByEmail moved to
+  // server/storage/order.ts.
 
   getKnowledgeBasesByOwner(ownerId: string): Promise<KnowledgeBase[]>;
   getKnowledgeBaseById(id: string): Promise<KnowledgeBase | undefined>;
@@ -331,49 +305,6 @@ export class DatabaseStorage implements IStorage {
   }
 
 
-  async createOrder(data: InsertOrder) {
-    const [order] = await db.insert(orders).values(data).returning();
-    return order;
-  }
-
-  async getOrderById(id: string) {
-    const [order] = await db.select().from(orders).where(and(eq(orders.id, id), isNull(orders.deletedAt)));
-    return order;
-  }
-
-  async getOrderByStripeSession(sessionId: string) {
-    const [order] = await db.select().from(orders).where(and(eq(orders.stripeSessionId, sessionId), isNull(orders.deletedAt)));
-    return order;
-  }
-
-  async getOrderByPaypalOrderId(paypalOrderId: string) {
-    const [order] = await db.select().from(orders).where(and(eq(orders.paypalOrderId, paypalOrderId), isNull(orders.deletedAt)));
-    return order;
-  }
-
-  async updateOrderStatus(id: string, status: string) {
-    const [order] = await db.update(orders).set({ status: status as any, updatedAt: new Date() }).where(eq(orders.id, id)).returning();
-    return order;
-  }
-
-  async updateOrderBuyerEmail(id: string, email: string) {
-    await db.update(orders).set({ buyerEmail: email, updatedAt: new Date() }).where(eq(orders.id, id));
-  }
-
-  async createOrderItem(data: InsertOrderItem) {
-    const [item] = await db.insert(orderItems).values(data).returning();
-    return item;
-  }
-
-  async createDownloadToken(data: InsertDownloadToken) {
-    const [token] = await db.insert(downloadTokens).values(data).returning();
-    return token;
-  }
-
-  async getDownloadTokenByHash(hash: string) {
-    const [token] = await db.select().from(downloadTokens).where(eq(downloadTokens.tokenHash, hash));
-    return token;
-  }
 
   async createBundle(data: InsertBundle) {
     const [bundle] = await db.insert(bundles).values(data).returning();
@@ -427,52 +358,7 @@ export class DatabaseStorage implements IStorage {
     return { bundle, products: items.map((i) => i.product) };
   }
 
-  async createCoupon(data: InsertCoupon) {
-    const [coupon] = await db.insert(coupons).values(data).returning();
-    return coupon;
-  }
 
-  async getCouponsByStore(storeId: string) {
-    return db.select().from(coupons).where(and(eq(coupons.storeId, storeId), isNull(coupons.deletedAt))).orderBy(desc(coupons.createdAt));
-  }
-
-  async getCouponByCode(storeId: string, code: string) {
-    const [coupon] = await db.select().from(coupons).where(
-      and(eq(coupons.storeId, storeId), eq(coupons.code, code.toUpperCase()), isNull(coupons.deletedAt))
-    );
-    return coupon;
-  }
-
-  async getCouponById(id: string) {
-    const [coupon] = await db.select().from(coupons).where(and(eq(coupons.id, id), isNull(coupons.deletedAt)));
-    return coupon;
-  }
-
-  async updateCoupon(id: string, data: Partial<InsertCoupon>) {
-    const [coupon] = await db.update(coupons).set({ ...data, updatedAt: new Date() }).where(eq(coupons.id, id)).returning();
-    return coupon;
-  }
-
-  async incrementCouponUses(id: string) {
-    await db.update(coupons).set({ currentUses: sql`${coupons.currentUses} + 1`, updatedAt: new Date() }).where(eq(coupons.id, id));
-  }
-
-  async deleteCoupon(id: string) {
-    await db.update(coupons).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(coupons.id, id));
-  }
-
-  async getOrdersByStore(storeId: string) {
-    return db.select().from(orders).where(and(eq(orders.storeId, storeId), isNull(orders.deletedAt))).orderBy(desc(orders.createdAt));
-  }
-
-  async getOrderItemsByOrder(orderId: string) {
-    const rows = await db
-      .select({ oi: orderItems, product: products })
-      .from(orderItems)
-      .innerJoin(products, eq(orderItems.productId, products.id))
-      .where(eq(orderItems.orderId, orderId));
-    return rows.map((r) => ({ ...r.oi, product: r.product }));
-  }
 
 
   async getUserProfile(userId: string) {
@@ -579,25 +465,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(emailSuppression).where(eq(emailSuppression.email, email.toLowerCase()));
   }
 
-  async getOrdersByCustomer(customerId: string) {
-    const rows = await db
-      .select({ order: orders, store: stores })
-      .from(orders)
-      .innerJoin(stores, eq(orders.storeId, stores.id))
-      .where(and(eq(orders.customerId, customerId), eq(orders.status, "COMPLETED"), isNull(orders.deletedAt)))
-      .orderBy(desc(orders.createdAt));
-    return rows.map((r) => ({ ...r.order, store: r.store }));
-  }
 
-  async setOrderCustomerId(orderId: string, customerId: string) {
-    await db.update(orders).set({ customerId, updatedAt: new Date() }).where(eq(orders.id, orderId));
-  }
-
-  async linkOrdersByEmail(email: string, customerId: string) {
-    await db.update(orders).set({ customerId, updatedAt: new Date() }).where(
-      and(eq(orders.buyerEmail, email.toLowerCase()), sql`${orders.customerId} IS NULL`)
-    );
-  }
 
   async getKnowledgeBasesByOwner(ownerId: string) {
     return db.select().from(knowledgeBases).where(and(eq(knowledgeBases.ownerId, ownerId), isNull(knowledgeBases.deletedAt))).orderBy(desc(knowledgeBases.createdAt));
@@ -1032,14 +900,16 @@ export class DatabaseStorage implements IStorage {
 // instance, and the intersection type tells TypeScript both surfaces are
 // available.
 //
-// Domains migrated so far: affiliate, course, product.
+// Domains migrated so far: affiliate, course, product, order.
 import { affiliateStorage, type AffiliateStorage } from "./storage/affiliate";
 import { courseStorage, type CourseStorage } from "./storage/course";
 import { productStorage, type ProductStorage } from "./storage/product";
+import { orderStorage, type OrderStorage } from "./storage/order";
 
 export const storage = Object.assign(
   new DatabaseStorage(),
   affiliateStorage,
   courseStorage,
   productStorage,
-) as DatabaseStorage & AffiliateStorage & CourseStorage & ProductStorage;
+  orderStorage,
+) as DatabaseStorage & AffiliateStorage & CourseStorage & ProductStorage & OrderStorage;
