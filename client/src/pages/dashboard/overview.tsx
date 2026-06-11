@@ -73,7 +73,10 @@ function useCountUp(target: number, duration = 1200, enabled = true): number {
   const [value, setValue] = useState(0);
   const prevTarget = useRef(0);
   useEffect(() => {
-    if (!enabled || target === 0) { setValue(target); return; }
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (!enabled || target === 0 || reducedMotion) { setValue(target); return; }
     if (prevTarget.current === target) return;
     prevTarget.current = target;
     const start = performance.now();
@@ -356,19 +359,19 @@ function GettingStartedChecklist({ activeStore, storeProducts }: {
           </div>
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="tabular-nums">{progress}%</Badge>
-            {allDone && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setDismissed(true);
-                  try { localStorage.setItem(CHECKLIST_DISMISSED_KEY, "true"); } catch {}
-                }}
-                data-testid="button-dismiss-checklist"
-              >
-                Dismiss
-              </Button>
-            )}
+            {/* Always dismissible — a seller who skips payments or
+                customization shouldn't carry permanent dashboard clutter. */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setDismissed(true);
+                try { localStorage.setItem(CHECKLIST_DISMISSED_KEY, "true"); } catch {}
+              }}
+              data-testid="button-dismiss-checklist"
+            >
+              {allDone ? "Dismiss" : "Hide"}
+            </Button>
           </div>
         </div>
         <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
