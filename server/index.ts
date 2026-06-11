@@ -13,6 +13,7 @@ import { WebhookHandlers } from './webhookHandlers';
 import { runStartupCheck } from "./integrity";
 import { injectOgTags } from "./og-tags";
 import rateLimit from "express-rate-limit";
+import crypto from "node:crypto";
 
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err);
@@ -105,13 +106,63 @@ if (!process.env.PAYPAL_WEBHOOK_ID) {
 
 // SendGrid event webhook — receives bounce, complaint (spam report), and
 // unsubscribe events. Configure URL in SendGrid: https://app.sendgrid.com/settings/mail_settings
-// Optionally verify with ED25519 signature using SENDGRID_WEBHOOK_PUBLIC_KEY.
+//
+// SECURITY: fail-closed signature verification (same policy as Stripe/PayPal
+// above). SendGrid's "Signed Event Webhook" signs `timestamp + rawBody` with
+// an ECDSA P-256 key; we verify with the base64 DER public key from
+// SENDGRID_WEBHOOK_PUBLIC_KEY. Without verification, a forged POST could
+// suppress arbitrary buyer emails (bounce/complaint entries silently block
+// all future sends to that address).
+if (!process.env.SENDGRID_WEBHOOK_PUBLIC_KEY) {
+  console.warn("[SECURITY WARNING] SENDGRID_WEBHOOK_PUBLIC_KEY is not set — SendGrid webhook endpoint will reject all events with 503 until configured. Enable Signed Event Webhook in SendGrid settings and copy the verification key.");
+}
+
+function verifySendGridSignature(rawBody: Buffer, signature: string, timestamp: string): boolean {
+  try {
+    const publicKey = crypto.createPublicKey({
+      key: Buffer.from(process.env.SENDGRID_WEBHOOK_PUBLIC_KEY!, "base64"),
+      format: "der",
+      type: "spki",
+    });
+    const verifier = crypto.createVerify("sha256");
+    verifier.update(timestamp);
+    verifier.update(rawBody);
+    return verifier.verify(publicKey, Buffer.from(signature, "base64"));
+  } catch {
+    return false;
+  }
+}
+
 app.post(
   '/api/sendgrid/webhook',
-  express.json({ limit: '512kb' }),
+  express.raw({ type: 'application/json', limit: '512kb' }),
   async (req, res) => {
+    if (!process.env.SENDGRID_WEBHOOK_PUBLIC_KEY) {
+      return res.status(503).json({ error: 'Webhook verification not configured' });
+    }
+    const signature = req.get('X-Twilio-Email-Event-Webhook-Signature');
+    const timestamp = req.get('X-Twilio-Email-Event-Webhook-Timestamp');
+    if (!signature || !timestamp) {
+      return res.status(401).json({ error: 'Missing signature headers' });
+    }
+    // Replay protection: reject events older than 10 minutes.
+    const ts = Number(timestamp);
+    if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > 600) {
+      return res.status(401).json({ error: 'Stale or invalid timestamp' });
+    }
+    const rawBody = req.body as Buffer;
+    if (!Buffer.isBuffer(rawBody) || !verifySendGridSignature(rawBody, signature, timestamp)) {
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
     try {
-      const events = Array.isArray(req.body) ? req.body : [];
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(rawBody.toString('utf-8'));
+      } catch {
+        return res.status(400).json({ error: 'Invalid JSON payload' });
+      }
+      const events = Array.isArray(parsed) ? parsed : [];
       // Lazy import so this module doesn't pull storage during top-level init.
       const { storage } = await import('./storage');
       for (const ev of events) {
