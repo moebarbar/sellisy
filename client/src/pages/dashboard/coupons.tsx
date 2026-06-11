@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError } from "@/components/ui/field-error";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -194,6 +195,21 @@ function CreateCouponForm({ storeId, onSuccess }: { storeId: string; onSuccess: 
   const [discountValue, setDiscountValue] = useState("");
   const [maxUses, setMaxUses] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [errors, setErrors] = useState<{ code?: string; value?: string }>({});
+
+  const validate = (): boolean => {
+    const next: { code?: string; value?: string } = {};
+    if (!code.trim()) next.code = "Enter a coupon code.";
+    else if (code.length < 3) next.code = "Code must be at least 3 characters.";
+    const num = parseFloat(discountValue);
+    if (!discountValue || isNaN(num) || num <= 0) {
+      next.value = discountType === "PERCENT" ? "Enter a percentage above 0." : "Enter an amount above $0.";
+    } else if (discountType === "PERCENT" && num > 100) {
+      next.value = "Percentage can't exceed 100.";
+    }
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -212,7 +228,11 @@ function CreateCouponForm({ storeId, onSuccess }: { storeId: string; onSuccess: 
       onSuccess();
     },
     onError: (err: any) => {
-      toast({ title: "Failed to create coupon", description: err.message, variant: "destructive" });
+      if (/exists|duplicate|taken/i.test(err.message)) {
+        setErrors((e) => ({ ...e, code: "A coupon with this code already exists." }));
+      } else {
+        toast({ title: "Failed to create coupon", description: err.message, variant: "destructive" });
+      }
     },
   });
 
@@ -224,9 +244,15 @@ function CreateCouponForm({ storeId, onSuccess }: { storeId: string; onSuccess: 
           id="coupon-code"
           placeholder="e.g. SAVE20"
           value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+          onChange={(e) => {
+            setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+            setErrors((er) => ({ ...er, code: undefined }));
+          }}
+          aria-invalid={!!errors.code}
+          aria-describedby={errors.code ? "coupon-code-error" : undefined}
           data-testid="input-coupon-code"
         />
+        <FieldError id="coupon-code-error" error={errors.code} />
       </div>
       <div className="space-y-2">
         <Label>Discount Type</Label>
@@ -252,9 +278,15 @@ function CreateCouponForm({ storeId, onSuccess }: { storeId: string; onSuccess: 
           step={discountType === "PERCENT" ? "1" : "0.01"}
           placeholder={discountType === "PERCENT" ? "20" : "5.00"}
           value={discountValue}
-          onChange={(e) => setDiscountValue(e.target.value)}
+          onChange={(e) => {
+            setDiscountValue(e.target.value);
+            setErrors((er) => ({ ...er, value: undefined }));
+          }}
+          aria-invalid={!!errors.value}
+          aria-describedby={errors.value ? "coupon-value-error" : undefined}
           data-testid="input-coupon-value"
         />
+        <FieldError id="coupon-value-error" error={errors.value} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="coupon-max-uses">Max Uses (optional)</Label>
@@ -280,8 +312,8 @@ function CreateCouponForm({ storeId, onSuccess }: { storeId: string; onSuccess: 
       </div>
       <Button
         className="w-full"
-        disabled={!code.trim() || !discountValue || parseFloat(discountValue) <= 0 || createMutation.isPending}
-        onClick={() => createMutation.mutate()}
+        disabled={createMutation.isPending}
+        onClick={() => validate() && createMutation.mutate()}
         data-testid="button-submit-coupon"
       >
         {createMutation.isPending ? "Creating..." : "Create Coupon"}

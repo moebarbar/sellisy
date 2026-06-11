@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError } from "@/components/ui/field-error";
 import { Link } from "wouter";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -143,6 +144,7 @@ function InlineStoreCreation() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [template, setTemplate] = useState("neon");
+  const [slugError, setSlugError] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -159,15 +161,21 @@ function InlineStoreCreation() {
       setName("");
       setSlug("");
       setTemplate("neon");
+      setSlugError(null);
     },
     onError: (err: any) => {
-      toast({ title: "Failed to create store", description: err.message, variant: "destructive" });
+      if (/slug|taken|409/i.test(err.message)) {
+        setSlugError("That URL slug is already taken — try another.");
+      } else {
+        toast({ title: "Failed to create store", description: err.message, variant: "destructive" });
+      }
     },
   });
 
   const handleNameChange = (value: string) => {
     setName(value);
     setSlug(value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, ""));
+    setSlugError(null);
   };
 
   return (
@@ -219,11 +227,17 @@ function InlineStoreCreation() {
                       id="onboard-store-slug"
                       data-testid="input-store-slug"
                       value={slug}
-                      onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                      onChange={(e) => {
+                        setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+                        setSlugError(null);
+                      }}
                       placeholder="my-store"
+                      aria-invalid={!!slugError}
+                      aria-describedby={slugError ? "onboard-store-slug-error" : undefined}
                       required
                     />
                   </div>
+                  <FieldError id="onboard-store-slug-error" error={slugError} />
                 </div>
               </div>
 

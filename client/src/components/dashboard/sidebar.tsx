@@ -26,6 +26,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { FieldError } from "@/components/ui/field-error";
 import { TemplateSelector } from "@/components/dashboard/template-selector";
 import {
   ShoppingBag,
@@ -232,6 +233,7 @@ export function CreateStoreDialog({ open, onClose }: { open: boolean; onClose: (
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [template, setTemplate] = useState("neon");
+  const [slugError, setSlugError] = useState<string | null>(null);
   const { toast } = useToast();
   const { setActiveStoreId } = useActiveStore();
 
@@ -250,16 +252,23 @@ export function CreateStoreDialog({ open, onClose }: { open: boolean; onClose: (
       setName("");
       setSlug("");
       setTemplate("neon");
+      setSlugError(null);
       onClose();
     },
     onError: (err: any) => {
-      toast({ title: "Failed to create store", description: err.message, variant: "destructive" });
+      // Slug conflicts render inline at the field; other failures toast.
+      if (/slug|taken|409/i.test(err.message)) {
+        setSlugError("That URL slug is already taken — try another.");
+      } else {
+        toast({ title: "Failed to create store", description: err.message, variant: "destructive" });
+      }
     },
   });
 
   const handleNameChange = (value: string) => {
     setName(value);
     setSlug(value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, ""));
+    setSlugError(null);
   };
 
   return (
@@ -295,11 +304,17 @@ export function CreateStoreDialog({ open, onClose }: { open: boolean; onClose: (
                 id="store-slug"
                 data-testid="input-store-slug"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                onChange={(e) => {
+                  setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+                  setSlugError(null);
+                }}
                 placeholder="my-store"
+                aria-invalid={!!slugError}
+                aria-describedby={slugError ? "store-slug-error" : undefined}
                 required
               />
             </div>
+            <FieldError id="store-slug-error" error={slugError} />
           </div>
           <div className="space-y-2">
             <Label>Template</Label>
