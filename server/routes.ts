@@ -943,7 +943,27 @@ ${urls}</urlset>`;
       isFeatured: sp.isFeatured,
       storeProductId: sp.id,
     });
-    res.json({ store: sanitizeStore(store), product: effectiveProduct, images });
+
+    // Pre-purchase order bump — the seller-configured upsell product,
+    // surfaced as an add-on checkbox at the buy button. Only returned if
+    // the upsell is a different, published product in this store.
+    let orderBump: { productId: string; title: string; priceCents: number; thumbnailUrl: string | null } | null = null;
+    if (sp.upsellProductId && sp.upsellProductId !== product.id) {
+      const bumpSp = await storage.getStoreProductByStoreAndProduct(store.id, sp.upsellProductId);
+      if (bumpSp?.isPublished) {
+        const bumpProduct = await storage.getProductById(sp.upsellProductId);
+        if (bumpProduct) {
+          orderBump = {
+            productId: bumpProduct.id,
+            title: bumpSp.customTitle || bumpProduct.title,
+            priceCents: bumpSp.customPriceCents ?? bumpProduct.priceCents,
+            thumbnailUrl: bumpProduct.thumbnailUrl,
+          };
+        }
+      }
+    }
+
+    res.json({ store: sanitizeStore(store), product: effectiveProduct, images, orderBump });
   });
 
   app.get("/api/storefront/:slug/bundle/:bundleId", async (req, res) => {

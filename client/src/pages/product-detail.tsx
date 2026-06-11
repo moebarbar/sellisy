@@ -12,10 +12,18 @@ import { validatePwywAmount } from "@shared/pwyw";
 import { getStoreBasePath } from "@/lib/utils";
 import type { Store, Product, ProductImage } from "@shared/schema";
 
+type OrderBump = {
+  productId: string;
+  title: string;
+  priceCents: number;
+  thumbnailUrl: string | null;
+};
+
 type ProductDetailData = {
   store: Store;
   product: Product;
   images?: ProductImage[];
+  orderBump?: OrderBump | null;
 };
 
 type PDPMode = "dark" | "light";
@@ -82,6 +90,10 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
   const [couponCode, setCouponCode] = useState("");
   const [couponError, setCouponError] = useState("");
   const [buying, setBuying] = useState(false);
+  // Pre-purchase order bump: buyer opted to add the seller-configured
+  // upsell to this checkout. Hidden for PWYW products (the multi-item
+  // checkout path doesn't carry a PWYW override).
+  const [bumpChecked, setBumpChecked] = useState(false);
   // Pay-what-you-want: dollar-string input the buyer can edit when the
   // product has pwywEnabled. Initialized once data loads (below).
   const [pwywPrice, setPwywPrice] = useState<string>("");
@@ -170,9 +182,12 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
     setBuying(true);
     setCouponError("");
     try {
-      const body: any = { storeId: data.store.id, productId: data.product.id };
+      const includeBump = bumpChecked && data.orderBump && !pwywEnabled;
+      const body: any = includeBump
+        ? { storeId: data.store.id, items: [{ productId: data.product.id }, { productId: data.orderBump!.productId }] }
+        : { storeId: data.store.id, productId: data.product.id };
       if (couponCode.trim()) body.couponCode = couponCode.trim();
-      if (pwywPriceCents != null) body.pwywPriceCents = pwywPriceCents;
+      if (pwywPriceCents != null && !includeBump) body.pwywPriceCents = pwywPriceCents;
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -717,10 +732,46 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
                     <p className="mt-2 text-sm" style={{ color: "#ef4444" }} data-testid="text-coupon-error">{couponError}</p>
                   )}
 
+                  {data.orderBump && !(product as any).pwywEnabled && (
+                    <label
+                      className="mt-4 flex items-center gap-3 rounded-xl p-3 cursor-pointer transition-colors"
+                      style={{
+                        background: c.cardBg,
+                        border: `1px dashed ${bumpChecked ? c.accent : c.cardBorder}`,
+                      }}
+                      data-testid="label-order-bump"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={bumpChecked}
+                        onChange={(e) => setBumpChecked(e.target.checked)}
+                        className="h-4 w-4 shrink-0 accent-current"
+                        style={{ color: c.accent }}
+                        data-testid="checkbox-order-bump"
+                      />
+                      {data.orderBump.thumbnailUrl && (
+                        <img src={data.orderBump.thumbnailUrl} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" />
+                      )}
+                      <span className="flex-1 min-w-0 text-sm" style={{ color: c.text }}>
+                        <span className="font-semibold">Add {data.orderBump.title}</span>
+                        <span className="block text-xs" style={{ color: c.textSec }}>
+                          One checkout, instant delivery for both
+                        </span>
+                      </span>
+                      <span className="font-bold text-sm whitespace-nowrap" style={{ color: c.accent }} data-testid="text-order-bump-price">
+                        +{formatPrice(data.orderBump.priceCents)}
+                      </span>
+                    </label>
+                  )}
+
                   <div className="mt-4">
                     <Button className="pdp-buy-btn w-full sm:w-auto font-semibold text-base border-0 no-default-hover-elevate no-default-active-elevate px-10 py-6 rounded-xl" size="lg" onClick={handleBuy} disabled={buying} data-testid="button-buy-product">
                       {isSoftware ? <Key className="mr-2 h-5 w-5" /> : <ShoppingBag className="mr-2 h-5 w-5" />}
-                      {buying ? "Processing..." : isSoftware ? "Get This Deal" : "Buy Now"}
+                      {buying
+                        ? "Processing..."
+                        : bumpChecked && data.orderBump
+                          ? `Buy Both — ${formatPrice(product.priceCents + data.orderBump.priceCents)}`
+                          : isSoftware ? "Get This Deal" : "Buy Now"}
                     </Button>
                   </div>
 
