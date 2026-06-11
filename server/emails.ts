@@ -201,6 +201,32 @@ export async function sendLeadMagnetEmail(params: {
   }
 }
 
+// ─── 3b. REVIEW REQUEST (post-purchase, delayed) ────────────────────
+
+export async function sendReviewRequestEmail(params: {
+  buyerEmail: string;
+  storeName: string;
+  productTitle: string;
+  reviewUrl: string;
+}) {
+  const { buyerEmail, storeName, productTitle, reviewUrl } = params;
+  const safeStoreName = escapeHtml(storeName);
+  const safeProductTitle = escapeHtml(productTitle);
+
+  const content = `
+    ${sectionHeading('How are you liking it?')}
+    ${bodyText(`A few days ago you picked up <strong>${safeProductTitle}</strong> from <strong>${safeStoreName}</strong>. If you've had a chance to dig in, a quick review would mean a lot — it helps other buyers know what to expect and helps ${safeStoreName} improve.`)}
+    ${ctaButton('Leave a Review', reviewUrl)}
+    ${divider()}
+    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">It takes under a minute — a star rating and a sentence is plenty.</p>`;
+
+  await sendEmail(
+    buyerEmail,
+    `How's ${sanitizeHeader(productTitle)} working out?`,
+    baseLayout(content, `Quick favor — leave a review for your purchase from ${sanitizeHeader(storeName)}.`)
+  );
+}
+
 // ─── 4. NEW ORDER NOTIFICATION (to store owner) ─────────────────────
 
 export async function sendNewOrderNotificationEmail(params: {

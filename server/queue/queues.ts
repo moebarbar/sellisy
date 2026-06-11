@@ -20,3 +20,16 @@ export const gumroadWelcomeEmailsQueue = new Queue('gumroad-welcome-emails', {
     removeOnFail: { count: 100 },
   },
 });
+
+// Post-purchase review requests. Jobs are enqueued with a multi-day delay
+// at order completion (see orderEmailHelper.ts) and a deterministic jobId
+// of review-request-<orderId> so re-processing a webhook can't double-book.
+export const reviewRequestQueue = new Queue('review-request', {
+  connection: redisConnection,
+  defaultJobOptions: {
+    attempts: 2,
+    backoff: { type: 'exponential', delay: 60_000 },
+    removeOnComplete: { count: 200 },
+    removeOnFail: { count: 200 },
+  },
+});

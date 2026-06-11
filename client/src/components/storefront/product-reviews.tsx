@@ -154,7 +154,7 @@ export function ProductReviews({
   const myReview = customer ? data.reviews.find((r) => r.customerId === customer.customerId) : null;
 
   return (
-    <section className="pdp-fade-in" data-testid="product-reviews" style={{ scrollMarginTop: 80 }}>
+    <section id="reviews" className="pdp-fade-in" data-testid="product-reviews" style={{ scrollMarginTop: 80 }}>
       <div className="pdp-card p-6 sm:p-8 space-y-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">

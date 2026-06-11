@@ -65,6 +65,22 @@ export async function startWorkers() {
   }
 
   try {
+    const { processReviewRequest } = await import('../jobs/review-request');
+    const reviewRequestWorker = new Worker(
+      'review-request',
+      async (job) => processReviewRequest(job),
+      { connection: redisConnection, concurrency: 1, limiter: { max: 60, duration: 60_000 } },
+    );
+    attachFailHandler(reviewRequestWorker, 'review-request');
+    reviewRequestWorker.on('completed', (job) => {
+      console.log(`[review-request] job ${job.id} completed`);
+    });
+    console.log('[queue] review-request worker started');
+  } catch (err: any) {
+    console.warn('[queue] review-request worker not started:', err.message);
+  }
+
+  try {
     const { processGumroadWelcomeEmails } = await import('../jobs/gumroad-welcome-emails');
     const welcomeEmailsWorker = new Worker(
       'gumroad-welcome-emails',

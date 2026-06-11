@@ -78,6 +78,24 @@ export async function sendOrderCompletionEmails(orderId: string, baseUrl: string
     }
 
     console.log("sendOrderCompletionEmails: emails sent for order:", orderId);
+
+    // Queue the review-request follow-up 3 days out. Best-effort: a Redis
+    // outage must not fail the confirmation email path. Deterministic jobId
+    // makes duplicate webhook deliveries a no-op, and the job re-validates
+    // (store reviewsEnabled, existing review, refund) at send time.
+    if (store?.reviewsEnabled && process.env.REDIS_URL) {
+      try {
+        const { reviewRequestQueue } = await import("./queue/queues");
+        await reviewRequestQueue.add(
+          "review-request",
+          { orderId, baseUrl },
+          { jobId: `review-request-${orderId}`, delay: 3 * 24 * 60 * 60 * 1000 },
+        );
+      } catch (err) {
+        console.error("sendOrderCompletionEmails: failed to queue review request:", orderId, err);
+      }
+    }
+
     return true;
   } catch (err) {
     console.error("sendOrderCompletionEmails: email send failed, reverting flag:", orderId, err);
