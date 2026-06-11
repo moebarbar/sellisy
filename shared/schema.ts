@@ -135,6 +135,12 @@ export const stores = pgTable("stores", {
   affiliateTermsHtml: text("affiliate_terms_html"),
   stripeTaxEnabled: boolean("stripe_tax_enabled").notNull().default(false),
   pdfWatermarkEnabled: boolean("pdf_watermark_enabled").notNull().default(false),
+  // Growth Engine automation toggles (migration 0024). All default ON —
+  // these recover/derive revenue for the seller and every email honors
+  // the suppression list; sellers can opt out per store in Settings.
+  cartRecoveryEnabled: boolean("cart_recovery_enabled").notNull().default(true),
+  postPurchaseEmailEnabled: boolean("post_purchase_email_enabled").notNull().default(true),
+  newsletterWelcomeEnabled: boolean("newsletter_welcome_enabled").notNull().default(true),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -285,6 +291,10 @@ export const orders = pgTable("orders", {
   couponId: varchar("coupon_id", { length: 64 }),
   status: orderStatusEnum("status").notNull().default("PENDING"),
   emailSent: boolean("email_sent").notNull().default(false),
+  // Abandoned-checkout recovery (migration 0024): set when the recovery
+  // email goes out so a re-delivered session.expired webhook can't
+  // double-send. Stays null for completed/never-expired checkouts.
+  recoveryEmailSentAt: timestamp("recovery_email_sent_at"),
   refundedAt: timestamp("refunded_at"),
   refundedAmountCents: integer("refunded_amount_cents").notNull().default(0),
   refundReason: text("refund_reason"),
