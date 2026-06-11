@@ -549,7 +549,16 @@ ${urls}</urlset>`;
       return res.status(404).json({ message: "Store not found" });
     }
     try {
-      const customerData = await storage.getStoreCustomers(storeId as string);
+      // Paginated with a hard cap — the aggregate query is expensive on
+      // large stores. Response stays a plain array for client back-compat;
+      // the full count is exposed via X-Total-Count for future paging UI.
+      const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "500"), 10) || 500, 1), 500);
+      const offset = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
+      const [customerData, total] = await Promise.all([
+        storage.getStoreCustomers(storeId as string, { limit, offset }),
+        storage.countStoreCustomers(storeId as string),
+      ]);
+      res.set("X-Total-Count", String(total));
       return res.json(customerData);
     } catch (err) {
       console.error("Get store customers error:", err);

@@ -107,7 +107,8 @@ export interface IStorage {
   deleteAttachment(id: string): Promise<void>;
 
   createStoreEvent(event: InsertStoreEvent): Promise<StoreEvent>;
-  getStoreCustomers(storeId: string): Promise<{ id: string; email: string; name: string | null; createdAt: Date; totalSpent: number; orderCount: number; lastOrderDate: Date | null; products: string[] }[]>;
+  getStoreCustomers(storeId: string, opts?: { limit?: number; offset?: number }): Promise<{ id: string; email: string; name: string | null; createdAt: Date; totalSpent: number; orderCount: number; lastOrderDate: Date | null; products: string[] }[]>;
+  countStoreCustomers(storeId: string): Promise<number>;
   updateCustomerName(customerId: string, name: string): Promise<void>;
 
   getBlogPostsByStore(storeId: string): Promise<BlogPost[]>;
@@ -585,7 +586,13 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async getStoreCustomers(storeId: string) {
+  // opts.limit caps the result set (dashboard list passes a cap; the Excel
+  // export passes none for a full dump). The GROUP BY + ARRAY_AGG is
+  // expensive on large stores, so unbounded calls should be deliberate.
+  async getStoreCustomers(storeId: string, opts?: { limit?: number; offset?: number }) {
+    const limitClause = opts?.limit != null
+      ? sql`LIMIT ${opts.limit} OFFSET ${opts?.offset ?? 0}`
+      : sql``;
     const rows = await db.execute(sql`
       SELECT
         c.id,
@@ -606,8 +613,19 @@ export class DatabaseStorage implements IStorage {
       WHERE o.store_id = ${storeId}
       GROUP BY c.id, c.email, c.name, c.created_at
       ORDER BY "totalSpent" DESC
+      ${limitClause}
     `);
     return rows.rows as any;
+  }
+
+  async countStoreCustomers(storeId: string): Promise<number> {
+    const result = await db.execute(sql`
+      SELECT COUNT(DISTINCT c.id)::int AS count
+      FROM customers c
+      JOIN orders o ON (o.customer_id = c.id OR LOWER(o.buyer_email) = LOWER(c.email))
+      WHERE o.store_id = ${storeId}
+    `);
+    return (result.rows[0] as any)?.count ?? 0;
   }
 
   async updateCustomerName(customerId: string, name: string) {
