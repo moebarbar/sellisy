@@ -353,6 +353,99 @@ storesRouter.patch("/api/stores/:id/newsletter-campaigns/:campaignId/blocks/:blo
   res.json(updated);
 });
 
+// AI campaign drafting. The seller describes the email in a sentence; we
+// hand Claude the store's voice (name, tagline) + a sample of its published
+// products and get back a subject + block list, which is appended to the
+// draft campaign. The seller edits/deletes blocks with the normal editor —
+// this drafts, it doesn't send.
+storesRouter.post("/api/stores/:id/newsletter-campaigns/:campaignId/ai-draft", isAuthenticated, async (req, res) => {
+  const store = await storage.getStoreById(req.params.id as string);
+  if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+  const campaign = await storage.getCampaignById(req.params.campaignId as string);
+  if (!campaign || campaign.storeId !== store.id) return res.status(404).json({ message: "Not found" });
+  if (campaign.status === "sent") return res.status(400).json({ message: "Cannot edit a sent campaign" });
+
+  const schema = z.object({ prompt: z.string().min(3).max(500) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: "Describe what the email should say (3-500 chars)" });
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(503).json({ message: "AI drafting is not configured" });
+
+  try {
+    const storeProducts = await storage.getStoreProducts(store.id);
+    const published = storeProducts.filter((sp: any) => sp.isPublished).slice(0, 6);
+    const productLines = published.map((sp: any) =>
+      `- ${sp.customTitle || sp.product?.title} ($${(((sp.customPriceCents ?? sp.product?.priceCents) || 0) / 100).toFixed(2)})`
+    ).join("\n");
+
+    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2000,
+        messages: [{
+          role: "user",
+          content: `You write newsletter emails for "${store.name}"${store.tagline ? ` (${store.tagline})` : ""}, a digital product storefront.
+${productLines ? `Their current products:\n${productLines}\n` : ""}
+Write a newsletter email based on this brief from the store owner: "${parsed.data.prompt}"
+
+Respond with ONLY a JSON object, no markdown fences, in this exact shape:
+{"subject": "...", "blocks": [{"type": "heading1"|"text"|"quote"|"callout"|"divider"|"bullet_list", "content": "..."}]}
+
+Rules: 4-8 blocks. Friendly, confident, concise — no hype-speak, no emoji spam. bullet_list content uses newline-separated items. divider blocks have empty content. Don't invent discounts, prices, or URLs that weren't in the brief.`,
+        }],
+      }),
+    });
+    if (!aiRes.ok) {
+      console.error("[ai-draft] Anthropic error:", aiRes.status, await aiRes.text().then(t => t.slice(0, 200)));
+      return res.status(502).json({ message: "AI drafting failed — try again" });
+    }
+    const json = await aiRes.json() as any;
+    const raw = json?.content?.[0]?.text ?? "";
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "");
+    let draft: { subject?: string; blocks?: { type?: string; content?: string }[] };
+    try {
+      draft = JSON.parse(cleaned);
+    } catch {
+      console.error("[ai-draft] unparseable response:", cleaned.slice(0, 200));
+      return res.status(502).json({ message: "AI drafting returned an invalid draft — try again" });
+    }
+
+    const ALLOWED = new Set(["text", "heading1", "heading2", "heading3", "quote", "callout", "divider", "bullet_list", "numbered_list"]);
+    const blocks = (draft.blocks ?? [])
+      .filter((b) => b && ALLOWED.has(b.type ?? "") && typeof b.content === "string")
+      .slice(0, 12);
+    if (blocks.length === 0) return res.status(502).json({ message: "AI drafting returned an empty draft — try again" });
+
+    // Append after any existing blocks; update the subject on drafts.
+    const existing = await storage.getBlocksByCampaign(campaign.id);
+    let sortOrder = existing.length;
+    const created = [];
+    for (const b of blocks) {
+      created.push(await storage.createCampaignBlock({
+        campaignId: campaign.id,
+        type: b.type as any,
+        content: b.content!,
+        sortOrder: sortOrder++,
+      }));
+    }
+    if (draft.subject && typeof draft.subject === "string") {
+      await storage.updateCampaign(campaign.id, { subject: draft.subject.slice(0, 200) });
+    }
+
+    res.json({ subject: draft.subject ?? campaign.subject, blocks: created });
+  } catch (err: any) {
+    console.error("[ai-draft] error:", err.message);
+    res.status(500).json({ message: "AI drafting failed" });
+  }
+});
+
 storesRouter.delete("/api/stores/:id/newsletter-campaigns/:campaignId/blocks/:blockId", isAuthenticated, async (req, res) => {
   const store = await storage.getStoreById(req.params.id as string);
   if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });

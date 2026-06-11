@@ -37,6 +37,7 @@ import {
   MoreHorizontal,
   ArrowUp,
   ArrowDown,
+  Sparkles,
 } from "lucide-react";
 import type { NewsletterCampaign, NewsletterCampaignBlock, NewsletterSubscriber } from "@shared/schema";
 
@@ -78,6 +79,7 @@ export default function NewsletterCampaignEditorPage() {
   const [subject, setSubject] = useState("");
   const [subjectSaved, setSubjectSaved] = useState(true);
   const [showSendConfirm, setShowSendConfirm] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
 
   const { data: campaign, isLoading: loadingCampaign } = useQuery<NewsletterCampaign>({
     queryKey: ["/api/newsletter-campaigns", campaignId],
@@ -180,6 +182,24 @@ export default function NewsletterCampaignEditorPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/newsletter-campaign-blocks", campaignId] });
     },
+  });
+
+  const aiDraftMutation = useMutation({
+    mutationFn: async (prompt: string) => {
+      const res = await apiRequest("POST", `/api/stores/${activeStore!.id}/newsletter-campaigns/${campaignId}/ai-draft`, { prompt });
+      return res.json();
+    },
+    onSuccess: (data: { subject: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/newsletter-campaign-blocks", campaignId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/newsletter-campaigns", campaignId] });
+      if (data.subject) {
+        setSubject(data.subject);
+        setSubjectSaved(true);
+      }
+      setAiPrompt("");
+      toast({ title: "Draft ready", description: "AI blocks added — edit or delete anything before sending." });
+    },
+    onError: (err: Error) => toast({ title: "AI draft failed", description: err.message, variant: "destructive" }),
   });
 
   const sendMutation = useMutation({
@@ -300,6 +320,36 @@ export default function NewsletterCampaignEditorPage() {
               ))
             )}
           </div>
+
+          {/* AI draft */}
+          {!isSent && (
+            <div className="flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 p-3" data-testid="ai-draft-bar">
+              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+              <Input
+                placeholder='Describe the email — e.g. "announce my new Notion template bundle"'
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && aiPrompt.trim().length >= 3 && !aiDraftMutation.isPending) {
+                    aiDraftMutation.mutate(aiPrompt.trim());
+                  }
+                }}
+                className="border-0 bg-transparent focus-visible:ring-0 px-0"
+                data-testid="input-ai-prompt"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                disabled={aiPrompt.trim().length < 3 || aiDraftMutation.isPending}
+                onClick={() => aiDraftMutation.mutate(aiPrompt.trim())}
+                data-testid="button-ai-draft"
+              >
+                {aiDraftMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1.5" />}
+                {aiDraftMutation.isPending ? "Drafting..." : "Draft with AI"}
+              </Button>
+            </div>
+          )}
 
           {/* Add block */}
           {!isSent && (
