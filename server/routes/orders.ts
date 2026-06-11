@@ -467,6 +467,76 @@ ordersRouter.post("/api/checkout", async (req, res) => {
   }
 });
 
+// Abandoned-checkout resume link (from the recovery email). Mints a fresh
+// Stripe session for the SAME pending order — coupon discount is already
+// baked into order.totalCents and affiliate attribution lives on the order
+// row, so both survive the round trip. HMAC token gates access; everything
+// else (status, store, Stripe config) is re-validated here because days may
+// have passed.
+ordersRouter.get("/api/checkout/recover/:orderId/:token", async (req, res) => {
+  const { orderId, token } = req.params as { orderId: string; token: string };
+  const { verifyRecoveryToken } = await import("../crypto/recovery-token");
+  if (!verifyRecoveryToken(orderId, token)) {
+    return res.redirect("/");
+  }
+
+  const order = await storage.getOrderById(orderId);
+  if (!order) return res.redirect("/");
+  const store = await storage.getStoreById(order.storeId);
+  if (!store) return res.redirect("/");
+
+  // Already paid (maybe via the original link) → show their order.
+  if (order.status === "COMPLETED") {
+    return res.redirect(`/checkout/success?order_id=${orderId}`);
+  }
+  if (order.status !== "PENDING" || !store.stripeSecretKey || order.totalCents <= 0) {
+    return res.redirect(`/s/${store.slug}`);
+  }
+
+  try {
+    const items = await storage.getOrderItemsByOrder(orderId);
+    const itemName = items.length === 1
+      ? items[0].product.title
+      : `${items.length} items from ${store.name}`;
+
+    const stripe = new Stripe(decryptPaymentSecret(store.stripeSecretKey)!, { apiVersion: '2025-11-17.clover' as any });
+    const taxEnabled = !!store.stripeTaxEnabled;
+    const appUrl = getAppUrl(req);
+
+    const productData: any = { name: itemName };
+    if (taxEnabled) productData.tax_code = 'txcd_10103000';
+    const priceData: any = { currency: 'usd', product_data: productData, unit_amount: order.totalCents };
+    if (taxEnabled) priceData.tax_behavior = 'exclusive';
+
+    const sessionParams: any = {
+      mode: 'payment',
+      line_items: [{ price_data: priceData, quantity: 1 }],
+      metadata: {
+        orderId: order.id,
+        storeId: store.id,
+        couponId: order.couponId || '',
+        affiliateId: order.affiliateId || '',
+      },
+      success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/s/${store.slug}`,
+    };
+    if (taxEnabled) {
+      sessionParams.automatic_tax = { enabled: true };
+      sessionParams.billing_address_collection = 'required';
+    }
+    if (order.buyerEmail && order.buyerEmail !== "pending@checkout.com") {
+      sessionParams.customer_email = order.buyerEmail;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+    await db.update(orders).set({ stripeSessionId: session.id, updatedAt: new Date() }).where(eq(orders.id, order.id));
+    return res.redirect(303, session.url!);
+  } catch (error: any) {
+    console.error("[recovery] resume checkout failed for order:", orderId, error.message);
+    return res.redirect(`/s/${store.slug}`);
+  }
+});
+
 ordersRouter.get("/api/paypal/capture", async (req, res) => {
   const { token: paypalToken, orderId, storeSlug } = req.query as { token?: string; orderId?: string; storeSlug?: string };
   if (!paypalToken || !orderId) {

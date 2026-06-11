@@ -201,6 +201,45 @@ export async function sendLeadMagnetEmail(params: {
   }
 }
 
+// ─── 3a. ABANDONED CHECKOUT RECOVERY ────────────────────────────────
+
+export async function sendCartRecoveryEmail(params: {
+  buyerEmail: string;
+  storeName: string;
+  items: { title: string; priceCents: number }[];
+  totalCents: number;
+  recoverUrl: string;
+}) {
+  const { buyerEmail, storeName, items, totalCents, recoverUrl } = params;
+  const safeStoreName = escapeHtml(storeName);
+
+  const itemRows = items.map((i) => `
+    <tr>
+      <td style="padding:8px 0;color:#374151;font-size:14px;">${escapeHtml(i.title)}</td>
+      <td style="padding:8px 0;color:#374151;font-size:14px;text-align:right;">$${(i.priceCents / 100).toFixed(2)}</td>
+    </tr>`).join("");
+
+  const content = `
+    ${sectionHeading('You left something behind')}
+    ${bodyText(`Your order from <strong>${safeStoreName}</strong> is still waiting. Your items are saved — pick up right where you left off.`)}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 16px;">
+      ${itemRows}
+      <tr>
+        <td style="padding:12px 0 0;color:#111827;font-weight:700;font-size:14px;border-top:1px solid #e5e7eb;">Total</td>
+        <td style="padding:12px 0 0;color:#111827;font-weight:700;font-size:14px;text-align:right;border-top:1px solid #e5e7eb;">$${(totalCents / 100).toFixed(2)}</td>
+      </tr>
+    </table>
+    ${ctaButton('Complete Your Purchase', recoverUrl)}
+    ${divider()}
+    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">Instant delivery the moment payment completes. If you've changed your mind, just ignore this email.</p>`;
+
+  await sendEmail(
+    buyerEmail,
+    `Your ${sanitizeHeader(storeName)} order is waiting`,
+    baseLayout(content, `Complete your purchase from ${sanitizeHeader(storeName)} — your items are saved.`)
+  );
+}
+
 // ─── 3b. REVIEW REQUEST (post-purchase, delayed) ────────────────────
 
 export async function sendReviewRequestEmail(params: {

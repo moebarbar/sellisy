@@ -100,6 +100,66 @@ export class WebhookHandlers {
       case 'refund.updated':
         await WebhookHandlers.handleStripeRefund(event.data.object, event.type);
         break;
+      case 'checkout.session.expired':
+        await WebhookHandlers.handleCheckoutExpired(event.data.object);
+        break;
+    }
+  }
+
+  /**
+   * Abandoned-checkout recovery. Stripe expires Checkout sessions ~24h
+   * after creation and includes customer_details.email when the buyer
+   * typed their email before leaving — that's our recovery audience.
+   * Sends one email with an HMAC-signed resume link that mints a fresh
+   * session for the SAME pending order (coupon discount + affiliate
+   * attribution carry over).
+   */
+  static async handleCheckoutExpired(session: any): Promise<void> {
+    const orderId = session.metadata?.orderId;
+    if (!orderId) return;
+    // Subscription signups have no order to recover.
+    if (session.metadata?.sellisy_signup === 'true') return;
+
+    try {
+      const order = await storage.getOrderById(orderId);
+      if (!order || order.status !== 'PENDING') return;
+
+      const email = session.customer_details?.email
+        || (order.buyerEmail && order.buyerEmail !== 'pending@checkout.com' ? order.buyerEmail : null);
+      if (!email) {
+        console.log(`[recovery] order ${orderId} expired with no buyer email — nothing to recover`);
+        return;
+      }
+
+      const store = await storage.getStoreById(order.storeId);
+      if (!store || !store.cartRecoveryEnabled) return;
+
+      // Atomic claim — only the first expired-session delivery sends.
+      const claimed = await db
+        .update(orders)
+        .set({ recoveryEmailSentAt: new Date(), buyerEmail: email, updatedAt: new Date() })
+        .where(and(eq(orders.id, orderId), isNull(orders.recoveryEmailSentAt)))
+        .returning({ id: orders.id });
+      if (claimed.length === 0) return;
+
+      const items = await storage.getOrderItemsByOrder(orderId);
+      const { makeRecoveryToken } = await import('./crypto/recovery-token');
+      const baseUrl = WebhookHandlers.getBaseUrl();
+      const recoverUrl = `${baseUrl}/api/checkout/recover/${orderId}/${makeRecoveryToken(orderId)}`;
+
+      const { sendCartRecoveryEmail } = await import('./emails');
+      await sendCartRecoveryEmail({
+        buyerEmail: email,
+        storeName: store.name,
+        items: items.map((i) => ({ title: i.product.title, priceCents: i.priceCents })),
+        totalCents: order.totalCents,
+        recoverUrl,
+      });
+
+      audit({ event: 'webhook.received', details: `Recovery email sent for expired checkout ${orderId} (${email})` });
+      console.log(`[recovery] sent recovery email for order ${orderId}`);
+    } catch (error: any) {
+      console.error('[recovery] handleCheckoutExpired error for order:', orderId, error);
     }
   }
 
