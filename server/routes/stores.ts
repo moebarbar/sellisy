@@ -118,6 +118,9 @@ storesRouter.patch("/api/stores/:id", isAuthenticated, async (req, res) => {
     reviewsEnabled: z.boolean().optional(),
     stripeTaxEnabled: z.boolean().optional(),
     pdfWatermarkEnabled: z.boolean().optional(),
+    cartRecoveryEnabled: z.boolean().optional(),
+    postPurchaseEmailEnabled: z.boolean().optional(),
+    newsletterWelcomeEnabled: z.boolean().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Invalid data" });

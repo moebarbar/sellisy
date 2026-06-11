@@ -15,7 +15,7 @@ import { TemplateSelector } from "@/components/dashboard/template-selector";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { DomainSettings } from "@/components/dashboard/domain-settings";
-import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon, CreditCard, CheckCircle2, XCircle, FileText, Megaphone, Globe, ExternalLink } from "lucide-react";
+import { Store, Loader2, AlertTriangle, Trash2, Upload, X, ImageIcon, CreditCard, CheckCircle2, XCircle, FileText, Megaphone, Globe, ExternalLink, Mail } from "lucide-react";
 import { ImageUploadField } from "@/components/image-upload-field";
 import { AboutSettingsCard } from "@/components/dashboard/about-settings";
 import { NewsletterSettingsCard } from "@/components/dashboard/newsletter-settings";
@@ -169,6 +169,8 @@ export default function StoreSettingsPage() {
       </div>
 
       <PaymentsCard />
+
+      <EmailAutomationsCard />
 
       <DomainSettings />
 
@@ -490,6 +492,78 @@ export default function StoreSettingsPage() {
         isPending={deleteMutation.isPending}
       />
     </div>
+  );
+}
+
+function EmailAutomationsCard() {
+  const { activeStore, activeStoreId } = useActiveStore();
+  const { toast } = useToast();
+
+  // Instant-save switches — each toggle PATCHes immediately, no Save button.
+  const toggleMutation = useMutation({
+    mutationFn: async (body: Record<string, boolean>) => {
+      await apiRequest("PATCH", `/api/stores/${activeStoreId}`, body);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to update automation", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (!activeStore) return null;
+  const s = activeStore as any;
+
+  const automations = [
+    {
+      key: "cartRecoveryEnabled",
+      label: "Abandoned checkout recovery",
+      description: "Email buyers who started checkout but didn't finish, with a one-click link to complete their order.",
+      checked: s.cartRecoveryEnabled !== false,
+    },
+    {
+      key: "postPurchaseEmailEnabled",
+      label: "Post-purchase recommendation",
+      description: "One day after a purchase, send a single recommendation based on your upsells and what buyers purchase together.",
+      checked: s.postPurchaseEmailEnabled !== false,
+    },
+    {
+      key: "newsletterWelcomeEnabled",
+      label: "Newsletter welcome email",
+      description: "Greet new subscribers instantly with a store-branded welcome.",
+      checked: s.newsletterWelcomeEnabled !== false,
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Mail className="h-4 w-4" />
+          Email Automations
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {automations.map((a) => (
+          <div key={a.key} className="flex items-center gap-3">
+            <div className="flex-1">
+              <Label className="text-sm font-medium">{a.label}</Label>
+              <p className="text-xs text-muted-foreground">{a.description}</p>
+            </div>
+            <Switch
+              checked={a.checked}
+              onCheckedChange={(checked) => toggleMutation.mutate({ [a.key]: checked })}
+              disabled={toggleMutation.isPending}
+              data-testid={`switch-${a.key}`}
+            />
+          </div>
+        ))}
+        <p className="text-xs text-muted-foreground pt-1 border-t">
+          Every automated email honors unsubscribes and bounces automatically. Buyers who opt out never receive another send.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
