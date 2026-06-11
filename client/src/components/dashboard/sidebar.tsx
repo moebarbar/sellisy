@@ -12,6 +12,7 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -50,23 +51,54 @@ import {
   GraduationCap,
 } from "lucide-react";
 
-const navItems = [
-  { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
-  { title: "Products", url: "/dashboard/products", icon: Package },
-  { title: "My Products", url: "/dashboard/my-products", icon: Sparkles },
-  { title: "Courses", url: "/dashboard/courses", icon: GraduationCap },
-  { title: "Products Library", url: "/dashboard/library", icon: ShoppingBag },
-  { title: "Content Creator", url: "/dashboard/content-creator", icon: PenTool },
-  { title: "Blog", url: "/dashboard/blog", icon: FileText },
-  { title: "Newsletter", url: "/dashboard/newsletter", icon: Mail },
-  { title: "Bundles", url: "/dashboard/bundles", icon: Layers },
-  { title: "Marketing", url: "/dashboard/marketing", icon: BookOpen },
-  { title: "Coupons", url: "/dashboard/coupons", icon: Ticket },
-  { title: "Affiliates", url: "/dashboard/affiliates", icon: Handshake },
-  { title: "Customers", url: "/dashboard/customers", icon: Users },
-  { title: "Orders", url: "/dashboard/orders", icon: ShoppingCart },
-  { title: "Settings", url: "/dashboard/settings", icon: Settings },
+// Grouped IA — five labeled sections instead of one flat 16-item list.
+// "Overview" and "Settings" sit outside the groups (always-visible anchors
+// at top and bottom).
+type NavItem = { title: string; url: string; icon: typeof Package };
+
+const navGroups: { label: string | null; items: NavItem[] }[] = [
+  {
+    label: null,
+    items: [{ title: "Overview", url: "/dashboard", icon: LayoutDashboard }],
+  },
+  {
+    label: "Sell",
+    items: [
+      { title: "Products", url: "/dashboard/products", icon: Package },
+      { title: "My Products", url: "/dashboard/my-products", icon: Sparkles },
+      { title: "Browse Library", url: "/dashboard/library", icon: ShoppingBag },
+      { title: "Bundles", url: "/dashboard/bundles", icon: Layers },
+      { title: "Orders", url: "/dashboard/orders", icon: ShoppingCart },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { title: "Courses", url: "/dashboard/courses", icon: GraduationCap },
+      { title: "Content Creator", url: "/dashboard/content-creator", icon: PenTool },
+      { title: "Blog", url: "/dashboard/blog", icon: FileText },
+    ],
+  },
+  {
+    label: "Grow",
+    items: [
+      { title: "Marketing", url: "/dashboard/marketing", icon: BookOpen },
+      { title: "Newsletter", url: "/dashboard/newsletter", icon: Mail },
+      { title: "Coupons", url: "/dashboard/coupons", icon: Ticket },
+      { title: "Affiliates", url: "/dashboard/affiliates", icon: Handshake },
+    ],
+  },
+  {
+    label: "Insights",
+    items: [
+      { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
+      { title: "Customers", url: "/dashboard/customers", icon: Users },
+    ],
+  },
+  {
+    label: null,
+    items: [{ title: "Settings", url: "/dashboard/settings", icon: Settings }],
+  },
 ];
 
 const TIER_BADGE_STYLES: Record<string, string> = {
@@ -80,6 +112,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const { tier, isAdmin, isOnTrial } = useUserProfile();
   const { setOpenMobile } = useSidebar();
+  const { activeStore } = useActiveStore();
 
   // Show "Earnings" nav only if this user is an affiliate for at least one store.
   // Cheap GET — same endpoint the earnings page uses.
@@ -104,54 +137,66 @@ export function AppSidebar() {
             SELL<span className="text-primary">I</span>SY
           </span>
         </Link>
+        {/* Active-store context. The header badge showing /s/<slug> is hidden
+            on mobile (hidden sm:flex in layout.tsx), so this is the only
+            which-store-am-I-editing signal when the drawer opens on a phone. */}
+        {activeStore && (
+          <span className="text-xs text-muted-foreground truncate" data-testid="text-sidebar-active-store">
+            {activeStore.name}
+          </span>
+        )}
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      item.url === "/dashboard"
-                        ? location === "/dashboard"
-                        : item.url === "/dashboard/content-creator"
-                          ? location.startsWith("/dashboard/content-creator") || location.startsWith("/dashboard/kb/")
-                          : location.startsWith(item.url)
-                    }
-                  >
-                    <Link href={item.url} onClick={() => setOpenMobile(false)}>
-                      <item.icon className="h-4 w-4" />
-                      <span data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-              {hasAffiliations && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location.startsWith("/dashboard/earnings")}>
-                    <Link href="/dashboard/earnings" onClick={() => setOpenMobile(false)}>
-                      <Wallet className="h-4 w-4" />
-                      <span data-testid="link-nav-earnings">My Earnings</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location.startsWith("/dashboard/data-health")}>
-                    <Link href="/dashboard/data-health" onClick={() => setOpenMobile(false)}>
-                      <ShieldCheck className="h-4 w-4" />
-                      <span data-testid="link-nav-data-health">Data Health</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {navGroups.map((group, gi) => (
+          <SidebarGroup key={group.label ?? `group-${gi}`} className={group.label ? undefined : "py-0"}>
+            {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={
+                        item.url === "/dashboard"
+                          ? location === "/dashboard"
+                          : item.url === "/dashboard/content-creator"
+                            ? location.startsWith("/dashboard/content-creator") || location.startsWith("/dashboard/kb/")
+                            : location.startsWith(item.url)
+                      }
+                    >
+                      <Link href={item.url} onClick={() => setOpenMobile(false)}>
+                        <item.icon className="h-4 w-4" />
+                        <span data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+                {/* Conditional items render inside the last group so they sit at the bottom */}
+                {gi === navGroups.length - 1 && hasAffiliations && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location.startsWith("/dashboard/earnings")}>
+                      <Link href="/dashboard/earnings" onClick={() => setOpenMobile(false)}>
+                        <Wallet className="h-4 w-4" />
+                        <span data-testid="link-nav-earnings">My Earnings</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {gi === navGroups.length - 1 && isAdmin && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location.startsWith("/dashboard/data-health")}>
+                      <Link href="/dashboard/data-health" onClick={() => setOpenMobile(false)}>
+                        <ShieldCheck className="h-4 w-4" />
+                        <span data-testid="link-nav-data-health">Data Health</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="p-4 space-y-2">
