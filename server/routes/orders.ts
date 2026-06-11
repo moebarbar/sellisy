@@ -121,12 +121,7 @@ async function createPayPalOrder(
 ordersRouter.get("/api/orders/:storeId", isAuthenticated, async (req, res) => {
   const store = await storage.getStoreById(req.params.storeId as string);
   if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
-  const storeOrders = await storage.getOrdersByStore(store.id);
-  const itemsPerOrder = await Promise.all(
-    storeOrders.map((order) => storage.getOrderItemsByOrder(order.id))
-  );
-  const result = storeOrders.map((order, i) => ({ ...order, items: itemsPerOrder[i] }));
-  res.json(result);
+  res.json(await storage.getOrdersWithItemsByStore(store.id));
 });
 ordersRouter.post("/api/checkout", async (req, res) => {
   try {

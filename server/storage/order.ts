@@ -107,6 +107,30 @@ export const orderStorage = {
     return db.select().from(orders).where(and(eq(orders.storeId, storeId), isNull(orders.deletedAt))).orderBy(desc(orders.createdAt));
   },
 
+  // Single-query replacement for the getOrdersByStore + per-order
+  // getOrderItemsByOrder pattern (was 1 + N queries on the dashboard
+  // orders page). LEFT JOIN so orders with no items still appear.
+  async getOrdersWithItemsByStore(storeId: string) {
+    const rows = await db
+      .select({ order: orders, oi: orderItems, product: products })
+      .from(orders)
+      .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
+      .leftJoin(products, eq(orderItems.productId, products.id))
+      .where(and(eq(orders.storeId, storeId), isNull(orders.deletedAt)))
+      .orderBy(desc(orders.createdAt));
+
+    const byId = new Map<string, (typeof rows)[number]["order"] & { items: any[] }>();
+    for (const r of rows) {
+      let entry = byId.get(r.order.id);
+      if (!entry) {
+        entry = { ...r.order, items: [] };
+        byId.set(r.order.id, entry);
+      }
+      if (r.oi) entry.items.push({ ...r.oi, product: r.product });
+    }
+    return Array.from(byId.values());
+  },
+
   async getOrderItemsByOrder(orderId: string) {
     const rows = await db
       .select({ oi: orderItems, product: products })
