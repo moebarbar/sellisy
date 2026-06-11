@@ -156,6 +156,31 @@ export async function registerRoutes(
     }
   });
 
+  // Public platform stats for the landing page. Real counts, cached
+  // in-memory for 10 minutes — this is marketing data, staleness is fine.
+  let _publicStatsCache: { data: any; at: number } | null = null;
+  app.get("/api/public-stats", async (_req, res) => {
+    try {
+      if (_publicStatsCache && Date.now() - _publicStatsCache.at < 10 * 60 * 1000) {
+        res.set("Cache-Control", "public, max-age=600");
+        return res.json(_publicStatsCache.data);
+      }
+      const result = await db.execute(sql`
+        SELECT
+          (SELECT COUNT(*)::int FROM products WHERE source = 'PLATFORM' AND status = 'ACTIVE' AND deleted_at IS NULL) AS "libraryProducts",
+          (SELECT COUNT(DISTINCT store_id)::int FROM store_products WHERE is_published = true) AS "activeStores",
+          (SELECT COUNT(*)::int FROM orders WHERE status = 'COMPLETED' AND deleted_at IS NULL) AS "ordersDelivered"
+      `);
+      const data = result.rows[0];
+      _publicStatsCache = { data, at: Date.now() };
+      res.set("Cache-Control", "public, max-age=600");
+      res.json(data);
+    } catch (err) {
+      console.error("[public-stats] failed:", err);
+      res.status(500).json({ message: "Stats unavailable" });
+    }
+  });
+
   app.get("/robots.txt", (_req, res) => {
     const siteUrl = (process.env.APP_URL || "https://sellisy.com").replace(/\/$/, "");
     // Cache for an hour at the edge; clients can revalidate sooner.

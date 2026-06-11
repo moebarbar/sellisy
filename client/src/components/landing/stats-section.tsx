@@ -1,10 +1,47 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-const stats = [
+type Stat = { end: number; suffix: string; label: string; prefix: string };
+
+// Static fallbacks — used until /api/public-stats responds (and if it
+// fails). The library count is replaced by the live number; store and
+// order counts only join the grid once they clear honesty thresholds
+// (small real numbers hurt more than they help).
+const fallbackStats: Stat[] = [
   { end: 200, suffix: "+", label: "Products in our library", prefix: "" },
   { end: 5, suffix: "min", label: "Average store setup time", prefix: "" },
   { end: 0, suffix: "", label: "Platform fees on your sales", prefix: "$" },
 ];
+
+const STORES_THRESHOLD = 50;
+const ORDERS_THRESHOLD = 250;
+
+// 437 → "430+", 1240 → "1,200+"
+function roundedDown(n: number): { end: number; suffix: string } {
+  const magnitude = n >= 1000 ? 100 : 10;
+  return { end: Math.floor(n / magnitude) * magnitude, suffix: "+" };
+}
+
+function buildStats(live?: { libraryProducts: number; activeStores: number; ordersDelivered: number }): Stat[] {
+  if (!live) return fallbackStats;
+  const out: Stat[] = [];
+  if (live.libraryProducts >= 50) {
+    out.push({ ...roundedDown(live.libraryProducts), label: "Products in our library", prefix: "" });
+  } else {
+    out.push(fallbackStats[0]);
+  }
+  if (live.activeStores >= STORES_THRESHOLD) {
+    out.push({ ...roundedDown(live.activeStores), label: "Live creator storefronts", prefix: "" });
+  } else {
+    out.push(fallbackStats[1]);
+  }
+  if (live.ordersDelivered >= ORDERS_THRESHOLD) {
+    out.push({ ...roundedDown(live.ordersDelivered), label: "Orders delivered to buyers", prefix: "" });
+  } else {
+    out.push(fallbackStats[2]);
+  }
+  return out;
+}
 
 function useCountUp(end: number, trigger: boolean, duration = 1200) {
   const [value, setValue] = useState(0);
@@ -109,6 +146,13 @@ function StatCell({
 export function StatsSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [triggered, setTriggered] = useState(false);
+
+  const { data: live } = useQuery<{ libraryProducts: number; activeStores: number; ordersDelivered: number }>({
+    queryKey: ["/api/public-stats"],
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  });
+  const stats = buildStats(live);
 
   const handleIntersect = useCallback((entries: IntersectionObserverEntry[]) => {
     if (entries[0]?.isIntersecting) {
