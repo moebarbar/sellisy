@@ -591,6 +591,36 @@ ${urls}</urlset>`;
     }
   });
 
+  // Co-purchase analysis for the upsell selector: which other products do
+  // buyers of :productId most often have in the same completed order?
+  // Powers the "Buyers also bought X — use as upsell" suggestion.
+  app.get("/api/stores/:storeId/co-purchases/:productId", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const { storeId, productId } = req.params;
+    const userStores = await storage.getStoresByOwner(userId);
+    if (!userStores.some((s) => s.id === storeId)) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+    try {
+      const result = await db.execute(sql`
+        SELECT oi2.product_id AS "productId", p.title, COUNT(*)::int AS "orders"
+        FROM order_items oi1
+        JOIN orders o ON o.id = oi1.order_id
+          AND o.status = 'COMPLETED' AND o.store_id = ${storeId} AND o.deleted_at IS NULL
+        JOIN order_items oi2 ON oi2.order_id = oi1.order_id AND oi2.product_id <> oi1.product_id
+        JOIN products p ON p.id = oi2.product_id AND p.deleted_at IS NULL
+        WHERE oi1.product_id = ${productId}
+        GROUP BY oi2.product_id, p.title
+        ORDER BY COUNT(*) DESC
+        LIMIT 3
+      `);
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Co-purchase query error:", err);
+      res.status(500).json({ message: "Failed to compute co-purchases" });
+    }
+  });
+
   app.patch("/api/customers/:customerId", isAuthenticated, async (req, res) => {
     const userId = getUserId(req);
     const customerId = req.params.customerId as string;

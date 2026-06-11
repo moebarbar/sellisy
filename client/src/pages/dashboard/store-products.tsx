@@ -202,6 +202,19 @@ function StoreProductRow({
   const effectivePrice = storeProduct.customPriceCents ?? product.priceCents;
   const isFree = effectivePrice === 0;
   const hasCustomPrice = storeProduct.customPriceCents != null;
+
+  // Co-purchase data for the upsell suggestion — only fetched while the
+  // card is expanded, so the products list doesn't fan out N queries.
+  const { data: coPurchases } = useQuery<{ productId: string; title: string; orders: number }[]>({
+    queryKey: ["/api/stores", storeId, "co-purchases", product.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/stores/${storeId}/co-purchases/${product.id}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: expanded,
+    staleTime: 5 * 60 * 1000,
+  });
   const otherProducts = allProducts.filter((sp) => {
     const ep = sp.customPriceCents ?? sp.product.priceCents;
     return sp.productId !== storeProduct.productId && ep > 0;
@@ -453,57 +466,84 @@ function StoreProductRow({
               </div>
             )}
 
-            {storeProduct.isLeadMagnet && (
-              <div className="space-y-3 pl-11">
+            {/* Upsell config — available for every product, not just lead
+                magnets. The selected product becomes the order-bump add-on
+                at checkout AND the recommendation on the success page. */}
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  Upsell Product (add-on at checkout + shown after purchase)
+                </Label>
+                {(() => {
+                  const suggestion = coPurchases?.find(
+                    (c) => c.productId !== storeProduct.upsellProductId
+                      && otherProducts.some((sp) => sp.productId === c.productId),
+                  );
+                  if (!suggestion) return null;
+                  return (
+                    <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2" data-testid={`co-purchase-suggestion-${storeProduct.id}`}>
+                      <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="text-xs flex-1 min-w-0">
+                        Buyers of this also bought <strong>{suggestion.title}</strong>
+                        <span className="text-muted-foreground"> ({suggestion.orders} order{suggestion.orders === 1 ? "" : "s"} together)</span>
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs shrink-0"
+                        disabled={toggleMutation.isPending}
+                        onClick={() => toggleMutation.mutate({ upsellProductId: suggestion.productId })}
+                        data-testid={`button-apply-suggestion-${storeProduct.id}`}
+                      >
+                        Use as upsell
+                      </Button>
+                    </div>
+                  );
+                })()}
+                <Select
+                  value={storeProduct.upsellProductId || "none"}
+                  onValueChange={(val) => toggleMutation.mutate({ upsellProductId: val === "none" ? null : val })}
+                >
+                  <SelectTrigger data-testid={`select-upsell-product-${storeProduct.id}`}>
+                    <SelectValue placeholder="No upsell product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No upsell product</SelectItem>
+                    {otherProducts.map((sp) => (
+                      <SelectItem key={sp.productId} value={sp.productId}>
+                        {sp.product.title} — ${(sp.product.priceCents / 100).toFixed(2)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {bundles.length > 0 && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    Upsell Product (shown after signup)
+                    <Package className="h-3 w-3" />
+                    Upsell Bundle (shown after purchase)
                   </Label>
                   <Select
-                    value={storeProduct.upsellProductId || "none"}
-                    onValueChange={(val) => toggleMutation.mutate({ upsellProductId: val === "none" ? null : val })}
+                    value={storeProduct.upsellBundleId || "none"}
+                    onValueChange={(val) => toggleMutation.mutate({ upsellBundleId: val === "none" ? null : val })}
                   >
-                    <SelectTrigger data-testid={`select-upsell-product-${storeProduct.id}`}>
-                      <SelectValue placeholder="No upsell product" />
+                    <SelectTrigger data-testid={`select-upsell-bundle-${storeProduct.id}`}>
+                      <SelectValue placeholder="No upsell bundle" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No upsell product</SelectItem>
-                      {otherProducts.map((sp) => (
-                        <SelectItem key={sp.productId} value={sp.productId}>
-                          {sp.product.title} — ${(sp.product.priceCents / 100).toFixed(2)}
+                      <SelectItem value="none">No upsell bundle</SelectItem>
+                      {bundles.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name} — ${(b.priceCents / 100).toFixed(2)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-
-                {bundles.length > 0 && (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium flex items-center gap-1">
-                      <Package className="h-3 w-3" />
-                      Upsell Bundle (shown after signup)
-                    </Label>
-                    <Select
-                      value={storeProduct.upsellBundleId || "none"}
-                      onValueChange={(val) => toggleMutation.mutate({ upsellBundleId: val === "none" ? null : val })}
-                    >
-                      <SelectTrigger data-testid={`select-upsell-bundle-${storeProduct.id}`}>
-                        <SelectValue placeholder="No upsell bundle" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No upsell bundle</SelectItem>
-                        {bundles.map((b) => (
-                          <SelectItem key={b.id} value={b.id}>
-                            {b.name} — ${(b.priceCents / 100).toFixed(2)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </CardContent>
