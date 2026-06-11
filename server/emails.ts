@@ -201,6 +201,31 @@ export async function sendLeadMagnetEmail(params: {
   }
 }
 
+// ─── 3a-pre. NEWSLETTER WELCOME ─────────────────────────────────────
+
+export async function sendNewsletterWelcomeEmail(params: {
+  subscriberEmail: string;
+  storeName: string;
+  storeUrl: string;
+  tagline?: string | null;
+}) {
+  const { subscriberEmail, storeName, storeUrl, tagline } = params;
+  const safeStoreName = escapeHtml(storeName);
+
+  const content = `
+    ${sectionHeading(`Welcome to ${safeStoreName}`)}
+    ${bodyText(`You're on the list. ${tagline ? escapeHtml(tagline) + " " : ""}You'll be the first to hear about new products, drops, and subscriber-only deals.`)}
+    ${ctaButton('Browse the Store', storeUrl)}
+    ${divider()}
+    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">You're receiving this because you subscribed at ${safeStoreName}. Every email includes a one-click unsubscribe.</p>`;
+
+  await sendEmail(
+    subscriberEmail,
+    `Welcome to ${sanitizeHeader(storeName)}`,
+    baseLayout(content, `You're subscribed to ${sanitizeHeader(storeName)} — welcome aboard.`)
+  );
+}
+
 // ─── 3a. ABANDONED CHECKOUT RECOVERY ────────────────────────────────
 
 export async function sendCartRecoveryEmail(params: {

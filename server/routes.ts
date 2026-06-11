@@ -830,6 +830,21 @@ ${urls}</urlset>`;
 
     const subscriber = await storage.addNewsletterSubscriber({ storeId: store.id, email: parsed.data.email });
     res.status(201).json({ message: "Subscribed successfully", subscriber });
+
+    // Welcome email — fire-and-forget after the response so a SendGrid
+    // hiccup never breaks the signup itself.
+    if (store.newsletterWelcomeEnabled) {
+      const storeUrl = store.customDomain && store.domainStatus === "active"
+        ? `https://${store.customDomain}`
+        : `${getAppUrl(req)}/s/${store.slug}`;
+      const { sendNewsletterWelcomeEmail } = await import("./emails");
+      sendNewsletterWelcomeEmail({
+        subscriberEmail: parsed.data.email,
+        storeName: store.name,
+        storeUrl,
+        tagline: store.tagline,
+      }).catch((err) => console.error("[newsletter] welcome email failed:", err));
+    }
   });
 
   // --- Public storefront reviews ---
