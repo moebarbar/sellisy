@@ -58,6 +58,34 @@ export default function CheckoutSuccessPage() {
 
   const storeBasePath = useMemo(() => data?.store ? getStoreBasePath(data.store.slug) : "", [data?.store?.slug]);
 
+  // One-click upsell: start a fresh checkout for the recommended item with
+  // the buyer's email prefilled, instead of bouncing through the product
+  // page. Falls back to a toastless inline reset on failure.
+  const [upsellBuying, setUpsellBuying] = useState<string | null>(null);
+  const buyUpsell = async (kind: "product" | "bundle", id: string) => {
+    if (!data?.store) return;
+    setUpsellBuying(id);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storeId: data.store.slug,
+          buyerEmail: data.order.buyerEmail,
+          ...(kind === "product" ? { productId: id } : { bundleId: id }),
+        }),
+      });
+      const result = await res.json();
+      if (res.ok && result.url) {
+        window.location.href = result.url;
+        return;
+      }
+      setUpsellBuying(null);
+    } catch {
+      setUpsellBuying(null);
+    }
+  };
+
   if (!identifier) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -207,11 +235,16 @@ export default function CheckoutSuccessPage() {
                             {data.upsellProduct.description && <p className="text-sm text-muted-foreground line-clamp-2">{data.upsellProduct.description}</p>}
                             <div className="flex items-center justify-between gap-3 flex-wrap">
                               <span className="text-lg font-bold">${(data.upsellProduct.priceCents / 100).toFixed(2)}</span>
-                              <Link href={`${storeBasePath}/product/${data.upsellProduct.id}`}>
-                                <Button size="sm" data-testid="button-upsell-product-buy">
-                                  <ShoppingBag className="mr-2 h-4 w-4" /> Buy Now <ArrowRight className="ml-2 h-4 w-4" />
-                                </Button>
-                              </Link>
+                              <Button
+                                size="sm"
+                                onClick={() => buyUpsell("product", data.upsellProduct!.id)}
+                                disabled={upsellBuying !== null}
+                                data-testid="button-upsell-product-buy"
+                              >
+                                <ShoppingBag className="mr-2 h-4 w-4" />
+                                {upsellBuying === data.upsellProduct.id ? "Loading..." : "Buy Now"}
+                                <ArrowRight className="ml-2 h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
                         </div>
@@ -237,11 +270,21 @@ export default function CheckoutSuccessPage() {
                                 <span className="text-lg font-bold">${(data.upsellBundle.priceCents / 100).toFixed(2)}</span>
                                 <span className="text-xs text-muted-foreground">{data.upsellBundle.productCount} products</span>
                               </div>
-                              <Link href={`${storeBasePath}/bundle/${data.upsellBundle.id}`}>
-                                <Button size="sm" data-testid="button-upsell-bundle-buy">
-                                  <Package className="mr-2 h-4 w-4" /> View Bundle <ArrowRight className="ml-2 h-4 w-4" />
+                              <div className="flex items-center gap-2">
+                                <Link href={`${storeBasePath}/bundle/${data.upsellBundle.id}`} className="text-xs text-muted-foreground underline-offset-2 hover:underline" data-testid="link-upsell-bundle-details">
+                                  Details
+                                </Link>
+                                <Button
+                                  size="sm"
+                                  onClick={() => buyUpsell("bundle", data.upsellBundle!.id)}
+                                  disabled={upsellBuying !== null}
+                                  data-testid="button-upsell-bundle-buy"
+                                >
+                                  <Package className="mr-2 h-4 w-4" />
+                                  {upsellBuying === data.upsellBundle.id ? "Loading..." : "Buy Bundle"}
+                                  <ArrowRight className="ml-2 h-4 w-4" />
                                 </Button>
-                              </Link>
+                              </div>
                             </div>
                           </div>
                         </div>
