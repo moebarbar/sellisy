@@ -265,6 +265,40 @@ export async function sendCartRecoveryEmail(params: {
   );
 }
 
+// ─── 3a-post. POST-PURCHASE CROSS-SELL ──────────────────────────────
+
+export async function sendCrossSellEmail(params: {
+  buyerEmail: string;
+  storeName: string;
+  purchasedTitle: string;
+  recommendedTitle: string;
+  recommendedPriceCents: number;
+  productUrl: string;
+  thumbnailUrl?: string | null;
+}) {
+  const { buyerEmail, storeName, purchasedTitle, recommendedTitle, recommendedPriceCents, productUrl, thumbnailUrl } = params;
+  const safeStoreName = escapeHtml(storeName);
+  const safeRecommended = escapeHtml(recommendedTitle);
+
+  const content = `
+    ${sectionHeading('Picked for you')}
+    ${bodyText(`Since you grabbed <strong>${escapeHtml(purchasedTitle)}</strong> from <strong>${safeStoreName}</strong>, we thought you'd want to see this:`)}
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:8px;text-align:center;">
+      ${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" alt="" style="max-width:160px;border-radius:8px;margin-bottom:12px;" />` : ""}
+      <p style="margin:0 0 4px;color:#111827;font-weight:700;font-size:16px;">${safeRecommended}</p>
+      <p style="margin:0;color:#374151;font-size:14px;">$${(recommendedPriceCents / 100).toFixed(2)}</p>
+    </div>
+    ${ctaButton(`View ${safeRecommended}`, productUrl)}
+    ${divider()}
+    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">Recommended based on what buyers of ${escapeHtml(purchasedTitle)} pick up together.</p>`;
+
+  await sendEmail(
+    buyerEmail,
+    `Goes great with ${sanitizeHeader(purchasedTitle)}`,
+    baseLayout(content, `A hand-picked recommendation from ${sanitizeHeader(storeName)}.`)
+  );
+}
+
 // ─── 3b. REVIEW REQUEST (post-purchase, delayed) ────────────────────
 
 export async function sendReviewRequestEmail(params: {

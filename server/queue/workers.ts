@@ -65,6 +65,22 @@ export async function startWorkers() {
   }
 
   try {
+    const { processPostPurchase } = await import('../jobs/post-purchase');
+    const postPurchaseWorker = new Worker(
+      'post-purchase',
+      async (job) => processPostPurchase(job),
+      { connection: redisConnection, concurrency: 1, limiter: { max: 60, duration: 60_000 } },
+    );
+    attachFailHandler(postPurchaseWorker, 'post-purchase');
+    postPurchaseWorker.on('completed', (job) => {
+      console.log(`[post-purchase] job ${job.id} completed`);
+    });
+    console.log('[queue] post-purchase worker started');
+  } catch (err: any) {
+    console.warn('[queue] post-purchase worker not started:', err.message);
+  }
+
+  try {
     const { processReviewRequest } = await import('../jobs/review-request');
     const reviewRequestWorker = new Worker(
       'review-request',

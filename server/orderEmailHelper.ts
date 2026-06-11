@@ -79,20 +79,36 @@ export async function sendOrderCompletionEmails(orderId: string, baseUrl: string
 
     console.log("sendOrderCompletionEmails: emails sent for order:", orderId);
 
-    // Queue the review-request follow-up 3 days out. Best-effort: a Redis
-    // outage must not fail the confirmation email path. Deterministic jobId
-    // makes duplicate webhook deliveries a no-op, and the job re-validates
-    // (store reviewsEnabled, existing review, refund) at send time.
-    if (store?.reviewsEnabled && process.env.REDIS_URL) {
-      try {
-        const { reviewRequestQueue } = await import("./queue/queues");
-        await reviewRequestQueue.add(
-          "review-request",
-          { orderId, baseUrl },
-          { jobId: `review-request-${orderId}`, delay: 3 * 24 * 60 * 60 * 1000 },
-        );
-      } catch (err) {
-        console.error("sendOrderCompletionEmails: failed to queue review request:", orderId, err);
+    // Queue the post-purchase follow-ups. Best-effort: a Redis outage must
+    // not fail the confirmation email path. Deterministic jobIds make
+    // duplicate webhook deliveries a no-op, and each job re-validates its
+    // own guards (toggles, ownership, existing review, refund) at send time.
+    if (process.env.REDIS_URL) {
+      // Cross-sell recommendation, 24h out.
+      if (store?.postPurchaseEmailEnabled) {
+        try {
+          const { postPurchaseQueue } = await import("./queue/queues");
+          await postPurchaseQueue.add(
+            "post-purchase",
+            { orderId, baseUrl },
+            { jobId: `post-purchase-${orderId}`, delay: 24 * 60 * 60 * 1000 },
+          );
+        } catch (err) {
+          console.error("sendOrderCompletionEmails: failed to queue post-purchase:", orderId, err);
+        }
+      }
+      // Review request, 3 days out.
+      if (store?.reviewsEnabled) {
+        try {
+          const { reviewRequestQueue } = await import("./queue/queues");
+          await reviewRequestQueue.add(
+            "review-request",
+            { orderId, baseUrl },
+            { jobId: `review-request-${orderId}`, delay: 3 * 24 * 60 * 60 * 1000 },
+          );
+        } catch (err) {
+          console.error("sendOrderCompletionEmails: failed to queue review request:", orderId, err);
+        }
       }
     }
 
