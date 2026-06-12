@@ -28,6 +28,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { FieldError } from "@/components/ui/field-error";
 import { TemplateSelector } from "@/components/dashboard/template-selector";
+import { AiLaunchWizard } from "@/components/dashboard/ai-launch-wizard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ShoppingBag,
   LayoutDashboard,
@@ -276,8 +278,19 @@ export function CreateStoreDialog({ open, onClose }: { open: boolean; onClose: (
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Create New Store</DialogTitle>
-          <DialogDescription>Set up your storefront in seconds.</DialogDescription>
+          <DialogDescription>Describe it and let AI build it, or set it up yourself.</DialogDescription>
         </DialogHeader>
+        <Tabs defaultValue="ai">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="ai" data-testid="tab-dialog-ai">
+              <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Launch with AI
+            </TabsTrigger>
+            <TabsTrigger value="manual" data-testid="tab-dialog-manual">Start from scratch</TabsTrigger>
+          </TabsList>
+          <TabsContent value="ai">
+            <AiLaunchWizard />
+          </TabsContent>
+          <TabsContent value="manual">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -330,6 +343,8 @@ export function CreateStoreDialog({ open, onClose }: { open: boolean; onClose: (
             Create Store
           </Button>
         </form>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
