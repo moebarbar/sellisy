@@ -25,6 +25,23 @@ import {
   User,
 } from "lucide-react";
 
+type MemberSubscriptionRow = {
+  id: string;
+  buyerEmail: string;
+  productTitle: string;
+  billingInterval: "month" | "year" | null;
+  priceCents: number;
+  status: "active" | "past_due" | "canceled" | "incomplete";
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+  createdAt: string;
+};
+
+type MemberSubscriptionsResponse = {
+  summary: { total: number; active: number; mrrCents: number };
+  subscriptions: MemberSubscriptionRow[];
+};
+
 type StoreCustomer = {
   id: string;
   email: string;
@@ -49,6 +66,16 @@ export default function CustomersPage() {
     queryFn: async () => {
       const res = await fetch(`/api/stores/${activeStoreId}/customers`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch customers");
+      return res.json();
+    },
+    enabled: !!activeStoreId,
+  });
+
+  const { data: memberData } = useQuery<MemberSubscriptionsResponse>({
+    queryKey: ["/api/stores", activeStoreId, "member-subscriptions"],
+    queryFn: async () => {
+      const res = await fetch(`/api/stores/${activeStoreId}/member-subscriptions`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch subscriptions");
       return res.json();
     },
     enabled: !!activeStoreId,
@@ -165,6 +192,46 @@ export default function CustomersPage() {
           </CardContent>
         </Card>
       </div>
+
+      {memberData && memberData.summary.total > 0 && (
+        <Card data-testid="card-members">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <CardTitle className="text-base">Members</CardTitle>
+              <div className="flex items-center gap-4 text-sm">
+                <span><strong>{memberData.summary.active}</strong> active</span>
+                <span className="text-muted-foreground">MRR <strong className="text-foreground">${(memberData.summary.mrrCents / 100).toFixed(2)}</strong></span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {memberData.subscriptions.map((sub) => (
+              <div key={sub.id} className="flex items-center gap-3 rounded-lg border p-3 flex-wrap" data-testid={`member-sub-${sub.id}`}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{sub.buyerEmail}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {sub.productTitle} · ${(sub.priceCents / 100).toFixed(2)}/{sub.billingInterval === "year" ? "yr" : "mo"}
+                    {sub.currentPeriodEnd && (sub.cancelAtPeriodEnd
+                      ? ` · ends ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`
+                      : ` · renews ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`)}
+                  </p>
+                </div>
+                <Badge
+                  className={`border-0 ${
+                    sub.status === "active"
+                      ? "bg-emerald-500/10 text-emerald-500"
+                      : sub.status === "past_due"
+                        ? "bg-amber-500/10 text-amber-500"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {sub.status === "past_due" ? "payment issue" : sub.status}
+                </Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

@@ -275,6 +275,37 @@ storesRouter.delete("/api/stores/:id/reviews/:reviewId", isAuthenticated, async 
 
 // --- Newsletter Campaigns ---
 
+// Members (recurring revenue) overview for the store owner: every
+// subscription with status + period, plus an MRR summary (yearly plans
+// normalized to monthly).
+storesRouter.get("/api/stores/:id/member-subscriptions", isAuthenticated, async (req, res) => {
+  const store = await storage.getStoreById(req.params.id as string);
+  if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
+
+  const subs = await storage.getMemberSubscriptionsByStore(store.id);
+  const active = subs.filter((s) => s.status === "active");
+  const mrrCents = active.reduce((sum, s) => {
+    const price = s.product.priceCents;
+    return sum + (s.product.billingInterval === "year" ? Math.round(price / 12) : price);
+  }, 0);
+
+  res.json({
+    summary: { total: subs.length, active: active.length, mrrCents },
+    subscriptions: subs.map((s) => ({
+      id: s.id,
+      buyerEmail: s.buyerEmail,
+      productId: s.productId,
+      productTitle: s.product.title,
+      billingInterval: s.product.billingInterval,
+      priceCents: s.product.priceCents,
+      status: s.status,
+      cancelAtPeriodEnd: s.cancelAtPeriodEnd,
+      currentPeriodEnd: s.currentPeriodEnd,
+      createdAt: s.createdAt,
+    })),
+  });
+});
+
 storesRouter.get("/api/stores/:id/newsletter-campaigns", isAuthenticated, async (req, res) => {
   const store = await storage.getStoreById(req.params.id as string);
   if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });

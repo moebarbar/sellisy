@@ -697,8 +697,13 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
                         )}
                         <span className="pdp-price-glow text-4xl sm:text-5xl font-extrabold" data-testid="text-product-price">
                           {formatPrice(product.priceCents)}
+                          {(product as any).billingInterval && (
+                            <span className="text-2xl font-bold" style={{ color: c.textSec }}>
+                              /{(product as any).billingInterval === "year" ? "yr" : "mo"}
+                            </span>
+                          )}
                         </span>
-                        {isSoftware && (
+                        {isSoftware && !(product as any).billingInterval && (
                           <span className="text-sm font-medium" style={{ color: c.textSec }}>one-time</span>
                         )}
                         {hasDiscount && (
@@ -771,9 +776,17 @@ export default function ProductDetailPage({ params: propParams }: { params?: { s
                         ? "Processing..."
                         : bumpChecked && data.orderBump
                           ? `Buy Both — ${formatPrice(product.priceCents + data.orderBump.priceCents)}`
-                          : isSoftware ? "Get This Deal" : "Buy Now"}
+                          : (product as any).billingInterval
+                            ? `Subscribe — ${formatPrice(product.priceCents)}/${(product as any).billingInterval === "year" ? "yr" : "mo"}`
+                            : isSoftware ? "Get This Deal" : "Buy Now"}
                     </Button>
                   </div>
+
+                  {(product as any).billingInterval && (
+                    <p className="mt-3 text-xs" style={{ color: c.textTer }} data-testid="text-subscription-note">
+                      Renews every {(product as any).billingInterval}. Cancel anytime from your customer portal — access lasts until the end of the paid period.
+                    </p>
+                  )}
 
                   <div className="mt-5 flex items-center gap-6 flex-wrap">
                     {(isSoftware
