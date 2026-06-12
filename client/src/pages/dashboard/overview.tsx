@@ -14,6 +14,8 @@ import { Link } from "wouter";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { TemplateSelector } from "@/components/dashboard/template-selector";
+import { AiLaunchWizard } from "@/components/dashboard/ai-launch-wizard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fireConfetti } from "@/lib/confetti";
 import {
   Store, Package, ShoppingBag, DollarSign, TrendingUp, BarChart3,
@@ -194,12 +196,23 @@ function InlineStoreCreation() {
             Create your first store
           </h2>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Set up your digital storefront in under 30 seconds. Pick a name, choose a look, and you're live.
+            Describe what you sell and AI builds your store — named, themed, stocked, and written. Or set it up yourself.
           </p>
         </div>
 
         <Card>
           <CardContent className="pt-6">
+            <Tabs defaultValue="ai">
+              <TabsList className="grid w-full grid-cols-2 mb-5">
+                <TabsTrigger value="ai" data-testid="tab-launch-ai">
+                  <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Launch with AI
+                </TabsTrigger>
+                <TabsTrigger value="manual" data-testid="tab-launch-manual">Start from scratch</TabsTrigger>
+              </TabsList>
+              <TabsContent value="ai">
+                <AiLaunchWizard />
+              </TabsContent>
+              <TabsContent value="manual">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -258,6 +271,8 @@ function InlineStoreCreation() {
                 Launch Store
               </Button>
             </form>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
