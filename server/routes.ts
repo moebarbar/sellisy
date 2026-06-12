@@ -992,11 +992,14 @@ ${urls}</urlset>`;
     // surfaced as an add-on checkbox at the buy button. Only returned if
     // the upsell is a different, published product in this store.
     let orderBump: { productId: string; title: string; priceCents: number; thumbnailUrl: string | null } | null = null;
-    if (sp.upsellProductId && sp.upsellProductId !== product.id) {
+    // No bump on subscription product pages (their checkout is single-item
+    // subscription mode), and a subscription can't BE a bump (it can't ride
+    // a one-time payment).
+    if (sp.upsellProductId && sp.upsellProductId !== product.id && !product.billingInterval) {
       const bumpSp = await storage.getStoreProductByStoreAndProduct(store.id, sp.upsellProductId);
       if (bumpSp?.isPublished) {
         const bumpProduct = await storage.getProductById(sp.upsellProductId);
-        if (bumpProduct) {
+        if (bumpProduct && !bumpProduct.billingInterval) {
           orderBump = {
             productId: bumpProduct.id,
             title: bumpSp.customTitle || bumpProduct.title,

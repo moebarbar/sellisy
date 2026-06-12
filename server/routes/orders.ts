@@ -177,6 +177,9 @@ ordersRouter.post("/api/checkout", async (req, res) => {
   let itemName = "";
   let itemDescription = "";
   let itemImage: string | null = null;
+  // Set when the (single) product is recurring — switches the Stripe
+  // session to subscription mode further down.
+  let subscriptionInterval: "month" | "year" | null = null;
   const itemsToAdd: { productId: string; priceCents: number; title?: string; image?: string | null }[] = [];
 
   if (parsed.data.bundleId) {
@@ -187,6 +190,9 @@ ordersRouter.post("/api/checkout", async (req, res) => {
     itemDescription = `Bundle from ${store.name} — ${bundleData.products.length} items`;
     itemImage = bundleData.bundle.thumbnailUrl;
     for (const p of bundleData.products) {
+      if (p.billingInterval) {
+        return res.status(400).json({ message: `${p.title} is a subscription and can't be sold inside a bundle` });
+      }
       itemsToAdd.push({ productId: p.id, priceCents: p.priceCents, title: p.title, image: p.thumbnailUrl });
     }
   } else if (parsed.data.items && parsed.data.items.length > 0) {
@@ -196,6 +202,9 @@ ordersRouter.post("/api/checkout", async (req, res) => {
       if (!product) return res.status(404).json({ message: `Product ${cartItem.productId} not found` });
       const sp = await storage.getStoreProductByStoreAndProduct(store.id, product.id);
       if (!sp || !sp.isPublished) return res.status(404).json({ message: `Product ${product.title} not available in this store` });
+      if (product.billingInterval) {
+        return res.status(400).json({ message: `${product.title} is a subscription — purchase it on its own product page` });
+      }
       const effectivePrice = sp.customPriceCents ?? product.priceCents;
       totalCents += effectivePrice;
       itemsToAdd.push({ productId: product.id, priceCents: effectivePrice, title: sp.customTitle || product.title, image: product.thumbnailUrl });
@@ -208,6 +217,7 @@ ordersRouter.post("/api/checkout", async (req, res) => {
     if (!product) return res.status(404).json({ message: "Product not found" });
     const sp = await storage.getStoreProductByStoreAndProduct(store.id, product.id);
     if (!sp || !sp.isPublished) return res.status(404).json({ message: "Product not available in this store" });
+    if (product.billingInterval) subscriptionInterval = product.billingInterval;
     const suggestedPrice = sp.customPriceCents ?? product.priceCents;
 
     // Pay-what-you-want override: only honored if the product opted in.
@@ -229,6 +239,23 @@ ordersRouter.post("/api/checkout", async (req, res) => {
     itemDescription = sp.customDescription || product.description || `Digital product from ${store.name}`;
     itemImage = product.thumbnailUrl;
     itemsToAdd.push({ productId: product.id, priceCents: effectivePrice, title: itemName, image: itemImage });
+  }
+
+  // Subscription checkouts: Stripe-only, single product, no coupons (inline
+  // recurring price_data can't take a one-off discount), price must be > 0.
+  if (subscriptionInterval) {
+    if (parsed.data.couponCode) {
+      return res.status(400).json({ message: "Coupon codes aren't supported on subscriptions yet" });
+    }
+    if (parsed.data.paymentMethod === "paypal") {
+      return res.status(400).json({ message: "Subscriptions are processed through Stripe" });
+    }
+    if (!store.stripeSecretKey) {
+      return res.status(400).json({ message: "This store can't sell subscriptions yet (Stripe not connected)" });
+    }
+    if (totalCents <= 0) {
+      return res.status(400).json({ message: "Subscription products need a price above $0" });
+    }
   }
 
   let couponId: string | null = null;
@@ -366,7 +393,7 @@ ordersRouter.post("/api/checkout", async (req, res) => {
     return res.status(400).json({ message: "Stripe is not configured for this store." });
   }
 
-  const usePayPal = chosenMethod === "paypal" || (!chosenMethod && hasPayPal && !hasStripe);
+  const usePayPal = !subscriptionInterval && (chosenMethod === "paypal" || (!chosenMethod && hasPayPal && !hasStripe));
 
   if (usePayPal) {
     try {
@@ -419,12 +446,13 @@ ordersRouter.post("/api/checkout", async (req, res) => {
                 return pd;
               })()),
               unit_amount: finalTotalCents,
+              ...(subscriptionInterval ? { recurring: { interval: subscriptionInterval } } : {}),
             }),
             quantity: 1,
           }];
 
       const sessionParams: any = {
-        mode: 'payment',
+        mode: subscriptionInterval ? 'subscription' : 'payment',
         line_items: stripeLineItems,
         metadata: {
           orderId: order.id,
@@ -435,6 +463,12 @@ ordersRouter.post("/api/checkout", async (req, res) => {
         success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${appUrl}/s/${store.slug}`,
       };
+
+      if (subscriptionInterval) {
+        // Tag the Stripe subscription itself so it's traceable back to the
+        // order from the seller's Stripe dashboard.
+        sessionParams.subscription_data = { metadata: { orderId: order.id, storeId: store.id } };
+      }
 
       if (taxEnabled) {
         // Stripe Tax needs the buyer's billing address to know which
@@ -724,11 +758,43 @@ ordersRouter.get("/api/checkout/success/:identifier", async (req, res) => {
           await storage.incrementCouponUses(order.couponId);
         }
 
+        let customerId: string | null = null;
         const finalEmail = emailFromSession || order.buyerEmail;
         if (finalEmail && finalEmail !== "pending@checkout.com") {
           const customer = await storage.findOrCreateCustomer(finalEmail);
+          customerId = customer.id;
           await storage.setOrderCustomerId(order.id, customer.id);
           await storage.linkOrdersByEmail(finalEmail, customer.id);
+        }
+
+        // Subscription checkout → record the membership. Idempotent on the
+        // Stripe subscription ID (createMemberSubscription is ON CONFLICT
+        // DO NOTHING), so repeated success-page polls are safe.
+        if (session.mode === "subscription" && session.subscription) {
+          try {
+            const subId = typeof session.subscription === "string" ? session.subscription : (session.subscription as any).id;
+            const stripeSub: any = await stripe.subscriptions.retrieve(subId);
+            const items = await storage.getOrderItemsByOrder(order.id);
+            const periodEnd = stripeSub.current_period_end
+              ?? stripeSub.items?.data?.[0]?.current_period_end;
+            if (items[0]) {
+              await storage.createMemberSubscription({
+                storeId: order.storeId,
+                productId: items[0].productId,
+                orderId: order.id,
+                customerId,
+                buyerEmail: finalEmail || order.buyerEmail,
+                stripeSubscriptionId: stripeSub.id,
+                stripeCustomerId: typeof stripeSub.customer === "string" ? stripeSub.customer : stripeSub.customer?.id ?? null,
+                status: stripeSub.status === "active" || stripeSub.status === "trialing" ? "active" : stripeSub.status === "past_due" ? "past_due" : "incomplete",
+                cancelAtPeriodEnd: !!stripeSub.cancel_at_period_end,
+                currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : null,
+                lastVerifiedAt: new Date(),
+              });
+            }
+          } catch (subErr: any) {
+            console.error("[memberships] failed to record subscription for order:", order.id, subErr.message);
+          }
         }
       }
     } catch (e: any) {

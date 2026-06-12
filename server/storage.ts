@@ -918,11 +918,13 @@ export class DatabaseStorage implements IStorage {
 // instance, and the intersection type tells TypeScript both surfaces are
 // available.
 //
-// Domains migrated so far: affiliate, course, product, order.
+// Domains migrated so far: affiliate, course, product, order,
+// member-subscription.
 import { affiliateStorage, type AffiliateStorage } from "./storage/affiliate";
 import { courseStorage, type CourseStorage } from "./storage/course";
 import { productStorage, type ProductStorage } from "./storage/product";
 import { orderStorage, type OrderStorage } from "./storage/order";
+import { memberSubscriptionStorage, type MemberSubscriptionStorage } from "./storage/member-subscription";
 
 export const storage = Object.assign(
   new DatabaseStorage(),
@@ -930,4 +932,5 @@ export const storage = Object.assign(
   courseStorage,
   productStorage,
   orderStorage,
-) as DatabaseStorage & AffiliateStorage & CourseStorage & ProductStorage & OrderStorage;
+  memberSubscriptionStorage,
+) as DatabaseStorage & AffiliateStorage & CourseStorage & ProductStorage & OrderStorage & MemberSubscriptionStorage;
