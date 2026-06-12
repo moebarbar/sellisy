@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
+import { useUserProfile } from "@/hooks/use-user-profile";
 import { getStorePublicPath } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -170,6 +171,7 @@ function StoreProductRow({
   onEdit: () => void;
 }) {
   const { toast } = useToast();
+  const { isAdmin } = useUserProfile();
   const product = storeProduct.product;
   const [expanded, setExpanded] = useState(false);
   const [embedOpen, setEmbedOpen] = useState(false);
@@ -465,6 +467,31 @@ function StoreProductRow({
                 />
               </div>
             )}
+
+            {(() => {
+              // Marketplace policy: only USER-created products can be
+              // promoted; PLR/library imports sell on the storefront only.
+              // Admins are exempt (marketplace seeding).
+              const canPromote = product.source === "USER" || isAdmin;
+              return (
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <Label className="text-sm font-medium">Promote to Sellisy marketplace</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {canPromote
+                        ? "Published products appear on the public Discover page, ranked by trending. Buyers land on your storefront."
+                        : "Only products you created can be promoted to the marketplace. Library products can be sold on your storefront only."}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={canPromote && storeProduct.showInMarketplace !== false}
+                    onCheckedChange={(checked) => toggleMutation.mutate({ showInMarketplace: checked })}
+                    disabled={!canPromote || toggleMutation.isPending}
+                    data-testid={`switch-marketplace-${storeProduct.id}`}
+                  />
+                </div>
+              );
+            })()}
 
             {/* Upsell config — available for every product, not just lead
                 magnets. The selected product becomes the order-bump add-on

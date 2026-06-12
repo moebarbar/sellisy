@@ -34,7 +34,7 @@ export interface IStorage {
   getStoreById(id: string): Promise<Store | undefined>;
   getStoreBySlug(slug: string): Promise<Store | undefined>;
   createStore(store: InsertStore): Promise<Store>;
-  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload" | "aboutEnabled" | "aboutHeadline" | "aboutText" | "aboutImageUrl" | "aboutCtaText" | "aboutCtaUrl" | "testimonialsEnabled" | "faqEnabled" | "newsletterEnabled" | "newsletterHeadline" | "newsletterSubtext" | "sectionOrder" | "reviewsEnabled" | "stripeTaxEnabled" | "pdfWatermarkEnabled" | "cartRecoveryEnabled" | "postPurchaseEmailEnabled" | "newsletterWelcomeEnabled">>): Promise<Store | undefined>;
+  updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload" | "aboutEnabled" | "aboutHeadline" | "aboutText" | "aboutImageUrl" | "aboutCtaText" | "aboutCtaUrl" | "testimonialsEnabled" | "faqEnabled" | "newsletterEnabled" | "newsletterHeadline" | "newsletterSubtext" | "sectionOrder" | "reviewsEnabled" | "stripeTaxEnabled" | "pdfWatermarkEnabled" | "cartRecoveryEnabled" | "postPurchaseEmailEnabled" | "newsletterWelcomeEnabled" | "marketplaceEnabled">>): Promise<Store | undefined>;
   deleteStore(id: string, callerOwnerId?: string): Promise<void>;
   hardDeleteStore(id: string): Promise<void>;
   restoreStore(id: string): Promise<Store | undefined>;
@@ -191,7 +191,7 @@ export class DatabaseStorage implements IStorage {
     return store;
   }
 
-  async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload" | "aboutEnabled" | "aboutHeadline" | "aboutText" | "aboutImageUrl" | "aboutCtaText" | "aboutCtaUrl" | "testimonialsEnabled" | "faqEnabled" | "newsletterEnabled" | "newsletterHeadline" | "newsletterSubtext" | "sectionOrder" | "reviewsEnabled" | "stripeTaxEnabled" | "pdfWatermarkEnabled" | "cartRecoveryEnabled" | "postPurchaseEmailEnabled" | "newsletterWelcomeEnabled">>) {
+  async updateStore(id: string, data: Partial<Pick<Store, "name" | "slug" | "templateKey" | "tagline" | "logoUrl" | "accentColor" | "heroBannerUrl" | "paymentProvider" | "paypalClientId" | "paypalClientSecret" | "stripePublishableKey" | "stripeSecretKey" | "blogEnabled" | "announcementText" | "announcementLink" | "footerText" | "socialTwitter" | "socialInstagram" | "socialYoutube" | "socialTiktok" | "socialWebsite" | "faviconUrl" | "seoTitle" | "seoDescription" | "allowImageDownload" | "aboutEnabled" | "aboutHeadline" | "aboutText" | "aboutImageUrl" | "aboutCtaText" | "aboutCtaUrl" | "testimonialsEnabled" | "faqEnabled" | "newsletterEnabled" | "newsletterHeadline" | "newsletterSubtext" | "sectionOrder" | "reviewsEnabled" | "stripeTaxEnabled" | "pdfWatermarkEnabled" | "cartRecoveryEnabled" | "postPurchaseEmailEnabled" | "newsletterWelcomeEnabled" | "marketplaceEnabled">>) {
     const [store] = await db.update(stores).set({ ...data, updatedAt: new Date() }).where(eq(stores.id, id)).returning();
     return store;
   }
@@ -241,8 +241,17 @@ export class DatabaseStorage implements IStorage {
     const conditions = [
       eq(storeProducts.isPublished, true),
       eq(storeProducts.isLeadMagnet, false),
+      eq(storeProducts.showInMarketplace, true),
+      eq(stores.marketplaceEnabled, true),
       isNull(products.deletedAt),
       isNull(stores.deletedAt),
+      // Marketplace policy: only seller-created products are eligible —
+      // PLR/library imports sell on the storefront only. Admin-owned
+      // stores are exempt so the platform owner can seed the marketplace.
+      sql`(${products.source} = 'USER' OR EXISTS (
+        SELECT 1 FROM user_profiles up
+        WHERE up.user_id = ${stores.ownerId} AND up.is_admin = true
+      ))`,
     ];
     if (opts.category) {
       conditions.push(eq(products.category, opts.category));
@@ -324,6 +333,11 @@ export class DatabaseStorage implements IStorage {
       JOIN products p ON p.id = sp.product_id AND p.deleted_at IS NULL
       JOIN stores s ON s.id = sp.store_id AND s.deleted_at IS NULL
       WHERE sp.is_published = true AND sp.is_lead_magnet = false
+        AND sp.show_in_marketplace = true AND s.marketplace_enabled = true
+        AND (p.source = 'USER' OR EXISTS (
+          SELECT 1 FROM user_profiles up
+          WHERE up.user_id = s.owner_id AND up.is_admin = true
+        ))
       GROUP BY p.category
       ORDER BY count DESC, p.category ASC
     `);
@@ -356,7 +370,16 @@ export class DatabaseStorage implements IStorage {
         isNull(stores.deletedAt),
         eq(storeProducts.isPublished, true),
         eq(storeProducts.isLeadMagnet, false),
+        // Same marketplace-eligibility policy as getDiscoverProducts —
+        // the featured-stores row only counts products that actually
+        // appear in the marketplace.
+        eq(storeProducts.showInMarketplace, true),
+        eq(stores.marketplaceEnabled, true),
         isNull(products.deletedAt),
+        sql`(${products.source} = 'USER' OR EXISTS (
+          SELECT 1 FROM user_profiles up
+          WHERE up.user_id = ${stores.ownerId} AND up.is_admin = true
+        ))`,
       ))
       .groupBy(stores.id)
       .orderBy(desc(stores.createdAt));

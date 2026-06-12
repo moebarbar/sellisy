@@ -536,6 +536,7 @@ productsRouter.patch("/api/store-products/:id", isAuthenticated, async (req, res
     isPublished: z.boolean().optional(),
     isLeadMagnet: z.boolean().optional(),
     isFeatured: z.boolean().optional(),
+    showInMarketplace: z.boolean().optional(),
     upsellProductId: z.string().nullable().optional(),
     upsellBundleId: z.string().nullable().optional(),
   });
@@ -548,6 +549,19 @@ productsRouter.patch("/api/store-products/:id", isAuthenticated, async (req, res
   const store = await storage.getStoreById(spData.storeId);
   if (!store || store.ownerId !== getUserId(req)) {
     return res.status(403).json({ message: "Forbidden" });
+  }
+
+  // Marketplace policy: PLR/library products can't be promoted to the
+  // marketplace (only sold on the seller's own storefront). The discover
+  // queries enforce this regardless of the flag — this check exists so the
+  // API tells the truth instead of accepting a no-op. Admins are exempt.
+  if (parsed.data.showInMarketplace === true) {
+    const promotedProduct = await storage.getProductById(spData.productId);
+    if (promotedProduct?.source === "PLATFORM" && !(await isUserAdmin(getUserId(req)))) {
+      return res.status(403).json({
+        message: "Only products you created can be promoted to the Sellisy marketplace. Library products can be sold on your storefront only.",
+      });
+    }
   }
 
   if (parsed.data.isFeatured) {

@@ -144,6 +144,10 @@ export const stores = pgTable("stores", {
   cartRecoveryEnabled: boolean("cart_recovery_enabled").notNull().default(true),
   postPurchaseEmailEnabled: boolean("post_purchase_email_enabled").notNull().default(true),
   newsletterWelcomeEnabled: boolean("newsletter_welcome_enabled").notNull().default(true),
+  // Store-level marketplace opt-out (migration 0027). When false, none of
+  // the store's products appear on /discover regardless of per-product
+  // promote flags.
+  marketplaceEnabled: boolean("marketplace_enabled").notNull().default(true),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -275,6 +279,12 @@ export const storeProducts = pgTable("store_products", {
   sortOrder: integer("sort_order").notNull().default(0),
   isLeadMagnet: boolean("is_lead_magnet").notNull().default(false),
   isFeatured: boolean("is_featured").notNull().default(false),
+  // Per-listing marketplace promote flag (migration 0027). Marketplace
+  // policy: only USER-created products are eligible (PLATFORM/PLR library
+  // products sell on the storefront only) — enforced in the discover
+  // queries and the PATCH endpoint, with an admin exception so the
+  // platform owner can seed the marketplace.
+  showInMarketplace: boolean("show_in_marketplace").notNull().default(true),
   upsellProductId: varchar("upsell_product_id", { length: 64 }),
   upsellBundleId: varchar("upsell_bundle_id", { length: 64 }),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

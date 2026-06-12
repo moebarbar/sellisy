@@ -172,6 +172,8 @@ export default function StoreSettingsPage() {
 
       <EmailAutomationsCard />
 
+      <MarketplaceCard />
+
       <DomainSettings />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -562,6 +564,55 @@ function EmailAutomationsCard() {
         <p className="text-xs text-muted-foreground pt-1 border-t">
           Every automated email honors unsubscribes and bounces automatically. Buyers who opt out never receive another send.
         </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MarketplaceCard() {
+  const { activeStore, activeStoreId } = useActiveStore();
+  const { toast } = useToast();
+
+  const toggleMutation = useMutation({
+    mutationFn: async (body: Record<string, boolean>) => {
+      await apiRequest("PATCH", `/api/stores/${activeStoreId}`, body);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to update", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (!activeStore) return null;
+  const enabled = (activeStore as any).marketplaceEnabled !== false;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Globe className="h-4 w-4" />
+          Marketplace
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <Label className="text-sm font-medium">Show my store in the Sellisy marketplace</Label>
+            <p className="text-xs text-muted-foreground">
+              Your created products appear on the public Discover page (free traffic — buyers land on your
+              storefront). Turn off to keep this store off the marketplace entirely. Library products never
+              appear in the marketplace either way.
+            </p>
+          </div>
+          <Switch
+            checked={enabled}
+            onCheckedChange={(checked) => toggleMutation.mutate({ marketplaceEnabled: checked })}
+            disabled={toggleMutation.isPending}
+            data-testid="switch-marketplace-enabled"
+          />
+        </div>
       </CardContent>
     </Card>
   );
