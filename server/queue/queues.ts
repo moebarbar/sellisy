@@ -33,6 +33,19 @@ export const aiLaunchQueue = new Queue('ai-launch', {
   },
 });
 
+// Sellisy Brain reports. 'weekly-sweep' fans out per-store 'generate'
+// jobs; generate retries once on transient failure (the job itself skips
+// stores with a fresh report, so retries can't double-email).
+export const brainReportQueue = new Queue('brain-report', {
+  connection: redisConnection,
+  defaultJobOptions: {
+    attempts: 2,
+    backoff: { type: 'exponential', delay: 60_000 },
+    removeOnComplete: { count: 200 },
+    removeOnFail: { count: 200 },
+  },
+});
+
 // Subscription lifecycle sweep — a single repeatable job (scheduled in
 // workers.ts) that re-verifies stale member subscriptions against Stripe
 // and emails buyers on past_due/canceled transitions.

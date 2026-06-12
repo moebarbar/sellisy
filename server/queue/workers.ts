@@ -81,6 +81,29 @@ export async function startWorkers() {
   }
 
   try {
+    const { processBrainJob } = await import('../jobs/brain-report');
+    const brainWorker = new Worker(
+      'brain-report',
+      async (job) => processBrainJob(job),
+      { connection: redisConnection, concurrency: 1, limiter: { max: 20, duration: 60_000 } },
+    );
+    attachFailHandler(brainWorker, 'brain-report');
+    brainWorker.on('completed', (job) => {
+      console.log(`[brain-report] job ${job.id} (${job.name}) completed`);
+    });
+    // Weekly sweep — Mondays 09:00 UTC. Deterministic jobId upserts the
+    // schedule across restarts.
+    const { brainReportQueue } = await import('./queues');
+    await brainReportQueue.add('weekly-sweep', {}, {
+      repeat: { pattern: '0 9 * * 1' },
+      jobId: 'brain-weekly-sweep',
+    });
+    console.log('[queue] brain-report worker started (weekly sweep Mondays 09:00 UTC)');
+  } catch (err: any) {
+    console.warn('[queue] brain-report worker not started:', err.message);
+  }
+
+  try {
     const { processSubscriptionSweep } = await import('../jobs/subscription-sweep');
     const sweepWorker = new Worker(
       'subscription-sweep',

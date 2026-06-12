@@ -339,6 +339,38 @@ export async function sendSubscriptionEndedEmail(params: {
   );
 }
 
+// ─── 3a-brain. WEEKLY BRAIN REPORT (to store owner) ─────────────────
+
+export async function sendBrainReportEmail(params: {
+  ownerEmail: string;
+  storeName: string;
+  summary: string;
+  actions: { title: string; body: string; priority: number }[];
+  dashboardUrl: string;
+}) {
+  const { ownerEmail, storeName, summary, actions, dashboardUrl } = params;
+  const actionRows = actions.map((a, i) => `
+    <div style="border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:10px;">
+      <p style="margin:0 0 4px;color:#111827;font-weight:700;font-size:14px;">${i + 1}. ${escapeHtml(a.title)}</p>
+      <p style="margin:0;color:#4b5563;font-size:13px;line-height:1.5;">${escapeHtml(a.body)}</p>
+    </div>`).join("");
+
+  const content = `
+    ${sectionHeading(`This week at ${escapeHtml(storeName)}`)}
+    ${bodyText(escapeHtml(summary))}
+    <p style="margin:0 0 12px;color:#111827;font-weight:700;font-size:14px;">Your action plan</p>
+    ${actionRows}
+    ${ctaButton('Open Sellisy Brain', dashboardUrl)}
+    ${divider()}
+    <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">Generated from your store's real analytics for the past 7 days.</p>`;
+
+  await sendEmail(
+    ownerEmail,
+    `Your weekly plan for ${sanitizeHeader(storeName)}`,
+    baseLayout(content, `This week's numbers and your prioritized action plan for ${sanitizeHeader(storeName)}.`)
+  );
+}
+
 // ─── 3b. REVIEW REQUEST (post-purchase, delayed) ────────────────────
 
 export async function sendReviewRequestEmail(params: {

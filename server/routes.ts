@@ -567,6 +567,86 @@ ${urls}</urlset>`;
     }
   });
 
+  // --- Sellisy Brain ---
+
+  // Latest report for a store. Growth-tier gated (trial counts) — basic
+  // users get a 403 with upgradeRequired so the client renders the upsell.
+  app.get("/api/stores/:storeId/brain", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const { storeId } = req.params;
+    const userStores = await storage.getStoresByOwner(userId);
+    if (!userStores.some((s) => s.id === storeId)) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+    const tier = await getUserPlanTier(userId);
+    if (tier === "basic") {
+      return res.status(403).json({ message: "Sellisy Brain is part of the Growth plan.", upgradeRequired: true });
+    }
+    const report = await storage.getLatestBrainReport(storeId as string);
+    if (!report) return res.json({ report: null });
+    res.json({
+      report: {
+        id: report.id,
+        periodStart: report.periodStart,
+        periodEnd: report.periodEnd,
+        summary: report.summary,
+        actions: JSON.parse(report.actionsJson),
+        metrics: JSON.parse(report.metricsJson),
+        createdAt: report.createdAt,
+      },
+    });
+  });
+
+  // On-demand generation — runs inline (one Claude call, ~10s) so the
+  // first-run experience doesn't wait for Monday. One per store per 20h.
+  app.post("/api/stores/:storeId/brain/generate", isAuthenticated, async (req, res) => {
+    const userId = getUserId(req);
+    const { storeId } = req.params;
+    const userStores = await storage.getStoresByOwner(userId);
+    const store = userStores.find((s) => s.id === storeId);
+    if (!store) return res.status(404).json({ message: "Store not found" });
+
+    const tier = await getUserPlanTier(userId);
+    if (tier === "basic") {
+      return res.status(403).json({ message: "Sellisy Brain is part of the Growth plan.", upgradeRequired: true });
+    }
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(503).json({ message: "Brain is not configured on this server" });
+    }
+    if (await storage.hasBrainReportSince(storeId as string, new Date(Date.now() - 20 * 60 * 60 * 1000))) {
+      return res.status(429).json({ message: "You already have a fresh report — Brain regenerates once a day." });
+    }
+
+    try {
+      const { collectBrainMetrics, generateBrainPlan } = await import("./ai/brain");
+      const metrics = await collectBrainMetrics(storeId as string);
+      const plan = await generateBrainPlan(store.name, metrics);
+      const periodEnd = new Date();
+      const report = await storage.createBrainReport({
+        storeId: storeId as string,
+        periodStart: new Date(periodEnd.getTime() - 7 * 24 * 60 * 60 * 1000),
+        periodEnd,
+        summary: plan.summary,
+        actionsJson: JSON.stringify(plan.actions),
+        metricsJson: JSON.stringify(metrics),
+      });
+      res.json({
+        report: {
+          id: report.id,
+          periodStart: report.periodStart,
+          periodEnd: report.periodEnd,
+          summary: plan.summary,
+          actions: plan.actions,
+          metrics,
+          createdAt: report.createdAt,
+        },
+      });
+    } catch (err: any) {
+      console.error("[brain] on-demand generation failed:", err.message);
+      res.status(502).json({ message: "Brain couldn't finish the analysis — please try again in a minute." });
+    }
+  });
+
   // --- Store Customers ---
 
   app.get("/api/stores/:storeId/customers", isAuthenticated, async (req, res) => {
