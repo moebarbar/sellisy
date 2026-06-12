@@ -32,6 +32,7 @@ const StrategyDetailPage = lazy(() => import("@/pages/dashboard/strategy-detail"
 const KnowledgeBasesPage = lazy(() => import("@/pages/dashboard/knowledge-bases"));
 const KbEditorPage = lazy(() => import("@/pages/dashboard/kb-editor"));
 const AnalyticsPage = lazy(() => import("@/pages/dashboard/analytics"));
+const BrainPage = lazy(() => import("@/pages/dashboard/brain"));
 const CustomersPage = lazy(() => import("@/pages/dashboard/customers"));
 const BlogPostsPage = lazy(() => import("@/pages/dashboard/blog-posts"));
 const BlogEditorPage = lazy(() => import("@/pages/dashboard/blog-editor"));
@@ -173,6 +174,7 @@ function DashboardRouter() {
             <Route path="/dashboard/marketing" component={MarketingPlaybookPage} />
             <Route path="/dashboard/kb/:id" component={KbEditorPage} />
             <Route path="/dashboard/analytics" component={AnalyticsPage} />
+            <Route path="/dashboard/brain" component={BrainPage} />
             <Route path="/dashboard/customers" component={CustomersPage} />
             <Route path="/dashboard/content-creator" component={KnowledgeBasesPage} />
             <Route path="/dashboard/blog/:id" component={BlogEditorPage} />

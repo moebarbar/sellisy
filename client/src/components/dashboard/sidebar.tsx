@@ -52,6 +52,7 @@ import {
   Handshake,
   Wallet,
   GraduationCap,
+  BrainCircuit,
 } from "lucide-react";
 
 // Grouped IA — five labeled sections instead of one flat 16-item list.
@@ -94,6 +95,7 @@ const navGroups: { label: string | null; items: NavItem[] }[] = [
   {
     label: "Insights",
     items: [
+      { title: "Brain", url: "/dashboard/brain", icon: BrainCircuit },
       { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
       { title: "Customers", url: "/dashboard/customers", icon: Users },
     ],
