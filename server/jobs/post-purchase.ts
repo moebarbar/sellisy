@@ -14,6 +14,7 @@ import { orderItems, orders } from '@shared/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { storage } from '../storage';
 import { sendCrossSellEmail } from '../emails';
+import { storePublicUrl } from '../lib/store-url';
 
 export interface PostPurchaseJobData {
   orderId: string;
@@ -77,9 +78,7 @@ export async function processPostPurchase(job: Job<PostPurchaseJobData>) {
     if (!product) continue;
     if (await buyerOwnsProduct(order.customerId, order.buyerEmail, candidateId)) continue;
 
-    const productUrl = store.customDomain && store.domainStatus === 'active'
-      ? `https://${store.customDomain}/product/${candidateId}`
-      : `${baseUrl}/s/${encodeURIComponent(store.slug)}/product/${candidateId}`;
+    const productUrl = storePublicUrl(store, baseUrl, `/product/${candidateId}`);
 
     await sendCrossSellEmail({
       buyerEmail: order.buyerEmail,

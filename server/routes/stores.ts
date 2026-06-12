@@ -8,6 +8,7 @@
 
 import { Router } from "express";
 import { z } from "zod";
+import rateLimit from "express-rate-limit";
 
 import { storage } from "../storage";
 import { isAuthenticated } from "../replit_integrations/auth";
@@ -361,7 +362,18 @@ storesRouter.patch("/api/stores/:id/newsletter-campaigns/:campaignId/blocks/:blo
 // products and get back a subject + block list, which is appended to the
 // draft campaign. The seller edits/deletes blocks with the normal editor —
 // this drafts, it doesn't send.
-storesRouter.post("/api/stores/:id/newsletter-campaigns/:campaignId/ai-draft", isAuthenticated, async (req, res) => {
+//
+// Rate-limited: every call is a paid Anthropic request, so cap drafts per
+// IP. 20/hour is generous for legitimate iteration on a campaign.
+const aiDraftLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  message: { message: "Too many AI drafts. Please try again in an hour." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+storesRouter.post("/api/stores/:id/newsletter-campaigns/:campaignId/ai-draft", aiDraftLimiter, isAuthenticated, async (req, res) => {
   const store = await storage.getStoreById(req.params.id as string);
   if (!store || store.ownerId !== getUserId(req)) return res.status(404).json({ message: "Store not found" });
   const campaign = await storage.getCampaignById(req.params.campaignId as string);

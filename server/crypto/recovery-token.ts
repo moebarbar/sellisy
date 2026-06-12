@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import { getLinkSecret } from "./link-secret";
 
 // Abandoned-checkout recovery links need the same properties as unsubscribe
 // links: authentic (a crawler can't mint a checkout session for someone
@@ -6,17 +7,8 @@ import { createHmac, timingSafeEqual } from "crypto";
 // crypto/unsubscribe-token.ts with a distinct message prefix so the two
 // token families can never be swapped for each other.
 
-function getSecret(): string {
-  const s = process.env.UNSUBSCRIBE_SECRET || process.env.SESSION_SECRET;
-  if (s) return s;
-  if (process.env.NODE_ENV === "production") {
-    console.warn("[recovery] UNSUBSCRIBE_SECRET / SESSION_SECRET not set — using fallback");
-  }
-  return "sellisy-dev-recovery-fallback-do-not-use-in-prod";
-}
-
 export function makeRecoveryToken(orderId: string): string {
-  return createHmac("sha256", getSecret()).update(`recover:${orderId}`).digest("hex");
+  return createHmac("sha256", getLinkSecret("recovery")).update(`recover:${orderId}`).digest("hex");
 }
 
 export function verifyRecoveryToken(orderId: string, token: string): boolean {

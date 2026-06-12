@@ -834,9 +834,8 @@ ${urls}</urlset>`;
     // Welcome email — fire-and-forget after the response so a SendGrid
     // hiccup never breaks the signup itself.
     if (store.newsletterWelcomeEnabled) {
-      const storeUrl = store.customDomain && store.domainStatus === "active"
-        ? `https://${store.customDomain}`
-        : `${getAppUrl(req)}/s/${store.slug}`;
+      const { storePublicUrl } = await import("./lib/store-url");
+      const storeUrl = storePublicUrl(store, getAppUrl(req));
       const { sendNewsletterWelcomeEmail } = await import("./emails");
       sendNewsletterWelcomeEmail({
         subscriberEmail: parsed.data.email,

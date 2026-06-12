@@ -13,6 +13,7 @@ import { storeReviews } from '@shared/schema';
 import { and, eq } from 'drizzle-orm';
 import { storage } from '../storage';
 import { sendReviewRequestEmail } from '../emails';
+import { storePublicUrl } from '../lib/store-url';
 
 export interface ReviewRequestJobData {
   orderId: string;
@@ -66,15 +67,11 @@ export async function processReviewRequest(job: Job<ReviewRequestJobData>) {
     return;
   }
 
-  const storeBase = store.customDomain && store.domainStatus === 'active'
-    ? `https://${store.customDomain}/product/${target.productId}`
-    : `${baseUrl}/s/${encodeURIComponent(store.slug)}/product/${target.productId}`;
-
   await sendReviewRequestEmail({
     buyerEmail: order.buyerEmail,
     storeName: store.name,
     productTitle: target.title,
-    reviewUrl: `${storeBase}#reviews`,
+    reviewUrl: `${storePublicUrl(store, baseUrl, `/product/${target.productId}`)}#reviews`,
   });
 
   console.log(`[review-request] sent for order ${orderId} (product ${target.productId})`);
