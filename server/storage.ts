@@ -1007,6 +1007,7 @@ import { productStorage, type ProductStorage } from "./storage/product";
 import { orderStorage, type OrderStorage } from "./storage/order";
 import { memberSubscriptionStorage, type MemberSubscriptionStorage } from "./storage/member-subscription";
 import { aiLaunchStorage, type AiLaunchStorage } from "./storage/ai-launch";
+import { brainStorage, type BrainStorage } from "./storage/brain";
 
 export const storage = Object.assign(
   new DatabaseStorage(),
@@ -1016,4 +1017,5 @@ export const storage = Object.assign(
   orderStorage,
   memberSubscriptionStorage,
   aiLaunchStorage,
-) as DatabaseStorage & AffiliateStorage & CourseStorage & ProductStorage & OrderStorage & MemberSubscriptionStorage & AiLaunchStorage;
+  brainStorage,
+) as DatabaseStorage & AffiliateStorage & CourseStorage & ProductStorage & OrderStorage & MemberSubscriptionStorage & AiLaunchStorage & BrainStorage;
