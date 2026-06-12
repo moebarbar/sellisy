@@ -1,6 +1,19 @@
-import sgMail from '@sendgrid/mail';
+// Transactional email transport — Brevo (formerly Sendinblue) HTTP API.
+// Replaces the previous SendGrid client with the SAME surface so call sites
+// don't care about the provider:
+//
+//   setSuppressionCheck(fn)  — wired from routes.ts; consulted before every send
+//   setEmailLogger(fn)       — wired from routes.ts; writes email_logs rows
+//   sendEmail(to, subject, html, extraHeaders?)
+//   sendEmailStaggered(emails[])
+//
+// Env: BREVO_API_KEY + BREVO_FROM_EMAIL.
+// Inbound events (bounce/spam/unsubscribe) arrive at /api/email/webhook/:token
+// in server/index.ts and feed the email_suppression table.
+
 import { convert } from 'html-to-text';
 
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 1000;
 
@@ -15,49 +28,11 @@ export function setSuppressionCheck(fn: (email: string) => Promise<boolean>) {
   _isSuppressedFn = fn;
 }
 
-async function getCredentials() {
-  try {
-    const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-    const xReplitToken = process.env.REPL_IDENTITY
-      ? 'repl ' + process.env.REPL_IDENTITY
-      : process.env.WEB_REPL_RENEWAL
-        ? 'depl ' + process.env.WEB_REPL_RENEWAL
-        : null;
-
-    if (xReplitToken && hostname) {
-      const connectionSettings = await fetch(
-        'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid',
-        {
-          headers: {
-            'Accept': 'application/json',
-            'X_REPLIT_TOKEN': xReplitToken
-          }
-        }
-      ).then(res => res.json()).then(data => data.items?.[0]);
-
-      if (connectionSettings?.settings?.api_key && connectionSettings?.settings?.from_email) {
-        return { apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email };
-      }
-    }
-  } catch {}
-
-  const apiKey = process.env.SENDGRID_API_KEY;
-  const email = process.env.SENDGRID_FROM_EMAIL;
-
-  if (apiKey && email) {
-    return { apiKey, email };
-  }
-
-  throw new Error('SendGrid credentials not available from connector or environment variables (SENDGRID_API_KEY, SENDGRID_FROM_EMAIL)');
-}
-
-export async function getUncachableSendGridClient() {
-  const { apiKey, email } = await getCredentials();
-  sgMail.setApiKey(apiKey);
-  return {
-    client: sgMail,
-    fromEmail: email
-  };
+function getCredentials(): { apiKey: string; email: string } {
+  const apiKey = process.env.BREVO_API_KEY;
+  const email = process.env.BREVO_FROM_EMAIL;
+  if (apiKey && email) return { apiKey, email };
+  throw new Error('Brevo credentials not available (set BREVO_API_KEY and BREVO_FROM_EMAIL)');
 }
 
 function htmlToPlainText(html: string): string {
@@ -92,20 +67,19 @@ export async function sendEmail(
     }
   }
 
-  const { client, fromEmail } = await getUncachableSendGridClient();
-
+  const { apiKey, email: fromEmail } = getCredentials();
   const plainText = htmlToPlainText(html);
 
   // Per-message extraHeaders win over the defaults — e.g. a transactional
   // email with a personalized one-click unsubscribe URL overrides the
   // generic mailto:unsubscribe fallback.
-  const msg = {
-    to,
-    from: { email: fromEmail, name: 'Sellisy' },
+  const payload = {
+    sender: { email: fromEmail, name: 'Sellisy' },
     replyTo: { email: fromEmail, name: 'Sellisy Support' },
+    to: [{ email: to }],
     subject,
-    html,
-    text: plainText,
+    htmlContent: html,
+    textContent: plainText,
     headers: {
       'X-Priority': '3',
       'X-Mailer': 'Sellisy Platform',
@@ -113,48 +87,46 @@ export async function sendEmail(
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
       ...(extraHeaders ?? {}),
     },
-    trackingSettings: {
-      clickTracking: { enable: false },
-      openTracking: { enable: false },
-      subscriptionTracking: { enable: false },
-    },
   };
 
   let lastError: any;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      await client.send(msg);
-      await logEmailSend(to, subject, 'sent');
-      return;
+      const res = await fetch(BREVO_API_URL, {
+        method: 'POST',
+        headers: {
+          'api-key': apiKey,
+          'content-type': 'application/json',
+          'accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        await logEmailSend(to, subject, 'sent');
+        return;
+      }
+
+      const body = await res.text().then(t => t.slice(0, 500)).catch(() => '');
+      lastError = new Error(`Brevo ${res.status}: ${body}`);
+      // 4xx (except 429) won't succeed on retry — fail fast.
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+        await logEmailSend(to, subject, 'failed', lastError.message);
+        throw lastError;
+      }
     } catch (err: any) {
+      if (err === lastError) throw err; // the fail-fast above
       lastError = err;
-      const statusCode = err?.code || err?.response?.statusCode;
-      if (statusCode && statusCode >= 400 && statusCode < 500 && statusCode !== 429) {
-        await logEmailSend(to, subject, 'failed', formatEmailError(err));
-        throw err;
-      }
-      if (attempt < MAX_RETRIES) {
-        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
-        console.warn(`Email send attempt ${attempt} failed, retrying in ${delay}ms...`);
-        await sleep(delay);
-      }
+    }
+    if (attempt < MAX_RETRIES) {
+      const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      console.warn(`Email send attempt ${attempt} failed, retrying in ${delay}ms...`);
+      await sleep(delay);
     }
   }
 
-  await logEmailSend(to, subject, 'failed', formatEmailError(lastError));
+  await logEmailSend(to, subject, 'failed', lastError?.message ?? 'unknown error');
   throw lastError;
-}
-
-function formatEmailError(err: any): string {
-  if (!err) return "unknown error";
-  const code = err?.code ?? err?.response?.statusCode;
-  const body = err?.response?.body;
-  const bodyStr = body ? (typeof body === "string" ? body : JSON.stringify(body)) : "";
-  return [
-    code ? `code=${code}` : null,
-    err.message,
-    bodyStr ? `body=${bodyStr.slice(0, 500)}` : null,
-  ].filter(Boolean).join(" | ");
 }
 
 export async function sendEmailStaggered(emails: Array<{ to: string; subject: string; html: string }>) {

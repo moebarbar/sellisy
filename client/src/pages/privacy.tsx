@@ -106,7 +106,7 @@ export default function PrivacyPolicy() {
                   { name: "Stripe", purpose: "Payments" },
                   { name: "PayPal", purpose: "Payments" },
                   { name: "Cloudflare R2", purpose: "File storage" },
-                  { name: "SendGrid", purpose: "Email delivery" },
+                  { name: "Brevo", purpose: "Email delivery" },
                   { name: "Railway / Neon", purpose: "Hosting & DB" },
                 ].map((p) => (
                   <div key={p.name} style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>

@@ -1,4 +1,4 @@
-import { sendEmail } from './sendgridClient';
+import { sendEmail } from './emailClient';
 
 function sanitizeHeader(value: string): string {
   return value.replace(/[\r\n\0]/g, '');

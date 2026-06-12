@@ -173,7 +173,7 @@ export default function DataDeletion() {
                 <li>Your profile data (name, email, profile image)</li>
                 <li>Your stores, products, and uploaded files</li>
                 <li>Your customer lists, marketing campaigns, and analytics</li>
-                <li>Personal data on third-party services we use (Clerk, SendGrid, Cloudflare R2)</li>
+                <li>Personal data on third-party services we use (Clerk, Brevo, Cloudflare R2)</li>
               </ul>
             </Section>
 

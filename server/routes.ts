@@ -13,7 +13,7 @@ import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClie
 import { sendOrderConfirmationEmail, sendDownloadLinkEmail, sendLeadMagnetEmail, sendNewOrderNotificationEmail, sendMagicLinkEmail, sendAllTestEmails, baseLayout, sectionHeading, bodyText, ctaButton, divider } from "./emails";
 import { registerSubscriptionRoutes } from "./subscriptions";
 import { sendOrderCompletionEmails } from "./orderEmailHelper";
-import { setEmailLogger, sendEmailStaggered, setSuppressionCheck } from "./sendgridClient";
+import { setEmailLogger, sendEmailStaggered, setSuppressionCheck } from "./emailClient";
 import { runHealthCheck, runRepair } from "./integrity";
 import { getRevenueAnalytics, getProductAnalytics, getCustomerAnalytics, getCouponAnalytics, getTrafficAnalytics } from "./analytics";
 import { users } from "@shared/models/auth";
@@ -831,7 +831,7 @@ ${urls}</urlset>`;
     const subscriber = await storage.addNewsletterSubscriber({ storeId: store.id, email: parsed.data.email });
     res.status(201).json({ message: "Subscribed successfully", subscriber });
 
-    // Welcome email — fire-and-forget after the response so a SendGrid
+    // Welcome email — fire-and-forget after the response so an email-provider
     // hiccup never breaks the signup itself.
     if (store.newsletterWelcomeEnabled) {
       const { storePublicUrl } = await import("./lib/store-url");

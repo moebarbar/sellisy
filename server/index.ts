@@ -104,82 +104,65 @@ if (!process.env.PAYPAL_WEBHOOK_ID) {
   console.warn("[SECURITY WARNING] PAYPAL_WEBHOOK_ID is not set — PayPal webhook endpoint will reject all events with 503 until configured.");
 }
 
-// SendGrid event webhook — receives bounce, complaint (spam report), and
-// unsubscribe events. Configure URL in SendGrid: https://app.sendgrid.com/settings/mail_settings
+// Brevo transactional webhook — receives bounce, spam-complaint, blocked,
+// and unsubscribe events. Configure in Brevo: Transactional → Settings →
+// Webhooks, URL: https://sellisy.com/api/email/webhook/<BREVO_WEBHOOK_TOKEN>
 //
-// SECURITY: fail-closed signature verification (same policy as Stripe/PayPal
-// above). SendGrid's "Signed Event Webhook" signs `timestamp + rawBody` with
-// an ECDSA P-256 key; we verify with the base64 DER public key from
-// SENDGRID_WEBHOOK_PUBLIC_KEY. Without verification, a forged POST could
-// suppress arbitrary buyer emails (bounce/complaint entries silently block
-// all future sends to that address).
-if (!process.env.SENDGRID_WEBHOOK_PUBLIC_KEY) {
-  console.warn("[SECURITY WARNING] SENDGRID_WEBHOOK_PUBLIC_KEY is not set — SendGrid webhook endpoint will reject all events with 503 until configured. Enable Signed Event Webhook in SendGrid settings and copy the verification key.");
+// SECURITY: fail-closed (same policy as Stripe/PayPal above). Brevo doesn't
+// cryptographically sign webhooks, so the standard hardening is a long
+// random secret embedded in the URL path, compared timing-safe. Without it,
+// a forged POST could suppress arbitrary buyer emails (bounce/complaint
+// entries silently block all future sends to that address).
+// Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+if (!process.env.BREVO_WEBHOOK_TOKEN) {
+  console.warn("[SECURITY WARNING] BREVO_WEBHOOK_TOKEN is not set — the email event webhook will reject all events with 503 until configured.");
 }
 
-function verifySendGridSignature(rawBody: Buffer, signature: string, timestamp: string): boolean {
+function verifyBrevoWebhookToken(provided: string): boolean {
+  const expected = process.env.BREVO_WEBHOOK_TOKEN;
+  if (!expected) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
   try {
-    const publicKey = crypto.createPublicKey({
-      key: Buffer.from(process.env.SENDGRID_WEBHOOK_PUBLIC_KEY!, "base64"),
-      format: "der",
-      type: "spki",
-    });
-    const verifier = crypto.createVerify("sha256");
-    verifier.update(timestamp);
-    verifier.update(rawBody);
-    return verifier.verify(publicKey, Buffer.from(signature, "base64"));
+    return crypto.timingSafeEqual(a, b);
   } catch {
     return false;
   }
 }
 
 app.post(
-  '/api/sendgrid/webhook',
-  express.raw({ type: 'application/json', limit: '512kb' }),
+  '/api/email/webhook/:token',
+  express.json({ limit: '512kb' }),
   async (req, res) => {
-    if (!process.env.SENDGRID_WEBHOOK_PUBLIC_KEY) {
+    if (!process.env.BREVO_WEBHOOK_TOKEN) {
       return res.status(503).json({ error: 'Webhook verification not configured' });
     }
-    const signature = req.get('X-Twilio-Email-Event-Webhook-Signature');
-    const timestamp = req.get('X-Twilio-Email-Event-Webhook-Timestamp');
-    if (!signature || !timestamp) {
-      return res.status(401).json({ error: 'Missing signature headers' });
-    }
-    // Replay protection: reject events older than 10 minutes.
-    const ts = Number(timestamp);
-    if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > 600) {
-      return res.status(401).json({ error: 'Stale or invalid timestamp' });
-    }
-    const rawBody = req.body as Buffer;
-    if (!Buffer.isBuffer(rawBody) || !verifySendGridSignature(rawBody, signature, timestamp)) {
-      return res.status(401).json({ error: 'Invalid signature' });
+    if (!verifyBrevoWebhookToken(String(req.params.token || ''))) {
+      return res.status(401).json({ error: 'Invalid webhook token' });
     }
 
     try {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(rawBody.toString('utf-8'));
-      } catch {
-        return res.status(400).json({ error: 'Invalid JSON payload' });
-      }
-      const events = Array.isArray(parsed) ? parsed : [];
+      // Brevo sends one JSON object per event; tolerate arrays too.
+      const events = Array.isArray(req.body) ? req.body : [req.body];
       // Lazy import so this module doesn't pull storage during top-level init.
       const { storage } = await import('./storage');
       for (const ev of events) {
         const email = ev?.email;
         const eventType = ev?.event;
         if (typeof email !== 'string' || !email) continue;
-        if (eventType === 'bounce' || eventType === 'dropped') {
-          await storage.suppressEmail(email, 'bounce', ev.reason ?? ev.type ?? null);
-        } else if (eventType === 'spamreport') {
+        // soft_bounce is transient — don't suppress for it.
+        if (eventType === 'hard_bounce' || eventType === 'blocked' || eventType === 'invalid_email') {
+          await storage.suppressEmail(email, 'bounce', ev.reason ?? eventType ?? null);
+        } else if (eventType === 'spam' || eventType === 'complaint') {
           await storage.suppressEmail(email, 'complaint', ev.reason ?? null);
-        } else if (eventType === 'unsubscribe' || eventType === 'group_unsubscribe') {
-          await storage.suppressEmail(email, 'unsubscribe', ev.useragent ?? null);
+        } else if (eventType === 'unsubscribed' || eventType === 'unsubscribe') {
+          await storage.suppressEmail(email, 'unsubscribe', ev.reason ?? null);
         }
       }
       res.status(200).json({ received: true, count: events.length });
     } catch (error: any) {
-      console.error('SendGrid webhook error:', error.message);
+      console.error('Brevo webhook error:', error.message);
       res.status(500).json({ error: 'Webhook processing error' });
     }
   }

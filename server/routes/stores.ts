@@ -20,7 +20,7 @@ import {
   divider,
   sectionHeading,
 } from "../emails";
-import { sendEmailStaggered } from "../sendgridClient";
+import { sendEmailStaggered } from "../emailClient";
 import { encryptPaymentSecret } from "../crypto/payment-secret";
 import {
   getUserId,
