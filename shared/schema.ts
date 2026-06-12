@@ -6,6 +6,8 @@ import { z } from "zod";
 export * from "./models/auth";
 
 export const productSourceEnum = pgEnum("product_source", ["PLATFORM", "USER"]);
+export const billingIntervalEnum = pgEnum("billing_interval", ["month", "year"]);
+export const memberSubscriptionStatusEnum = pgEnum("member_subscription_status", ["active", "past_due", "canceled", "incomplete"]);
 export const productStatusEnum = pgEnum("product_status", ["DRAFT", "ACTIVE"]);
 export const orderStatusEnum = pgEnum("order_status", ["PENDING", "COMPLETED", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"]);
 export const planTierEnum = pgEnum("plan_tier", ["basic", "pro", "max"]);
@@ -209,6 +211,13 @@ export const products = pgTable("products", {
   // docs/discord-integration.md for the full setup flow.
   discordGuildId: varchar("discord_guild_id", { length: 64 }),
   discordRoleId: varchar("discord_role_id", { length: 64 }),
+  // Subscription pricing (migration 0025). Non-null billingInterval makes
+  // this a recurring product: checkout runs in Stripe subscription mode on
+  // the seller's own keys and access is gated on the subscription staying
+  // active (see shared/subscription-access.ts + server/routes/orders.ts).
+  // Stripe-only — stores without Stripe configured can't sell these.
+  // Mutually exclusive with pwywEnabled.
+  billingInterval: billingIntervalEnum("billing_interval"),
   deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -352,6 +361,39 @@ export const downloadTokens = pgTable("download_tokens", {
 export const insertDownloadTokenSchema = createInsertSchema(downloadTokens).omit({ id: true, createdAt: true });
 export type InsertDownloadToken = z.infer<typeof insertDownloadTokenSchema>;
 export type DownloadToken = typeof downloadTokens.$inferSelect;
+
+// Buyer subscriptions to recurring products (migration 0025). One row per
+// Stripe subscription on the SELLER's Stripe account. Because sellers don't
+// configure webhooks, lifecycle state is maintained by (a) lazy
+// re-verification at content-access time when lastVerifiedAt is stale and
+// (b) a daily sweep job — both fetch the subscription from Stripe with the
+// store's own key. `orderId` points at the initial checkout's order row.
+export const memberSubscriptions = pgTable("member_subscriptions", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  storeId: varchar("store_id", { length: 64 }).notNull(),
+  productId: varchar("product_id", { length: 64 }).notNull(),
+  orderId: varchar("order_id", { length: 64 }).notNull(),
+  customerId: varchar("customer_id", { length: 64 }),
+  buyerEmail: text("buyer_email").notNull(),
+  stripeSubscriptionId: text("stripe_subscription_id").notNull().unique(),
+  stripeCustomerId: text("stripe_customer_id"),
+  status: memberSubscriptionStatusEnum("status").notNull().default("active"),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+  currentPeriodEnd: timestamp("current_period_end"),
+  lastVerifiedAt: timestamp("last_verified_at").defaultNow().notNull(),
+  canceledAt: timestamp("canceled_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("member_subscriptions_store_status_idx").on(t.storeId, t.status),
+  index("member_subscriptions_customer_idx").on(t.customerId),
+  index("member_subscriptions_order_idx").on(t.orderId),
+  index("member_subscriptions_period_end_idx").on(t.currentPeriodEnd),
+]);
+
+export const insertMemberSubscriptionSchema = createInsertSchema(memberSubscriptions).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertMemberSubscription = z.infer<typeof insertMemberSubscriptionSchema>;
+export type MemberSubscription = typeof memberSubscriptions.$inferSelect;
 
 export const bundles = pgTable("bundles", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
