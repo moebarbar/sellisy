@@ -65,6 +65,29 @@ export async function startWorkers() {
   }
 
   try {
+    const { processSubscriptionSweep } = await import('../jobs/subscription-sweep');
+    const sweepWorker = new Worker(
+      'subscription-sweep',
+      async (job) => processSubscriptionSweep(job),
+      { connection: redisConnection, concurrency: 1 },
+    );
+    attachFailHandler(sweepWorker, 'subscription-sweep');
+    sweepWorker.on('completed', (job) => {
+      console.log(`[subscription-sweep] job ${job.id} completed`);
+    });
+    // Repeatable schedule — every 6h. Deterministic jobId means restarts
+    // upsert the same schedule instead of stacking duplicates.
+    const { subscriptionSweepQueue } = await import('./queues');
+    await subscriptionSweepQueue.add('sweep', {}, {
+      repeat: { every: 6 * 60 * 60 * 1000 },
+      jobId: 'subscription-sweep-repeat',
+    });
+    console.log('[queue] subscription-sweep worker started (every 6h)');
+  } catch (err: any) {
+    console.warn('[queue] subscription-sweep worker not started:', err.message);
+  }
+
+  try {
     const { processPostPurchase } = await import('../jobs/post-purchase');
     const postPurchaseWorker = new Worker(
       'post-purchase',

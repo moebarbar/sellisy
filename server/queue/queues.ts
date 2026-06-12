@@ -21,6 +21,18 @@ export const gumroadWelcomeEmailsQueue = new Queue('gumroad-welcome-emails', {
   },
 });
 
+// Subscription lifecycle sweep — a single repeatable job (scheduled in
+// workers.ts) that re-verifies stale member subscriptions against Stripe
+// and emails buyers on past_due/canceled transitions.
+export const subscriptionSweepQueue = new Queue('subscription-sweep', {
+  connection: redisConnection,
+  defaultJobOptions: {
+    attempts: 1,
+    removeOnComplete: { count: 20 },
+    removeOnFail: { count: 50 },
+  },
+});
+
 // Post-purchase cross-sell recommendation, ~24h after completion.
 // Same enqueue point + idempotency scheme as review-request below.
 export const postPurchaseQueue = new Queue('post-purchase', {

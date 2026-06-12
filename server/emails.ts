@@ -299,6 +299,46 @@ export async function sendCrossSellEmail(params: {
   );
 }
 
+// ─── 3a-subs. SUBSCRIPTION LIFECYCLE ────────────────────────────────
+
+export async function sendSubscriptionPaymentFailedEmail(params: {
+  buyerEmail: string;
+  storeName: string;
+  productTitle: string;
+  portalUrl: string;
+}) {
+  const { buyerEmail, storeName, productTitle, portalUrl } = params;
+  const content = `
+    ${sectionHeading('Payment issue with your subscription')}
+    ${bodyText(`The latest payment for your <strong>${escapeHtml(productTitle)}</strong> subscription from <strong>${escapeHtml(storeName)}</strong> didn't go through. Your card will be retried automatically — if it keeps failing, access will pause at the end of your billing period.`)}
+    ${bodyText(`If your card has changed or expired, contact ${escapeHtml(storeName)} or resubscribe with a new card once the current subscription lapses.`)}
+    ${ctaButton('View Your Subscriptions', portalUrl)}`;
+  await sendEmail(
+    buyerEmail,
+    `Payment issue — ${sanitizeHeader(productTitle)}`,
+    baseLayout(content, `Your ${sanitizeHeader(productTitle)} subscription payment didn't go through.`)
+  );
+}
+
+export async function sendSubscriptionEndedEmail(params: {
+  buyerEmail: string;
+  storeName: string;
+  productTitle: string;
+  productUrl: string;
+}) {
+  const { buyerEmail, storeName, productTitle, productUrl } = params;
+  const content = `
+    ${sectionHeading('Your subscription has ended')}
+    ${bodyText(`Your <strong>${escapeHtml(productTitle)}</strong> subscription from <strong>${escapeHtml(storeName)}</strong> has ended, and access to its content is now paused.`)}
+    ${bodyText(`Changed your mind? You can resubscribe any time and pick up right where you left off.`)}
+    ${ctaButton('Resubscribe', productUrl)}`;
+  await sendEmail(
+    buyerEmail,
+    `Your ${sanitizeHeader(productTitle)} subscription has ended`,
+    baseLayout(content, `Your subscription from ${sanitizeHeader(storeName)} has ended.`)
+  );
+}
+
 // ─── 3b. REVIEW REQUEST (post-purchase, delayed) ────────────────────
 
 export async function sendReviewRequestEmail(params: {
