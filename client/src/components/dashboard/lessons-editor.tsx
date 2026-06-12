@@ -104,7 +104,6 @@ function InnerEditor({ productId }: { productId: string }) {
     },
   });
 
-  if (lessonsLoading || modulesLoading) return <Skeleton className="h-40" />;
 
   const lessonsByModule = (mId: string | null) =>
     (lessons || [])
@@ -152,6 +151,11 @@ function InnerEditor({ productId }: { productId: string }) {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/courses/products", productId, "lessons"] }),
   });
+
+  // Loading gate AFTER every hook — an early return above any hook is
+  // React error #310 (hook count changes between renders). This exact
+  // mistake made Courses → Manage crash 100% of the time.
+  if (lessonsLoading || modulesLoading) return <Skeleton className="h-40" />;
 
   const ungrouped = lessonsByModule(null);
 

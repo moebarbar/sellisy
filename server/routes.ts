@@ -479,19 +479,21 @@ ${urls}</urlset>`;
     const topProducts: { title: string; revenue: number; count: number }[] = [];
     const revenueByDate: Record<string, number> = {};
 
+    // Single JOIN per store (getOrdersWithItemsByStore) — this endpoint
+    // previously ran getOrderItemsByOrder once PER completed order, so a
+    // store with a few hundred orders fired hundreds of queries on every
+    // Overview load (the reported multi-second page time).
     const storeDataPromises = targetStores.map(async (store) => {
-      const [storeOrders, storeProds] = await Promise.all([
-        storage.getOrdersByStore(store.id),
+      const [ordersWithItems, storeProds] = await Promise.all([
+        storage.getOrdersWithItemsByStore(store.id),
         storage.getStoreProducts(store.id),
       ]);
-      const completedOrders = storeOrders.filter((o) => o.status === "COMPLETED");
-      const orderItemsPromises = completedOrders.map((o) => storage.getOrderItemsByOrder(o.id));
-      const allOrderItems = await Promise.all(orderItemsPromises);
-      return { storeProds, completedOrders, allOrderItems };
+      const completedOrders = ordersWithItems.filter((o) => o.status === "COMPLETED");
+      return { storeProds, completedOrders };
     });
     const storeDataResults = await Promise.all(storeDataPromises);
 
-    for (const { storeProds, completedOrders, allOrderItems } of storeDataResults) {
+    for (const { storeProds, completedOrders } of storeDataResults) {
       totalProducts += storeProds.length;
       for (let i = 0; i < completedOrders.length; i++) {
         const order = completedOrders[i];
@@ -499,7 +501,7 @@ ${urls}</urlset>`;
         totalOrders++;
         const dateKey = new Date(order.createdAt).toISOString().split("T")[0];
         revenueByDate[dateKey] = (revenueByDate[dateKey] || 0) + order.totalCents;
-        for (const item of allOrderItems[i]) {
+        for (const item of order.items) {
           const existing = topProducts.find(p => p.title === item.product.title);
           if (existing) {
             existing.revenue += item.priceCents;
