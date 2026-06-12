@@ -36,6 +36,7 @@ import {
   sendLeadMagnetEmail,
 } from "../emails";
 import { sendOrderCompletionEmails } from "../orderEmailHelper";
+import { checkSubscriptionAccess } from "../memberAccess";
 import { WebhookHandlers } from "../webhookHandlers";
 import { watermarkPdf, isPdfFilename, isPdfContentType } from "../pdfWatermark";
 import { decryptPaymentSecret } from "../crypto/payment-secret";
@@ -1349,6 +1350,13 @@ ordersRouter.get("/api/download/:token", async (req, res) => {
 
   const order = await storage.getOrderById(downloadToken.orderId);
   if (!order) return res.status(404).json({ message: "Order not found" });
+
+  // Subscription orders: files stay available only while the subscription
+  // is live (lazy re-verified against Stripe inside the check).
+  const subAccess = await checkSubscriptionAccess(order.id);
+  if (!subAccess.allowed) {
+    return res.status(subAccess.status).json({ message: subAccess.message });
+  }
 
   const items = await storage.getOrderItemsByOrder(downloadToken.orderId);
   const files: { name: string; url: string }[] = [];

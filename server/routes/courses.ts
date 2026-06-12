@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import { storage } from "../storage";
+import { checkSubscriptionAccess } from "../memberAccess";
 import { db } from "../db";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { quizQuestions, QUIZ_PASS_THRESHOLD } from "@shared/schema";
@@ -45,6 +46,10 @@ async function validateDownloadAccess(token: string, productId: string): Promise
   const items = await storage.getOrderItemsByOrder(dt.orderId);
   const hasProduct = items.some((it) => it.productId === productId);
   if (!hasProduct) return { ok: false, status: 403, message: "Token doesn't grant access to this course" };
+
+  // Subscription-gated course: access lasts while the subscription is live.
+  const subAccess = await checkSubscriptionAccess(dt.orderId);
+  if (!subAccess.allowed) return { ok: false, status: subAccess.status, message: subAccess.message };
 
   return { ok: true, orderId: dt.orderId };
 }
