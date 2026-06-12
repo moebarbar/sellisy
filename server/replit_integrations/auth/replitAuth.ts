@@ -22,24 +22,59 @@ export function setupAuth(app: Express) {
 
 // Resolve a Sellisy user row for the authenticated Clerk user.
 // Creates the row on first sight (auto-provisioning) so we don't need a webhook
-// to keep users in sync for the basic case. Profile fields are refreshed on
-// every authenticated request — cheap and keeps things simple.
-async function provisionLocalUser(clerkUserId: string) {
-  const existing = await authStorage.getUserByClerkId(clerkUserId);
-  if (existing) return existing;
+// to keep users in sync for the basic case.
+//
+// Performance: a fresh signup's first dashboard render fires several API
+// requests in parallel, and ALL of them used to miss the DB lookup and each
+// make their own Clerk API round trip (~150-400ms) before racing to insert
+// the same row — the main reason signup felt slow. Two layers fix it:
+//   1. single-flight: concurrent requests for the same clerkUserId share
+//      ONE provisioning promise (one Clerk call total)
+//   2. a short-TTL cache skips the per-request DB lookup on the hot path;
+//      60s keeps multi-instance drift bounded
+type LocalUser = Awaited<ReturnType<typeof authStorage.upsertUserByClerkId>>;
+const USER_CACHE_TTL_MS = 60_000;
+const userCache = new Map<string, { user: LocalUser; at: number }>();
+const inFlight = new Map<string, Promise<LocalUser>>();
 
-  const clerkUser = await clerkClient.users.getUser(clerkUserId);
-  const primaryEmail = clerkUser.emailAddresses.find(
-    e => e.id === clerkUser.primaryEmailAddressId,
-  )?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress ?? null;
+async function provisionLocalUser(clerkUserId: string): Promise<LocalUser> {
+  const cached = userCache.get(clerkUserId);
+  if (cached && Date.now() - cached.at < USER_CACHE_TTL_MS) return cached.user;
 
-  return authStorage.upsertUserByClerkId({
-    clerkUserId,
-    email: primaryEmail,
-    firstName: clerkUser.firstName ?? null,
-    lastName: clerkUser.lastName ?? null,
-    profileImageUrl: clerkUser.imageUrl ?? null,
-  });
+  const flight = inFlight.get(clerkUserId);
+  if (flight) return flight;
+
+  const promise = (async () => {
+    try {
+      const existing = await authStorage.getUserByClerkId(clerkUserId);
+      if (existing) {
+        userCache.set(clerkUserId, { user: existing, at: Date.now() });
+        return existing;
+      }
+
+      const clerkUser = await clerkClient.users.getUser(clerkUserId);
+      const primaryEmail = clerkUser.emailAddresses.find(
+        e => e.id === clerkUser.primaryEmailAddressId,
+      )?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress ?? null;
+
+      const user = await authStorage.upsertUserByClerkId({
+        clerkUserId,
+        email: primaryEmail,
+        firstName: clerkUser.firstName ?? null,
+        lastName: clerkUser.lastName ?? null,
+        profileImageUrl: clerkUser.imageUrl ?? null,
+      });
+      userCache.set(clerkUserId, { user, at: Date.now() });
+      return user;
+    } finally {
+      inFlight.delete(clerkUserId);
+    }
+  })();
+
+  inFlight.set(clerkUserId, promise);
+  // Unbounded-growth guard — a blunt clear is fine, entries rebuild on demand.
+  if (userCache.size > 5000) userCache.clear();
+  return promise;
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
