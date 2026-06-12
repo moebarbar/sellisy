@@ -584,14 +584,16 @@ ${urls}</urlset>`;
     }
     const report = await storage.getLatestBrainReport(storeId as string);
     if (!report) return res.json({ report: null });
+    // Defensive parse — a corrupt row should degrade, not 500 the page.
+    const safeParse = (raw: string, fallback: any) => { try { return JSON.parse(raw); } catch { return fallback; } };
     res.json({
       report: {
         id: report.id,
         periodStart: report.periodStart,
         periodEnd: report.periodEnd,
         summary: report.summary,
-        actions: JSON.parse(report.actionsJson),
-        metrics: JSON.parse(report.metricsJson),
+        actions: safeParse(report.actionsJson, []),
+        metrics: safeParse(report.metricsJson, {}),
         createdAt: report.createdAt,
       },
     });
