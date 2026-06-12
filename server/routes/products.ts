@@ -422,6 +422,28 @@ productsRouter.delete("/api/products/:id", isAuthenticated, async (req, res) => 
     return res.status(404).json({ message: "Product not found" });
   }
 
+  // Zombie-subscription guard: a recurring product with live subscribers
+  // can't be deleted — Stripe would keep charging people for content that
+  // no longer exists. Cancel the subscriptions (or wait for them to lapse)
+  // first.
+  if (product.billingInterval) {
+    const { db } = await import("../db");
+    const { memberSubscriptions } = await import("@shared/schema");
+    const { and, eq, sql } = await import("drizzle-orm");
+    const [active] = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(memberSubscriptions)
+      .where(and(
+        eq(memberSubscriptions.productId, product.id),
+        sql`${memberSubscriptions.status} IN ('active', 'past_due')`,
+      ));
+    if ((active?.count ?? 0) > 0) {
+      return res.status(400).json({
+        message: `This subscription product has ${active.count} active subscriber(s). Their billing would continue without access. Wait for subscriptions to end or ask subscribers to cancel first.`,
+      });
+    }
+  }
+
   await storage.deleteProduct(product.id, getUserId(req));
   res.json({ ok: true });
 });

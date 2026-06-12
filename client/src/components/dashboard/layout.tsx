@@ -149,7 +149,7 @@ function DashboardHeader() {
                     >
                       <div className="flex items-center gap-2 w-full">
                         <Store className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="flex-1 truncate">{store.name}</span>
+                        <span className="flex-1 min-w-0 truncate">{store.name}</span>
                         {store.id === activeStoreId && (
                           <Check className="h-3.5 w-3.5 shrink-0" />
                         )}

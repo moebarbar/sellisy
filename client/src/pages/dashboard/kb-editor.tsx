@@ -3189,7 +3189,7 @@ const PageAttachments = React.forwardRef<PageAttachmentsHandle, { pageId: string
                         className="h-7 text-sm flex-1"
                       />
                     ) : (
-                      <span className="flex-1 text-sm truncate cursor-pointer" onDoubleClick={() => startRename(attachment)} title="Double-click to rename">
+                      <span className="flex-1 min-w-0 text-sm truncate cursor-pointer" onDoubleClick={() => startRename(attachment)} title="Double-click to rename">
                         {attachment.name}
                       </span>
                     )}

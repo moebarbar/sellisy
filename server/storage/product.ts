@@ -39,6 +39,15 @@ export const productStorage = {
     return product;
   },
 
+  // Buyer-access variant: paid content must survive the seller soft-deleting
+  // the product. Sellers' dashboards and storefront listings keep using the
+  // deletedAt-filtered read above; this one backs course access, quizzes,
+  // and certificates for buyers who already own the product.
+  async getProductByIdIncludingDeleted(id: string) {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
+  },
+
   async getProductBySlug(slug: string) {
     const [product] = await db.select().from(products).where(and(eq(products.slug, slug), isNull(products.deletedAt)));
     return product;

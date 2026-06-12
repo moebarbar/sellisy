@@ -457,7 +457,9 @@ coursesRouter.get("/access/:token/:productId", async (req: Request, res: Respons
   const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
   if (!check.ok) return res.status(check.status).json({ message: check.message });
 
-  const product = await storage.getProductById(String(req.params.productId));
+  // Buyer-grade read: a seller soft-deleting the product must not revoke
+  // paid access (no-loss guarantee).
+  const product = await storage.getProductByIdIncludingDeleted(String(req.params.productId));
   if (!product) return res.status(404).json({ message: "Course not found" });
 
   const order = await storage.getOrderById(check.orderId);
@@ -1180,7 +1182,7 @@ coursesRouter.get("/access/:token/:productId/certificate", async (req: Request, 
   const check = await validateDownloadAccess(String(req.params.token), String(req.params.productId));
   if (!check.ok) return res.status(check.status).json({ message: check.message });
 
-  const product = await storage.getProductById(String(req.params.productId));
+  const product = await storage.getProductByIdIncludingDeleted(String(req.params.productId));
   if (!product) return res.status(404).json({ message: "Course not found" });
 
   if (!product.certificatesEnabled) {

@@ -186,7 +186,7 @@ export default function BundlesPage() {
                           checked={selectedProductIds.includes(sp.productId)}
                           onCheckedChange={() => toggleProductSelection(sp.productId)}
                         />
-                        <span className="flex-1 text-sm truncate">{sp.product.title}</span>
+                        <span className="flex-1 min-w-0 text-sm truncate">{sp.product.title}</span>
                         <span className="text-sm text-muted-foreground">
                           ${(sp.product.priceCents / 100).toFixed(2)}
                         </span>
