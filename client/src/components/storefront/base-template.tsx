@@ -316,7 +316,7 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
         switch (sectionId) {
           case "hero": return <HeroSection key="hero" store={store} c={c} theme={theme} isDark={isDark} />;
           case "products": return (
-            <div key="products" className="sf-section-products relative z-10">
+            <div key="products" id="products" className="sf-section-products relative z-10" style={{ scrollMarginTop: 80 }}>
               {categories.length > 1 && (
         <nav
           data-testid="nav-categories"
