@@ -7,6 +7,7 @@ export * from "./models/auth";
 
 export const productSourceEnum = pgEnum("product_source", ["PLATFORM", "USER"]);
 export const billingIntervalEnum = pgEnum("billing_interval", ["month", "year"]);
+export const aiLaunchStatusEnum = pgEnum("ai_launch_status", ["pending", "analyzing", "selecting", "assembling", "completed", "failed"]);
 export const memberSubscriptionStatusEnum = pgEnum("member_subscription_status", ["active", "past_due", "canceled", "incomplete"]);
 export const productStatusEnum = pgEnum("product_status", ["DRAFT", "ACTIVE"]);
 export const orderStatusEnum = pgEnum("order_status", ["PENDING", "COMPLETED", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"]);
@@ -394,6 +395,29 @@ export const memberSubscriptions = pgTable("member_subscriptions", {
 export const insertMemberSubscriptionSchema = createInsertSchema(memberSubscriptions).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertMemberSubscription = z.infer<typeof insertMemberSubscriptionSchema>;
 export type MemberSubscription = typeof memberSubscriptions.$inferSelect;
+
+// AI Store Launcher runs (migration 0026). One row per launch attempt —
+// DB-backed (not just BullMQ state) so progress survives Redis flushes and
+// the client can poll a stable id. The pipeline only sets storeId after
+// FULL assembly succeeds; a failed run never references a partial store.
+export const aiLaunches = pgTable("ai_launches", {
+  id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 64 }).notNull(),
+  prompt: text("prompt").notNull(),
+  status: aiLaunchStatusEnum("status").notNull().default("pending"),
+  storeId: varchar("store_id", { length: 64 }),
+  storeSlug: text("store_slug"),
+  productCount: integer("product_count"),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  index("ai_launches_user_created_idx").on(t.userId, t.createdAt),
+]);
+
+export const insertAiLaunchSchema = createInsertSchema(aiLaunches).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAiLaunch = z.infer<typeof insertAiLaunchSchema>;
+export type AiLaunch = typeof aiLaunches.$inferSelect;
 
 export const bundles = pgTable("bundles", {
   id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
