@@ -578,7 +578,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getKbPagesByKnowledgeBase(knowledgeBaseId: string) {
-    return db.select().from(kbPages).where(eq(kbPages.knowledgeBaseId, knowledgeBaseId)).orderBy(kbPages.sortOrder);
+    return db.select().from(kbPages).where(and(eq(kbPages.knowledgeBaseId, knowledgeBaseId), isNull(kbPages.deletedAt))).orderBy(kbPages.sortOrder);
   }
 
   async getKbPageById(id: string) {
@@ -597,16 +597,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteKbPage(id: string) {
-    await db.delete(kbBlocks).where(eq(kbBlocks.pageId, id));
-    const children = await db.select().from(kbPages).where(eq(kbPages.parentPageId, id));
+    // Soft-delete everything (durability policy: user content is never
+    // hard-deleted). Children recurse; blocks are tombstoned with the page.
+    const now = new Date();
+    await db.update(kbBlocks).set({ deletedAt: now }).where(and(eq(kbBlocks.pageId, id), isNull(kbBlocks.deletedAt)));
+    const children = await db.select().from(kbPages).where(and(eq(kbPages.parentPageId, id), isNull(kbPages.deletedAt)));
     for (const child of children) {
       await this.deleteKbPage(child.id);
     }
-    await db.delete(kbPages).where(eq(kbPages.id, id));
+    await db.update(kbPages).set({ deletedAt: now }).where(eq(kbPages.id, id));
   }
 
   async getKbBlocksByPage(pageId: string) {
-    return db.select().from(kbBlocks).where(eq(kbBlocks.pageId, pageId)).orderBy(kbBlocks.sortOrder);
+    return db.select().from(kbBlocks).where(and(eq(kbBlocks.pageId, pageId), isNull(kbBlocks.deletedAt))).orderBy(kbBlocks.sortOrder);
   }
 
   async getKbBlockById(id: string) {
@@ -625,12 +628,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteKbBlock(id: string) {
-    await db.delete(kbBlocks).where(eq(kbBlocks.id, id));
+    await db.update(kbBlocks).set({ deletedAt: new Date() }).where(eq(kbBlocks.id, id));
   }
 
   async deleteKbBlocksBulk(ids: string[]) {
     if (ids.length === 0) return;
-    await db.delete(kbBlocks).where(inArray(kbBlocks.id, ids));
+    await db.update(kbBlocks).set({ deletedAt: new Date() }).where(inArray(kbBlocks.id, ids));
   }
 
   async reorderKbBlocks(pageId: string, blockIds: string[]) {
@@ -644,7 +647,7 @@ export class DatabaseStorage implements IStorage {
 
   async getAttachmentsByPage(pageId: string) {
     return db.select().from(kbPageAttachments)
-      .where(eq(kbPageAttachments.pageId, pageId))
+      .where(and(eq(kbPageAttachments.pageId, pageId), isNull(kbPageAttachments.deletedAt)))
       .orderBy(kbPageAttachments.sortOrder);
   }
 
@@ -659,7 +662,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAttachment(id: string) {
-    await db.delete(kbPageAttachments).where(eq(kbPageAttachments.id, id));
+    await db.update(kbPageAttachments).set({ deletedAt: new Date() }).where(eq(kbPageAttachments.id, id));
   }
 
   async createStoreEvent(event: InsertStoreEvent) {
@@ -765,7 +768,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBlogBlocksByPost(postId: string) {
-    return db.select().from(blogBlocks).where(eq(blogBlocks.postId, postId)).orderBy(blogBlocks.sortOrder);
+    return db.select().from(blogBlocks).where(and(eq(blogBlocks.postId, postId), isNull(blogBlocks.deletedAt))).orderBy(blogBlocks.sortOrder);
   }
 
   async getBlogBlockById(id: string) {
@@ -784,12 +787,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteBlogBlock(id: string) {
-    await db.delete(blogBlocks).where(eq(blogBlocks.id, id));
+    await db.update(blogBlocks).set({ deletedAt: new Date() }).where(eq(blogBlocks.id, id));
   }
 
   async deleteBlogBlocksBulk(ids: string[]) {
     if (ids.length === 0) return;
-    await db.delete(blogBlocks).where(inArray(blogBlocks.id, ids));
+    await db.update(blogBlocks).set({ deletedAt: new Date() }).where(inArray(blogBlocks.id, ids));
   }
 
   async reorderBlogBlocks(postId: string, blockIds: string[]) {

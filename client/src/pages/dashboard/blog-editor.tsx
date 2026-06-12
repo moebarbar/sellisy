@@ -802,6 +802,7 @@ function BlockContent({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const pendingSaveRef = useRef(false);
   const isFocusedRef = useRef(false);
   const lastSavedContentRef = useRef<string | null>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
@@ -821,6 +822,7 @@ function BlockContent({
   }, [block.id, block.type]);
 
   const saveContent = useCallback((text: string) => {
+    pendingSaveRef.current = false;
     const finalContent = contentWrapper ? contentWrapper(text, block.content) : text;
     lastSavedContentRef.current = finalContent;
     onContentChange(block.id, finalContent);
@@ -837,6 +839,28 @@ function BlockContent({
     html = html.replace(/^(<br\s*\/?>)+|(<br\s*\/?>)+$/gi, "");
     return html;
   };
+
+
+  // Flush a pending debounced save when the tab is hidden/closed or the
+  // block unmounts — the 500ms autosave window must never eat the last
+  // keystrokes. Idempotent: skips when content already matches last save.
+  useEffect(() => {
+    const flush = () => {
+      if (!pendingSaveRef.current) return;
+      clearTimeout(debounceRef.current);
+      if (!ref.current) return;
+      saveContent(getContent());
+    };
+    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
+      flush();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveContent]);
 
   const handleInput = () => {
     if (!ref.current) return;
@@ -863,6 +887,7 @@ function BlockContent({
 
     const content = getContent();
     if (content === lastSavedContentRef.current) return;
+    pendingSaveRef.current = true;
     debounceRef.current = setTimeout(() => saveContent(content), 500);
   };
 
@@ -886,7 +911,8 @@ function BlockContent({
       }
       const content = getContent();
       clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => saveContent(content), 500);
+      pendingSaveRef.current = true;
+    debounceRef.current = setTimeout(() => saveContent(content), 500);
       setPastedUrl(text);
     }
   };

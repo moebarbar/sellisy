@@ -625,6 +625,7 @@ export const kbPages = pgTable("kb_pages", {
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 }, (t) => [
   index("kb_pages_kb_idx").on(t.knowledgeBaseId),
   index("kb_pages_parent_idx").on(t.parentPageId),
@@ -641,6 +642,7 @@ export const kbBlocks = pgTable("kb_blocks", {
   content: text("content").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 }, (t) => [
   index("kb_blocks_page_idx").on(t.pageId),
 ]);
@@ -659,6 +661,7 @@ export const kbPageAttachments = pgTable("kb_page_attachments", {
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 }, (t) => [
   index("kb_attachments_page_idx").on(t.pageId),
 ]);
@@ -770,6 +773,7 @@ export const blogBlocks = pgTable("blog_blocks", {
   content: text("content").notNull().default(""),
   sortOrder: integer("sort_order").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 }, (t) => [
   index("blog_blocks_post_idx").on(t.postId),
 ]);

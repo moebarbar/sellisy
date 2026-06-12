@@ -29,6 +29,7 @@ export interface StoreIdentity {
   accentColor: string | null;
   aboutHeadline: string;
   aboutText: string;
+  aboutCtaText: string;
   seoTitle: string;
   seoDescription: string;
   newsletterHeadline: string;
@@ -129,6 +130,10 @@ export function validateIdentity(raw: any): StoreIdentity {
     accentColor,
     aboutHeadline: asTrimmedString(raw.aboutHeadline, "aboutHeadline", 5, 120),
     aboutText: asTrimmedString(raw.aboutText, "aboutText", 30, 1200),
+    aboutCtaText: typeof raw.aboutCtaText === "string" && raw.aboutCtaText.trim().length >= 3
+      ? raw.aboutCtaText.replace(/\s+/g, " ").trim().slice(0, 40)
+      : "Browse the collection", // safe default — never fail a run on this
+
     seoTitle: asTrimmedString(raw.seoTitle, "seoTitle", 5, 70),
     seoDescription: asTrimmedString(raw.seoDescription, "seoDescription", 20, 160),
     newsletterHeadline: asTrimmedString(raw.newsletterHeadline, "newsletterHeadline", 3, 100),
@@ -185,6 +190,7 @@ Respond with ONLY this JSON object:
   "accentColor": "#rrggbb hex matched to the niche (or null to keep the theme default)",
   "aboutHeadline": "about-section heading, max 80 chars",
   "aboutText": "2-3 sentence about section in the owner's voice (first person), max 600 chars",
+  "aboutCtaText": "short button label inviting visitors to the catalog, max 30 chars (e.g. 'Browse the collection')",
   "seoTitle": "search-result title, 40-60 chars, includes the niche",
   "seoDescription": "search-result description, 120-155 chars",
   "newsletterHeadline": "newsletter signup heading, max 60 chars",
@@ -278,6 +284,8 @@ export async function assembleStore(params: {
       aboutEnabled: true,
       aboutHeadline: identity.aboutHeadline,
       aboutText: identity.aboutText,
+      aboutCtaText: identity.aboutCtaText,
+      aboutCtaUrl: "#products",
       seoTitle: identity.seoTitle,
       seoDescription: identity.seoDescription,
       newsletterEnabled: true,
