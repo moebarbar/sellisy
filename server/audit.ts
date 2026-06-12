@@ -27,6 +27,7 @@ export type AuditEvent =
   | "payment.failed"
   | "webhook.received"
   | "webhook.duplicate"
+  | "subscription.canceled"
   | "webhook.replay_rejected"
   | "order.refunded"
   | "affiliate.commission_created"

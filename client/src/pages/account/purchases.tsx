@@ -30,6 +30,25 @@ type Purchase = {
   items: PurchaseItem[];
 };
 
+type Subscription = {
+  id: string;
+  productTitle: string;
+  thumbnailUrl: string | null;
+  billingInterval: "month" | "year" | null;
+  priceCents: number;
+  status: "active" | "past_due" | "canceled" | "incomplete";
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+  store: { name: string; slug: string } | null;
+};
+
+const SUB_STATUS_LABEL: Record<Subscription["status"], { label: string; cls: string }> = {
+  active: { label: "Active", cls: "bg-emerald-500/10 text-emerald-500" },
+  past_due: { label: "Payment issue", cls: "bg-amber-500/10 text-amber-500" },
+  canceled: { label: "Canceled", cls: "bg-muted text-muted-foreground" },
+  incomplete: { label: "Incomplete", cls: "bg-muted text-muted-foreground" },
+};
+
 export default function PurchasesPage() {
   const [, navigate] = useLocation();
   usePageMeta({ title: "Your Purchases", noindex: true });
@@ -42,6 +61,21 @@ export default function PurchasesPage() {
   const { data: purchases, isLoading } = useQuery<Purchase[]>({
     queryKey: ["/api/customer/purchases"],
     enabled: !!customer,
+  });
+
+  const { data: subscriptions } = useQuery<Subscription[]>({
+    queryKey: ["/api/customer/subscriptions"],
+    enabled: !!customer,
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: async (subId: string) => {
+      const res = await apiRequest("POST", `/api/customer/subscriptions/${subId}/cancel`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customer/subscriptions"] });
+    },
   });
 
   const logoutMutation = useMutation({
@@ -108,6 +142,57 @@ export default function PurchasesPage() {
             View and download all your digital products
           </p>
         </div>
+
+        {subscriptions && subscriptions.length > 0 && (
+          <section className="space-y-3" data-testid="section-subscriptions">
+            <h2 className="text-lg font-semibold tracking-tight">Subscriptions</h2>
+            {subscriptions.map((sub) => {
+              const status = SUB_STATUS_LABEL[sub.status];
+              const ends = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : null;
+              return (
+                <Card key={sub.id} data-testid={`subscription-${sub.id}`}>
+                  <CardContent className="p-4 flex items-center gap-4 flex-wrap">
+                    {sub.thumbnailUrl ? (
+                      <img src={sub.thumbnailUrl} alt="" className="h-12 w-12 rounded-lg object-cover shrink-0" />
+                    ) : (
+                      <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <Package className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{sub.productTitle}</p>
+                      <p className="text-sm text-muted-foreground">
+                        ${(sub.priceCents / 100).toFixed(2)}/{sub.billingInterval === "year" ? "yr" : "mo"}
+                        {sub.store ? ` · ${sub.store.name}` : ""}
+                        {sub.cancelAtPeriodEnd && ends
+                          ? ` · access until ${ends}`
+                          : ends
+                            ? ` · renews ${ends}`
+                            : ""}
+                      </p>
+                    </div>
+                    <Badge className={`border-0 ${status.cls}`}>{status.label}</Badge>
+                    {sub.status !== "canceled" && !sub.cancelAtPeriodEnd && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={cancelMutation.isPending}
+                        onClick={() => {
+                          if (window.confirm(`Cancel your ${sub.productTitle} subscription? Billing stops and access continues until ${ends ?? "the end of the period"}.`)) {
+                            cancelMutation.mutate(sub.id);
+                          }
+                        }}
+                        data-testid={`button-cancel-sub-${sub.id}`}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </section>
+        )}
 
         {isLoading ? (
           <div className="space-y-4">

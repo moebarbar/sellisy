@@ -1233,6 +1233,66 @@ ordersRouter.get("/api/customer/purchases", isCustomerAuthenticated, async (req,
   res.json(purchasesWithItems);
 });
 
+// ── Customer subscription management ─────────────────────────────────
+
+ordersRouter.get("/api/customer/subscriptions", isCustomerAuthenticated, async (req, res) => {
+  const customerId = (req as any).customerId;
+  const subs = await storage.getMemberSubscriptionsByCustomer(customerId);
+  const out = await Promise.all(subs.map(async (s) => {
+    const store = await storage.getStoreById(s.storeId);
+    const sp = store ? await storage.getStoreProductByStoreAndProduct(s.storeId, s.productId) : null;
+    return {
+      id: s.id,
+      productId: s.productId,
+      productTitle: sp?.customTitle || s.product.title,
+      thumbnailUrl: s.product.thumbnailUrl,
+      billingInterval: s.product.billingInterval,
+      priceCents: sp?.customPriceCents ?? s.product.priceCents,
+      status: s.status,
+      cancelAtPeriodEnd: s.cancelAtPeriodEnd,
+      currentPeriodEnd: s.currentPeriodEnd,
+      store: store ? { name: store.name, slug: store.slug } : null,
+      createdAt: s.createdAt,
+    };
+  }));
+  res.json(out);
+});
+
+// Cancel at period end — billing stops, access runs until the paid-through
+// date. Uses the STORE's Stripe key (the subscription lives on the seller's
+// account).
+ordersRouter.post("/api/customer/subscriptions/:id/cancel", isCustomerAuthenticated, async (req, res) => {
+  const customerId = (req as any).customerId;
+  const sub = await storage.getMemberSubscriptionById(req.params.id as string);
+  if (!sub || sub.customerId !== customerId) {
+    return res.status(404).json({ message: "Subscription not found" });
+  }
+  if (sub.status === "canceled") {
+    return res.status(400).json({ message: "This subscription is already canceled" });
+  }
+
+  const store = await storage.getStoreById(sub.storeId);
+  if (!store?.stripeSecretKey) {
+    return res.status(500).json({ message: "The store's payment configuration is unavailable. Contact the seller." });
+  }
+
+  try {
+    const stripe = new Stripe(decryptPaymentSecret(store.stripeSecretKey)!, { apiVersion: '2025-11-17.clover' as any });
+    const updated: any = await stripe.subscriptions.update(sub.stripeSubscriptionId, { cancel_at_period_end: true });
+    const periodEnd = updated.current_period_end ?? updated.items?.data?.[0]?.current_period_end;
+    await storage.updateMemberSubscription(sub.id, {
+      cancelAtPeriodEnd: true,
+      currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : sub.currentPeriodEnd,
+      lastVerifiedAt: new Date(),
+    });
+    audit({ event: "subscription.canceled", details: `Customer canceled subscription ${sub.id} (at period end)` });
+    res.json({ ok: true, accessUntil: periodEnd ? new Date(periodEnd * 1000) : sub.currentPeriodEnd });
+  } catch (err: any) {
+    console.error("[memberships] cancel failed:", sub.id, err.message);
+    res.status(502).json({ message: "Couldn't cancel right now — please try again or contact the seller." });
+  }
+});
+
 ordersRouter.get("/api/customer/purchase/:orderId", isCustomerAuthenticated, async (req, res) => {
   const customerId = (req as any).customerId;
   const order = await storage.getOrderById(req.params.orderId as string);
