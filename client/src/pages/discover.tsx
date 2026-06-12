@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Package, Store as StoreIcon } from "lucide-react";
+import { ArrowRight, Package, Store as StoreIcon, Search, TrendingUp } from "lucide-react";
 import { Navbar } from "@/components/landing/navbar";
 import { Footer } from "@/components/landing/footer";
 
@@ -8,6 +8,17 @@ import { Footer } from "@/components/landing/footer";
 // public Sellisy store. Featured stores row at the top + newest-products
 // grid below. Each card links into the seller's storefront (NOT a sellisy-
 // owned product page) so the seller's branding stays in front of the buyer.
+
+type DiscoverCategory = { category: string; count: number };
+
+type SortKey = "trending" | "newest" | "price_asc" | "price_desc";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "trending", label: "Trending" },
+  { key: "newest", label: "Newest" },
+  { key: "price_asc", label: "Price: low to high" },
+  { key: "price_desc", label: "Price: high to low" },
+];
 
 type DiscoverStore = {
   id: string;
@@ -32,6 +43,8 @@ type DiscoverProduct = {
   productSlug: string | null;
   productId: string;
   createdAt: string;
+  billingInterval: "month" | "year" | null;
+  trendingScore: number;
   store: {
     id: string;
     name: string;
@@ -86,11 +99,42 @@ export default function DiscoverPage() {
     isError: storesError,
   } = useQuery<DiscoverStore[]>({ queryKey: ["/api/discover/stores"] });
 
+  // Marketplace controls. Search is debounced so we don't refetch per
+  // keystroke; category + sort apply instantly.
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>("trending");
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const {
     data: products,
     isLoading: productsLoading,
     isError: productsError,
-  } = useQuery<DiscoverProduct[]>({ queryKey: ["/api/discover/products"] });
+  } = useQuery<DiscoverProduct[]>({
+    queryKey: ["/api/discover/products", search, category, sort],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (search) params.set("q", search);
+      if (category) params.set("category", category);
+      params.set("sort", sort);
+      const res = await fetch(`/api/discover/products?${params}`);
+      if (!res.ok) throw new Error("Failed to load products");
+      return res.json();
+    },
+    placeholderData: (prev) => prev,
+  });
+
+  const { data: categories } = useQuery<DiscoverCategory[]>({
+    queryKey: ["/api/discover/categories"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const filtering = !!search || !!category;
 
   const hasFatalError = storesError && productsError;
 
@@ -298,13 +342,99 @@ export default function DiscoverPage() {
           >
             <h2
               className="s-heading"
-              style={{ fontSize: "clamp(24px, 3vw, 32px)", color: "var(--s-white)" }}
+              style={{ fontSize: "clamp(24px, 3vw, 32px)", color: "var(--s-white)", display: "flex", alignItems: "center", gap: 10 }}
             >
-              New on Sellisy
+              {sort === "trending" && !filtering ? (<><TrendingUp style={{ width: 26, height: 26, color: "var(--s-yellow)" }} /> Trending Now</>) : filtering ? "Results" : "Browse Products"}
             </h2>
-            <span className="s-label" style={{ color: "rgba(250,250,245,0.4)", fontSize: 11 }}>
+            <span className="s-label" style={{ color: "rgba(250,250,245,0.4)", fontSize: 11 }} data-testid="text-product-count">
               {products?.length ?? 0} listed
             </span>
+          </div>
+
+          {/* Marketplace controls: search, sort, category chips */}
+          <div style={{ marginBottom: 28 }} data-testid="discover-controls">
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+              <div style={{ position: "relative", flex: "1 1 260px", maxWidth: 420 }}>
+                <Search style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: "rgba(250,250,245,0.35)" }} />
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search products, categories…"
+                  data-testid="input-discover-search"
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px 12px 42px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.04)",
+                    color: "var(--s-white)",
+                    fontSize: 14,
+                    outline: "none",
+                  }}
+                />
+              </div>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                data-testid="select-discover-sort"
+                aria-label="Sort products"
+                style={{
+                  padding: "12px 16px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "rgba(20,20,20,0.9)",
+                  color: "var(--s-white)",
+                  fontSize: 14,
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.key} value={o.key}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            {categories && categories.length > 1 && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} data-testid="discover-category-chips">
+                <button
+                  type="button"
+                  onClick={() => setCategory(null)}
+                  data-testid="chip-category-all"
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 999,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    border: `1px solid ${category === null ? "var(--s-yellow)" : "rgba(255,255,255,0.12)"}`,
+                    background: category === null ? "rgba(245,214,66,0.12)" : "transparent",
+                    color: category === null ? "var(--s-yellow)" : "rgba(250,250,245,0.6)",
+                  }}
+                >
+                  All
+                </button>
+                {categories.map((c) => (
+                  <button
+                    key={c.category}
+                    type="button"
+                    onClick={() => setCategory(category === c.category ? null : c.category)}
+                    data-testid={`chip-category-${c.category}`}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: 999,
+                      fontSize: 12,
+                      cursor: "pointer",
+                      textTransform: "capitalize",
+                      border: `1px solid ${category === c.category ? "var(--s-yellow)" : "rgba(255,255,255,0.12)"}`,
+                      background: category === c.category ? "rgba(245,214,66,0.12)" : "transparent",
+                      color: category === c.category ? "var(--s-yellow)" : "rgba(250,250,245,0.6)",
+                    }}
+                  >
+                    {c.category} <span style={{ opacity: 0.5 }}>{c.count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {productsLoading && (
@@ -330,7 +460,26 @@ export default function DiscoverPage() {
           )}
 
           {!productsLoading && products && products.length === 0 && (
-            <EmptyState />
+            filtering ? (
+              <div style={{ textAlign: "center", padding: "60px 24px" }} data-testid="discover-no-results">
+                <p className="s-body" style={{ color: "rgba(250,250,245,0.6)", marginBottom: 16 }}>
+                  Nothing matches{search ? ` "${search}"` : ""}{category ? ` in ${category}` : ""}.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setSearchInput(""); setSearch(""); setCategory(null); }}
+                  data-testid="button-clear-filters"
+                  style={{
+                    padding: "10px 22px", borderRadius: 10, cursor: "pointer", fontSize: 13,
+                    border: "1px solid var(--s-yellow)", background: "transparent", color: "var(--s-yellow)",
+                  }}
+                >
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <EmptyState />
+            )
           )}
 
           {!productsLoading && products && products.length > 0 && (
@@ -552,7 +701,7 @@ function ProductCard({
               color: "var(--s-yellow)",
             }}
           >
-            {formatPrice(product.priceCents)}
+            {formatPrice(product.priceCents)}{product.billingInterval ? <span style={{ fontSize: 12, opacity: 0.7 }}>/{product.billingInterval === "year" ? "yr" : "mo"}</span> : null}
           </span>
         </div>
       </div>

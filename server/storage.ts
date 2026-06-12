@@ -234,7 +234,52 @@ export class DatabaseStorage implements IStorage {
    * Also surfaces customDomain so the frontend can link to the seller's
    * branded URL when one is active.
    */
-  async getDiscoverProducts(limit = 60) {
+  async getDiscoverProducts(opts: { limit?: number; search?: string; category?: string; sort?: "trending" | "newest" | "price_asc" | "price_desc" } = {}) {
+    const limit = opts.limit ?? 60;
+    const sort = opts.sort ?? "trending";
+
+    const conditions = [
+      eq(storeProducts.isPublished, true),
+      eq(storeProducts.isLeadMagnet, false),
+      isNull(products.deletedAt),
+      isNull(stores.deletedAt),
+    ];
+    if (opts.category) {
+      conditions.push(eq(products.category, opts.category));
+    }
+    if (opts.search) {
+      // Escape LIKE metacharacters so a search for "100%" behaves literally.
+      const term = `%${opts.search.replace(/[%_\\]/g, "\\$&")}%`;
+      conditions.push(sql`(
+        COALESCE(${storeProducts.customTitle}, ${products.title}) ILIKE ${term}
+        OR COALESCE(${storeProducts.customDescription}, ${products.description}, '') ILIKE ${term}
+        OR ${products.category} ILIKE ${term}
+      )`);
+    }
+
+    // Trending score: storefront views + 5× purchases over the trailing 14
+    // days, computed via correlated subqueries (no GROUP BY explosion on the
+    // main join). New products with zero signal fall back to recency.
+    const trendingScore = sql<number>`(
+      (SELECT COUNT(*)::int FROM store_events se
+        WHERE se.product_id = ${products.id}
+          AND se.event_type = 'product_view'
+          AND se.created_at > NOW() - INTERVAL '14 days')
+      + 5 * (SELECT COUNT(*)::int FROM order_items oi
+          JOIN orders o ON o.id = oi.order_id
+          WHERE oi.product_id = ${products.id}
+            AND o.status = 'COMPLETED'
+            AND o.created_at > NOW() - INTERVAL '14 days')
+    )`.as("trending_score");
+
+    const effectivePrice = sql<number>`COALESCE(${storeProducts.customPriceCents}, ${products.priceCents})`;
+
+    const orderBy =
+      sort === "newest" ? [desc(products.createdAt)]
+      : sort === "price_asc" ? [sql`${effectivePrice} ASC`, desc(products.createdAt)]
+      : sort === "price_desc" ? [sql`${effectivePrice} DESC`, desc(products.createdAt)]
+      : [sql`trending_score DESC`, desc(products.createdAt)];
+
     const rows = await db
       .select({
         storeProductId: storeProducts.id,
@@ -250,6 +295,8 @@ export class DatabaseStorage implements IStorage {
         productType: products.productType,
         productSlug: products.slug,
         productCreatedAt: products.createdAt,
+        billingInterval: products.billingInterval,
+        trendingScore,
         storeId: stores.id,
         storeName: stores.name,
         storeSlug: stores.slug,
@@ -261,15 +308,26 @@ export class DatabaseStorage implements IStorage {
       .from(storeProducts)
       .innerJoin(products, eq(storeProducts.productId, products.id))
       .innerJoin(stores, eq(storeProducts.storeId, stores.id))
-      .where(and(
-        eq(storeProducts.isPublished, true),
-        eq(storeProducts.isLeadMagnet, false),
-        isNull(products.deletedAt),
-        isNull(stores.deletedAt),
-      ))
-      .orderBy(desc(products.createdAt))
+      .where(and(...conditions))
+      .orderBy(...orderBy)
       .limit(limit);
     return rows;
+  }
+
+  // Distinct categories across live marketplace products, with counts —
+  // powers the /discover filter chips. Only categories that actually have
+  // published products appear.
+  async getDiscoverCategories() {
+    const result = await db.execute(sql`
+      SELECT p.category, COUNT(*)::int AS count
+      FROM store_products sp
+      JOIN products p ON p.id = sp.product_id AND p.deleted_at IS NULL
+      JOIN stores s ON s.id = sp.store_id AND s.deleted_at IS NULL
+      WHERE sp.is_published = true AND sp.is_lead_magnet = false
+      GROUP BY p.category
+      ORDER BY count DESC, p.category ASC
+    `);
+    return result.rows as { category: string; count: number }[];
   }
 
   /**

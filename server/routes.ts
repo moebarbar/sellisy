@@ -741,14 +741,20 @@ ${urls}</urlset>`;
     })));
   });
 
-  // Newest published products across every live store. Powers /discover.
-  // Single JOIN query, no N+1. Limit param caps at 100 to avoid heavy
-  // payloads. Returns customDomain on each store so the frontend can link
-  // to the seller's branded URL when one is active.
+  // Marketplace products across every live store. Powers /discover.
+  // v2: search (ILIKE over title/description/category), category filter,
+  // and sort — trending (views + 5×purchases, trailing 14d) is the default,
+  // with newest and price asc/desc as alternatives. Single JOIN query.
   app.get("/api/discover/products", async (req, res) => {
     const limitParam = parseInt((req.query.limit as string) || "60", 10);
     const limit = Math.min(Math.max(isNaN(limitParam) ? 60 : limitParam, 1), 100);
-    const rows = await storage.getDiscoverProducts(limit);
+    const search = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : undefined;
+    const category = typeof req.query.category === "string" ? req.query.category.trim().slice(0, 100) : undefined;
+    const sortRaw = typeof req.query.sort === "string" ? req.query.sort : "trending";
+    const sort = (["trending", "newest", "price_asc", "price_desc"] as const).includes(sortRaw as any)
+      ? (sortRaw as "trending" | "newest" | "price_asc" | "price_desc")
+      : "trending";
+    const rows = await storage.getDiscoverProducts({ limit, search: search || undefined, category: category || undefined, sort });
 
     // Word-boundary truncation so we don't cut mid-word.
     const truncate = (s: string, max: number) => {
@@ -769,6 +775,8 @@ ${urls}</urlset>`;
       productSlug: r.productSlug,
       productId: r.productId,
       createdAt: r.productCreatedAt,
+      billingInterval: r.billingInterval,
+      trendingScore: r.trendingScore,
       store: {
         id: r.storeId,
         name: r.storeName,
@@ -780,6 +788,26 @@ ${urls}</urlset>`;
       },
     })));
   });
+
+  // Marketplace filter chips — categories that actually have published
+  // products, with counts. Cached briefly; this changes slowly.
+  let _discoverCategoriesCache: { data: any; at: number } | null = null;
+  app.get("/api/discover/categories", async (_req, res) => {
+    try {
+      if (_discoverCategoriesCache && Date.now() - _discoverCategoriesCache.at < 5 * 60 * 1000) {
+        res.set("Cache-Control", "public, max-age=300");
+        return res.json(_discoverCategoriesCache.data);
+      }
+      const data = await storage.getDiscoverCategories();
+      _discoverCategoriesCache = { data, at: Date.now() };
+      res.set("Cache-Control", "public, max-age=300");
+      res.json(data);
+    } catch (err) {
+      console.error("[discover] categories failed:", err);
+      res.status(500).json({ message: "Categories unavailable" });
+    }
+  });
+
   // --- Public storefront ---
 
   app.get("/api/storefront/:slug", async (req, res) => {
