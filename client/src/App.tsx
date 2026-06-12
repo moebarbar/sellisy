@@ -63,6 +63,16 @@ const AffiliateApplyPage = lazy(() => import("@/pages/affiliate-apply"));
 const EarningsPage = lazy(() => import("@/pages/dashboard/earnings"));
 const CoursePlayerPage = lazy(() => import("@/pages/course-player"));
 
+// True when a lazy() import failed — the classic stale-deploy symptom: the
+// open tab's shell references hashed chunk files that no longer exist after
+// a redeploy. The only fix is a reload, which fetches the new shell.
+function isChunkLoadError(error: Error | null): boolean {
+  if (!error) return false;
+  return /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError|error loading dynamically imported module/i.test(
+    `${error.name}: ${error.message}`,
+  );
+}
+
 class ErrorBoundary extends Component<
   { children: ReactNode; fallbackClassName?: string },
   { hasError: boolean; error: Error | null }
@@ -78,38 +88,91 @@ class ErrorBoundary extends Component<
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[ErrorBoundary] Caught render error:", error, info.componentStack);
+
+    // Stale-chunk after a deploy → auto-reload ONCE to pick up the new
+    // shell. The sessionStorage guard prevents a reload loop if the reload
+    // doesn't fix it (e.g. genuine network failure).
+    if (isChunkLoadError(error)) {
+      const key = "sellisy_chunk_reload";
+      try {
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, String(Date.now()));
+          window.location.reload();
+          return;
+        }
+        // Clear the guard after 30s so a LATER deploy can auto-recover too.
+        const at = Number(sessionStorage.getItem(key));
+        if (Date.now() - at > 30_000) {
+          sessionStorage.setItem(key, String(Date.now()));
+          window.location.reload();
+        }
+      } catch {}
+    }
   }
+
+  // Reset when the user navigates — a crash on one page must not brick
+  // every other page behind a full-screen error until a hard reload.
+  reset = () => this.setState({ hasError: false, error: null });
 
   render() {
     if (this.state.hasError) {
+      const chunkError = isChunkLoadError(this.state.error);
       return (
-        <div className={this.props.fallbackClassName || "min-h-screen flex items-center justify-center bg-background"}>
-          <div className="text-center space-y-4 max-w-md px-6">
-            <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold text-foreground">Something went wrong</h2>
-            <p className="text-sm text-muted-foreground">
-              An unexpected error occurred while loading this page. Please try again.
-            </p>
-            <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.reload();
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-              data-testid="button-error-reload"
-            >
-              Reload Page
-            </button>
-          </div>
-        </div>
+        <ErrorBoundaryFallback
+          fallbackClassName={this.props.fallbackClassName}
+          onReset={this.reset}
+          chunkError={chunkError}
+          message={this.state.error?.message}
+        />
       );
     }
     return this.props.children;
   }
+}
+
+function ErrorBoundaryFallback({ fallbackClassName, onReset, chunkError, message }: {
+  fallbackClassName?: string;
+  onReset: () => void;
+  chunkError: boolean;
+  message?: string;
+}) {
+  // Navigating away (sidebar click, back button) resets the boundary so the
+  // next page gets a fresh render instead of the stuck error screen.
+  const [location] = useLocation();
+  const initialLocation = useRef(location);
+  useEffect(() => {
+    if (location !== initialLocation.current) onReset();
+  }, [location, onReset]);
+
+  return (
+    <div className={fallbackClassName || "min-h-screen flex items-center justify-center bg-background"}>
+      <div className="text-center space-y-4 max-w-md px-6">
+        <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h2 className="text-lg font-semibold text-foreground">Something went wrong</h2>
+        <p className="text-sm text-muted-foreground">
+          {chunkError
+            ? "The app was updated while this tab was open. Reload to get the latest version."
+            : "An unexpected error occurred while loading this page. Please try again."}
+        </p>
+        {message && !chunkError && (
+          <p className="text-xs text-muted-foreground/60 font-mono break-words" data-testid="text-error-detail">
+            {message.slice(0, 200)}
+          </p>
+        )}
+        <button
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+          data-testid="button-error-reload"
+        >
+          Reload Page
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function PageFallback() {

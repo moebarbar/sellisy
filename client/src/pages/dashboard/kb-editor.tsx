@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -954,6 +954,20 @@ function SlashCommandMenu({
   selectedIndex: number;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
+  // Flip above the block when the menu would extend past the viewport —
+  // absolutely-positioned menus don't grow the page's scroll height, so on
+  // a short page a downward menu gets visually cut off with no way to
+  // scroll to it.
+  const [flipUp, setFlipUp] = useState(false);
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight - 8 && rect.top > rect.height + 80) {
+      setFlipUp(true);
+    }
+  }, []);
+  const positionClass = flipUp ? "bottom-full mb-1" : "top-full mt-1";
 
   const filteredTypes = useMemo(() =>
     BLOCK_TYPES.filter(
@@ -967,7 +981,7 @@ function SlashCommandMenu({
 
   if (filteredTypes.length === 0) {
     return (
-      <div className="absolute left-0 top-full z-[100] mt-1 bg-popover border rounded-md shadow-xl py-2 px-3 w-64" style={{ backgroundColor: 'hsl(var(--popover))' }} data-testid="slash-menu">
+      <div className={`absolute left-0 ${positionClass} z-[100] bg-popover border rounded-md shadow-xl py-2 px-3 w-64`} style={{ backgroundColor: 'hsl(var(--popover))' }} data-testid="slash-menu">
         <p className="text-sm text-muted-foreground">No results</p>
       </div>
     );
@@ -981,7 +995,7 @@ function SlashCommandMenu({
   let globalIdx = 0;
 
   return (
-    <div ref={menuRef} className="absolute left-0 top-full z-[100] mt-1 bg-popover border rounded-md shadow-xl py-1.5 w-72 max-h-80 overflow-y-auto" style={{ backgroundColor: 'hsl(var(--popover))' }} data-testid="slash-menu">
+    <div ref={menuRef} className={`absolute left-0 ${positionClass} z-[100] bg-popover border rounded-md shadow-xl py-1.5 w-72 max-h-80 overflow-y-auto`} style={{ backgroundColor: 'hsl(var(--popover))' }} data-testid="slash-menu">
       {grouped.map((group) => (
         <div key={group.category}>
           <div className="px-3 py-1 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{group.category}</div>
