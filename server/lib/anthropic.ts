@@ -26,9 +26,14 @@ export function stripJsonFences(raw: string): string {
   return s.trim();
 }
 
+const CALL_TIMEOUT_MS = 90_000;
+
 async function callOnce(params: { prompt: string; model: string; maxTokens: number; apiKey: string }): Promise<string> {
+  // Hard per-call timeout — without it a hung connection can stall a
+  // launch past the stuck-run threshold and strand the user.
   const res = await fetch(API_URL, {
     method: "POST",
+    signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
     headers: {
       "x-api-key": params.apiKey,
       "anthropic-version": "2023-06-01",

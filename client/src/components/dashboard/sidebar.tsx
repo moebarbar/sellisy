@@ -288,7 +288,7 @@ export function CreateStoreDialog({ open, onClose }: { open: boolean; onClose: (
             <TabsTrigger value="manual" data-testid="tab-dialog-manual">Start from scratch</TabsTrigger>
           </TabsList>
           <TabsContent value="ai">
-            <AiLaunchWizard />
+            <AiLaunchWizard key={String(open)} onNavigate={onClose} />
           </TabsContent>
           <TabsContent value="manual">
         <form

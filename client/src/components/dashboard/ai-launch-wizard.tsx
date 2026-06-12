@@ -6,7 +6,7 @@
 // the user refreshed mid-run), the wizard resumes polling that run instead
 // of erroring.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useActiveStore } from "@/lib/store-context";
@@ -47,10 +47,17 @@ function stageIndex(status: LaunchStatus): number {
   return STAGES.length; // completed
 }
 
-export function AiLaunchWizard() {
+const LAUNCH_STORAGE_KEY = "sellisy_ai_launch_id";
+
+export function AiLaunchWizard({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { setActiveStoreId } = useActiveStore();
   const [prompt, setPrompt] = useState("");
-  const [launchId, setLaunchId] = useState<string | null>(null);
+  // Restore an in-flight launch across refreshes/remounts — this is what
+  // makes the "we'll pick up where we left off" promise true.
+  const [launchId, setLaunchId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem(LAUNCH_STORAGE_KEY);
+  });
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [upgradeRequired, setUpgradeRequired] = useState(false);
   const celebratedRef = useRef(false);
@@ -79,6 +86,7 @@ export function AiLaunchWizard() {
       setSubmitError(null);
       setUpgradeRequired(false);
       celebratedRef.current = false;
+      try { localStorage.setItem(LAUNCH_STORAGE_KEY, data.id); } catch {}
       setLaunchId(data.id);
     },
     onError: (err: any) => {
@@ -102,15 +110,28 @@ export function AiLaunchWizard() {
     },
   });
 
-  // Completion side effects: activate the new store + refresh the store list.
+  // Terminal-state side effects. Deliberately does NOT activate the store
+  // or refresh the store list yet — doing so re-renders the dashboard out
+  // from under this success screen before the user can read it. Activation
+  // happens when they click a CTA below.
   useEffect(() => {
-    if (launch?.status === "completed" && launch.storeId && !celebratedRef.current) {
+    if (!launch) return;
+    if (launch.status === "completed" || launch.status === "failed") {
+      try { localStorage.removeItem(LAUNCH_STORAGE_KEY); } catch {}
+    }
+    if (launch.status === "completed" && launch.storeId && !celebratedRef.current) {
       celebratedRef.current = true;
-      queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
-      setActiveStoreId(launch.storeId);
       fireConfetti();
     }
-  }, [launch?.status, launch?.storeId, setActiveStoreId]);
+  }, [launch?.status, launch?.storeId]);
+
+  const activateStore = () => {
+    if (launch?.storeId) {
+      setActiveStoreId(launch.storeId);
+      queryClient.invalidateQueries({ queryKey: ["/api/stores"] });
+    }
+    onNavigate?.();
+  };
 
   const trimmed = prompt.trim();
   const canSubmit = trimmed.length >= 10 && trimmed.length <= 300 && !startMutation.isPending;
@@ -131,12 +152,12 @@ export function AiLaunchWizard() {
           </p>
         </div>
         <div className="flex items-center justify-center gap-3 flex-wrap">
-          <a href={`/s/${launch.storeSlug}`} target="_blank" rel="noreferrer">
+          <a href={`/s/${launch.storeSlug}`} target="_blank" rel="noreferrer" onClick={activateStore}>
             <Button data-testid="button-view-ai-store">
               <ExternalLink className="h-4 w-4 mr-2" /> View your store
             </Button>
           </a>
-          <Link href="/dashboard/products">
+          <Link href="/dashboard/products" onClick={activateStore}>
             <Button variant="outline" data-testid="button-manage-ai-store">
               <Store className="h-4 w-4 mr-2" /> Manage products
             </Button>

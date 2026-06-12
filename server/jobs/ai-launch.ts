@@ -65,7 +65,7 @@ export async function processAiLaunch(job: Job<AiLaunchJobData>) {
 
     // ── Stage 3: assembly (deterministic, self-rolling-back) ─────────
     await storage.updateAiLaunch(launchId, { status: 'assembling' });
-    const result = await assembleStore({ userId, identity, selection });
+    const result = await assembleStore({ userId, identity, selection, maxStores: PLAN_FEATURES[userTier].maxStores });
 
     await storage.updateAiLaunch(launchId, {
       status: 'completed',

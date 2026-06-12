@@ -91,6 +91,16 @@ aiLaunchRouter.post("/api/ai-launch", launchLimiter, isAuthenticated, async (req
     status: "pending",
   });
 
+  // Double-submit guard: the active-launch check above races with itself
+  // across parallel POSTs. After creating our row, look again — if an
+  // OLDER non-terminal launch exists, ours is the duplicate; fail it and
+  // point the client at the original.
+  const concurrent = await storage.getActiveAiLaunchForUser(userId);
+  if (concurrent && concurrent.id !== launch.id && new Date(concurrent.createdAt) <= new Date(launch.createdAt)) {
+    await storage.updateAiLaunch(launch.id, { status: "failed", error: "Duplicate submission" });
+    return res.status(409).json({ message: "A launch is already in progress", launchId: concurrent.id });
+  }
+
   try {
     const { aiLaunchQueue } = await import("../queue/queues");
     await aiLaunchQueue.add(
@@ -104,7 +114,7 @@ aiLaunchRouter.post("/api/ai-launch", launchLimiter, isAuthenticated, async (req
     return res.status(503).json({ message: "Couldn't start the launch. Please try again." });
   }
 
-  audit({ event: "store.created", details: `AI launch ${launch.id} queued for user ${userId}` });
+  audit({ event: "ai.launch_queued", details: `AI launch ${launch.id} queued for user ${userId}` });
   res.status(202).json({ id: launch.id, status: "pending" });
 });
 
