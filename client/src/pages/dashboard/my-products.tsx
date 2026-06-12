@@ -588,6 +588,7 @@ function ProductFormDialog({
   const [reviewsEnabled, setReviewsEnabled] = useState(true);
   const [pwywEnabled, setPwywEnabled] = useState(false);
   const [pwywMin, setPwywMin] = useState("0"); // dollars input string
+  const [billingInterval, setBillingInterval] = useState<"" | "month" | "year">("");
   const [discordGuildId, setDiscordGuildId] = useState("");
   const [discordRoleId, setDiscordRoleId] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
@@ -626,6 +627,7 @@ function ProductFormDialog({
       setReviewsEnabled((product as any).reviewsEnabled !== false);
       setPwywEnabled(!!(product as any).pwywEnabled);
       setPwywMin((((product as any).pwywMinCents ?? 0) / 100).toString());
+      setBillingInterval(((product as any).billingInterval as "month" | "year" | null) || "");
       setDiscordGuildId((product as any).discordGuildId || "");
       setDiscordRoleId((product as any).discordRoleId || "");
     } else {
@@ -652,6 +654,7 @@ function ProductFormDialog({
       setReviewsEnabled(true);
       setPwywEnabled(false);
       setPwywMin("0");
+      setBillingInterval("");
       setDiscordGuildId("");
       setDiscordRoleId("");
     }
@@ -770,6 +773,7 @@ function ProductFormDialog({
         reviewsEnabled,
         pwywEnabled,
         pwywMinCents: pwywEnabled ? Math.max(0, Math.round(parseFloat(pwywMin || "0") * 100) || 0) : 0,
+        billingInterval: billingInterval || null,
         discordGuildId: discordGuildId.trim() || null,
         discordRoleId: discordRoleId.trim() || null,
       };
@@ -814,6 +818,7 @@ function ProductFormDialog({
         reviewsEnabled,
         pwywEnabled,
         pwywMinCents: pwywEnabled ? Math.max(0, Math.round(parseFloat(pwywMin || "0") * 100) || 0) : 0,
+        billingInterval: billingInterval || null,
         discordGuildId: discordGuildId.trim() || null,
         discordRoleId: discordRoleId.trim() || null,
       };
@@ -1040,6 +1045,39 @@ function ProductFormDialog({
           </div>
 
           <div className="rounded-md border border-border p-4">
+            <Label className="text-sm">Pricing type</Label>
+            <p className="text-xs text-muted-foreground mt-1 mb-3">
+              One-time purchases deliver forever. Subscriptions bill the buyer's card
+              automatically on your own Stripe account and access lasts while the
+              subscription is active. Subscriptions require Stripe to be connected
+              and can't be combined with pay-what-you-want.
+            </p>
+            <Select
+              value={billingInterval || "one-time"}
+              onValueChange={(v) => {
+                const next = v === "one-time" ? "" : (v as "month" | "year");
+                setBillingInterval(next);
+                if (next) setPwywEnabled(false);
+              }}
+            >
+              <SelectTrigger className="max-w-64" data-testid="select-billing-interval">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="one-time">One-time purchase</SelectItem>
+                <SelectItem value="month">Subscription — monthly</SelectItem>
+                <SelectItem value="year">Subscription — yearly</SelectItem>
+              </SelectContent>
+            </Select>
+            {billingInterval && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Buyers pay the product price every {billingInterval}. Cancelling stops future
+                billing; access ends at the period's close.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-md border border-border p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <Label htmlFor="pwyw-toggle" className="text-sm">Pay what you want</Label>
@@ -1052,7 +1090,10 @@ function ProductFormDialog({
               <Switch
                 id="pwyw-toggle"
                 checked={pwywEnabled}
-                onCheckedChange={setPwywEnabled}
+                onCheckedChange={(checked) => {
+                  setPwywEnabled(checked);
+                  if (checked) setBillingInterval("");
+                }}
                 data-testid="switch-pwyw-enabled"
               />
             </div>

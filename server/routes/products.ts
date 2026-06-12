@@ -271,9 +271,12 @@ productsRouter.post("/api/products", isAuthenticated, async (req, res) => {
     reviewsEnabled: z.boolean().optional(),
     pwywEnabled: z.boolean().optional(),
     pwywMinCents: z.number().int().min(0).max(99_999_999).optional(),
+    billingInterval: z.enum(["month", "year"]).optional().nullable(),
     discordGuildId: z.string().max(64).optional().nullable(),
     discordRoleId: z.string().max(64).optional().nullable(),
     images: z.array(imageSchema).max(10).optional(),
+  }).refine((d) => !(d.billingInterval && d.pwywEnabled), {
+    message: "Subscription pricing and pay-what-you-want can't be combined",
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Invalid product data" });
@@ -317,6 +320,7 @@ productsRouter.post("/api/products", isAuthenticated, async (req, res) => {
     reviewsEnabled: parsed.data.reviewsEnabled ?? true,
     pwywEnabled: parsed.data.pwywEnabled ?? false,
     pwywMinCents: parsed.data.pwywMinCents ?? 0,
+    billingInterval: parsed.data.billingInterval ?? null,
     discordGuildId: parsed.data.discordGuildId ?? null,
     discordRoleId: parsed.data.discordRoleId ?? null,
   });
@@ -364,12 +368,23 @@ productsRouter.patch("/api/products/:id", isAuthenticated, async (req, res) => {
     reviewsEnabled: z.boolean().optional(),
     pwywEnabled: z.boolean().optional(),
     pwywMinCents: z.number().int().min(0).max(99_999_999).optional(),
+    billingInterval: z.enum(["month", "year"]).optional().nullable(),
     discordGuildId: z.string().max(64).optional().nullable(),
     discordRoleId: z.string().max(64).optional().nullable(),
     images: z.array(imageSchema).optional(),
+  }).refine((d) => !(d.billingInterval && d.pwywEnabled), {
+    message: "Subscription pricing and pay-what-you-want can't be combined",
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Invalid data" });
+
+  // Subscription × PWYW exclusion across the MERGED state — the schema
+  // refine only sees fields present in this request.
+  const willBeSubscription = parsed.data.billingInterval !== undefined ? parsed.data.billingInterval : product.billingInterval;
+  const willBePwyw = parsed.data.pwywEnabled !== undefined ? parsed.data.pwywEnabled : product.pwywEnabled;
+  if (willBeSubscription && willBePwyw) {
+    return res.status(400).json({ message: "Subscription pricing and pay-what-you-want can't be combined" });
+  }
 
   const admin = await isUserAdmin(getUserId(req));
   const { images: imgs, requiredTier, ...productData } = parsed.data;
