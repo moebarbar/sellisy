@@ -21,6 +21,18 @@ export const gumroadWelcomeEmailsQueue = new Queue('gumroad-welcome-emails', {
   },
 });
 
+// AI Store Launcher runs. attempts: 1 — the job manages its own failure
+// state in the ai_launches row; a blind BullMQ retry would re-run paid AI
+// calls against an already-failed launch.
+export const aiLaunchQueue = new Queue('ai-launch', {
+  connection: redisConnection,
+  defaultJobOptions: {
+    attempts: 1,
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 100 },
+  },
+});
+
 // Subscription lifecycle sweep — a single repeatable job (scheduled in
 // workers.ts) that re-verifies stale member subscriptions against Stripe
 // and emails buyers on past_due/canceled transitions.

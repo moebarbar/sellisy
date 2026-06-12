@@ -65,6 +65,22 @@ export async function startWorkers() {
   }
 
   try {
+    const { processAiLaunch } = await import('../jobs/ai-launch');
+    const aiLaunchWorker = new Worker(
+      'ai-launch',
+      async (job) => processAiLaunch(job),
+      { connection: redisConnection, concurrency: 2 },
+    );
+    attachFailHandler(aiLaunchWorker, 'ai-launch');
+    aiLaunchWorker.on('completed', (job) => {
+      console.log(`[ai-launch] job ${job.id} completed`);
+    });
+    console.log('[queue] ai-launch worker started');
+  } catch (err: any) {
+    console.warn('[queue] ai-launch worker not started:', err.message);
+  }
+
+  try {
     const { processSubscriptionSweep } = await import('../jobs/subscription-sweep');
     const sweepWorker = new Worker(
       'subscription-sweep',

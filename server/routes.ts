@@ -27,6 +27,7 @@ import { ordersRouter } from "./routes/orders";
 import { productsRouter } from "./routes/products";
 import { kbBlogRouter } from "./routes/kb-blog";
 import { storesRouter } from "./routes/stores";
+import { aiLaunchRouter } from "./routes/ai-launch";
 import {
   effectiveTier,
   ensureUserProfile,
@@ -71,6 +72,8 @@ export async function registerRoutes(
   // storesRouter: store CRUD + per-store sections (testimonials, FAQs,
   // reviews, newsletter campaigns).
   app.use(storesRouter);
+  // aiLaunchRouter: the AI Store Launcher (create + poll).
+  app.use(aiLaunchRouter);
 
   // One-click unsubscribe. Stateless: HMAC of orderId is enough to authorize
   // the flip. Responds with a tiny HTML confirmation page so the user sees
