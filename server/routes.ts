@@ -288,81 +288,103 @@ the storefront URL, payouts, and what's included vs paid-on-top.
       const xmlEscape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
       const isoOrUndefined = (d: Date | string | null | undefined) => d ? new Date(d).toISOString() : undefined;
 
-      const allStores = await db
-        .select({
-          id: stores.id,
-          slug: stores.slug,
-          name: stores.name,
-          customDomain: stores.customDomain,
-          domainStatus: stores.domainStatus,
-          updatedAt: stores.updatedAt,
-        })
-        .from(stores)
-        .where(isNull(stores.deletedAt));
+      // A sitemap is single-host: it may only list URLs on the host that
+      // serves it (Google ignores — and distrusts — cross-host entries).
+      // Custom-domain stores route through this same app, so when the
+      // request arrives on a custom domain we emit ONLY that store's URLs
+      // rooted at the custom domain; on the canonical domain we emit
+      // marketing + comparison pages + every store WITHOUT an active custom
+      // domain (those live on their own host's sitemap).
+      const customStore = (req as any).customDomainStore as { id: string; slug: string; customDomain: string | null; updatedAt: Date } | undefined;
 
-      let urls = "";
+      // Absolute-ize image locs — the image-sitemap spec requires full URLs,
+      // so a relative thumbnail like "/images/x.png" must be prefixed with
+      // the store's own origin.
+      const absImage = (u: string, origin: string) =>
+        /^https?:\/\//i.test(u) ? u : `${origin}${u.startsWith("/") ? "" : "/"}${u}`;
 
-      // Marketing pages
-      urls += `  <url><loc>${baseUrl}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n`;
-      urls += `  <url><loc>${baseUrl}/discover</loc><changefreq>daily</changefreq><priority>0.9</priority></url>\n`;
-      urls += `  <url><loc>${baseUrl}/products</loc><changefreq>daily</changefreq><priority>0.9</priority></url>\n`;
-      urls += `  <url><loc>${baseUrl}/privacy</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
-      urls += `  <url><loc>${baseUrl}/terms</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
-      urls += `  <url><loc>${baseUrl}/data-deletion</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
+      const emitStore = async (storeId: string, storeBase: string, storeUpdatedAt: Date | string | null | undefined) => {
+        const origin = new URL(storeBase).origin;
+        let out = `  <url><loc>${storeBase}</loc>${isoOrUndefined(storeUpdatedAt) ? `<lastmod>${isoOrUndefined(storeUpdatedAt)}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.8</priority></url>\n`;
 
-      // Competitor comparison pages — keep slugs in sync with client/src/data/competitors.ts.
-      const versusSlugs = [
-        "gumroad", "lemon-squeezy", "payhip", "sellfy", "podia",
-        "sendowl", "ko-fi", "stan-store", "whop", "kajabi", "kit", "beacons",
-      ];
-      for (const slug of versusSlugs) {
-        urls += `  <url><loc>${baseUrl}/vs/${slug}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>\n`;
-      }
-
-      for (const store of allStores) {
-        const hasCustomDomain = !!(store.customDomain && store.domainStatus === "active");
-        const storeBase = hasCustomDomain ? `https://${store.customDomain}` : `${baseUrl}/s/${store.slug}`;
-        const storeLastmod = isoOrUndefined(store.updatedAt);
-
-        urls += `  <url><loc>${storeBase}</loc>${storeLastmod ? `<lastmod>${storeLastmod}</lastmod>` : ""}<changefreq>daily</changefreq><priority>0.8</priority></url>\n`;
-
-        const storeProductsList = await storage.getStoreProducts(store.id);
+        const storeProductsList = await storage.getStoreProducts(storeId);
         for (const sp of storeProductsList) {
           if (!sp.isPublished) continue;
           const product = await storage.getProductById(sp.productId);
           if (!product || product.deletedAt) continue;
           const productSlug = product.slug || product.id;
-          const productUrl = `${storeBase}/product/${productSlug}`;
           const lastmod = isoOrUndefined(product.updatedAt ?? product.createdAt);
           const imageTag = product.thumbnailUrl
-            ? `<image:image><image:loc>${xmlEscape(product.thumbnailUrl)}</image:loc><image:title>${xmlEscape(product.title)}</image:title></image:image>`
+            ? `<image:image><image:loc>${xmlEscape(absImage(product.thumbnailUrl, origin))}</image:loc><image:title>${xmlEscape(product.title)}</image:title></image:image>`
             : "";
-          urls += `  <url><loc>${productUrl}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.7</priority>${imageTag}</url>\n`;
+          out += `  <url><loc>${storeBase}/product/${productSlug}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.7</priority>${imageTag}</url>\n`;
         }
 
-        const storeBundles = await storage.getBundlesByStore(store.id);
+        const storeBundles = await storage.getBundlesByStore(storeId);
         for (const bundle of storeBundles) {
           if (!bundle.isPublished || bundle.deletedAt) continue;
-          const bundleUrl = `${storeBase}/bundle/${bundle.id}`;
           const lastmod = isoOrUndefined(bundle.updatedAt ?? bundle.createdAt);
           const imageTag = bundle.thumbnailUrl
-            ? `<image:image><image:loc>${xmlEscape(bundle.thumbnailUrl)}</image:loc><image:title>${xmlEscape(bundle.name)}</image:title></image:image>`
+            ? `<image:image><image:loc>${xmlEscape(absImage(bundle.thumbnailUrl, origin))}</image:loc><image:title>${xmlEscape(bundle.name)}</image:title></image:image>`
             : "";
-          urls += `  <url><loc>${bundleUrl}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.6</priority>${imageTag}</url>\n`;
+          out += `  <url><loc>${storeBase}/bundle/${bundle.id}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.6</priority>${imageTag}</url>\n`;
         }
 
-        const blogPosts = await storage.getBlogPostsByStore(store.id);
+        const blogPosts = await storage.getBlogPostsByStore(storeId);
         if (blogPosts.some(p => p.isPublished && !p.deletedAt)) {
-          urls += `  <url><loc>${storeBase}/blog</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>\n`;
+          out += `  <url><loc>${storeBase}/blog</loc><changefreq>weekly</changefreq><priority>0.5</priority></url>\n`;
         }
         for (const post of blogPosts) {
           if (post.deletedAt || !post.isPublished) continue;
-          const postUrl = `${storeBase}/blog/${post.slug}`;
           const lastmod = isoOrUndefined(post.updatedAt ?? post.publishedAt ?? post.createdAt);
           const imageTag = post.coverImageUrl
-            ? `<image:image><image:loc>${xmlEscape(post.coverImageUrl)}</image:loc><image:title>${xmlEscape(post.title)}</image:title></image:image>`
+            ? `<image:image><image:loc>${xmlEscape(absImage(post.coverImageUrl, origin))}</image:loc><image:title>${xmlEscape(post.title)}</image:title></image:image>`
             : "";
-          urls += `  <url><loc>${postUrl}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.5</priority>${imageTag}</url>\n`;
+          out += `  <url><loc>${storeBase}/blog/${post.slug}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.5</priority>${imageTag}</url>\n`;
+        }
+        return out;
+      };
+
+      let urls = "";
+
+      if (customStore?.customDomain) {
+        // Custom-domain sitemap: only this store, rooted at its own host.
+        urls += await emitStore(customStore.id, `https://${customStore.customDomain}`, customStore.updatedAt);
+      } else {
+        // Canonical sellisy.com sitemap.
+        urls += `  <url><loc>${baseUrl}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n`;
+        urls += `  <url><loc>${baseUrl}/discover</loc><changefreq>daily</changefreq><priority>0.9</priority></url>\n`;
+        urls += `  <url><loc>${baseUrl}/products</loc><changefreq>daily</changefreq><priority>0.9</priority></url>\n`;
+        urls += `  <url><loc>${baseUrl}/privacy</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
+        urls += `  <url><loc>${baseUrl}/terms</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
+        urls += `  <url><loc>${baseUrl}/data-deletion</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
+
+        // Competitor comparison pages — keep slugs in sync with client/src/data/competitors.ts.
+        const versusSlugs = [
+          "gumroad", "lemon-squeezy", "payhip", "sellfy", "podia",
+          "sendowl", "ko-fi", "stan-store", "whop", "kajabi", "kit", "beacons",
+        ];
+        for (const slug of versusSlugs) {
+          urls += `  <url><loc>${baseUrl}/vs/${slug}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>\n`;
+        }
+
+        const allStores = await db
+          .select({
+            id: stores.id,
+            slug: stores.slug,
+            name: stores.name,
+            customDomain: stores.customDomain,
+            domainStatus: stores.domainStatus,
+            updatedAt: stores.updatedAt,
+          })
+          .from(stores)
+          .where(isNull(stores.deletedAt));
+
+        for (const store of allStores) {
+          // Stores with an active custom domain are canonical on that
+          // domain — they belong in that host's sitemap, not this one.
+          if (store.customDomain && store.domainStatus === "active") continue;
+          urls += await emitStore(store.id, `${baseUrl}/s/${store.slug}`, store.updatedAt);
         }
       }
 
