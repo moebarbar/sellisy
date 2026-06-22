@@ -41,9 +41,12 @@ const SSR_BUNDLE = path.join(PROJECT_ROOT, "dist", "ssr", "entry.js");
 const OUT_ROOT = path.join(PROJECT_ROOT, "dist", "public");
 const BASE_URL = "https://sellisy.com";
 
-function staticRoutes(getCompetitorSlugs: () => string[]): string[] {
+function staticRoutes(getCompetitorSlugs: () => string[], getArticleSlugs: () => string[]): string[] {
   const competitorRoutes = getCompetitorSlugs().map((s) => `/vs/${s}`);
+  const blogRoutes = getArticleSlugs().map((s) => `/blog/${s}`);
   return [
+    "/blog",
+    ...blogRoutes,
     "/",
     "/products",
     "/discover",
@@ -94,6 +97,7 @@ export async function prerender() {
   // server/db.ts evaluates.
   const { computeSeoForPath, renderMetaBlock } = await import("../server/og-tags.js");
   const { getCompetitorSlugs } = await import("../client/src/data/competitors.js");
+  const { getArticleSlugs } = await import("../client/src/data/blog/index.js");
 
   console.log("[prerender] loading SPA shell + SSR bundle...");
   // Re-run safety: if _shell.html already exists (previous run), trust it
@@ -113,7 +117,7 @@ export async function prerender() {
     renderPath: (path: string) => string;
   };
 
-  const routes = staticRoutes(getCompetitorSlugs);
+  const routes = staticRoutes(getCompetitorSlugs, getArticleSlugs);
   console.log(`[prerender] generating ${routes.length} routes...`);
 
   let ok = 0;

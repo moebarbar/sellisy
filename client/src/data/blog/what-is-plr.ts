@@ -1,0 +1,60 @@
+import type { BlogArticle } from "./types";
+
+export const whatIsPlr: BlogArticle = {
+  slug: "what-is-plr",
+  title: "What Is PLR? How to Sell PLR Products in 2026",
+  h1: "What Is PLR? How to Sell PLR Digital Products in 2026",
+  description:
+    "PLR (Private Label Rights) lets you rebrand and sell ready-made digital products as your own. Here's how PLR works, whether it's legal, and how to sell it.",
+  excerpt:
+    "PLR lets you sell digital products you didn't create from scratch — legally rebranded as your own. Here's exactly how it works, the licenses to know, and how to do it without selling the same thing as everyone else.",
+  category: "PLR & Resell",
+  keyword: "what is PLR",
+  datePublished: "2026-06-13",
+  dateModified: "2026-06-13",
+  readMinutes: 9,
+  heroVariant: "plr",
+  eyebrow: "PLR & Resell",
+  sections: [
+    { type: "p", text: "PLR stands for **Private Label Rights**. It's a type of license that lets you take a ready-made digital product — an ebook, a template pack, a course, a set of graphics — rebrand it as your own, edit it, and sell it while keeping 100% of the profit. It's one of the fastest ways to start selling digital products without creating anything from scratch." },
+    { type: "p", text: "This guide explains exactly what PLR is, how it differs from related licenses, whether it's legal, and how to sell PLR products without ending up in a sea of identical listings." },
+    { type: "h2", text: "What \"Private Label Rights\" actually means", id: "definition" },
+    { type: "p", text: "When you buy a PLR product, you're buying the right to treat it like your own. In most PLR licenses you can:" },
+    { type: "ul", items: [
+      "**Rebrand it** — put your name, logo, and store on it.",
+      "**Edit it** — rewrite, add to, redesign, and improve the content.",
+      "**Sell it** — list it in your store and keep all the revenue.",
+      "**Bundle it** — combine it with other products into a package.",
+    ]},
+    { type: "p", text: "The exact rights vary by license, so always read what a specific PLR product allows. Some restrict things like giving it away free, selling the editable source files, or passing resell rights on to your buyers." },
+    { type: "h2", text: "PLR vs MRR vs resell rights vs white label", id: "license-types" },
+    { type: "p", text: "These terms get used loosely. Here's the clean distinction:" },
+    { type: "table", caption: "Always confirm the exact terms of any individual license.", headers: ["License", "Can you edit it?", "Can you rebrand it?", "Can buyers resell it?"], rows: [
+      ["PLR (Private Label Rights)", "Yes", "Yes", "Usually no"],
+      ["MRR (Master Resell Rights)", "No (sell as-is)", "Sometimes", "Yes (they can resell)"],
+      ["RR (Resell Rights)", "No", "No", "No"],
+      ["White label", "Yes", "Yes", "Depends"],
+    ], highlightCol: 1 },
+    { type: "p", text: "The short version: **PLR is the most flexible** (edit + rebrand), while **MRR is about passing on resell rights** to your buyers. We compare the two in depth in [MRR vs PLR](/blog/mrr-vs-plr)." },
+    { type: "h2", text: "Is selling PLR legal?", id: "legal" },
+    { type: "p", text: "Yes — when you buy from a legitimate source and follow the license. PLR exists specifically so the original creator can sell those rights to many buyers. What you **can't** do is claim you wrote something you didn't where the license forbids it, resell beyond what the license grants, or use a product you found floating around without a real license. Buy from reputable PLR sources and keep the license terms on file." },
+    { type: "callout", variant: "warning", title: "The one rule that matters most", text: "Don't sell PLR exactly as you bought it. Hundreds of other people may have bought the same file. If you list it unchanged, you're competing on an identical product — a race to the bottom. The whole point of PLR (vs MRR) is that you're allowed to make it yours." },
+    { type: "h2", text: "How to sell PLR the right way", id: "how-to-sell" },
+    { type: "ol", items: [
+      "**Source quality PLR.** Pick products in a niche you understand from a reputable library. Quality varies wildly.",
+      "**Rebrand and improve it.** New cover, your voice, updated content, better design. Add a bonus or two.",
+      "**Bundle for higher value.** Combine related PLR into a package that's worth more than the parts.",
+      "**Price it as your own product** — not as a discount file. You've improved it; price for the value.",
+      "**Sell it on a store you control** with your own checkout, so you keep 100% of every sale.",
+    ]},
+    { type: "callout", variant: "tip", title: "Shortcut: a built-in PLR library", text: "Instead of hunting across vendor sites, some storefront platforms include a curated PLR/MRR library you can import, rebrand, and list in a few clicks — sourcing and selling in one place." },
+    { type: "cta", heading: "Sell PLR and keep 100%", text: "Sellisy includes a built-in PLR/MRR library — import, rebrand, and sell on your own store with your own Stripe and 0% per-sale fees.", href: "/discover", label: "Browse the marketplace" },
+    { type: "p", text: "Next, decide between license types in [MRR vs PLR](/blog/mrr-vs-plr), or see the bigger picture in [best digital products to sell](/blog/best-digital-products-to-sell-online)." },
+  ],
+  faq: [
+    { q: "What does PLR mean?", a: "PLR stands for Private Label Rights. It's a license that lets you rebrand, edit, and sell a ready-made digital product as your own while keeping 100% of the profit. The exact permissions vary by individual license." },
+    { q: "Is it legal to sell PLR products?", a: "Yes, when you buy from a legitimate source and follow the license terms. PLR is designed to be resold. You can't claim authorship where the license forbids it, exceed the rights granted, or sell a product you don't actually have a license for." },
+    { q: "Can I claim a PLR product as my own?", a: "In most PLR licenses you can rebrand it with your name and store and present it as your product. You should still respect any restrictions in the specific license, and ethically you should improve it rather than passing off unchanged work." },
+    { q: "How do I avoid selling the same PLR product as everyone else?", a: "Rebrand and genuinely improve it — new design, your voice, updated and expanded content, bonuses, and bundles. PLR licenses allow editing precisely so you can differentiate; selling the file unchanged is the most common (and avoidable) mistake." },
+  ],
+};

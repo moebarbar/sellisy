@@ -59,6 +59,8 @@ const EmbedBundleWidget = lazy(() => import("@/pages/embed-widget").then(m => ({
 const ProductsPage = lazy(() => import("@/pages/products"));
 const DiscoverPage = lazy(() => import("@/pages/discover"));
 const VersusPage = lazy(() => import("@/pages/versus"));
+const BlogIndexPage = lazy(() => import("@/pages/blog-index"));
+const BlogArticlePage = lazy(() => import("@/pages/blog-article"));
 const AffiliateApplyPage = lazy(() => import("@/pages/affiliate-apply"));
 const EarningsPage = lazy(() => import("@/pages/dashboard/earnings"));
 const CoursePlayerPage = lazy(() => import("@/pages/course-player"));
@@ -319,6 +321,8 @@ function Router() {
               <Route path="/products" component={ProductsPage} />
               <Route path="/discover" component={DiscoverPage} />
               <Route path="/vs/:slug" component={VersusPage} />
+              <Route path="/blog" component={BlogIndexPage} />
+              <Route path="/blog/:slug" component={BlogArticlePage} />
               <Route path="/vs" component={VersusPage} />
               <Route path="/auth" component={AuthPage} />
               <Route path="/privacy" component={PrivacyPage} />

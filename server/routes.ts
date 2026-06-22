@@ -368,6 +368,19 @@ the storefront URL, payouts, and what's included vs paid-on-top.
           urls += `  <url><loc>${baseUrl}/vs/${slug}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>\n`;
         }
 
+        // Marketing blog — index + each article (single source of truth:
+        // client/src/data/blog). Canonical host only.
+        try {
+          const { BLOG_ARTICLES } = await import("../client/src/data/blog/index.js");
+          urls += `  <url><loc>${baseUrl}/blog</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n`;
+          for (const a of BLOG_ARTICLES) {
+            const lastmod = isoOrUndefined(a.dateModified);
+            urls += `  <url><loc>${baseUrl}/blog/${a.slug}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>monthly</changefreq><priority>0.7</priority></url>\n`;
+          }
+        } catch (err) {
+          console.error("[sitemap] blog articles failed to load:", err);
+        }
+
         const allStores = await db
           .select({
             id: stores.id,

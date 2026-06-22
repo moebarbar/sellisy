@@ -7,6 +7,7 @@ import { useUser } from "@clerk/react";
 const navLinks: Array<{ label: string; href: string; external?: boolean }> = [
   { label: "Features", href: "#features" },
   { label: "Discover", href: "/discover", external: true },
+  { label: "Blog", href: "/blog", external: true },
   { label: "Create & Sell", href: "#create" },
   { label: "Pricing", href: "#pricing" },
 ];

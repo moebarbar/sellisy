@@ -1,0 +1,72 @@
+import type { BlogArticle } from "./types";
+
+export const platformFeesCompared: BlogArticle = {
+  slug: "digital-product-platform-fees-compared",
+  title: "Digital Product Platform Fees Compared (2026)",
+  h1: "Digital Product Platform Fees Compared (2026 Breakdown)",
+  description:
+    "A clear, honest comparison of what Gumroad, Payhip, Lemon Squeezy, Sellfy, Ko-fi, Podia, and Sellisy actually charge to sell digital products in 2026.",
+  excerpt:
+    "Per-sale cut or flat fee? Merchant of record or your own Stripe? A side-by-side breakdown of what every major platform really charges — including the column most comparisons leave out.",
+  category: "Fees & Money",
+  keyword: "platform fees comparison",
+  datePublished: "2026-06-13",
+  dateModified: "2026-06-13",
+  readMinutes: 9,
+  heroVariant: "compare",
+  eyebrow: "Fees & Money",
+  sections: [
+    { type: "p", text: "Pricing pages in this category are designed to be hard to compare. Some platforms quote a per-sale percentage, others a monthly fee, others both — and the merchant-of-record platforms fold payment processing into one number while the rest leave it separate. This guide normalizes all of it so you can see what you'd actually pay." },
+    { type: "p", text: "We'll cover the two fee models, a side-by-side table, the hidden costs to watch for, and how to pick based on your sales volume." },
+    { type: "h2", text: "The two fee models", id: "two-models" },
+    { type: "p", text: "Almost every platform falls into one of two camps:" },
+    { type: "ul", items: [
+      "**Per-sale percentage** — the platform takes a cut of every transaction (e.g., Gumroad 10%, Payhip 5% on free). Your cost rises automatically with your revenue.",
+      "**Flat subscription** — you pay a fixed monthly fee and the platform takes 0% per sale (e.g., Sellisy from $9/mo). Your cost stays constant no matter how much you sell.",
+    ]},
+    { type: "p", text: "There's also a second axis that matters just as much: **who processes the payment.** Merchant-of-record (MoR) platforms like Lemon Squeezy become the seller of record, handle global tax for you, and pay you out on their schedule. Own-processor platforms let you connect your own Stripe/PayPal so money lands directly in your account." },
+    { type: "h2", text: "Side-by-side: what each platform charges", id: "table" },
+    { type: "p", text: "Below is the platform's own cut (separate from the ~2.9% + $0.30 payment-processor fee that any card-accepting business pays). Always confirm against each platform's current pricing page — these move." },
+    { type: "table", caption: "Platform cut only. MoR platforms bundle processing into their fee. Illustrative; verify current pricing.", headers: ["Platform", "Per-sale fee", "Monthly fee", "Your own Stripe/PayPal?"], rows: [
+      ["Sellisy", "0%", "$9–49", "Yes — connect both"],
+      ["Gumroad", "10% flat", "$0", "No (Gumroad pays out)"],
+      ["Payhip", "5% / 2% / 0%", "$0 / $29 / $99", "Yes"],
+      ["Lemon Squeezy", "5% + $0.50 (MoR)", "$0", "No (MoR)"],
+      ["Sellfy", "0%", "$29–159", "Yes"],
+      ["Ko-fi", "0% (5% on free shop)", "$0 / $8", "Yes"],
+      ["Podia", "0% (8% on free)", "$0 / $39+", "Yes"],
+    ], highlightCol: 1 },
+    { type: "callout", variant: "key", title: "The column most comparisons skip", text: "\"Do you keep your own customer + checkout?\" On per-sale and MoR platforms, the platform often owns the buyer relationship and the payout. With own-processor platforms, the customer and the money are yours from the first sale — which matters enormously if you ever want to leave." },
+    { type: "h2", text: "Cheapest for low volume vs. high volume", id: "by-volume" },
+    { type: "p", text: "There's no single \"cheapest\" — it depends entirely on how much you sell:" },
+    { type: "ul", items: [
+      "**Just starting (under ~$300/mo):** a free per-sale tier (Gumroad, Payhip free, Ko-fi) costs you nothing upfront. The percentage is small in absolute dollars while volume is low.",
+      "**Growing ($500–5,000/mo):** this is where a flat fee starts winning decisively. A 10% cut on $5,000 is $500/mo; a flat plan is a fraction of that.",
+      "**Scaling ($5,000+/mo):** flat-fee, own-processor platforms win by a wide margin — the percentage platforms are now taking four figures a month for the same hosting.",
+    ]},
+    { type: "callout", variant: "note", title: "Run your own number", text: "Multiply your monthly sales by the per-sale percentage. If that's more than a flat plan's monthly price, the flat plan is cheaper — and the gap grows every month you scale. See the full math in our guide to [keeping 100% of your sales](/blog/how-to-keep-100-percent-of-your-sales)." },
+    { type: "h2", text: "Hidden fees to check for", id: "hidden-fees" },
+    { type: "ul", items: [
+      "**Payout / instant-payout fees** — some platforms charge to move your money out faster.",
+      "**PayPal vs card fee differences** — PayPal's per-transaction fee is often higher than Stripe's.",
+      "**Marketplace / discovery fees** — a few platforms take an extra cut on sales that come from their marketplace.",
+      "**Feature gating** — \"0% fees\" sometimes only applies on the most expensive monthly tier (Payhip's 0% is the $99 plan).",
+      "**Currency conversion** — international sales can carry an FX markup, especially via PayPal.",
+    ]},
+    { type: "h2", text: "How to choose", id: "how-to-choose" },
+    { type: "ol", items: [
+      "**Estimate your monthly revenue** for the next 6–12 months, honestly.",
+      "**Decide if you want to own your checkout** (your Stripe, your customer list) or prefer a hands-off merchant of record that handles tax.",
+      "**Compare total cost at your expected volume**, not at $0. The free tier that's cheapest today is rarely cheapest at scale.",
+      "**Factor in lock-in.** Can you export customers and leave? Own-processor platforms make this painless.",
+    ]},
+    { type: "cta", heading: "0% per-sale, flat from $9/mo", text: "Sellisy connects your own Stripe or PayPal and takes 0% on top — the storefront, delivery, courses, and memberships included.", href: "/", label: "Explore Sellisy" },
+    { type: "p", text: "Switching from a specific platform? See our [best Gumroad alternatives](/blog/best-gumroad-alternatives) guide, or compare Sellisy directly to [Gumroad](/vs/gumroad), [Payhip](/vs/payhip), and [Lemon Squeezy](/vs/lemon-squeezy)." },
+  ],
+  faq: [
+    { q: "Which platform has the lowest fees for selling digital products?", a: "It depends on volume. Free per-sale tiers (Gumroad, Payhip free) cost nothing upfront but take a percentage of every sale. Flat-fee platforms like Sellisy ($9/mo, 0% per sale) cost less overall once your monthly sales exceed roughly the subscription price divided by the competitor's percentage." },
+    { q: "What's the difference between a percentage fee and a merchant of record?", a: "A percentage fee is the platform's cut on top of payment processing. A merchant of record (like Lemon Squeezy) becomes the legal seller, bundles processing into its fee, and handles global sales tax for you — convenient, but it owns the payout and the buyer relationship." },
+    { q: "Do any platforms charge 0% fees?", a: "Several charge 0% per sale in exchange for a flat monthly subscription — Sellisy from $9/mo, Sellfy from $29, and Payhip on its $99 plan. You still pay your payment processor (~2.9% + $0.30) on all of them." },
+    { q: "Can I use my own Stripe account?", a: "On own-processor platforms (Sellisy, Payhip, Sellfy, Ko-fi, Podia) yes — payouts go straight to your account. On Gumroad and merchant-of-record platforms, the platform processes payments and pays you out instead." },
+  ],
+};

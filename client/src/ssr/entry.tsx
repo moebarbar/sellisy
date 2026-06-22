@@ -18,6 +18,8 @@ import PrivacyPage from "../pages/privacy";
 import TermsPage from "../pages/terms";
 import DataDeletionPage from "../pages/data-deletion";
 import VersusPage from "../pages/versus";
+import BlogIndexPage from "../pages/blog-index";
+import BlogArticlePage from "../pages/blog-article";
 
 // Minimal query client just to satisfy useQuery hooks at module-eval time.
 // Queries marked enabled:false won't fire; queries with cached data render
@@ -37,6 +39,8 @@ function MarketingSwitch() {
       <Route path="/discover" component={DiscoverPage} />
       <Route path="/vs/:slug" component={VersusPage} />
       <Route path="/vs" component={VersusPage} />
+      <Route path="/blog/:slug" component={BlogArticlePage} />
+      <Route path="/blog" component={BlogIndexPage} />
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/terms" component={TermsPage} />
       <Route path="/data-deletion" component={DataDeletionPage} />

@@ -347,6 +347,92 @@ export async function computeSeoForPath(pathOnly: string, canonical: string): Pr
     };
   }
 
+  // ── 1c. Marketing blog ────────────────────────────────────────────
+  // Article metadata is the single source of truth in
+  // client/src/data/blog (dependency-free) — imported here so prerendered
+  // HTML carries the exact title/description/Article+FAQ JSON-LD a crawler
+  // needs. The React SPA renders the body.
+  if (pathOnly === "/blog" || pathOnly.startsWith("/blog/")) {
+    const { getArticle } = await import("../client/src/data/blog/index.js");
+
+    if (pathOnly === "/blog" || pathOnly === "/blog/") {
+      return {
+        title: "Sellisy Blog — Selling Digital Products, Fees & Growth",
+        description: "Honest guides on selling digital products: platform fees compared, how to keep 100% of your sales, PLR explained, pricing, courses, and Stripe setup.",
+        canonical,
+        ogImage: `${brandSiteUrl()}/og-image.png`,
+        ogImageWidth: 1200,
+        ogImageHeight: 630,
+        ogType: "website",
+        jsonLd: {
+          "@context": "https://schema.org",
+          "@type": "Blog",
+          name: "Sellisy Blog",
+          url: canonical,
+          description: "Guides on selling digital products, platform fees, PLR, pricing, and growth for independent creators.",
+          publisher: { "@type": "Organization", name: "Sellisy", url: brandSiteUrl() },
+        },
+      };
+    }
+
+    const slug = pathOnly.replace(/^\/blog\//, "").replace(/\/$/, "");
+    const article = getArticle(slug);
+    if (!article) return null; // unknown slug → SPA 404, no special meta
+
+    const jsonLd: any[] = [
+      {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        headline: article.h1,
+        description: article.description,
+        datePublished: article.datePublished,
+        dateModified: article.dateModified,
+        author: { "@type": "Organization", name: "The Sellisy Team" },
+        publisher: {
+          "@type": "Organization",
+          name: "Sellisy",
+          logo: { "@type": "ImageObject", url: `${brandSiteUrl()}/favicon.png` },
+        },
+        mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
+        url: canonical,
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: brandSiteUrl() + "/" },
+          { "@type": "ListItem", position: 2, name: "Blog", item: brandSiteUrl() + "/blog" },
+          { "@type": "ListItem", position: 3, name: article.title, item: canonical },
+        ],
+      },
+    ];
+    if (article.faq.length > 0) {
+      jsonLd.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: article.faq.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      });
+    }
+
+    return {
+      title: `${article.title} | Sellisy Blog`,
+      description: article.description,
+      canonical,
+      ogImage: `${brandSiteUrl()}/og-image.png`,
+      ogImageWidth: 1200,
+      ogImageHeight: 630,
+      ogType: "article",
+      keywords: article.keyword,
+      articlePublishedTime: article.datePublished,
+      articleModifiedTime: article.dateModified,
+      jsonLd,
+    };
+  }
+
   // ── 2. Public products catalog ────────────────────────────────────
   if (pathOnly === "/products") {
     return {
