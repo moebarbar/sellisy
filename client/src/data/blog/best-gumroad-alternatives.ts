@@ -13,7 +13,7 @@ export const bestGumroadAlternatives: BlogArticle = {
   datePublished: "2026-06-13",
   dateModified: "2026-06-13",
   readMinutes: 10,
-  heroVariant: "compare",
+  heroVariant: "alternatives",
   eyebrow: "Comparisons",
   sections: [
     { type: "p", text: "Gumroad is a great place to make your first sale — it's simple and there's no monthly fee. But its pricing model has one catch that gets more expensive the more successful you become: a flat **10% cut on every sale.** At $1,000/mo that's $100. At $10,000/mo it's $1,000 — every month, for the same hosting." },

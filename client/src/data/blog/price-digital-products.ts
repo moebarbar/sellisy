@@ -13,7 +13,7 @@ export const priceDigitalProducts: BlogArticle = {
   datePublished: "2026-06-13",
   dateModified: "2026-06-13",
   readMinutes: 9,
-  heroVariant: "money",
+  heroVariant: "pricing",
   eyebrow: "Guides",
   sections: [
     { type: "p", text: "Pricing is the single highest-leverage number in your business — change it and every future sale changes with it — yet most creators set it by guessing and almost always guess low. This guide covers how to price digital products with confidence: the models, the psychology that actually works, when to raise prices, and the fee math that determines what you actually keep." },

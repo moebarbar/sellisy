@@ -13,7 +13,7 @@ export const bestDigitalProductsToSell: BlogArticle = {
   datePublished: "2026-06-13",
   dateModified: "2026-06-13",
   readMinutes: 11,
-  heroVariant: "guide",
+  heroVariant: "products",
   eyebrow: "Guides",
   sections: [
     { type: "p", text: "Digital products are the closest thing to free money the internet offers: you make them once and sell them forever, with no inventory, no shipping, and margins close to 100%. The hard part isn't whether to sell digital products — it's choosing which one to start with." },

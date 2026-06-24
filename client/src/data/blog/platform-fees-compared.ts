@@ -13,7 +13,7 @@ export const platformFeesCompared: BlogArticle = {
   datePublished: "2026-06-13",
   dateModified: "2026-06-13",
   readMinutes: 9,
-  heroVariant: "compare",
+  heroVariant: "fees",
   eyebrow: "Fees & Money",
   sections: [
     { type: "p", text: "Pricing pages in this category are designed to be hard to compare. Some platforms quote a per-sale percentage, others a monthly fee, others both — and the merchant-of-record platforms fold payment processing into one number while the rest leave it separate. This guide normalizes all of it so you can see what you'd actually pay." },

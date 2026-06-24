@@ -13,7 +13,7 @@ export const keep100Percent: BlogArticle = {
   datePublished: "2026-06-13",
   dateModified: "2026-06-13",
   readMinutes: 8,
-  heroVariant: "money",
+  heroVariant: "keep100",
   eyebrow: "Fees & Money",
   sections: [
     {

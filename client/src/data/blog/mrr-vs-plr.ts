@@ -13,7 +13,7 @@ export const mrrVsPlr: BlogArticle = {
   datePublished: "2026-06-13",
   dateModified: "2026-06-13",
   readMinutes: 7,
-  heroVariant: "plr",
+  heroVariant: "mrrplr",
   eyebrow: "PLR & Resell",
   sections: [
     { type: "p", text: "MRR and PLR are the two most common ways to sell digital products you didn't create from scratch. They sound similar and often get bundled together, but the rights they grant are different — and that difference decides how you can sell, how much you can differentiate, and ultimately how much you can make." },

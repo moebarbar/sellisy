@@ -39,8 +39,18 @@ export interface BlogArticle {
   datePublished: string;
   dateModified: string;
   readMinutes: number;
-  /** Hero gradient/motif key — see BlogHero. */
-  heroVariant: "money" | "plr" | "guide" | "compare" | "stripe" | "course";
+  /** Unique hero composition key — one per article, see BlogHero. */
+  heroVariant:
+    | "keep100"
+    | "fees"
+    | "alternatives"
+    | "plr"
+    | "mrrplr"
+    | "products"
+    | "stripe"
+    | "course"
+    | "vs"
+    | "pricing";
   /** Eyebrow shown above the H1. */
   eyebrow: string;
   sections: ArticleBlock[];

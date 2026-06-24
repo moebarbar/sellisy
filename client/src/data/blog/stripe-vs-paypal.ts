@@ -13,7 +13,7 @@ export const stripeVsPaypal: BlogArticle = {
   datePublished: "2026-06-13",
   dateModified: "2026-06-13",
   readMinutes: 8,
-  heroVariant: "stripe",
+  heroVariant: "vs",
   eyebrow: "Comparisons",
   sections: [
     { type: "p", text: "Stripe and PayPal are the two payment options most digital sellers consider. Both are reliable and widely used, but they differ on fees, international handling, conversion, and risk. Here's how they stack up — and why you may not have to pick just one." },
