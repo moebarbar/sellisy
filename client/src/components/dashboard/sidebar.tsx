@@ -5,6 +5,7 @@ import { useActiveStore } from "@/lib/store-context";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { prefetchDashboardRoute } from "@/lib/prefetch";
 import { useToast } from "@/hooks/use-toast";
 import { fireConfetti } from "@/lib/confetti";
 import {
@@ -117,7 +118,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const { tier, isAdmin, isOnTrial } = useUserProfile();
   const { setOpenMobile } = useSidebar();
-  const { activeStore } = useActiveStore();
+  const { activeStore, activeStoreId } = useActiveStore();
 
   // Show "Earnings" nav only if this user is an affiliate for at least one store.
   // Cheap GET — same endpoint the earnings page uses.
@@ -170,7 +171,12 @@ export function AppSidebar() {
                             : location.startsWith(item.url)
                       }
                     >
-                      <Link href={item.url} onClick={() => setOpenMobile(false)}>
+                      <Link
+                        href={item.url}
+                        onClick={() => setOpenMobile(false)}
+                        onMouseEnter={() => prefetchDashboardRoute(queryClient, item.url, activeStoreId)}
+                        onFocus={() => prefetchDashboardRoute(queryClient, item.url, activeStoreId)}
+                      >
                         <item.icon className="h-4 w-4" />
                         <span data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>{item.title}</span>
                       </Link>
