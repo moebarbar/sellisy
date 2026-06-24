@@ -424,6 +424,15 @@ export class WebhookHandlers {
         return;
       }
 
+      // refund.created / refund.updated carry the Refund only (no charge
+      // total), so full-vs-partial can't be derived from the payload. Resolve
+      // it against the matched order's total — mirrors the PayPal refund path.
+      // Without this a full refund via the refund-first shape would be marked
+      // PARTIALLY_REFUNDED and leave download tokens live for a refunded buyer.
+      if (eventType !== "charge.refunded") {
+        isFullRefund = refundedAmount >= order.totalCents;
+      }
+
       const newStatus = isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED";
 
       await db.update(orders).set({

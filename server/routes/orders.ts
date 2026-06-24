@@ -41,6 +41,7 @@ import { WebhookHandlers } from "../webhookHandlers";
 import { watermarkPdf, isPdfFilename, isPdfContentType } from "../pdfWatermark";
 import { decryptPaymentSecret } from "../crypto/payment-secret";
 import { validatePwywAmount } from "@shared/pwyw";
+import { applyCouponDiscount, type CouponDiscountType } from "@shared/coupon";
 import { getAppUrl, getCustomerFromCookie, getUserId, hashToken } from "./_helpers";
 
 export const ordersRouter = Router();
@@ -266,11 +267,7 @@ ordersRouter.post("/api/checkout", async (req, res) => {
     if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) return res.status(400).json({ message: "Coupon usage limit reached" });
     if (coupon.expiresAt && new Date() > coupon.expiresAt) return res.status(400).json({ message: "Coupon expired" });
 
-    if (coupon.discountType === "PERCENT") {
-      totalCents = Math.max(0, Math.round(totalCents * (1 - coupon.discountValue / 100)));
-    } else {
-      totalCents = Math.max(0, totalCents - coupon.discountValue);
-    }
+    totalCents = applyCouponDiscount(totalCents, coupon.discountType as CouponDiscountType, coupon.discountValue);
     couponId = coupon.id;
   }
 
