@@ -146,6 +146,7 @@ export function Footer() {
             <FooterLink href="/discover" testId="footer-link-discover">Discover stores</FooterLink>
             <FooterLink href="/products" testId="footer-link-products">PLR library</FooterLink>
             <FooterLink href="/blog" testId="footer-link-blog">Blog</FooterLink>
+            <FooterLink href="/about" testId="footer-link-about">About</FooterLink>
             <FooterLink href="/#products" testId="footer-link-featured">Featured products</FooterLink>
             <FooterLink href="/#templates" testId="footer-link-themes">Storefront themes</FooterLink>
           </FooterColumn>

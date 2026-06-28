@@ -18,6 +18,7 @@ import PrivacyPage from "../pages/privacy";
 import TermsPage from "../pages/terms";
 import DataDeletionPage from "../pages/data-deletion";
 import VersusPage from "../pages/versus";
+import AboutPage from "../pages/about";
 import BlogIndexPage from "../pages/blog-index";
 import BlogArticlePage from "../pages/blog-article";
 
@@ -40,6 +41,7 @@ function MarketingSwitch() {
       <Route path="/vs/:slug" component={VersusPage} />
       <Route path="/vs" component={VersusPage} />
       <Route path="/blog/:slug" component={BlogArticlePage} />
+      <Route path="/about" component={AboutPage} />
       <Route path="/blog" component={BlogIndexPage} />
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/terms" component={TermsPage} />

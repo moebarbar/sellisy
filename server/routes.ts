@@ -358,6 +358,7 @@ the storefront URL, payouts, and what's included vs paid-on-top.
         urls += `  <url><loc>${baseUrl}/privacy</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
         urls += `  <url><loc>${baseUrl}/terms</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
         urls += `  <url><loc>${baseUrl}/data-deletion</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>\n`;
+        urls += `  <url><loc>${baseUrl}/about</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>\n`;
 
         // Competitor comparison pages — keep slugs in sync with client/src/data/competitors.ts.
         const versusSlugs = [

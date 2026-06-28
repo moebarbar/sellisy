@@ -28,6 +28,17 @@ const httpServer = createServer(app);
 // Remove fingerprinting header
 app.disable("x-powered-by");
 
+// Canonicalize www → apex. www.sellisy.com currently 404s; any inbound link to
+// it loses equity and breaks for users. 301 to the apex, preserving path+query.
+// Scoped to exactly www.sellisy.com so sellers' custom domains are untouched.
+app.use((req, res, next) => {
+  const host = (req.headers.host || "").toLowerCase();
+  if (host === "www.sellisy.com") {
+    return res.redirect(301, `https://sellisy.com${req.originalUrl}`);
+  }
+  next();
+});
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;

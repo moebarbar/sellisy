@@ -44,6 +44,7 @@ const AffiliatesPage = lazy(() => import("@/pages/dashboard/affiliates"));
 
 const AuthPage = lazy(() => import("@/pages/auth"));
 const PrivacyPage = lazy(() => import("@/pages/privacy"));
+const AboutPage = lazy(() => import("@/pages/about"));
 const DataDeletionPage = lazy(() => import("@/pages/data-deletion"));
 const TermsPage = lazy(() => import("@/pages/terms"));
 const AccountLoginPage = lazy(() => import("@/pages/account/login"));
@@ -326,6 +327,7 @@ function Router() {
               <Route path="/vs" component={VersusPage} />
               <Route path="/auth" component={AuthPage} />
               <Route path="/privacy" component={PrivacyPage} />
+              <Route path="/about" component={AboutPage} />
               <Route path="/data-deletion" component={DataDeletionPage} />
               <Route path="/terms" component={TermsPage} />
               <Route path="/account" component={AccountLoginPage} />

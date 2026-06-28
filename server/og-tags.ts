@@ -233,7 +233,9 @@ export async function computeSeoForPath(pathOnly: string, canonical: string): Pr
       "@type": "Organization",
       name: "Sellisy",
       url: brandSiteUrl(),
-      logo: `${brandSiteUrl()}/favicon.png`,
+      // ImageObject (not a bare URL) is what Google's logo rich-result spec
+      // requires, and feeds Knowledge Panel display.
+      logo: { "@type": "ImageObject", url: `${brandSiteUrl()}/favicon.png`, width: 512, height: 512 },
       sameAs: [
         // Verified social handles. Keep in sync with the footer in
         // client/src/components/landing/footer.tsx.
@@ -250,9 +252,30 @@ export async function computeSeoForPath(pathOnly: string, canonical: string): Pr
       url: brandSiteUrl(),
       potentialAction: {
         "@type": "SearchAction",
-        target: `${brandSiteUrl()}/products?q={search_term_string}`,
+        // EntryPoint/urlTemplate is Google's current preferred form for the
+        // sitelinks search box (vs. a bare target string).
+        target: { "@type": "EntryPoint", urlTemplate: `${brandSiteUrl()}/products?q={search_term_string}` },
         "query-input": "required name=search_term_string",
       },
+    };
+
+    // SaaS pricing rich result — surfaces the flat $9/mo price (vs. percentage
+    // platforms) directly in SERPs. Tiers mirror the pricing section.
+    const softwareJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "Sellisy",
+      url: brandSiteUrl(),
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      description: "Create your digital storefront, sell products, and keep 100% of every sale — connect your own Stripe or PayPal with 0% per-sale fees.",
+      offers: {
+        "@type": "Offer",
+        price: "9.00",
+        priceCurrency: "USD",
+        category: "subscription",
+      },
+      publisher: { "@type": "Organization", name: "Sellisy", url: brandSiteUrl() },
     };
 
     return {
@@ -263,7 +286,7 @@ export async function computeSeoForPath(pathOnly: string, canonical: string): Pr
       ogImageWidth: 1200,
       ogImageHeight: 630,
       ogType: "website",
-      jsonLd: [orgJsonLd, websiteJsonLd],
+      jsonLd: [orgJsonLd, websiteJsonLd, softwareJsonLd],
     };
   }
 
@@ -364,14 +387,24 @@ export async function computeSeoForPath(pathOnly: string, canonical: string): Pr
         ogImageWidth: 1200,
         ogImageHeight: 630,
         ogType: "website",
-        jsonLd: {
-          "@context": "https://schema.org",
-          "@type": "Blog",
-          name: "Sellisy Blog",
-          url: canonical,
-          description: "Guides on selling digital products, platform fees, PLR, pricing, and growth for independent creators.",
-          publisher: { "@type": "Organization", name: "Sellisy", url: brandSiteUrl() },
-        },
+        jsonLd: [
+          {
+            "@context": "https://schema.org",
+            "@type": "Blog",
+            name: "Sellisy Blog",
+            url: canonical,
+            description: "Guides on selling digital products, platform fees, PLR, pricing, and growth for independent creators.",
+            publisher: { "@type": "Organization", name: "Sellisy", url: brandSiteUrl() },
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: brandSiteUrl() + "/" },
+              { "@type": "ListItem", position: 2, name: "Blog", item: canonical },
+            ],
+          },
+        ],
       };
     }
 
@@ -385,6 +418,14 @@ export async function computeSeoForPath(pathOnly: string, canonical: string): Pr
         "@type": "BlogPosting",
         headline: article.h1,
         description: article.description,
+        // image is required for Article rich-result eligibility (Top Stories /
+        // article carousels). Brand OG image until per-article raster heroes exist.
+        image: {
+          "@type": "ImageObject",
+          url: `${brandSiteUrl()}/og-image.png`,
+          width: 1200,
+          height: 630,
+        },
         datePublished: article.datePublished,
         dateModified: article.dateModified,
         author: { "@type": "Organization", name: "The Sellisy Team" },
@@ -503,6 +544,38 @@ export async function computeSeoForPath(pathOnly: string, canonical: string): Pr
     };
   }
 
+  // ── 2f. About ──────────────────────────────────────────────────────
+  if (pathOnly === "/about") {
+    return {
+      title: "About Sellisy — The 0% Fee Digital Storefront",
+      description: "Sellisy is a digital-product storefront that lets creators keep 100% of their sales. Learn what we build, why flat pricing beats per-sale fees, and how to reach us.",
+      canonical,
+      ogImage: `${brandSiteUrl()}/og-image.png`,
+      ogImageWidth: 1200,
+      ogImageHeight: 630,
+      ogType: "website",
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "AboutPage",
+        name: "About Sellisy",
+        url: canonical,
+        mainEntity: {
+          "@type": "Organization",
+          name: "Sellisy",
+          url: brandSiteUrl(),
+          logo: { "@type": "ImageObject", url: `${brandSiteUrl()}/favicon.png`, width: 512, height: 512 },
+          description: "Sellisy is a digital-product storefront platform that lets creators sell ebooks, templates, courses, and memberships while keeping 100% of every sale on their own Stripe or PayPal.",
+          email: "hello@sellisy.com",
+          sameAs: [
+            "https://www.instagram.com/trysellisy",
+            "https://twitter.com/trysellisy",
+            "https://www.tiktok.com/@trysellisy",
+          ],
+        },
+      },
+    };
+  }
+
   // ── 3. Dashboard / auth / account / checkout / claim — noindex ────
   if (
     pathOnly.startsWith("/dashboard") ||
@@ -541,16 +614,22 @@ export async function computeSeoForPath(pathOnly: string, canonical: string): Pr
 
     const images = await storage.getProductImages(product.id);
     const primaryImage = images?.find(i => i.isPrimary)?.url || images?.[0]?.url || product.thumbnailUrl || "";
+    // Google rejects Product rich results with a relative image URL. R2 images
+    // are already absolute; this only rescues a relative thumbnailUrl.
+    const absoluteImage = primaryImage && !/^https?:\/\//i.test(primaryImage) ? abs(primaryImage) : primaryImage;
     const title = `${product.title} — ${store.name}`;
     const description = truncateDescription(product.description || product.tagline || `Get ${product.title} from ${store.name}`);
     const priceDollars = (product.priceCents / 100).toFixed(2);
 
-    const productJsonLd = {
+    // Real review aggregate only — never seed a fake rating into schema.
+    const rating = await storage.getProductRatingAggregate(product.id);
+
+    const productJsonLd: any = {
       "@context": "https://schema.org",
       "@type": "Product",
       name: product.title,
       description: product.description || `${product.title} from ${store.name}`,
-      image: primaryImage || undefined,
+      image: absoluteImage || undefined,
       url: canonical,
       brand: { "@type": "Brand", name: store.name },
       sku: product.id,
@@ -560,10 +639,21 @@ export async function computeSeoForPath(pathOnly: string, canonical: string): Pr
         price: priceDollars,
         priceCurrency: "USD",
         availability: product.status === "ACTIVE" ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        itemCondition: "https://schema.org/NewCondition",
         url: canonical,
         seller: { "@type": "Organization", name: store.name },
       },
     };
+    // Star ratings in SERPs (highest-CTR element) — only when genuine reviews exist.
+    if (rating.count > 0) {
+      productJsonLd.aggregateRating = {
+        "@type": "AggregateRating",
+        ratingValue: rating.avgRating.toFixed(1),
+        reviewCount: rating.count,
+        bestRating: "5",
+        worstRating: "1",
+      };
+    }
 
     const breadcrumbJsonLd = {
       "@context": "https://schema.org",

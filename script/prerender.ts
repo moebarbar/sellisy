@@ -53,6 +53,7 @@ function staticRoutes(getCompetitorSlugs: () => string[], getArticleSlugs: () =>
     "/privacy",
     "/terms",
     "/data-deletion",
+    "/about",
     "/vs",
     ...competitorRoutes,
   ];
