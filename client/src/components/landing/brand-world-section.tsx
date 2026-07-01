@@ -4,8 +4,8 @@
 // Part of the DNA redesign (see DNA_REDESIGN.md).
 
 const SCENES = [
-  { src: "/dna/crew-launch.jpg", alt: "The Sellisy crew launching product boxes into the night sky from a rooftop" },
-  { src: "/dna/crew-earnings.jpg", alt: "A Sellisy character collecting glowing coins from an arcade claw machine" },
+  { src: "/dna/crew-storefront.jpg", alt: "A Sellisy character in a neon suit posing in a graffiti dressing room under the SELLISY sign" },
+  { src: "/dna/crew-delivery.jpg", alt: "The Sellisy crew moving product boxes down a neon conveyor in the Sublevel" },
 ];
 
 export function BrandWorldSection() {
