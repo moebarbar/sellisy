@@ -13,6 +13,27 @@ export function FinalCTA() {
         overflow: "hidden",
       }}
     >
+      {/* Crew backdrop — the Sublevel bookends the page. Heavy scrim keeps the
+          big headline fully legible over the illustration. */}
+      <img
+        src="/dna/crew-earnings.jpg"
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        decoding="async"
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3, zIndex: 0, pointerEvents: "none" }}
+      />
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "radial-gradient(ellipse 65% 65% at 50% 50%, rgba(5,5,5,0.5) 0%, rgba(5,5,5,0.92) 100%)",
+          zIndex: 1,
+          pointerEvents: "none",
+        }}
+      />
+
       {[0, 1, 2].map((i) => (
         <div
           key={i}
@@ -76,7 +97,7 @@ export function FinalCTA() {
             marginRight: "auto",
           }}
         >
-          Pick a plan. Connect your payments. Start selling in minutes.
+          Pick a plan. Connect your payments. Start increasing your GDP in minutes.
         </p>
 
         <div style={{ display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" as const }}>

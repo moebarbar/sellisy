@@ -9,258 +9,105 @@ function GrainOverlay() {
   );
 }
 
-function DashboardMockup() {
-  const revenueData = [18, 32, 25, 48, 38, 62, 55, 78, 65, 88, 72, 95, 82, 100];
-
-  const sidebarItems = [
-    { label: "Overview", active: true, icon: "◎" },
-    { label: "Analytics", active: false, icon: "◔" },
-    { label: "Products", active: false, icon: "▦" },
-    { label: "Courses", active: false, icon: "▲" },
-    { label: "Library", active: false, icon: "▤" },
-    { label: "Knowledge Base", active: false, icon: "✎" },
-    { label: "Blog", active: false, icon: "▧" },
-    { label: "Bundles", active: false, icon: "⊞" },
-    { label: "Affiliates", active: false, icon: "◈" },
-    { label: "Coupons", active: false, icon: "✂" },
-    { label: "Customers", active: false, icon: "◉" },
-    { label: "Orders", active: false, icon: "☰" },
-    { label: "Settings", active: false, icon: "⚙" },
+function HeroVisual() {
+  const crew = [
+    { n: "Pixel", rgb: "245,230,66" },
+    { n: "Register", rgb: "255,60,172" },
+    { n: "Radio", rgb: "0,245,212" },
+    { n: "Reel", rgb: "255,107,53" },
   ];
-
   return (
-    <div
-      data-testid="hero-dashboard-mockup"
-      style={{
-        background: "#0a0a0a",
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: 16,
-        overflow: "hidden",
-        boxShadow: "0 40px 100px -20px rgba(0,0,0,0.8), 0 0 60px rgba(245,230,66,0.04)",
-      }}
-    >
+    <div style={{ position: "relative" }}>
+      {/* neon bloom behind the panel */}
       <div
+        aria-hidden="true"
         style={{
-          display: "flex",
-          alignItems: "center",
-          padding: "10px 16px",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-          gap: 8,
+          position: "absolute",
+          inset: -40,
+          background:
+            "radial-gradient(ellipse 70% 55% at 50% 42%, rgba(255,60,172,0.16) 0%, rgba(245,230,66,0.06) 45%, transparent 72%)",
+          filter: "blur(18px)",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+      <figure
+        style={{
+          margin: 0,
+          position: "relative",
+          zIndex: 1,
+          borderRadius: 20,
+          overflow: "hidden",
+          border: "1px solid rgba(245,230,66,0.28)",
+          boxShadow:
+            "0 44px 120px -24px rgba(0,0,0,0.9), 0 0 90px rgba(255,60,172,0.16), 0 0 44px rgba(245,230,66,0.1)",
         }}
       >
-        <div style={{ display: "flex", gap: 6 }}>
-          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ff5f57" }} />
-          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#febc2e" }} />
-          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#28c840" }} />
-        </div>
+        <img
+          src="/dna/crew-launch-hero.jpg"
+          alt="The Sellisy crew launching a creator's products into the night sky from a neon rooftop"
+          decoding="async"
+          data-testid="hero-crew-visual"
+          style={{ width: "100%", display: "block", aspectRatio: "16 / 9", objectFit: "cover" }}
+        />
+        {/* halftone texture — the comic DNA */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: "radial-gradient(rgba(0,0,0,0.4) 1px, transparent 1.4px)",
+            backgroundSize: "4px 4px",
+            mixBlendMode: "multiply",
+            opacity: 0.22,
+            pointerEvents: "none",
+          }}
+        />
+        {/* status tag */}
         <div
           style={{
-            flex: 1,
-            textAlign: "center",
-            fontSize: 11,
-            fontFamily: "'Space Mono', monospace",
-            color: "rgba(255,255,255,0.3)",
-            letterSpacing: 1,
+            position: "absolute",
+            top: 16,
+            left: 16,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 12px",
+            borderRadius: 999,
+            background: "rgba(5,5,5,0.72)",
+            border: "1px solid rgba(255,60,172,0.45)",
+            backdropFilter: "blur(6px)",
           }}
         >
-          sellisy.com/dashboard
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--s-pink)", boxShadow: "0 0 10px var(--s-pink)", animation: "s-pulse-dot 1.5s infinite" }} />
+          <span className="s-label" style={{ color: "var(--s-white)", fontSize: 10 }}>The Sublevel &middot; Now open</span>
         </div>
-        <div style={{ width: 46 }} />
-      </div>
-
-      <div style={{ display: "flex", minHeight: 420 }}>
-        <div
-          className="hidden md:flex"
-          style={{
-            width: 190,
-            borderRight: "1px solid rgba(255,255,255,0.06)",
-            padding: "14px 10px",
-            flexDirection: "column",
-            gap: 1,
-            flexShrink: 0,
-            overflowY: "auto",
-          }}
-        >
-          <div
+      </figure>
+      {/* meet-the-crew chips */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 18 }}>
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: "rgba(250,250,245,0.4)", textTransform: "uppercase", letterSpacing: 1, alignSelf: "center", marginRight: 4 }}>
+          Meet the crew
+        </span>
+        {crew.map((c) => (
+          <span
+            key={c.n}
             style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 20,
-              color: "var(--s-white)",
-              marginBottom: 12,
-              paddingLeft: 8,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "5px 12px",
+              borderRadius: 999,
+              border: `1px solid rgba(${c.rgb},0.35)`,
+              background: `rgba(${c.rgb},0.06)`,
+              fontFamily: "'Space Mono', monospace",
+              fontSize: 11,
+              color: "rgba(250,250,245,0.85)",
             }}
           >
-            SELL<span style={{ color: "var(--s-yellow)" }}>I</span>SY
-          </div>
-
-          {sidebarItems.map((item) => (
-            <div
-              key={item.label}
-              style={{
-                padding: "7px 10px",
-                borderRadius: 7,
-                fontSize: 11,
-                fontFamily: "'DM Sans', sans-serif",
-                color: item.active ? "var(--s-yellow)" : "rgba(255,255,255,0.4)",
-                background: item.active ? "rgba(245,230,66,0.08)" : "transparent",
-                fontWeight: item.active ? 600 : 400,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <span style={{ fontSize: 10, opacity: 0.7, width: 14, textAlign: "center" }}>{item.icon}</span>
-              {item.label}
-            </div>
-          ))}
-
-          <div style={{ marginTop: "auto", padding: "10px 10px 4px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, var(--s-yellow), var(--s-orange))", flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--s-white)", fontFamily: "'DM Sans', sans-serif" }}>Sarah K.</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 8, fontFamily: "'Space Mono', monospace", color: "var(--s-yellow)", textTransform: "uppercase", letterSpacing: 1, padding: "1px 5px", borderRadius: 3, background: "rgba(245,230,66,0.1)" }}>
-                    PRO
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ fontSize: 12, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, color: "var(--s-white)", padding: "4px 10px", borderRadius: 6, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                Master Resell Club ▾
-              </div>
-              <span style={{ fontSize: 9, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.3)" }}>master-resell-club.sellisy.com</span>
-            </div>
-            <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "var(--s-teal)", padding: "4px 10px", borderRadius: 6, background: "rgba(0,245,212,0.08)", border: "1px solid rgba(0,245,212,0.15)" }}>
-              View Storefront →
-            </div>
-          </div>
-
-          <div style={{ flex: 1, padding: "16px", overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <span style={{ fontSize: 18 }}>☀️</span>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", color: "var(--s-white)" }}>Good morning, Sarah</div>
-                <div style={{ fontSize: 10, fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>"Every sale starts with showing up."</div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 8, marginBottom: 14 }}>
-              {[
-                { label: "Total Revenue", value: "$12,847", icon: "💰", color: "var(--s-yellow)" },
-                { label: "Total Orders", value: "847", icon: "📦", color: "var(--s-teal)" },
-                { label: "Active Products", value: "24", icon: "🏷️", color: "var(--s-orange)" },
-                { label: "Avg. Order", value: "$15.16", icon: "📊", color: "var(--s-pink)" },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  style={{
-                    padding: "10px",
-                    borderRadius: 10,
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.05)",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                    <span style={{ fontSize: 10 }}>{stat.icon}</span>
-                    <span style={{ fontSize: 8, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1 }}>{stat.label}</span>
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", color: stat.color }}>{stat.value}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 300px", minWidth: 0 }}>
-                <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
-                  Revenue — Last 14 Days
-                </div>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 70, padding: "0 2px" }}>
-                  {revenueData.map((h, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        flex: 1,
-                        height: `${h}%`,
-                        borderRadius: 3,
-                        background: i >= 12 ? "var(--s-yellow)" : "rgba(245,230,66,0.15)",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-                <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
-                  Top Products
-                </div>
-                {[
-                  { name: "Social Media Kit", sold: "312 sold", revenue: "$9,048" },
-                  { name: "Brand Guidelines", sold: "186 sold", revenue: "$3,534" },
-                  { name: "Notion Templates", sold: "98 sold", revenue: "$1,470" },
-                ].map((p, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                    <div style={{ width: 6, height: 6, borderRadius: 2, background: i === 0 ? "var(--s-yellow)" : i === 1 ? "var(--s-teal)" : "var(--s-orange)", flexShrink: 0 }} />
-                    <div style={{ flex: 1, fontSize: 10, fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.7)" }}>{p.name}</div>
-                    <div style={{ fontSize: 9, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.3)" }}>{p.sold}</div>
-                    <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "var(--s-yellow)", fontWeight: 600 }}>{p.revenue}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: "rgba(245,230,66,0.04)", border: "1px solid rgba(245,230,66,0.1)" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 12 }}>🚀</span>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", color: "var(--s-white)" }}>Getting Started</div>
-                    <div style={{ fontSize: 9, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)" }}>5 of 6 complete</div>
-                  </div>
-                </div>
-                <div style={{ width: 80, height: 5, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-                  <div style={{ width: "83%", height: "100%", borderRadius: 99, background: "var(--s-yellow)" }} />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 10, fontFamily: "'Space Mono', monospace", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
-                ✨ What's Next?
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 8 }}>
-                {[
-                  { emoji: "📸", title: "Launch on Instagram", desc: "Share your store link and first product with a Reel or Story", color: "var(--s-pink)" },
-                  { emoji: "✍️", title: "Start a Blog", desc: "Write SEO content to drive organic traffic to your store", color: "var(--s-teal)" },
-                  { emoji: "🎁", title: "Create a Bundle", desc: "Package 3+ products together and offer a discount", color: "var(--s-yellow)" },
-                ].map((card) => (
-                  <div
-                    key={card.title}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 8,
-                      background: "rgba(255,255,255,0.02)",
-                      border: "1px solid rgba(255,255,255,0.05)",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 12 }}>{card.emoji}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", color: "var(--s-white)" }}>{card.title}</span>
-                    </div>
-                    <div style={{ fontSize: 9, fontFamily: "'DM Sans', sans-serif", color: "rgba(255,255,255,0.35)", lineHeight: 1.4, marginBottom: 6 }}>{card.desc}</div>
-                    <div style={{ fontSize: 8, fontFamily: "'Space Mono', monospace", color: card.color, textTransform: "uppercase", letterSpacing: 1 }}>Let's Go →</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: `rgb(${c.rgb})`, boxShadow: `0 0 8px rgb(${c.rgb})` }} />
+            {c.n}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -359,7 +206,7 @@ export function HeroSection() {
             }}
           />
           <div style={{ position: "relative", zIndex: 1 }}>
-            <DashboardMockup />
+            <HeroVisual />
           </div>
         </div>
       </div>
