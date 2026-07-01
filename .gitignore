@@ -13,3 +13,6 @@ replit.nix
 .config
 attached_assets
 .claude/
+
+# Heavy source art for the DNA redesign (optimized copies live in client/public/dna)
+/DNA FOLDER/

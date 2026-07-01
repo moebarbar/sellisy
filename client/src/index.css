@@ -838,3 +838,9 @@
     -webkit-backdrop-filter: none !important;
   }
 }
+
+/* Brand-world section (DNA redesign): split to two columns on desktop.
+   !important overrides the component's inline single-column default. */
+@media (min-width: 900px) {
+  .brand-world-grid { grid-template-columns: 1fr 1.05fr !important; }
+}

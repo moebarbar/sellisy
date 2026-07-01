@@ -3,6 +3,7 @@ import { Navbar } from "@/components/landing/navbar";
 import { HeroSection } from "@/components/landing/hero-section";
 import { TickerBar } from "@/components/landing/ticker-bar";
 import { StatsSection } from "@/components/landing/stats-section";
+import { BrandWorldSection } from "@/components/landing/brand-world-section";
 import { LibrarySection } from "@/components/landing/library-section";
 import { TemplatesSection } from "@/components/landing/templates-section";
 import { PortalSection } from "@/components/landing/portal-section";
@@ -68,6 +69,7 @@ export default function LandingPage() {
       <HeroSection />
       <TickerBar />
       <StatsSection />
+      <BrandWorldSection />
       <div id="products">
         <LibrarySection />
       </div>
