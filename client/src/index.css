@@ -839,8 +839,11 @@
   }
 }
 
-/* Brand-world section (DNA redesign): split to two columns on desktop.
-   !important overrides the component's inline single-column default. */
+/* Feature pillars (DNA): image + copy side-by-side on desktop, stacked on
+   mobile (image on top). Alt rows flip the image to the right. */
+.feature-block { display: grid; gap: 28px; grid-template-columns: 1fr; align-items: center; }
 @media (min-width: 900px) {
-  .brand-world-grid { grid-template-columns: 1fr 1.05fr !important; }
+  .feature-block { grid-template-columns: 0.92fr 1.08fr; }
+  .feature-block.alt .feature-media { order: 2; }
+  .feature-block.alt .feature-content { order: 1; }
 }

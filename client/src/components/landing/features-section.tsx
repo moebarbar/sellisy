@@ -15,6 +15,9 @@ type Category = {
   forWho: string; // who this outcome targets
   accent: string; // CSS color (landing palette var)
   accentRgb: string; // matching rgb for translucent backgrounds
+  image: string; // the crew scene that depicts this outcome
+  imageAlt: string;
+  imageCaption: string; // ties the art to the feature
   chips: Chip[];
 };
 
@@ -27,6 +30,9 @@ const categories: Category[] = [
     forWho: "For first-timers & side-hustlers",
     accent: "var(--s-yellow)",
     accentRgb: "245,230,66",
+    image: "/dna/crew-storefront.jpg",
+    imageAlt: "A Sellisy character branding their storefront in a neon dressing room under the SELLISY sign",
+    imageCaption: "Brand your storefront",
     chips: [
       { icon: "🤖", label: "AI Store Launcher — one sentence to a live, stocked store" },
       { icon: "📦", label: "200+ done-for-you PLR & MRR products to rebrand and resell" },
@@ -43,6 +49,9 @@ const categories: Category[] = [
     forWho: "For creators, educators & sellers",
     accent: "var(--s-teal)",
     accentRgb: "0,245,212",
+    image: "/dna/crew-delivery.jpg",
+    imageAlt: "The Sellisy crew moving product boxes down a neon conveyor belt in the Sublevel",
+    imageCaption: "Sell & deliver anything",
     chips: [
       { icon: "🗂️", label: "Digital products: PDF, ebook, software, templates, graphics" },
       { icon: "🎓", label: "Full course LMS — modules, drip, quizzes, certificates, discussions" },
@@ -61,6 +70,9 @@ const categories: Category[] = [
     forWho: "For anyone scaling past hobby income",
     accent: "var(--s-orange)",
     accentRgb: "255,107,53",
+    image: "/dna/crew-earnings.jpg",
+    imageAlt: "A Sellisy character scooping glowing coins pouring out of an arcade claw machine",
+    imageCaption: "Every coin is yours",
     chips: [
       { icon: "💳", label: "Your own Stripe + PayPal — 0% per-sale fees, ever" },
       { icon: "🧾", label: "Automatic Stripe Tax — VAT / sales tax handled" },
@@ -79,6 +91,9 @@ const categories: Category[] = [
     forWho: "For sellers who want compounding growth",
     accent: "var(--s-pink)",
     accentRgb: "255,60,172",
+    image: "/dna/crew-launch-hero.jpg",
+    imageAlt: "The Sellisy crew firing a creator's product boxes into the night sky from a rooftop cannon",
+    imageCaption: "Grow while you sleep",
     chips: [
       { icon: "🧠", label: "Sellisy Brain — a weekly AI growth plan, on demand" },
       { icon: "🛒", label: "Abandoned-cart recovery emails, automatic" },
@@ -97,32 +112,64 @@ function CategoryBlock({ category, index }: { category: Category; index: number 
   return (
     <div
       data-testid={`feature-category-${index}`}
-      className="s-reveal"
+      className={`s-reveal feature-block${isAlternate ? " alt" : ""}`}
       style={{
         position: "relative",
-        padding: "48px 32px",
+        padding: "clamp(24px, 3vw, 40px)",
         borderRadius: 20,
-        background: `linear-gradient(${isAlternate ? "135deg" : "315deg"}, rgba(${category.accentRgb},0.04) 0%, rgba(255,255,255,0.02) 60%)`,
-        border: `1px solid rgba(${category.accentRgb},0.12)`,
-        overflow: "hidden",
+        background: `linear-gradient(${isAlternate ? "135deg" : "315deg"}, rgba(${category.accentRgb},0.05) 0%, rgba(255,255,255,0.02) 60%)`,
+        border: `1px solid rgba(${category.accentRgb},0.14)`,
       }}
     >
-      {/* Accent dot in corner — quiet visual hook */}
-      <div
-        aria-hidden="true"
+      {/* The crew scene that depicts this outcome — the feature, illustrated. */}
+      <figure
+        className="feature-media"
         style={{
-          position: "absolute",
-          top: 24,
-          right: 24,
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          background: category.accent,
-          boxShadow: `0 0 16px ${category.accent}`,
+          margin: 0,
+          position: "relative",
+          borderRadius: 16,
+          overflow: "hidden",
+          border: `1px solid rgba(${category.accentRgb},0.32)`,
+          boxShadow: `0 0 50px rgba(${category.accentRgb},0.14)`,
         }}
-      />
+      >
+        <img
+          src={category.image}
+          alt={category.imageAlt}
+          loading="lazy"
+          decoding="async"
+          data-testid={`feature-image-${index}`}
+          style={{ width: "100%", display: "block", aspectRatio: "4 / 3", objectFit: "cover" }}
+        />
+        {/* halftone comic texture */}
+        <div aria-hidden="true" style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(0,0,0,0.4) 1px, transparent 1.4px)", backgroundSize: "4px 4px", mixBlendMode: "multiply", opacity: 0.2, pointerEvents: "none" }} />
+        {/* caption chip — names what the scene shows */}
+        <figcaption
+          style={{
+            position: "absolute",
+            bottom: 12,
+            left: 12,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 12px",
+            borderRadius: 999,
+            background: "rgba(5,5,5,0.74)",
+            border: `1px solid rgba(${category.accentRgb},0.45)`,
+            backdropFilter: "blur(6px)",
+            fontFamily: "'Space Mono', monospace",
+            fontSize: 11,
+            letterSpacing: 0.5,
+            color: "var(--s-white)",
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: category.accent, boxShadow: `0 0 8px ${category.accent}` }} />
+          {category.imageCaption}
+        </figcaption>
+      </figure>
 
-      <div style={{ marginBottom: 32, maxWidth: 720 }}>
+      <div className="feature-content">
+      <div style={{ marginBottom: 24 }}>
         <span
           className="s-label"
           style={{
@@ -178,7 +225,7 @@ function CategoryBlock({ category, index }: { category: Category; index: number 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))",
           gap: 10,
         }}
       >
@@ -245,6 +292,7 @@ function CategoryBlock({ category, index }: { category: Category; index: number 
             )}
           </div>
         ))}
+      </div>
       </div>
     </div>
   );
