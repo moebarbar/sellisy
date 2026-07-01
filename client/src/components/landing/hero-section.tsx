@@ -279,7 +279,7 @@ export function HeroSection() {
             style={{ border: "1px solid rgba(245,230,66,0.3)", background: "rgba(245,230,66,0.04)" }}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--s-yellow)", animation: "s-pulse-dot 1.5s infinite" }} />
-            <span className="s-label" style={{ color: "var(--s-yellow)", fontSize: "11px" }}>The platform for digital creators</span>
+            <span className="s-label" style={{ color: "var(--s-yellow)", fontSize: "11px" }}>GDP · Your Gross Digital Product</span>
           </div>
 
           <h1
@@ -292,9 +292,9 @@ export function HeroSection() {
               marginBottom: 24,
             }}
           >
-            Your Digital Storefront.
+            Increase Your
             <br />
-            <span style={{ color: "var(--s-yellow)" }}>Built in Minutes.</span>
+            <span style={{ color: "var(--s-yellow)" }}>GDP.</span>
           </h1>
 
           <p
@@ -307,7 +307,7 @@ export function HeroSection() {
               margin: "0 auto 32px",
             }}
           >
-            Import 200+ PLR & MRR products or create your own. Launch a storefront, connect Stripe or PayPal, and keep 100% of every sale.
+            Your <strong style={{ color: "var(--s-white)", fontWeight: 600 }}>Gross Digital Product</strong> — the income you create and own. Sell templates, guides, and courses, launch a store in minutes, connect Stripe or PayPal, and keep 100% of every sale.
           </p>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center", marginBottom: 48 }}>
@@ -317,7 +317,7 @@ export function HeroSection() {
               style={{ background: "var(--s-yellow)", color: "var(--s-black)", fontSize: "12px", boxShadow: "0 0 30px rgba(245,230,66,0.15)" }}
               data-testid="button-hero-cta"
             >
-              Start Selling Free
+              Start Earning Free
             </a>
             <a
               href="#products"

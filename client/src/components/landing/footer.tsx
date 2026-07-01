@@ -70,9 +70,9 @@ export function Footer() {
                 maxWidth: 380,
               }}
             >
-              The platform for digital creators. Connect your own Stripe or
-              PayPal, keep 100% of every sale. Built for people who&rsquo;d
-              rather not give up 10%.
+              Grow your GDP &mdash; your Gross Digital Product. Connect your own
+              Stripe or PayPal, keep 100% of every sale. Built for people
+              who&rsquo;d rather not give up 10%.
             </p>
           </div>
 

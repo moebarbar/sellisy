@@ -68,10 +68,10 @@ export default function AboutPage() {
               // ABOUT
             </p>
             <h1 className="s-heading" style={{ fontSize: "clamp(48px, 8vw, 88px)", color: "var(--s-white)", marginBottom: 20, lineHeight: 1 }}>
-              KEEP <span style={{ color: "var(--s-yellow)" }}>100%</span> OF WHAT YOU SELL
+              GROW YOUR <span style={{ color: "var(--s-yellow)" }}>GDP</span>
             </h1>
             <p style={{ color: "rgba(250,250,245,0.5)", fontSize: 16, fontFamily: "'DM Sans', sans-serif" }}>
-              Sellisy is the digital storefront built so creators keep their money, their customers, and their independence.
+              Your Gross Digital Product — the income you create and own. Sellisy is the storefront built so you keep your money, your customers, and your independence.
             </p>
           </div>
 

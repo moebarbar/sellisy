@@ -225,8 +225,8 @@ export async function computeSeoForPath(pathOnly: string, canonical: string): Pr
 
   // ── 1. Landing page ────────────────────────────────────────────────
   if (pathOnly === "/" || pathOnly === "") {
-    const title = "Sellisy — Create & Sell Digital Products";
-    const description = "Build your digital storefront in minutes. Import products, accept payments, and deliver secure downloads. The easiest way to sell digital products online.";
+    const title = "Sellisy — Sell Digital Products & Grow Your GDP";
+    const description = "Grow your Gross Digital Product — the income you create and own. Sell templates, guides, and courses, launch a store in minutes, and keep 100% of every sale with no per-sale fees.";
 
     const orgJsonLd = {
       "@context": "https://schema.org",

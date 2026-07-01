@@ -70,8 +70,8 @@ function removeCanonical() {
   if (el) el.remove();
 }
 
-const DEFAULT_TITLE = "Sellisy - Create & Sell Digital Products";
-const DEFAULT_DESC = "Build your own digital storefront, sell products, and grow your business with Sellisy.";
+const DEFAULT_TITLE = "Sellisy — Sell Digital Products & Grow Your GDP";
+const DEFAULT_DESC = "Grow your Gross Digital Product — sell digital products from a store you own and keep 100% of every sale with Sellisy.";
 const DEFAULT_FAVICON = "/favicon.png";
 
 export function usePageMeta(meta: PageMeta) {
