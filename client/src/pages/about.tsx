@@ -71,7 +71,7 @@ export default function AboutPage() {
               GROW YOUR <span style={{ color: "var(--s-yellow)" }}>GDP</span>
             </h1>
             <p style={{ color: "rgba(250,250,245,0.5)", fontSize: 16, fontFamily: "'DM Sans', sans-serif" }}>
-              Your Gross Digital Product — the income you create and own. Sellisy is the storefront built so you keep your money, your customers, and your independence.
+              Your income is your personal GDP — and it&rsquo;s yours to grow. Sellisy is the storefront built so you keep your money, your customers, and your independence.
             </p>
           </div>
 

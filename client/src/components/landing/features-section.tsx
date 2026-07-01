@@ -1,11 +1,10 @@
-// "Everything you need" — reorganized into five capability categories
-// instead of a flat features grid. Each category gets its own accent color
-// (drawn from the landing palette: yellow, teal, pink, orange, cream) so
-// the scroll feels rhythmic rather than uniform.
+// "Everything you need to increase your GDP" — the platform's full feature set
+// reframed as four OUTCOME pillars (not a flat feature dump). Each pillar leads
+// with the income outcome, says who it's for, then lists the concrete
+// capabilities that deliver it. Reads as a value story, top to bottom.
 //
-// Total: 30 features across five categories. Every category is a real
-// capability that ships today. Update this file whenever a roadmap item
-// goes live so it stays honest.
+// Every chip is a real capability that ships today. Update this file whenever a
+// roadmap item goes live so it stays honest.
 
 type Chip = { icon: string; label: string; isNew?: boolean };
 
@@ -13,6 +12,7 @@ type Category = {
   eyebrow: string;
   title: string;
   description: string;
+  forWho: string; // who this outcome targets
   accent: string; // CSS color (landing palette var)
   accentRgb: string; // matching rgb for translucent backgrounds
   chips: Chip[];
@@ -20,83 +20,73 @@ type Category = {
 
 const categories: Category[] = [
   {
-    eyebrow: "// Sell anything",
-    title: "Sell digital, however you want",
+    eyebrow: "// 01 — Start earning",
+    title: "Start today, even with nothing to sell",
     description:
-      "Pricing models that fit any audience — flat, free, bundled, pay-what-you-want. Delivery that's tamper-proof out of the box.",
+      "No product? No audience? No problem. Go from a blank page to a stocked, branded store in an afternoon — then make your first sale while competitors are still picking a theme.",
+    forWho: "For first-timers & side-hustlers",
     accent: "var(--s-yellow)",
     accentRgb: "245,230,66",
     chips: [
-      { icon: "📦", label: "Digital products: PDF, ebook, software, template, graphics" },
-      { icon: "🎁", label: "Bundles with savings math at the cart" },
-      { icon: "💸", label: "Pay-what-you-want pricing", isNew: true },
-      { icon: "🎟️", label: "Coupons + percentage / dollar discounts" },
-      { icon: "🆓", label: "Lead magnets (free with email capture)" },
-      { icon: "📜", label: "Per-buyer PDF watermarking" },
+      { icon: "🤖", label: "AI Store Launcher — one sentence to a live, stocked store" },
+      { icon: "📦", label: "200+ done-for-you PLR & MRR products to rebrand and resell" },
+      { icon: "🎨", label: "7 designer themes — Neon, Silk, Aurora, Ember, Frost, Midnight, Launch" },
+      { icon: "📥", label: "1-click Gumroad importer — products, customers, sales" },
+      { icon: "🎁", label: "14-day free Growth trial — no card required" },
     ],
   },
   {
-    eyebrow: "// Run a course business",
-    title: "A full LMS, not just a video player",
+    eyebrow: "// 02 — Sell more",
+    title: "Sell anything, priced any way you want",
     description:
-      "Everything you'd otherwise stitch together from Podia, Teachable, or Kajabi — already inside every Sellisy course product.",
+      "Package what you know however your buyers want to pay — one-time, bundled, subscription, or name-your-price. Delivery is tamper-proof out of the box, so every sale is protected.",
+    forWho: "For creators, educators & sellers",
     accent: "var(--s-teal)",
     accentRgb: "0,245,212",
     chips: [
-      { icon: "📚", label: "Modules + lessons with reorderable hierarchy" },
-      { icon: "🎬", label: "YouTube / Vimeo / direct upload video" },
-      { icon: "🗓️", label: "Drip schedules — unlock lessons over time" },
-      { icon: "🧠", label: "Quizzes (single + multi choice, auto-scored)" },
-      { icon: "🏆", label: "Auto-issued PDF certificates with your branding" },
-      { icon: "💬", label: "Per-lesson discussions + owner moderation" },
+      { icon: "🗂️", label: "Digital products: PDF, ebook, software, templates, graphics" },
+      { icon: "🎓", label: "Full course LMS — modules, drip, quizzes, certificates, discussions" },
+      { icon: "🔁", label: "Memberships & subscriptions — recurring on your own Stripe" },
+      { icon: "🎁", label: "Bundles with automatic savings math at the cart" },
+      { icon: "💸", label: "Pay-what-you-want pricing", isNew: true },
+      { icon: "🎟️", label: "Coupons, % / $ discounts, and free lead magnets" },
+      { icon: "🔒", label: "Secure delivery — license keys + per-buyer PDF watermarking" },
     ],
   },
   {
-    eyebrow: "// Grow with creators",
-    title: "Recruit affiliates, get discovered, follow up",
+    eyebrow: "// 03 — Keep 100%",
+    title: "The money and the audience stay yours",
     description:
-      "The growth-loop infrastructure most platforms charge you extra for — affiliates, marketplace listing, newsletter, automation.",
-    accent: "var(--s-pink)",
-    accentRgb: "255,60,172",
-    chips: [
-      { icon: "🔗", label: "Affiliate program — links, commissions, payouts, refund clawback" },
-      { icon: "🌐", label: "Marketplace listing on /discover", isNew: true },
-      { icon: "✉️", label: "Newsletter campaigns with block editor" },
-      { icon: "📖", label: "Built-in blog (block editor + SEO meta)" },
-      { icon: "🧭", label: "Marketing playbook with strategy tracking" },
-      { icon: "📊", label: "Real-time analytics: revenue, traffic, top products" },
-    ],
-  },
-  {
-    eyebrow: "// Own your brand",
-    title: "Multi-store, multi-theme, custom domains",
-    description:
-      "Your store isn't a Gumroad URL. It's your name, your design, your customer relationship — and you can run as many as you want.",
+      "Your own Stripe and PayPal, 0% per-sale fees, your customer list, your domain. Every dollar lands in your account and every buyer is your relationship — not the platform's.",
+    forWho: "For anyone scaling past hobby income",
     accent: "var(--s-orange)",
     accentRgb: "255,107,53",
     chips: [
-      { icon: "🏪", label: "Unlimited storefronts (Empire) — one login, separate brands" },
-      { icon: "🎨", label: "7 designer-built themes — Neon, Silk, Aurora, Ember, Frost, Midnight, Launch" },
-      { icon: "🌍", label: "Custom domains (Cloudflare for SaaS — SSL handled)" },
+      { icon: "💳", label: "Your own Stripe + PayPal — 0% per-sale fees, ever" },
+      { icon: "🧾", label: "Automatic Stripe Tax — VAT / sales tax handled" },
+      { icon: "🌍", label: "Custom domains with SSL handled for you" },
+      { icon: "🏪", label: "Unlimited branded storefronts from one login" },
       { icon: "👤", label: "Branded customer portal with magic-link login" },
-      { icon: "⭐", label: "Verified buyer reviews with per-product opt-out" },
-      { icon: "📱", label: "Embed widgets — drop a product anywhere" },
+      { icon: "⭐", label: "Verified buyer reviews to build trust" },
+      { icon: "📱", label: "Embed widgets — sell from any site you already have" },
     ],
   },
   {
-    eyebrow: "// Operate without 5 SaaS tools",
-    title: "Payments, taxes, knowledge — already wired",
+    eyebrow: "// 04 — Grow on autopilot",
+    title: "Marketing that runs while you sleep",
     description:
-      "Connect your own Stripe and PayPal. Keep 100% of every sale. Skip the Notion / Mailchimp / SendOwl stack — it's in here.",
-    accent: "var(--s-cream)",
-    accentRgb: "240,230,211",
+      "Recover lost carts, follow up automatically, recruit affiliates, and get discovered — with an AI advisor telling you the single next move that will grow your income.",
+    forWho: "For sellers who want compounding growth",
+    accent: "var(--s-pink)",
+    accentRgb: "255,60,172",
     chips: [
-      { icon: "💳", label: "Stripe + PayPal — direct, you keep 100%" },
-      { icon: "🧾", label: "Stripe Tax — automatic VAT / sales tax" },
-      { icon: "📥", label: "Gumroad 1-click importer (products, customers, sales)" },
-      { icon: "📚", label: "Knowledge base with Notion-style editor" },
-      { icon: "💻", label: "Software / license key delivery built-in" },
-      { icon: "🎁", label: "14-day free Growth-tier trial — no card" },
+      { icon: "🧠", label: "Sellisy Brain — a weekly AI growth plan, on demand" },
+      { icon: "🛒", label: "Abandoned-cart recovery emails, automatic" },
+      { icon: "✉️", label: "Lifecycle automation + newsletter campaigns" },
+      { icon: "🔗", label: "Affiliate program — links, commissions, payouts, clawback" },
+      { icon: "🌐", label: "Marketplace discovery on /discover", isNew: true },
+      { icon: "📝", label: "Content Creator, built-in blog & marketing playbook" },
+      { icon: "📊", label: "Real-time analytics — revenue, traffic, top products" },
     ],
   },
 ];
@@ -161,10 +151,28 @@ function CategoryBlock({ category, index }: { category: Category; index: number 
             color: "rgba(250,250,245,0.6)",
             lineHeight: 1.6,
             maxWidth: 620,
+            marginBottom: 14,
           }}
         >
           {category.description}
         </p>
+        {/* Who this outcome is for — targeting tag */}
+        <span
+          data-testid={`feature-forwho-${index}`}
+          style={{
+            display: "inline-block",
+            padding: "5px 12px",
+            borderRadius: 999,
+            fontFamily: "'Space Mono', monospace",
+            fontSize: 11,
+            letterSpacing: 0.5,
+            color: category.accent,
+            background: `rgba(${category.accentRgb},0.08)`,
+            border: `1px solid rgba(${category.accentRgb},0.25)`,
+          }}
+        >
+          {category.forWho}
+        </span>
       </div>
 
       <div
@@ -260,30 +268,30 @@ export function FeaturesSection() {
             data-testid="label-features"
             style={{ color: "var(--s-yellow)", marginBottom: 20, display: "block" }}
           >
-            // Everything included
+            // The bigger picture
           </span>
           <h2
             className="s-heading"
             data-testid="title-features"
             style={{ fontSize: "clamp(36px, 6vw, 64px)", color: "var(--s-white)" }}
           >
-            ONE PLATFORM.
+            EVERYTHING YOU NEED TO
             <br />
-            <span style={{ color: "var(--s-yellow)" }}>FIVE JOBS DONE WELL.</span>
+            <span style={{ color: "var(--s-yellow)" }}>INCREASE YOUR GDP.</span>
           </h2>
           <p
             className="s-body"
             style={{
               fontSize: 15,
               color: "rgba(250,250,245,0.6)",
-              maxWidth: 600,
+              maxWidth: 640,
               margin: "20px auto 0",
               lineHeight: 1.7,
             }}
           >
-            Sell anything. Run courses. Recruit affiliates. Own your brand.
-            Operate without bolting on five other SaaS subscriptions. Each
-            block below is a real shipped capability — no waitlists, no
+            One platform, one goal: growing what you earn. Follow it end to end —
+            start with nothing, sell any way you want, keep 100%, and grow on
+            autopilot. Every capability below ships today — no waitlists, no
             &ldquo;coming soon.&rdquo;
           </p>
         </div>

@@ -279,7 +279,7 @@ export function HeroSection() {
             style={{ border: "1px solid rgba(245,230,66,0.3)", background: "rgba(245,230,66,0.04)" }}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--s-yellow)", animation: "s-pulse-dot 1.5s infinite" }} />
-            <span className="s-label" style={{ color: "var(--s-yellow)", fontSize: "11px" }}>GDP · Your Gross Digital Product</span>
+            <span className="s-label" style={{ color: "var(--s-yellow)", fontSize: "11px" }}>Your share of the digital economy</span>
           </div>
 
           <h1
@@ -307,7 +307,7 @@ export function HeroSection() {
               margin: "0 auto 32px",
             }}
           >
-            Your <strong style={{ color: "var(--s-white)", fontWeight: 600 }}>Gross Digital Product</strong> — the income you create and own. Sell templates, guides, and courses, launch a store in minutes, connect Stripe or PayPal, and keep 100% of every sale.
+            Your income is your <strong style={{ color: "var(--s-white)", fontWeight: 600 }}>personal GDP</strong> — and it&rsquo;s yours to grow. Sell templates, guides, and courses, launch a store in minutes, connect Stripe or PayPal, and keep 100% of every sale.
           </p>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center", marginBottom: 48 }}>

@@ -71,7 +71,7 @@ function removeCanonical() {
 }
 
 const DEFAULT_TITLE = "Sellisy — Sell Digital Products & Grow Your GDP";
-const DEFAULT_DESC = "Grow your Gross Digital Product — sell digital products from a store you own and keep 100% of every sale with Sellisy.";
+const DEFAULT_DESC = "Increase your GDP — sell digital products from a store you own and keep 100% of every sale with Sellisy.";
 const DEFAULT_FAVICON = "/favicon.png";
 
 export function usePageMeta(meta: PageMeta) {
