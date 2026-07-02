@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import { storage } from "../storage";
 import { checkSubscriptionAccess } from "../memberAccess";
 import { db } from "../db";
+import { safeFetch } from "../lib/safe-url";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { quizQuestions, QUIZ_PASS_THRESHOLD } from "@shared/schema";
 import { and, inArray, isNull } from "drizzle-orm";
@@ -1229,7 +1230,7 @@ coursesRouter.get("/access/:token/:productId/certificate", async (req: Request, 
   let logoMimeType: "image/png" | "image/jpeg" | null = null;
   if (product.certLogoUrl) {
     try {
-      const resp = await fetch(product.certLogoUrl);
+      const resp = await safeFetch(product.certLogoUrl);
       if (resp.ok) {
         const ct = (resp.headers.get("content-type") || "").toLowerCase();
         if (ct.includes("png")) logoMimeType = "image/png";

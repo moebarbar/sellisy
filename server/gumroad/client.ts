@@ -1,5 +1,6 @@
 import type { GumroadUser, GumroadProduct, GumroadSale, GumroadSubscriber, GumroadOfferCode } from './types';
 import { GumroadAPIError } from './types';
+import { safeFetch } from '../lib/safe-url';
 
 const BASE_URL = 'https://api.gumroad.com/v2';
 const MAX_RETRIES = 3;
@@ -120,7 +121,7 @@ export async function listOfferCodes(accessToken: string, productId: string): Pr
 }
 
 export async function fetchThumbnail(thumbnailUrl: string): Promise<Buffer> {
-  const res = await fetch(thumbnailUrl);
+  const res = await safeFetch(thumbnailUrl); // SSRF guard: user-supplied URL from Gumroad payload
   if (!res.ok) throw new Error(`Failed to fetch thumbnail: ${res.status}`);
   const arrayBuffer = await res.arrayBuffer();
   return Buffer.from(arrayBuffer);

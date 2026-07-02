@@ -15,6 +15,18 @@ import { isAuthenticated } from "../replit_integrations/auth";
 import { categories, downloadTokens, storeProducts } from "@shared/schema";
 import { generateSlug, getAppUrl, getUserId, sanitizeStore } from "./_helpers";
 
+// A download token grants access to a paid KB ONLY if it belongs to a
+// completed order that actually contains this KB's product. Without the
+// product check, ANY valid download token (from buying any product on any
+// store) would unlock ANY paid KB — a cross-tenant paywall bypass.
+async function tokenGrantsProduct(accessToken: string | undefined, productId: string | null): Promise<boolean> {
+  if (!accessToken || !productId) return false;
+  const dl = await db.select().from(downloadTokens).where(eq(downloadTokens.tokenHash, accessToken)).then((r) => r[0]);
+  if (!dl || dl.revokedAt || (dl.expiresAt && dl.expiresAt <= new Date())) return false;
+  const items = await storage.getOrderItemsByOrder(dl.orderId);
+  return items.some((it) => it.productId === productId);
+}
+
 export const kbBlogRouter = Router();
 
 kbBlogRouter.get("/api/knowledge-bases", isAuthenticated, async (req, res) => {
@@ -393,11 +405,8 @@ kbBlogRouter.get("/api/kb/:id/view", async (req, res) => {
   let hasAccess = !isPaid;
   if (isPaid) {
     const accessToken = req.query.token as string | undefined;
-    if (accessToken) {
-      const dl = await db.select().from(downloadTokens).where(eq(downloadTokens.tokenHash, accessToken)).then(r => r[0]);
-      if (dl && !dl.revokedAt && (!dl.expiresAt || dl.expiresAt > new Date())) {
-        hasAccess = true;
-      }
+    if (await tokenGrantsProduct(accessToken, kb.productId)) {
+      hasAccess = true;
     }
     const userId = getUserId(req);
     if (userId && userId === kb.ownerId) {
@@ -447,11 +456,8 @@ kbBlogRouter.get("/api/kb/:id/view/page/:pageId", async (req, res) => {
   let hasAccess = !isPaid;
   if (isPaid) {
     const accessToken = req.query.token as string | undefined;
-    if (accessToken) {
-      const dl = await db.select().from(downloadTokens).where(eq(downloadTokens.tokenHash, accessToken)).then(r => r[0]);
-      if (dl && !dl.revokedAt && (!dl.expiresAt || dl.expiresAt > new Date())) {
-        hasAccess = true;
-      }
+    if (await tokenGrantsProduct(accessToken, kb.productId)) {
+      hasAccess = true;
     }
     const userId = getUserId(req);
     if (userId && userId === kb.ownerId) {

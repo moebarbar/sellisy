@@ -73,10 +73,15 @@ export function audit(payload: AuditPayload): void {
  * Never includes body content.
  */
 export function auditMeta(req: { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } }) {
-  const forwarded = req.headers["x-forwarded-for"];
-  const ip = typeof forwarded === "string"
-    ? forwarded.split(",")[0].trim()
-    : req.ip || req.socket?.remoteAddress || "unknown";
+  // Trust only Cloudflare's CF-Connecting-IP (set at our edge) or req.ip
+  // (Express, honoring `trust proxy`). The leftmost X-Forwarded-For token is
+  // client-supplied and spoofable — using it lets an attacker forge the IP in
+  // security audit logs.
+  const cf = req.headers["cf-connecting-ip"];
+  const ip = (typeof cf === "string" && cf.trim())
+    || req.ip
+    || req.socket?.remoteAddress
+    || "unknown";
   const userAgent = (req.headers["user-agent"] as string | undefined) || "unknown";
   return { ip, userAgent };
 }

@@ -459,14 +459,12 @@ ${urls}</urlset>`;
     });
   });
 
-  app.patch("/api/user/plan", isAuthenticated, async (req, res) => {
-    const schema = z.object({ planTier: z.enum(["basic", "pro", "max"]) });
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: "Invalid plan tier" });
-    const profile = await storage.updateUserPlan(getUserId(req), parsed.data.planTier);
-    const tier = profile?.planTier as PlanTier;
-    res.json({ ...profile, features: PLAN_FEATURES[tier] });
-  });
+  // NOTE: there is deliberately NO self-service "set my own plan" endpoint.
+  // Plan tier is authoritative from the Stripe subscription webhook only
+  // (see webhookHandlers.handleSubscriptionSignup). A PATCH /api/user/plan
+  // that trusted a body-supplied tier was removed — it let any authenticated
+  // user grant themselves "max" for free, bypassing billing entirely.
+  // Upgrades flow through POST /api/subscribe -> Stripe Checkout -> webhook.
 
   app.patch("/api/admin/user/:userId/plan", isAuthenticated, async (req, res) => {
     const admin = await isUserAdmin(getUserId(req));

@@ -42,6 +42,7 @@ import { watermarkPdf, isPdfFilename, isPdfContentType } from "../pdfWatermark";
 import { decryptPaymentSecret } from "../crypto/payment-secret";
 import { validatePwywAmount } from "@shared/pwyw";
 import { applyCouponDiscount, type CouponDiscountType } from "@shared/coupon";
+import { safeFetch } from "../lib/safe-url";
 import { getAppUrl, getCustomerFromCookie, getUserId, hashToken } from "./_helpers";
 
 export const ordersRouter = Router();
@@ -983,22 +984,12 @@ ordersRouter.post("/api/claim-free", async (req, res) => {
 
   await storage.linkOrdersByEmail(email.toLowerCase(), customer.id);
 
-  const sessionToken = randomBytes(32).toString("hex");
-  const sessionHash = hashToken(sessionToken);
-  const sessionExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  await storage.createCustomerSession({
-    customerId: customer.id,
-    tokenHash: sessionHash,
-    expiresAt: sessionExpiry,
-  });
-
-  res.cookie("customer_session", sessionToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-    path: "/",
-  });
+  // SECURITY: do NOT mint a customer session here. The email is unverified at
+  // this point, so auto-logging-in would let anyone claim a free lead magnet
+  // with a victim's address and receive a session cookie for the victim's
+  // (cross-store) purchase library. Customer login must go through the
+  // email-verified magic-link flow (/api/customer/login). This endpoint only
+  // delivers the just-claimed free product (immediate token + emailed link).
 
   const baseUrl = getAppUrl(req);
   sendLeadMagnetEmail({
@@ -1450,7 +1441,7 @@ ordersRouter.get("/api/download/:token", async (req, res) => {
         const fileUrl = /^https?:\/\//i.test(file.url)
           ? file.url
           : `${(process.env.R2_PUBLIC_URL || "https://cdn.sellisy.com").replace(/\/$/, "")}/${file.url}`;
-        const upstream = await fetch(fileUrl);
+        const upstream = await safeFetch(fileUrl);
         if (!upstream.ok) throw new Error(`Upstream ${upstream.status}`);
         const ct = upstream.headers.get("content-type");
         // Belt-and-suspenders: only stamp if it really looks like a PDF.

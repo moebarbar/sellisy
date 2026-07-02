@@ -193,6 +193,15 @@ export class WebhookHandlers {
       return;
     }
 
+    // Only fulfill when payment actually settled. Async payment methods can
+    // fire checkout.session.completed while still 'unpaid'/'no_payment_required'
+    // — completing then would hand over the goods before funds clear. (A truly
+    // free/$0 order doesn't reach this webhook path.)
+    if (session.payment_status && session.payment_status !== 'paid') {
+      console.log(`Webhook: checkout.session.completed for order ${orderId} is ${session.payment_status}, deferring fulfillment`);
+      return;
+    }
+
     try {
       const order = await storage.getOrderById(orderId);
       if (!order) {

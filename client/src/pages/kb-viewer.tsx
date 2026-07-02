@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRoute, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import DOMPurify from "dompurify";
+import { safeHref, isHttpUrl } from "@/lib/safe-href";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -249,24 +250,24 @@ function BlockRenderer({ block, listNumber }: { block: KbViewBlock; listNumber?:
         </div>
       ) : null;
 
-    case "video":
-      return block.content ? (
+    case "video": {
+      // Only embed real http(s) URLs — a raw `javascript:` value here would
+      // execute in the iframe on load (stored XSS against the buyer).
+      const embedSrc = block.content.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/");
+      return block.content && isHttpUrl(embedSrc) ? (
         <div className="py-2 aspect-video rounded-md overflow-hidden">
-          <iframe
-            src={block.content.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/")}
-            className="w-full h-full rounded-md"
-            allowFullScreen
-          />
+          <iframe src={embedSrc} className="w-full h-full rounded-md" allowFullScreen />
         </div>
       ) : null;
+    }
 
     case "link":
       return block.content ? (
         <div className="py-1">
           <a
-            href={block.content}
+            href={safeHref(block.content)}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-primary underline underline-offset-2"
           >
             <LinkIcon className="h-3.5 w-3.5" />

@@ -5,8 +5,11 @@
 export function getLinkSecret(kind: string): string {
   const s = process.env.UNSUBSCRIBE_SECRET || process.env.SESSION_SECRET;
   if (s) return s;
+  // Fail closed in production: the fallback string is public in source, so with
+  // the env unset anyone could forge recovery/unsubscribe HMAC tokens. Only
+  // permit the dev fallback outside production.
   if (process.env.NODE_ENV === "production") {
-    console.warn(`[${kind}] UNSUBSCRIBE_SECRET / SESSION_SECRET not set — using fallback`);
+    throw new Error(`[${kind}] UNSUBSCRIBE_SECRET / SESSION_SECRET is not set — refusing an insecure fallback secret in production.`);
   }
   return `sellisy-dev-${kind}-fallback-do-not-use-in-prod`;
 }

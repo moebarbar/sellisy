@@ -127,6 +127,13 @@ export function registerObjectStorageRoutes(app: Express): void {
       const { ObjectStorageService, ObjectNotFoundError } = await import("./objectStorage");
       const objectStorageService = new ObjectStorageService();
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      // ACL check — without this, any private object was streamed to anyone who
+      // knew/guessed the path (IDOR). Deny unless the caller is authorized.
+      const userId = (req as any).user?.claims?.sub as string | undefined;
+      const canAccess = await objectStorageService.canAccessObjectEntity({ objectFile, userId });
+      if (!canAccess) {
+        return res.status(userId ? 403 : 401).json({ error: "Access denied" });
+      }
       await objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
       const { ObjectNotFoundError } = await import("./objectStorage");

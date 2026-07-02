@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Calendar, Clock, Tag, Share2, Link2, ArrowRight, FileText, Check } from "lucide-react";
 import { useState, useMemo } from "react";
 import DOMPurify from "dompurify";
+import { safeHref } from "@/lib/safe-href";
 import type { Store, BlogPost, BlogBlock } from "@shared/schema";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { getStoreBasePath } from "@/lib/utils";
@@ -106,7 +107,7 @@ function BlogBlockRenderer({ block }: { block: BlogBlock }) {
         label = l || u;
       }
       return (
-        <a href={url} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2 hover:opacity-80 block mb-2">
+        <a href={safeHref(url)} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:opacity-80 block mb-2">
           {label}
         </a>
       );

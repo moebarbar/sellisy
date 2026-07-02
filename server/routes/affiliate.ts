@@ -43,9 +43,11 @@ function hash(input: string): string {
 }
 
 function getClientIp(req: Request): string {
-  const fwd = req.headers["x-forwarded-for"];
-  if (typeof fwd === "string") return fwd.split(",")[0].trim();
-  if (Array.isArray(fwd) && fwd.length > 0) return fwd[0];
+  // Cloudflare's CF-Connecting-IP (edge-set) or req.ip (honors `trust proxy`).
+  // The leftmost X-Forwarded-For is client-supplied — rotating it per request
+  // would bypass affiliate click dedup and inflate click counts.
+  const cf = req.headers["cf-connecting-ip"];
+  if (typeof cf === "string" && cf.trim()) return cf.trim();
   return req.ip || req.socket.remoteAddress || "unknown";
 }
 
