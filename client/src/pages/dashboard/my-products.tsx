@@ -21,6 +21,7 @@ import { ProductPlaceholder } from "@/components/product-placeholder";
 import { LessonsEditor } from "@/components/dashboard/lessons-editor";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import type { Product, Store, ProductImage, Category } from "@shared/schema";
+import { CrewEmptyState } from "@/components/dashboard/crew-empty-state";
 
 export default function MyProductsPage() {
   const { toast } = useToast();
@@ -266,21 +267,17 @@ export default function MyProductsPage() {
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-muted mb-4">
-              <Package className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold mb-1">No products yet</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Create your first digital product to sell in your stores.
-            </p>
+        <CrewEmptyState
+          eyebrow="Nothing to sell yet"
+          title="Let's stock the Sublevel"
+          description="Create your first digital product and Pixel will help you get it live."
+          action={
             <Button onClick={() => setCreateOpen(true)} data-testid="button-create-product-empty">
               <Plus className="mr-2 h-4 w-4" />
               Create Product
             </Button>
-          </CardContent>
-        </Card>
+          }
+        />
       )}
 
       <ProductFormDialog
