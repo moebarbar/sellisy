@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Zap, Gem, Eye, ShoppingBag, Package, Star, X, Sunrise, Flame, Snowflake, Moon, Rocket } from "lucide-react";
+import { Check, Zap, Gem, Eye, ShoppingBag, Package, Star, X, Sunrise, Flame, Snowflake, Moon, Rocket, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
@@ -205,6 +205,28 @@ const TEMPLATES: TemplateOption[] = [
       buttonText: "#050505",
       tagBg: "rgba(255,60,172,0.12)",
       tagText: "#FF3CAC",
+    },
+  },
+  {
+    key: "bio",
+    name: "Bio",
+    subtitle: "Link-in-bio · Mobile-first",
+    icon: Sparkles,
+    preview: {
+      bg: "#faf7ff",
+      accent: "#6366f1",
+      accentLight: "#ec4899",
+      cardBg: "#ffffff",
+      cardBorder: "rgba(99,102,241,0.18)",
+      textColor: "#1e1b2e",
+      textMuted: "rgba(30,27,46,0.55)",
+      heroBg: "radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.12), transparent 60%), #faf7ff",
+      headerBg: "rgba(250,247,255,0.95)",
+      headerBorder: "rgba(99,102,241,0.12)",
+      buttonBg: "linear-gradient(135deg, #6366f1, #ec4899)",
+      buttonText: "#ffffff",
+      tagBg: "rgba(236,72,153,0.1)",
+      tagText: "#db2777",
     },
   },
 ];
