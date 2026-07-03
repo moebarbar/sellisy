@@ -5,7 +5,6 @@ import { getStorePublicUrl } from "@/lib/utils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/sidebar";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -170,18 +169,27 @@ function DashboardHeader() {
           </DropdownMenu>
 
           {activeStore && (
-            <Badge variant="outline" className="hidden sm:flex text-xs text-muted-foreground">
+            <span
+              className="hidden sm:inline-flex items-center rounded-md px-2 py-1 text-[11px]"
+              style={{ fontFamily: "'Space Mono', monospace", letterSpacing: "0.02em", color: "hsl(var(--primary) / 0.85)", background: "hsl(var(--primary) / 0.06)", border: "1px solid hsl(var(--primary) / 0.18)" }}
+              data-testid="badge-store-url"
+            >
               {activeStore.customDomain && activeStore.domainStatus === "active" ? activeStore.customDomain : `/s/${activeStore.slug}`}
-            </Badge>
+            </span>
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {activeStore && (
             <a href={getStorePublicUrl(activeStore)} target="_blank" rel="noopener noreferrer" onClick={handleStorefrontClick}>
-              <Button variant="ghost" size="sm" data-testid="button-header-storefront">
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Storefront</span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+                data-testid="button-header-storefront"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">View store</span>
               </Button>
             </a>
           )}
