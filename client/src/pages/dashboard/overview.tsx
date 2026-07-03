@@ -25,6 +25,7 @@ import {
   CreditCard, Instagram, PenLine, Globe, Mail, Gift,
   Megaphone, Heart, Video, Lightbulb, Copy,
 } from "lucide-react";
+import { MilestoneCelebration } from "@/components/dashboard/milestone-celebration";
 
 interface Analytics {
   totalRevenue: number;
@@ -586,6 +587,14 @@ export default function OverviewPage() {
 
   return (
     <div className="p-6 space-y-6 dv-fade-in">
+      {activeStoreId && (
+        <MilestoneCelebration
+          storeId={activeStoreId}
+          totalOrders={analytics?.totalOrders ?? 0}
+          totalRevenueCents={analytics?.totalRevenue ?? 0}
+          ready={!isLoading && !!analytics}
+        />
+      )}
       <div className="relative overflow-hidden rounded-md border bg-gradient-to-br from-primary/5 via-background to-primary/3 p-6" data-testid="welcome-banner">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
         <div className="relative z-10 flex items-start justify-between gap-4 flex-wrap">
