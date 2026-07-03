@@ -3,6 +3,7 @@ import { Check, Zap, Gem, Eye, ShoppingBag, Package, Star, X, Sunrise, Flame, Sn
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
+import { LiveStorePreview } from "@/components/dashboard/live-store-preview";
 
 type TemplatePreviewColors = {
   bg: string;
@@ -470,16 +471,33 @@ export function TemplateSelector({
   value,
   onChange,
   storeName,
+  storeSlug,
 }: {
   value: string;
   onChange: (value: string) => void;
   storeName?: string;
+  /** When provided, shows a LIVE preview of this store morphing between themes. */
+  storeSlug?: string;
 }) {
   const [previewKey, setPreviewKey] = useState<string | null>(null);
   const previewTemplate = TEMPLATES.find((t) => t.key === previewKey);
+  // Hovering a theme "test-drives" it in the live preview without committing.
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   return (
     <>
+      {storeSlug && (
+        <div className="mb-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">
+              Live preview — <span className="text-foreground">{TEMPLATES.find((t) => t.key === (hoveredKey || value))?.name}</span>
+              {hoveredKey && hoveredKey !== value && <span className="text-primary"> · hovering</span>}
+            </p>
+            <p className="text-[11px] text-muted-foreground/70">Hover a theme to test-drive it</p>
+          </div>
+          <LiveStorePreview slug={storeSlug} themeKey={hoveredKey || value} />
+        </div>
+      )}
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-3" data-testid="template-selector">
         {TEMPLATES.map((t) => {
           const selected = value === t.key;
@@ -489,6 +507,10 @@ export function TemplateSelector({
               <button
                 type="button"
                 onClick={() => onChange(t.key)}
+                onMouseEnter={() => setHoveredKey(t.key)}
+                onMouseLeave={() => setHoveredKey(null)}
+                onFocus={() => setHoveredKey(t.key)}
+                onBlur={() => setHoveredKey(null)}
                 className="relative w-full rounded-md text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 style={{
                   border: selected

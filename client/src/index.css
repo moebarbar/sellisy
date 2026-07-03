@@ -847,3 +847,7 @@
   .feature-block.alt .feature-media { order: 2; }
   .feature-block.alt .feature-content { order: 1; }
 }
+
+/* Live store preview (test-drive): subtle fade as the theme morphs. */
+.lsp-morph { animation: lsp-fade 260ms ease; }
+@keyframes lsp-fade { from { opacity: 0.35; } to { opacity: 1; } }

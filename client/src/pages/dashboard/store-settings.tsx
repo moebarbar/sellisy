@@ -203,7 +203,7 @@ export default function StoreSettingsPage() {
             </div>
             <div className="space-y-2">
               <Label>Template</Label>
-              <TemplateSelector value={templateKey} onChange={setTemplateKey} storeName={name} />
+              <TemplateSelector value={templateKey} onChange={setTemplateKey} storeName={name} storeSlug={slug} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="settings-tagline">Tagline</Label>
