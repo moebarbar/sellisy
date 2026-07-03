@@ -612,27 +612,32 @@ export default function OverviewPage() {
           ready={!isLoading && !!analytics}
         />
       )}
-      <div className="relative overflow-hidden rounded-md border bg-gradient-to-br from-primary/5 via-background to-primary/3 p-6" data-testid="welcome-banner">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="relative overflow-hidden rounded-lg border bg-card p-6" data-testid="welcome-banner">
+        <div className="absolute top-0 right-0 w-72 h-72 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" style={{ background: "hsl(var(--primary) / 0.08)" }} />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(hsl(var(--primary)) 1px, transparent 1.4px)", backgroundSize: "6px 6px" }} />
         <div className="relative z-10 flex items-start justify-between gap-4 flex-wrap">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <greeting.icon className="h-5 w-5 text-primary" />
-              <h1 className="text-2xl font-bold tracking-tight" data-testid="text-overview-title">
-                {greeting.text}, {firstName}
-              </h1>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <greeting.icon className="h-3.5 w-3.5 text-primary" />
+              <span className="d-eyebrow">Command Center</span>
             </div>
-            <p className="text-muted-foreground text-sm">
-              {greeting.subtext} — {activeStore?.name}
+            <h1
+              data-testid="text-overview-title"
+              style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(34px, 5vw, 52px)", lineHeight: 0.95, letterSpacing: "1px", color: "hsl(var(--foreground))" }}
+            >
+              {greeting.text}, {firstName}
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              {greeting.subtext} — <span style={{ color: "hsl(var(--primary) / 0.9)" }}>{activeStore?.name}</span>
             </p>
             <p className="text-xs text-muted-foreground/60 italic mt-2 max-w-md">
               "{motivation}"
             </p>
           </div>
           <a href={getStorePublicUrl(activeStore)} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm" data-testid="button-view-storefront">
+            <Button variant="outline" size="sm" className="border-primary/30 text-primary hover:bg-primary/10 hover:text-primary" data-testid="button-view-storefront">
               <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-              View Storefront
+              View store
             </Button>
           </a>
         </div>
@@ -713,8 +718,8 @@ export default function OverviewPage() {
                     <div key={date} className="flex-1 flex flex-col items-center gap-1 group">
                       <div className="relative w-full">
                         <div
-                          className="w-full rounded-t-sm bg-primary/80 group-hover:bg-primary transition-all duration-500 dv-bar-grow"
-                          style={{ height: `${height}%`, animationDelay: `${idx * 60}ms` } as React.CSSProperties}
+                          className="w-full rounded-t-sm transition-all duration-500 dv-bar-grow"
+                          style={{ height: `${height}%`, animationDelay: `${idx * 60}ms`, background: "linear-gradient(to top, #F5E642, #FF3CAC)", boxShadow: "0 0 12px rgba(245,230,66,0.25)" } as React.CSSProperties}
                           title={`${date}: $${(value / 100).toFixed(2)}`}
                         />
                       </div>
