@@ -105,6 +105,7 @@ function AnimatedStatCard({
   icon: Icon,
   delay = 0,
   testId,
+  accent = "245,230,66",
 }: {
   title: string;
   value: number;
@@ -113,6 +114,8 @@ function AnimatedStatCard({
   icon: typeof DollarSign;
   delay?: number;
   testId: string;
+  /** rgb triple for the neon-triad accent (yellow / pink / teal / orange). */
+  accent?: string;
 }) {
   const [visible, setVisible] = useState(false);
   const animValue = useCountUp(value, 1200, visible);
@@ -123,19 +126,33 @@ function AnimatedStatCard({
   }, [delay]);
 
   return (
-    <Card className={`transition-all duration-500 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
-      <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <div className="flex items-center justify-center h-8 w-8 rounded-md bg-primary/10">
-          <Icon className="h-4 w-4 text-primary" />
+    <div
+      className={`relative overflow-hidden rounded-lg border bg-card transition-all duration-500 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
+      style={{ borderColor: `rgba(${accent},0.22)` }}
+    >
+      {/* neon top-edge + halftone glow corner — the DNA signature */}
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, rgb(${accent}), transparent)` }} />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full" style={{ background: `radial-gradient(circle, rgba(${accent},0.18), transparent 70%)` }} />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(currentColor 1px, transparent 1.4px)", backgroundSize: "5px 5px", color: `rgb(${accent})` }} />
+
+      <div className="relative p-5">
+        <div className="flex items-center justify-between mb-2.5">
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.16em", color: "hsl(var(--muted-foreground))" }}>
+            {title}
+          </span>
+          <div className="flex items-center justify-center h-8 w-8 rounded-md" style={{ background: `rgba(${accent},0.12)`, color: `rgb(${accent})` }}>
+            <Icon className="h-4 w-4" />
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-bold tabular-nums" data-testid={testId}>
+        <div
+          data-testid={testId}
+          className="tabular-nums"
+          style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 46, lineHeight: 0.95, letterSpacing: "0.5px", color: "hsl(var(--foreground))" }}
+        >
           {prefix}{animValue.toLocaleString()}{suffix}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -654,6 +671,7 @@ export default function OverviewPage() {
               value={analytics?.totalOrders ?? 0}
               icon={ShoppingBag}
               delay={100}
+              accent="255,60,172"
               testId="text-order-count"
             />
             <AnimatedStatCard
@@ -661,6 +679,7 @@ export default function OverviewPage() {
               value={analytics?.totalProducts ?? 0}
               icon={Package}
               delay={200}
+              accent="0,245,212"
               testId="text-product-count"
             />
             <AnimatedStatCard
@@ -670,6 +689,7 @@ export default function OverviewPage() {
               suffix={`.${String(avgCents).padStart(2, "0")}`}
               icon={Users}
               delay={300}
+              accent="255,107,53"
               testId="text-avg-order"
             />
           </>
