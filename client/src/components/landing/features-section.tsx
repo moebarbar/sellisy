@@ -36,7 +36,7 @@ const categories: Category[] = [
     chips: [
       { icon: "🤖", label: "AI Store Launcher — one sentence to a live, stocked store" },
       { icon: "📦", label: "200+ done-for-you PLR & MRR products to rebrand and resell" },
-      { icon: "🎨", label: "7 designer themes — Neon, Silk, Aurora, Ember, Frost, Midnight, Launch" },
+      { icon: "🎨", label: "8 designer themes incl. Sublevel — the neon-noir Sellisy look" },
       { icon: "📥", label: "1-click Gumroad importer — products, customers, sales" },
       { icon: "🎁", label: "14-day free Growth trial — no card required" },
     ],

@@ -93,7 +93,7 @@ export function TemplatesSection() {
           data-testid="templates-title"
           style={{ fontSize: "clamp(36px, 6vw, 72px)", color: "var(--s-white)" }}
         >
-          SIX TEMPLATES. INFINITE STORES.
+          EIGHT TEMPLATES. INFINITE STORES.
         </h2>
       </div>
 

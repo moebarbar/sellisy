@@ -185,6 +185,28 @@ const TEMPLATES: TemplateOption[] = [
       tagText: "#60a5fa",
     },
   },
+  {
+    key: "sublevel",
+    name: "Sublevel",
+    subtitle: "Neon-Noir · Sellisy DNA",
+    icon: Zap,
+    preview: {
+      bg: "#050505",
+      accent: "#F5E642",
+      accentLight: "#FF3CAC",
+      cardBg: "rgba(255,255,255,0.03)",
+      cardBorder: "rgba(245,230,66,0.22)",
+      textColor: "#FAFAF5",
+      textMuted: "rgba(250,250,245,0.5)",
+      heroBg: "radial-gradient(ellipse at 50% 0%, rgba(245,230,66,0.1), transparent 60%), #050505",
+      headerBg: "rgba(5,5,5,0.95)",
+      headerBorder: "rgba(245,230,66,0.15)",
+      buttonBg: "linear-gradient(135deg, #F5E642, #FF3CAC)",
+      buttonText: "#050505",
+      tagBg: "rgba(255,60,172,0.12)",
+      tagText: "#FF3CAC",
+    },
+  },
 ];
 
 function MiniStorefront({ t, storeName }: { t: TemplateOption; storeName?: string }) {
