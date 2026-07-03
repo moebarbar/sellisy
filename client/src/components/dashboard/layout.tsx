@@ -60,7 +60,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <StoreProvider>
       <SidebarProvider style={style as React.CSSProperties}>
-        <div className="flex h-screen w-full">
+        <div className="dashboard-shell flex h-screen w-full">
           <AppSidebar />
           <div className="flex flex-col flex-1 min-w-0">
             <DashboardHeader />

@@ -857,3 +857,66 @@
   0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
   100% { transform: translateY(105vh) rotate(720deg); opacity: 0.9; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Dashboard "unicorn" design language — SCOPED to the app shell only.
+   Crisp technical typeface (Inter), tighter type + tabular numbers, sharper
+   radius, higher-contrast surface hierarchy, and a confident accent so the
+   product reads like Linear/Vercel/Stripe rather than a generic template.
+   Landing + storefronts live outside .dashboard-shell and are untouched.
+   ═══════════════════════════════════════════════════════════════════════ */
+.dashboard-shell {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.006em;
+
+  --radius: 0.625rem;          /* sharper, more technical */
+  --border: 0 0% 15%;          /* crisper hairlines (was 12%) */
+  --input: 0 0% 15%;
+  --card: 0 0% 5%;             /* card lifts off the near-black bg */
+  --card-border: 0 0% 14%;
+  --muted: 0 0% 9%;
+  --muted-foreground: 0 0% 57%; /* more readable secondary text */
+}
+.dashboard-shell h1,
+.dashboard-shell h2,
+.dashboard-shell h3,
+.dashboard-shell h4 { letter-spacing: -0.021em; }
+
+/* Surfaces feel layered: a hairline + a whisper of elevation */
+.dashboard-shell [data-slot="card"],
+.dashboard-shell .rounded-lg.border,
+.dashboard-shell .rounded-xl.border {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.02), 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Inputs: crisp field + a focused accent ring (that "everything responds" feel) */
+.dashboard-shell input:focus-visible,
+.dashboard-shell textarea:focus-visible,
+.dashboard-shell select:focus-visible {
+  border-color: hsl(var(--primary) / 0.55);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12);
+  outline: none;
+}
+
+/* Active nav — a confident accent bar + wash (the sidebar signature) */
+.dashboard-shell [data-sidebar="menu-button"][data-active="true"] {
+  position: relative;
+  background: hsl(var(--primary) / 0.09);
+  color: hsl(var(--primary));
+}
+.dashboard-shell [data-sidebar="menu-button"][data-active="true"]::before {
+  content: "";
+  position: absolute; left: 0; top: 22%; bottom: 22%;
+  width: 2px; border-radius: 0 2px 2px 0;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 8px hsl(var(--primary) / 0.6);
+}
+
+/* Reusable monospace eyebrow for section headers — the techy accent */
+.dashboard-shell .d-eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em;
+  color: hsl(var(--primary) / 0.8);
+}
