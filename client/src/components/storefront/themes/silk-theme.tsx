@@ -186,6 +186,7 @@ export const silkTheme: StorefrontTheme = {
     categoryBorderRadius: "6px",
     productLayout: "list",
     gridColumns: "",
+    heroStyle: "editorial",
   },
   effects: {
     cardHoverTransform: "translateY(-3px)",

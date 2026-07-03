@@ -278,6 +278,7 @@ export const frostTheme: StorefrontTheme = {
     categoryBorderRadius: "9999px",
     productLayout: "grid",
     gridColumns: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+    heroStyle: "minimal",
   },
   effects: {
     cardHoverTransform: "translateY(-4px)",

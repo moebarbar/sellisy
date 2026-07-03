@@ -332,7 +332,8 @@ export const midnightTheme: StorefrontTheme = {
     buttonBorderRadius: "10px",
     categoryBorderRadius: "9999px",
     productLayout: "grid",
-    gridColumns: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+    gridColumns: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+    imageAspect: "aspect-video",
   },
   effects: {
     cardHoverTransform: "translateY(-4px)",

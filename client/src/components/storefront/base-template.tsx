@@ -466,9 +466,9 @@ function BaseTemplateInner({ store, products, bundles, theme, testimonials = [],
                     <div className="relative overflow-hidden" style={{ borderRadius: `${theme.layout.cardBorderRadius} ${theme.layout.cardBorderRadius} 0 0` }}>
                       <a href={`${basePath}/product/${product.slug || product.id}`} data-testid={`link-product-img-${product.id}`}>
                         {product.thumbnailUrl ? (
-                          <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className="w-full aspect-square object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" data-testid={`img-product-${product.id}`} />
+                          <ProtectedImage protected={!store.allowImageDownload} src={product.thumbnailUrl} alt={product.title} className={`w-full ${theme.layout.imageAspect || "aspect-square"} object-cover transition-transform duration-700 group-hover:scale-105`} loading="lazy" data-testid={`img-product-${product.id}`} />
                         ) : (
-                          <StorefrontProductPlaceholder productType={product.productType} accentColor={store.accentColor || undefined} title={product.title} className="aspect-square" />
+                          <StorefrontProductPlaceholder productType={product.productType} accentColor={store.accentColor || undefined} title={product.title} className={theme.layout.imageAspect || "aspect-square"} />
                         )}
                       </a>
                       {hasDiscount && (store as any).showDiscountBadges !== false && (

@@ -42,6 +42,13 @@ export interface ThemeLayout {
   categoryBorderRadius: string;
   productLayout: "grid" | "list";
   gridColumns: string;
+  // Structural differentiation (optional; defaults preserve current look):
+  /** Tailwind aspect class for product-card images, e.g. "aspect-square"
+   *  (default), "aspect-[3/4]" (portrait/editorial), "aspect-video" (cinematic). */
+  imageAspect?: string;
+  /** Hero composition. "centered" (default) | "editorial" (left-aligned, larger)
+   *  | "minimal" (compact, understated). */
+  heroStyle?: "centered" | "editorial" | "minimal";
 }
 
 export interface ThemeEffects {
