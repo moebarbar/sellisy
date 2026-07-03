@@ -266,6 +266,15 @@ ordersRouter.post("/api/checkout", async (req, res) => {
   if (parsed.data.couponCode) {
     const coupon = await storage.getCouponByCode(store.id, parsed.data.couponCode);
     if (!coupon || !coupon.isActive) return res.status(400).json({ message: "Invalid coupon code" });
+    // NOTE (accepted tradeoff): the cap is authoritatively enforced by an
+    // ATOMIC conditional increment at order COMPLETION (see the free-path tx
+    // below + webhookHandlers.handleCheckoutCompleted). This read-check is a
+    // fast-fail only. Many concurrent PENDING checkouts can therefore each pass
+    // here and slightly overshoot maxUses (each overage costs one paid,
+    // discounted sale — bounded and logged as a "coupon overshoot"). We do NOT
+    // reserve-at-checkout on purpose: releasing reservations for abandoned
+    // checkouts reliably is hard, and getting it wrong would tell legitimate
+    // buyers "limit reached" while uses are actually free — a worse failure.
     if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) return res.status(400).json({ message: "Coupon usage limit reached" });
     if (coupon.expiresAt && new Date() > coupon.expiresAt) return res.status(400).json({ message: "Coupon expired" });
 

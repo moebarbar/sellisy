@@ -38,8 +38,10 @@ export function assertSafeOutboundUrl(raw: string): URL {
   if (net.isIPv4(host)) {
     if (PRIVATE_V4.some((re) => re.test(host))) throw new Error("SSRF: blocked private IPv4");
   } else if (net.isIPv6(host)) {
-    const h = host.replace(/^::ffff:/, "");
-    if (net.isIPv4(h) && PRIVATE_V4.some((re) => re.test(h))) throw new Error("SSRF: blocked mapped private IPv4");
+    // Block IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1, which Node may serialize
+    // as ::ffff:7f00:1) outright — it's never used in legitimate outbound URLs
+    // and is a common loopback/private bypass. Also block loopback/link-local/ULA.
+    if (host.includes("::ffff:")) throw new Error("SSRF: blocked IPv4-mapped IPv6");
     if (host === "::1" || host === "::" || host.startsWith("fe80") || host.startsWith("fc") || host.startsWith("fd")) {
       throw new Error("SSRF: blocked private IPv6");
     }
