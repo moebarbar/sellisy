@@ -122,6 +122,27 @@ export function getPublicUrl(key: string): string {
   return `${R2_PUBLIC_URL.replace(/\/$/, '')}/${key}`;
 }
 
+// Turn a stored value (a full public cdn URL OR a bare object key) into a
+// short-lived signed GET URL. This is what lets download-token revocation /
+// expiry actually cut off access once the bucket is private — without it,
+// downloads resolve to permanent unsigned public URLs. Falls back to the
+// public/original URL when R2 isn't configured or the value isn't an R2 object
+// (e.g. an external URL), so behavior is safe before the bucket is flipped.
+export async function signedDownloadUrlFor(urlOrKey: string): Promise<string> {
+  const isHttp = /^https?:\/\//i.test(urlOrKey);
+  if (!isR2Available()) {
+    return isHttp ? urlOrKey : getPublicUrl(urlOrKey);
+  }
+  let key: string | null;
+  if (isHttp) {
+    key = extractKeyFromUrl(urlOrKey);
+    if (!key) return urlOrKey; // external, non-R2 URL — leave as-is
+  } else {
+    key = urlOrKey; // already an object key (e.g. fileAsset.storageKey)
+  }
+  return getDownloadPresignedUrl(key);
+}
+
 export function extractKeyFromUrl(url: string): string | null {
   const publicUrlBase = R2_PUBLIC_URL.replace(/\/$/, '');
   if (url.startsWith(publicUrlBase)) {

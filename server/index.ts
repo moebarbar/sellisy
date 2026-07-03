@@ -28,6 +28,14 @@ const httpServer = createServer(app);
 // Remove fingerprinting header
 app.disable("x-powered-by");
 
+// Trust exactly one upstream proxy hop (Railway's edge) so req.ip and
+// express-rate-limit resolve the real client IP. Set explicitly here rather
+// than relying on setupAuth() to configure it — otherwise removing the Replit
+// auth module would silently collapse every rate-limit bucket onto one IP.
+// Security-sensitive IP reads additionally prefer Cloudflare's CF-Connecting-IP
+// (see audit.ts / affiliate.ts), which is authoritative regardless of this.
+app.set("trust proxy", 1);
+
 // Canonicalize www → apex. www.sellisy.com currently 404s; any inbound link to
 // it loses equity and breaks for users. 301 to the apex, preserving path+query.
 // Scoped to exactly www.sellisy.com so sellers' custom domains are untouched.
@@ -251,6 +259,17 @@ const customerLoginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Sellisy Brain triggers a paid Claude call. The 20h freshness check only
+// blocks after a report row exists, so concurrent calls each spend money —
+// cap requests per user/IP as a hard backstop.
+const brainLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: { message: "Too many Brain requests. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use("/api/auth/login", loginLimiter);
 app.use("/api/auth/register", registerLimiter);
 app.use("/api/checkout", checkoutLimiter);
@@ -264,6 +283,10 @@ app.use("/api/storefront", (req, res, next) => {
 app.use("/api/store-events", eventLimiter);
 app.use("/api/customer/login", customerLoginLimiter);
 app.use("/api/customer/verify", customerLoginLimiter);
+app.use("/api/stores", (req, res, next) => {
+  if (req.method === "POST" && req.path.endsWith("/brain/generate")) return brainLimiter(req, res, next);
+  next();
+});
 
 // /api/resolve-domain is hit by every page load on a custom domain; throttle
 // abusive probing without breaking legitimate usage.

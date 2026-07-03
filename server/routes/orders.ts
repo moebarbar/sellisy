@@ -43,6 +43,7 @@ import { decryptPaymentSecret } from "../crypto/payment-secret";
 import { validatePwywAmount } from "@shared/pwyw";
 import { applyCouponDiscount, type CouponDiscountType } from "@shared/coupon";
 import { safeFetch } from "../lib/safe-url";
+import { signedDownloadUrlFor } from "../r2Storage";
 import { getAppUrl, getCustomerFromCookie, getUserId, hashToken } from "./_helpers";
 
 export const ordersRouter = Router();
@@ -1436,17 +1437,19 @@ ordersRouter.get("/api/download/:token", async (req, res) => {
     const store = await storage.getStoreById(order.storeId);
     const shouldWatermark = !!(store?.pdfWatermarkEnabled) && isPdfFilename(file.name);
 
+    // Short-lived signed URL so access is actually gated (revocation/expiry
+    // work) once the bucket is private. Also what the watermarker fetches, so
+    // stamping keeps working after the public URL stops serving.
+    const signedUrl = await signedDownloadUrlFor(file.url);
+
     if (shouldWatermark) {
       try {
-        const fileUrl = /^https?:\/\//i.test(file.url)
-          ? file.url
-          : `${(process.env.R2_PUBLIC_URL || "https://cdn.sellisy.com").replace(/\/$/, "")}/${file.url}`;
-        const upstream = await safeFetch(fileUrl);
+        const upstream = await safeFetch(signedUrl);
         if (!upstream.ok) throw new Error(`Upstream ${upstream.status}`);
         const ct = upstream.headers.get("content-type");
         // Belt-and-suspenders: only stamp if it really looks like a PDF.
         if (!isPdfFilename(file.name) && !isPdfContentType(ct)) {
-          return res.redirect(fileUrl);
+          return res.redirect(signedUrl);
         }
         const raw = new Uint8Array(await upstream.arrayBuffer());
         const stamped = await watermarkPdf(raw, {
@@ -1462,8 +1465,10 @@ ordersRouter.get("/api/download/:token", async (req, res) => {
         // Fall through to the plain redirect below.
       }
     }
-    return res.redirect(file.url);
+    return res.redirect(signedUrl);
   }
 
-  res.json({ files });
+  // Multi-file: hand back short-lived signed URLs, never the permanent public ones.
+  const signedFiles = await Promise.all(files.map(async (f) => ({ name: f.name, url: await signedDownloadUrlFor(f.url) })));
+  res.json({ files: signedFiles });
 });
