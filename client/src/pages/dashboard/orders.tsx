@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ShoppingCart, DollarSign, Package, TrendingUp, Store } from "lucide-react";
 import type { Order, OrderItem, Product } from "@shared/schema";
+import { CrewEmptyState } from "@/components/dashboard/crew-empty-state";
 
 type OrderWithItems = Order & { items: (OrderItem & { product: Product })[] };
 
@@ -132,20 +133,13 @@ export default function OrdersPage() {
           ))}
         </div>
       ) : (
-        <Card className="dv-fade-in">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="relative mb-5">
-              <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10">
-                <ShoppingCart className="h-7 w-7 text-primary dv-float" />
-              </div>
-            </div>
-            <h3 className="text-lg font-bold mb-2">The calm before the storm</h3>
-            <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
-              Your first order is just around the corner. Share your storefront link 
-              and this page will light up with sales notifications.
-            </p>
-          </CardContent>
-        </Card>
+        <CrewEmptyState
+          eyebrow="No orders yet"
+          title="The calm before the storm"
+          description="Your first order is just around the corner. Share your storefront link and this page lights up with sales."
+          accent="#FF3CAC"
+          expression="wink"
+        />
       )}
     </div>
   );

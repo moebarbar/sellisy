@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Ticket, Plus, Trash2, Percent, DollarSign, Store } from "lucide-react";
 import type { Coupon } from "@shared/schema";
+import { CrewEmptyState } from "@/components/dashboard/crew-empty-state";
 
 export default function CouponsPage() {
   const { activeStore, activeStoreId, storesLoading } = useActiveStore();
@@ -165,24 +166,18 @@ export default function CouponsPage() {
           ))}
         </div>
       ) : (
-        <Card className="dv-fade-in">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="relative mb-5">
-              <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10">
-                <Ticket className="h-7 w-7 text-primary dv-float" />
-              </div>
-            </div>
-            <h3 className="text-lg font-bold mb-2">Deals that seal the deal</h3>
-            <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-5">
-              Everyone loves a good discount code. Create one and share it with your audience 
-              to drive conversions and reward your loyal customers.
-            </p>
+        <CrewEmptyState
+          eyebrow="No coupons yet"
+          title="Deals that seal the deal"
+          description="Everyone loves a discount code. Create one and share it to drive conversions and reward loyal customers."
+          accent="#F5E642"
+          action={
             <Button onClick={() => setDialogOpen(true)} data-testid="button-empty-create-coupon">
               <Plus className="mr-2 h-4 w-4" />
               Create Your First Coupon
             </Button>
-          </CardContent>
-        </Card>
+          }
+        />
       )}
     </div>
   );

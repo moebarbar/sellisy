@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Layers, Plus, Trash2, Store, Code } from "lucide-react";
 import { EmbedDialog } from "@/components/dashboard/embed-dialog";
 import type { StoreProduct, Product } from "@shared/schema";
+import { CrewEmptyState } from "@/components/dashboard/crew-empty-state";
 
 type StoreProductWithProduct = StoreProduct & { product: Product };
 
@@ -322,24 +323,18 @@ export default function BundlesPage() {
           )}
         </div>
       ) : (
-        <Card className="dv-fade-in">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="relative mb-5">
-              <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10">
-                <Layers className="h-7 w-7 text-primary dv-float" />
-              </div>
-            </div>
-            <h3 className="text-lg font-bold mb-2">Bundle up for bigger wins</h3>
-            <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-5">
-              Customers love deals. Group your products into irresistible bundles 
-              at a discounted price and watch your average order value climb.
-            </p>
+        <CrewEmptyState
+          eyebrow="No bundles yet"
+          title="Bundle up for bigger wins"
+          description="Group products into irresistible bundles at a discount and watch your average order value climb."
+          accent="#FF6B35"
+          action={
             <Button onClick={() => setDialogOpen(true)} data-testid="button-empty-create-bundle">
               <Plus className="mr-2 h-4 w-4" />
               Create Your First Bundle
             </Button>
-          </CardContent>
-        </Card>
+          }
+        />
       )}
     </div>
   );

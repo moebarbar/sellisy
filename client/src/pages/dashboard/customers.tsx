@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CrewEmptyState } from "@/components/dashboard/crew-empty-state";
 import {
   Users,
   Search,
@@ -251,21 +252,13 @@ export default function CustomersPage() {
           ))}
         </div>
       ) : !filtered?.length ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-muted mb-4">
-              <Users className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold mb-1">
-              {search ? "No matching customers" : "No customers yet"}
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              {search
-                ? "Try a different search term."
-                : "Customers will appear here once they make a purchase from your store."}
-            </p>
-          </CardContent>
-        </Card>
+        <CrewEmptyState
+          eyebrow={search ? "No matches" : "No customers yet"}
+          title={search ? "No matching customers" : "No customers yet"}
+          description={search ? "Try a different search term." : "Customers show up here the moment they buy from your store."}
+          accent="#00F5D4"
+          expression={search ? "flat" : "happy"}
+        />
       ) : (
         <div className="rounded-lg border bg-card overflow-hidden">
           <div className="overflow-x-auto">
