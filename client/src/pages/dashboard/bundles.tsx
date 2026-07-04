@@ -128,7 +128,7 @@ export default function BundlesPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-bundles-title">Bundles</h1>
+          <h1 className="text-2xl font-bold tracking-tight d-page-title" data-testid="text-bundles-title">Bundles</h1>
           <p className="text-muted-foreground mt-1">Product bundles for {activeStore?.name}.</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

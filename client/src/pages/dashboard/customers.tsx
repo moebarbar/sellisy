@@ -149,7 +149,7 @@ export default function CustomersPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-customers-title">Customers</h1>
+          <h1 className="text-2xl font-bold tracking-tight d-page-title" data-testid="text-customers-title">Customers</h1>
           <p className="text-muted-foreground mt-1">Manage customers for {activeStore?.name}.</p>
         </div>
         <Button onClick={handleExport} disabled={!customers?.length} data-testid="button-export-customers">

@@ -329,7 +329,7 @@ export default function StrategyDetailPage() {
               {imp.label}
             </span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-strategy-detail-title">
+          <h1 className="text-2xl font-bold tracking-tight d-page-title" data-testid="text-strategy-detail-title">
             {strategy.title}
           </h1>
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-2xl">

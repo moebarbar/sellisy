@@ -539,7 +539,7 @@ export default function AnalyticsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-analytics-title">Analytics</h1>
+          <h1 className="text-2xl font-bold tracking-tight d-page-title" data-testid="text-analytics-title">Analytics</h1>
           <p className="text-sm text-muted-foreground">Deep insights into your store performance</p>
         </div>
         <Select value={range} onValueChange={setRange}>

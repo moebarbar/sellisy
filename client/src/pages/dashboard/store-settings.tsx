@@ -164,7 +164,7 @@ export default function StoreSettingsPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-settings-title">Store Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight d-page-title" data-testid="text-settings-title">Store Settings</h1>
         <p className="text-muted-foreground mt-1">Customize your store appearance and settings.</p>
       </div>
 

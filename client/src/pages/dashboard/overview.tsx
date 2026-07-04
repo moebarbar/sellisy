@@ -210,7 +210,7 @@ function InlineStoreCreation() {
               <Sparkles className="h-3 w-3 text-primary-foreground" />
             </div>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight" data-testid="text-no-stores">
+          <h2 className="text-2xl font-bold tracking-tight d-page-title" data-testid="text-no-stores">
             Create your first store
           </h2>
           <p className="text-muted-foreground max-w-md mx-auto">

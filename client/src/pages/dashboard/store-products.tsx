@@ -63,7 +63,7 @@ export default function StoreProductsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-products-title">Products</h1>
+          <h1 className="text-2xl font-bold tracking-tight d-page-title" data-testid="text-products-title">Products</h1>
           <p className="text-muted-foreground mt-1">Products published in {activeStore?.name}.</p>
         </div>
         <Link href="/dashboard/library">

@@ -93,7 +93,7 @@ export default function MyProductsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-my-products-title">My Products</h1>
+          <h1 className="text-2xl font-bold tracking-tight d-page-title" data-testid="text-my-products-title">My Products</h1>
           <p className="text-muted-foreground mt-1">Create and manage your own digital products.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
