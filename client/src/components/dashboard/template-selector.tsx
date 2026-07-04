@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Check, Zap, Gem, Eye, ShoppingBag, Package, Star, X, Sunrise, Flame, Snowflake, Moon, Rocket, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
@@ -555,6 +556,19 @@ function FullPreview({ t, storeName }: { t: TemplateOption; storeName?: string }
   );
 }
 
+// Recommend a template from what the store actually sells — one flagship
+// product → a focused sales page; a big catalog → the dense grid; a small
+// creator shop → link-in-bio.
+function recommendTemplate(products?: any[]): { key: string; reason: string } | null {
+  if (!products) return null;
+  const count = products.length;
+  const hasCourse = products.some((p) => (p?.productType || "").toLowerCase().includes("course"));
+  if (count <= 1) return { key: "launchpad", reason: "you're featuring a single product" };
+  if (hasCourse) return { key: "launchpad", reason: "a focused sales page converts courses best" };
+  if (count >= 8) return { key: "catalog", reason: "you have a lot of products to browse" };
+  return { key: "bio", reason: "a clean, mobile-first creator shop" };
+}
+
 export function TemplateSelector({
   value,
   onChange,
@@ -572,6 +586,14 @@ export function TemplateSelector({
   // Hovering a theme "test-drives" it in the live preview without committing.
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
+  // Smart recommendation from the store's product mix (shares the storefront
+  // query cache with the live preview).
+  const { data: sfData } = useQuery<{ products?: any[] }>({
+    queryKey: ["/api/storefront", storeSlug],
+    enabled: !!storeSlug,
+  });
+  const recommendation = useMemo(() => recommendTemplate(sfData?.products), [sfData]);
+
   return (
     <>
       {storeSlug && (
@@ -586,12 +608,32 @@ export function TemplateSelector({
           <LiveStorePreview slug={storeSlug} themeKey={hoveredKey || value} />
         </div>
       )}
+      {recommendation && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-primary/25 bg-primary/[0.06] px-3 py-2" data-testid="template-recommendation">
+          <Star className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs">
+            <span className="font-semibold text-foreground">Recommended: {TEMPLATES.find((t) => t.key === recommendation.key)?.name}</span>
+            <span className="text-muted-foreground"> — {recommendation.reason}.</span>
+          </span>
+          {value !== recommendation.key && (
+            <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[11px] text-primary" onClick={() => onChange(recommendation.key)} data-testid="button-use-recommended">
+              Use it
+            </Button>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-3" data-testid="template-selector">
         {TEMPLATES.map((t) => {
           const selected = value === t.key;
+          const isRecommended = recommendation?.key === t.key;
           const Icon = t.icon;
           return (
             <div key={t.key} className="relative">
+              {isRecommended && !selected && (
+                <div className="absolute -top-1.5 -left-1.5 z-10 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold" style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }} data-testid={`badge-recommended-${t.key}`}>
+                  <Star className="h-2 w-2" /> Pick
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => onChange(t.key)}
